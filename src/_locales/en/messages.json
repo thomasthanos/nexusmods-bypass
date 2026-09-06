@@ -1097,6 +1097,10 @@
     "message": "All mods already downloaded.",
     "description": "Alert when nothing is left to select."
   },
+  "alertImportSkippedFiles": {
+    "message": "Files that are not mod archives were skipped.",
+    "description": "Alert line when non-archive files were left out of an import."
+  },
   "dlgCantLoadCollection": {
     "message": "Could not load collection",
     "description": "Error dialog title."
@@ -1524,16 +1528,40 @@
     "description": "Button that opens the .wabbajack file picker."
   },
   "wjImportSummary": {
-    "message": "$1 of $2 files queued from $3.",
+    "message": "$1 of the $2 archives in $3 come from Nexus and are queued.",
     "description": "Result after importing a modlist. $1 queued, $2 total, $3 modlist name."
   },
   "wjImportSkipped": {
-    "message": "$1 left out — hosted outside Nexus, or an unrecognised game.",
+    "message": "The other $1 are not Nexus downloads — Wabbajack gets those itself. The log lists them.",
     "description": "How many archives in the modlist were not queued. $1 is a count."
   },
   "wjImportFailed": {
     "message": "Could not read this modlist: $1",
     "description": "Shown when a .wabbajack file cannot be read. $1 is the reason."
+  },
+  "wjQueueReady": {
+    "message": "The modlist is queued. Press the download button to start.",
+    "description": "Deck log line after a Wabbajack modlist is queued."
+  },
+  "wjDoneNextSteps": {
+    "message": "In Wabbajack, set the Downloads folder to $1 and start the install. It checks every file and only fetches what is still missing.",
+    "description": "Deck log line after a modlist finishes. $1 is the folder the files landed in."
+  },
+  "wjSkipGameFiles": {
+    "message": "$1 come from your game install — Wabbajack copies these itself.",
+    "description": "Skipped-archive line. $1 is a count."
+  },
+  "wjSkipOtherSites": {
+    "message": "$1 are hosted on other sites — Wabbajack downloads these itself.",
+    "description": "Skipped-archive line. $1 is a count."
+  },
+  "wjSkipManual": {
+    "message": "$1 will have to be downloaded by hand when Wabbajack asks: $2",
+    "description": "Skipped-archive line. $1 is a count, $2 a list of file names."
+  },
+  "wjSkipUnreadable": {
+    "message": "$1 could not be read by this version: $2",
+    "description": "Skipped-archive line. $1 is a count, $2 the raw reason and file names."
   },
   "tipWabbajackInfo": {
     "message": "About Wabbajack import",
@@ -1556,7 +1584,7 @@
     "description": "Caveat in the Wabbajack import info dialog about files it cannot fetch."
   },
   "wjSkippedHeading": {
-    "message": "Not queued from this modlist:",
+    "message": "Not queued here — Wabbajack gets these on its own:",
     "description": "Heading above the list of modlist archives that could not be queued."
   }
 }

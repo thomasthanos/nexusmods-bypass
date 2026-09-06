@@ -870,6 +870,9 @@
   "alertAllDownloaded": {
     "message": "Alle Mods bereits heruntergeladen."
   },
+  "alertImportSkippedFiles": {
+    "message": "Dateien, die keine Mod-Archive sind, wurden übersprungen."
+  },
   "dlgCantLoadCollection": {
     "message": "Collection konnte nicht geladen werden"
   },
@@ -1256,13 +1259,31 @@
     "message": "Wabbajack-Modliste importieren"
   },
   "wjImportSummary": {
-    "message": "$1 von $2 Dateien aus $3 eingereiht."
+    "message": "$1 der $2 Archive in $3 kommen von Nexus und stehen in der Warteschlange."
   },
   "wjImportSkipped": {
-    "message": "$1 ausgelassen — außerhalb von Nexus gehostet oder unbekanntes Spiel."
+    "message": "Die anderen $1 sind keine Nexus-Downloads — Wabbajack holt sie selbst. Das Log listet sie auf."
   },
   "wjImportFailed": {
     "message": "Diese Modliste konnte nicht gelesen werden: $1"
+  },
+  "wjQueueReady": {
+    "message": "Die Modliste steht in der Warteschlange. Drücke die Download-Schaltfläche, um zu starten."
+  },
+  "wjDoneNextSteps": {
+    "message": "Setze in Wabbajack den Downloads-Ordner auf $1 und starte die Installation. Es prüft jede Datei und lädt nur nach, was noch fehlt."
+  },
+  "wjSkipGameFiles": {
+    "message": "$1 stammen aus deiner Spielinstallation — Wabbajack kopiert diese selbst."
+  },
+  "wjSkipOtherSites": {
+    "message": "$1 liegen auf anderen Seiten — Wabbajack lädt diese selbst herunter."
+  },
+  "wjSkipManual": {
+    "message": "$1 müssen von Hand geladen werden, wenn Wabbajack danach fragt: $2"
+  },
+  "wjSkipUnreadable": {
+    "message": "$1 konnten von dieser Version nicht gelesen werden: $2"
   },
   "tipWabbajackInfo": {
     "message": "Über den Wabbajack-Import"
@@ -1280,6 +1301,6 @@
     "message": "Dateien außerhalb von Nexus und Spiele, die diese Version nicht kennt, können nicht geholt werden. Jede einzelne wird im Aktivitätsprotokoll namentlich aufgeführt, damit du sie selbst besorgen kannst."
   },
   "wjSkippedHeading": {
-    "message": "Nicht aus dieser Modliste eingereiht:"
+    "message": "Nicht hier eingereiht — Wabbajack holt sich diese selbst:"
   }
 }

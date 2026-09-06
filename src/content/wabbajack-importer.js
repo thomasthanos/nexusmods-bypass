@@ -2,7 +2,8 @@
   'use strict';
 
   const NXTK = window.NexusExt = window.NexusExt || {};
-  const MAX_MODLIST_BYTES = 64 * 1024 * 1024;
+  const MAX_MODLIST_BYTES = 256 * 1024 * 1024;
+  const MAX_ARCHIVES_JSON_BYTES = 32 * 1024 * 1024;
   const MAX_ARCHIVE_ENTRIES = 10000;
 
   class WabbajackImportError extends Error {
@@ -70,6 +71,7 @@
   ));
 
   const NEXUS_STATE_TYPE = /(?:^|\.)NexusDownloader(?:\+State)?$/i;
+  const DOWNLOADER_LABEL_PATTERN = /^[A-Za-z0-9]{1,40}$/;
 
   function cleanText(value, maxLength = 300) {
     return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
@@ -93,6 +95,14 @@
     return state.GameName !== undefined && state.ModID !== undefined && state.FileID !== undefined;
   }
 
+  function downloaderLabel(state) {
+    const type = cleanText(state?.$type, 200);
+    if (!type) return '';
+    const declared = type.split(',', 1)[0].trim().split('.').pop() || '';
+    const label = declared.replace(/\+State$/i, '').replace(/Downloader$/i, '');
+    return DOWNLOADER_LABEL_PATTERN.test(label) ? label : '';
+  }
+
   function analyzeManifest(manifest) {
     const archives = Array.isArray(manifest?.Archives) ? manifest.Archives : [];
     const items = [];
@@ -103,7 +113,8 @@
     for (const archive of archives) {
       const name = cleanText(archive?.Name);
       if (!isNexusArchive(archive)) {
-        skip(name, 'not-on-nexus');
+        const label = downloaderLabel(archive?.State);
+        skip(name, label ? `not-on-nexus:${label}` : 'not-on-nexus');
         continue;
       }
 
@@ -152,27 +163,121 @@
     return { items, skipped, total: archives.length };
   }
 
-  function parseManifest(bytes) {
-    let text;
+  const MANIFEST_SCALAR_KEYS = new Set(['Name', 'Author', 'Version', 'GameType']);
+  const QUOTE = 34;
+  const BACKSLASH = 92;
+  const COLON = 58;
+  const OPEN_BRACE = 123;
+  const CLOSE_BRACE = 125;
+  const OPEN_BRACKET = 91;
+  const CLOSE_BRACKET = 93;
+
+  function skipJsonString(text, from) {
+    let index = from + 1;
+    while (index < text.length) {
+      const code = text.charCodeAt(index);
+      if (code === BACKSLASH) {
+        index += 2;
+        continue;
+      }
+      if (code === QUOTE) return index + 1;
+      index += 1;
+    }
+    return text.length;
+  }
+
+  function sliceBalanced(text, open) {
+    let depth = 0;
+    let index = open;
+    while (index < text.length) {
+      const code = text.charCodeAt(index);
+      if (code === QUOTE) {
+        index = skipJsonString(text, index);
+        continue;
+      }
+      if (code === OPEN_BRACKET || code === OPEN_BRACE) depth += 1;
+      else if (code === CLOSE_BRACKET || code === CLOSE_BRACE) {
+        depth -= 1;
+        if (depth === 0) return text.slice(open, index + 1);
+      }
+      index += 1;
+    }
+    return text.slice(open);
+  }
+
+  // Only the Archives array is parsed; Directives can be hundreds of megabytes.
+  function scanManifest(text) {
+    const scalars = {};
+    let archivesJson = '';
+    let depth = 0;
+    let index = 0;
+
+    while (index < text.length) {
+      const code = text.charCodeAt(index);
+      if (code !== QUOTE) {
+        if (code === OPEN_BRACE || code === OPEN_BRACKET) depth += 1;
+        else if (code === CLOSE_BRACE || code === CLOSE_BRACKET) depth -= 1;
+        index += 1;
+        continue;
+      }
+
+      const keyStart = index;
+      const afterKey = skipJsonString(text, index);
+      index = afterKey;
+      if (depth !== 1) continue;
+
+      let cursor = afterKey;
+      while (cursor < text.length && text.charCodeAt(cursor) <= 32) cursor += 1;
+      if (text.charCodeAt(cursor) !== COLON) continue;
+      cursor += 1;
+      while (cursor < text.length && text.charCodeAt(cursor) <= 32) cursor += 1;
+
+      const key = text.slice(keyStart + 1, afterKey - 1);
+      if (key === 'Archives' && !archivesJson && text.charCodeAt(cursor) === OPEN_BRACKET) {
+        archivesJson = sliceBalanced(text, cursor);
+        index = cursor + archivesJson.length;
+        continue;
+      }
+      if (MANIFEST_SCALAR_KEYS.has(key) && text.charCodeAt(cursor) === QUOTE) {
+        const end = skipJsonString(text, cursor);
+        scalars[key] = text.slice(cursor + 1, end - 1);
+        index = end;
+      }
+    }
+
+    return { archivesJson, scalars };
+  }
+
+  function decodeManifestText(bytes) {
     try {
-      text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     } catch (cause) {
       throw new WabbajackImportError('bad-encoding', 'The modlist is not valid UTF-8.', cause);
     }
+  }
 
-    let manifest;
+  function parseManifest(text) {
+    const { archivesJson, scalars } = scanManifest(text);
+    if (!archivesJson) {
+      throw new WabbajackImportError('bad-modlist', 'The modlist has no Archives list.');
+    }
+    if (archivesJson.length > MAX_ARCHIVES_JSON_BYTES) {
+      throw new WabbajackImportError('too-many-entries', 'The modlist archive list is too large to read safely.');
+    }
+
+    let archives;
     try {
-      manifest = JSON.parse(text);
+      archives = JSON.parse(archivesJson);
     } catch (cause) {
       throw new WabbajackImportError('bad-modlist', `The modlist is not valid JSON — ${cause.message}`, cause);
     }
-    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) || !Array.isArray(manifest.Archives)) {
+    if (!Array.isArray(archives)) {
       throw new WabbajackImportError('bad-modlist', 'The modlist has no Archives list.');
     }
-    if (manifest.Archives.length > MAX_ARCHIVE_ENTRIES) {
+    if (archives.length > MAX_ARCHIVE_ENTRIES) {
       throw new WabbajackImportError('too-many-entries', 'The modlist contains too many archive entries.');
     }
-    return manifest;
+    return { ...scalars, Archives: archives };
   }
 
   async function importFile(file) {
@@ -196,7 +301,10 @@
       throw new WabbajackImportError('no-modlist', 'This file has no "modlist" entry — is it a .wabbajack?');
     }
 
-    const manifest = parseManifest(bytes);
+    let text = decodeManifestText(bytes);
+    bytes = null;
+    const manifest = parseManifest(text);
+    text = null;
     const analyzed = analyzeManifest(manifest);
     return {
       name: cleanText(manifest.Name),

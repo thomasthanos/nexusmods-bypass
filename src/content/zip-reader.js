@@ -32,6 +32,14 @@
     throw new ZipReaderError(code, message, cause);
   }
 
+  function humanSize(bytes) {
+    const value = Number(bytes) || 0;
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${Math.round(value / 1024)} KiB`;
+    const megabytes = value / (1024 * 1024);
+    return `${megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)} MiB`;
+  }
+
   function safeUint64(view, offset, code = 'bad-central-directory') {
     const value = view.getBigUint64(offset, true);
     if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
@@ -120,8 +128,19 @@
     return { entries, size, offset };
   }
 
+  // Fixed order, and only the saturated fields are required — but some writers emit the whole set, so the declared size decides the layout.
+  const ZIP64_FIELD_ORDER = ['uncompressedSize', 'compressedSize', 'localOffset'];
+
+  function zip64FieldLayout(dataSize, wanted) {
+    const available = Math.min(Math.floor(dataSize / 8), ZIP64_FIELD_ORDER.length);
+    return available > wanted.size
+      ? ZIP64_FIELD_ORDER.slice(0, available)
+      : ZIP64_FIELD_ORDER.filter((name) => wanted.has(name));
+  }
+
   function readZip64Extra(view, start, length, fields) {
     const end = start + length;
+    const wanted = new Set(fields);
     let offset = start;
     while (offset + 4 <= end) {
       const headerId = view.getUint16(offset, true);
@@ -132,16 +151,20 @@
       if (headerId === 0x0001) {
         const values = {};
         let cursor = dataStart;
-        for (const field of fields) {
+        for (const field of zip64FieldLayout(dataSize, wanted)) {
           if (cursor + 8 > dataEnd) fail('zip64-missing', 'A ZIP64 entry field is missing.');
-          values[field] = safeUint64(view, cursor, 'zip64-missing');
+          const value = safeUint64(view, cursor, 'zip64-missing');
+          if (wanted.has(field)) values[field] = value;
           cursor += 8;
+        }
+        for (const field of wanted) {
+          if (values[field] === undefined) fail('zip64-missing', 'A ZIP64 entry field is missing.');
         }
         return values;
       }
       offset = dataEnd;
     }
-    if (fields.length) fail('zip64-missing', 'The ZIP64 entry metadata is missing.');
+    if (wanted.size) fail('zip64-missing', 'The ZIP64 entry metadata is missing.');
     return {};
   }
 
@@ -194,7 +217,8 @@
         if (wide.localOffset !== undefined) localOffset = wide.localOffset;
 
         if (uncompressedSize > maxBytes || compressedSize > maxBytes + 1024 * 1024) {
-          fail('entry-too-large', 'The requested ZIP entry is too large to read safely.');
+          fail('entry-too-large', `The "${wantedName}" entry holds ${humanSize(uncompressedSize)}`
+            + ` (${humanSize(compressedSize)} packed), above the ${humanSize(maxBytes)} this build reads.`);
         }
         if (method === 0 && compressedSize !== uncompressedSize) {
           fail('corrupt-entry', 'The stored ZIP entry has inconsistent sizes.');
@@ -226,7 +250,7 @@
           try {
             await reader.cancel();
           } catch (_) { }
-          fail('entry-too-large', 'The decompressed ZIP entry exceeds the safety limit.');
+          fail('entry-too-large', `The ZIP entry unpacks to more than the ${humanSize(maxBytes)} this build reads.`);
         }
         chunks.push(value);
       }
@@ -259,7 +283,9 @@
 
   function crc32(bytes) {
     let value = 0xffffffff;
-    for (const byte of bytes) value = CRC_TABLE[(value ^ byte) & 0xff] ^ (value >>> 8);
+    for (let index = 0; index < bytes.length; index += 1) {
+      value = CRC_TABLE[(value ^ bytes[index]) & 0xff] ^ (value >>> 8);
+    }
     return (value ^ 0xffffffff) >>> 0;
   }
 

@@ -296,11 +296,10 @@
       let copied = false;
       let complete = false;
       try {
-        const report = await NXTK.buildBugReport();
-        const result = await NXTK.buildReportIssueUrl(null, { fullReport: report });
+        const result = await NXTK.buildReportIssueUrl();
         issueUrl = result.url;
         complete = result.complete;
-        if (!complete) copied = await NXTK.copyText(report);
+        if (!complete && result.report) copied = await NXTK.copyText(result.report);
       } catch (_) {
         copied = false;
       }

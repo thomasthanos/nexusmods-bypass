@@ -870,6 +870,9 @@
   "alertAllDownloaded": {
     "message": "Tous les mods sont déjà téléchargés."
   },
+  "alertImportSkippedFiles": {
+    "message": "Les fichiers qui ne sont pas des archives de mods ont été ignorés."
+  },
   "dlgCantLoadCollection": {
     "message": "Impossible de charger la collection"
   },
@@ -1256,13 +1259,31 @@
     "message": "Importer une liste Wabbajack"
   },
   "wjImportSummary": {
-    "message": "$1 fichiers sur $2 mis en file d'attente depuis $3."
+    "message": "Sur les $2 archives de $3, $1 viennent de Nexus et sont en file."
   },
   "wjImportSkipped": {
-    "message": "$1 écartés — hébergés hors de Nexus, ou jeu non reconnu."
+    "message": "Les $1 autres ne sont pas des téléchargements Nexus — Wabbajack les récupère lui-même. Le journal les détaille."
   },
   "wjImportFailed": {
     "message": "Impossible de lire cette liste : $1"
+  },
+  "wjQueueReady": {
+    "message": "La modlist est en file d'attente. Appuyez sur le bouton de téléchargement pour commencer."
+  },
+  "wjDoneNextSteps": {
+    "message": "Dans Wabbajack, réglez le dossier de téléchargements sur $1 et lancez l'installation. Il vérifie chaque fichier et ne récupère que ce qui manque."
+  },
+  "wjSkipGameFiles": {
+    "message": "$1 proviennent de votre installation du jeu — Wabbajack les copie lui-même."
+  },
+  "wjSkipOtherSites": {
+    "message": "$1 sont hébergés sur d'autres sites — Wabbajack les télécharge lui-même."
+  },
+  "wjSkipManual": {
+    "message": "$1 devront être téléchargés à la main quand Wabbajack le demandera : $2"
+  },
+  "wjSkipUnreadable": {
+    "message": "$1 n'ont pas pu être lus par cette version : $2"
   },
   "tipWabbajackInfo": {
     "message": "À propos de l'import Wabbajack"
@@ -1280,6 +1301,6 @@
     "message": "Les fichiers hébergés hors de Nexus, et les jeux que cette version ne reconnaît pas, ne peuvent pas être récupérés. Chacun est listé par son nom dans le journal d'activité pour que tu puisses l'obtenir toi-même."
   },
   "wjSkippedHeading": {
-    "message": "Non mis en file d'attente depuis cette liste :"
+    "message": "Non mis en file ici — Wabbajack les récupère lui-même :"
   }
 }

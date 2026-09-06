@@ -49,10 +49,17 @@ const NXTK = (() => {
     .sort((a, b) => b.length - a.length)
     .join('|');
 
+  // "code" and "state" are ordinary words in a log line; as keys the stricter rules still redact them.
+  const AMBIGUOUS_PARAM_NAMES = new Set(['code', 'state']);
+  const LOOSE_SENSITIVE_NAME_GROUP = SENSITIVE_PARAM_NAMES
+    .filter((name) => !AMBIGUOUS_PARAM_NAMES.has(name))
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+
   const SENSITIVE_PATTERNS = [
     new RegExp('\\b(' + SENSITIVE_NAME_GROUP + ')(=|%3D)([^&\\s"\'<>]+)', 'gi'),
     new RegExp('(["\'])(' + SENSITIVE_NAME_GROUP + ')\\1(\\s*:\\s*)(["\'])([^"\']*)\\4', 'gi'),
-    new RegExp('\\b(' + SENSITIVE_NAME_GROUP + ')(\\s*:\\s*)([^,;}"\'<>\\r\\n]+)', 'gi'),
+    new RegExp('\\b(' + LOOSE_SENSITIVE_NAME_GROUP + ')(\\s*:\\s*)([^,;}"\'<>\\r\\n]+)', 'gi'),
   ];
 
   function redactSensitiveValues(value) {
@@ -65,6 +72,7 @@ const NXTK = (() => {
   }
 
   const URL_SHAPE = /^[a-z][a-z0-9+.-]*:\/\//i;
+  const EXTENSION_ORIGIN_PATTERN = /(?:chrome|moz|safari-web|ms-browser)-extension:\/\/[a-z0-9._-]+\//gi;
 
   function sanitizeUrlForReport(url) {
     const raw = String(url ?? '').trim();
@@ -86,6 +94,7 @@ const NXTK = (() => {
   function sanitizeDiagnosticText(value, maxLength = 1500) {
     let text = String(value ?? '');
     if (!text) return text;
+    text = text.replace(EXTENSION_ORIGIN_PATTERN, 'ext://');
     text = text.replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, (match) => sanitizeUrlForReport(match));
     text = redactSensitiveValues(text);
     return text.slice(0, maxLength);
@@ -97,6 +106,7 @@ const NXTK = (() => {
       code: String(error?.code || 'background_error'),
       status: Number.isInteger(error?.status) ? error.status : null,
       context: sanitizeDiagnosticText(error?.context, 300),
+      action: sanitizeDiagnosticText(error?.action, 200),
       userMessage: String(error?.userMessage || ''),
       technicalMessage: sanitizeDiagnosticText(error?.technicalMessage, 600),
       stack: sanitizeDiagnosticText(error?.stack, 1500),
@@ -231,15 +241,42 @@ function storageSetLocal(key, value) {
   });
 }
 
+const ERROR_LOG_REPEAT_WINDOW_MS = 30 * 60 * 1000;
+
+function errorEntrySignature(entry) {
+  return [
+    String(entry?.code || ''),
+    String(entry?.context || ''),
+    Number.isInteger(entry?.status) ? String(entry.status) : ''
+  ].join('|');
+}
+
 function appendErrorLogEntry(entry) {
   return enqueueStorageTask(NXTK.ERROR_LOG_KEY, async () => {
     const stored = await storageGetLocal(NXTK.ERROR_LOG_KEY, []);
     const log = Array.isArray(stored) ? stored : [];
-    const last = log[log.length - 1];
-    if (last && last.code === entry.code && last.technicalMessage === entry.technicalMessage
-      && last.context === entry.context && entry.at - last.at < 2000) {
+    const signature = errorEntrySignature(entry);
+
+    // Counted in place: a retry loop would otherwise push the whole log out.
+    for (let index = log.length - 1; index >= 0; index -= 1) {
+      const candidate = log[index];
+      if (errorEntrySignature(candidate) !== signature) continue;
+      const lastAt = Number(candidate.lastAt || candidate.at) || 0;
+      if (entry.at - lastAt > ERROR_LOG_REPEAT_WINDOW_MS) break;
+      log[index] = {
+        ...candidate,
+        count: Math.max(1, Number(candidate.count) || 1) + 1,
+        lastAt: entry.at,
+        userMessage: entry.userMessage || candidate.userMessage,
+        technicalMessage: entry.technicalMessage || candidate.technicalMessage,
+        stack: entry.stack || candidate.stack,
+        action: entry.action || candidate.action,
+        url: entry.url || candidate.url
+      };
+      await storageSetLocal(NXTK.ERROR_LOG_KEY, log);
       return log.length;
     }
+
     log.push(entry);
     while (log.length > NXTK.MAX_LOGGED_ERRORS) log.shift();
     await storageSetLocal(NXTK.ERROR_LOG_KEY, log);
@@ -416,10 +453,14 @@ function capFileName(name) {
   return name.slice(0, MAX_DOWNLOAD_NAME_CHARS - ext.length) + ext;
 }
 
+const MAX_DOWNLOAD_DIR_CHARS = 100;
+
 // Sanitize both user-controlled path segments before downloading.
 function buildDownloadPath(folder, rawName) {
   const name = capFileName(sanitizePathSegment(rawName)) || 'nexus-download';
-  const dir = sanitizePathSegment(folder, { allowDots: false });
+  const dir = sanitizePathSegment(folder, { allowDots: false })
+    .slice(0, MAX_DOWNLOAD_DIR_CHARS)
+    .trim();
   return dir ? `${dir}/${name}` : name;
 }
 
@@ -540,21 +581,28 @@ function sanitizeNdcJobItem(raw) {
 const SHORT_TRANSFER_RATIO = 0.5;
 const MIN_EXPECTED_BYTES_FOR_RATIO = 64 * 1024;
 
+function downloadFolderOf(filename) {
+  const full = String(filename || '').trim();
+  const cut = Math.max(full.lastIndexOf('\\'), full.lastIndexOf('/'));
+  return cut > 0 ? full.slice(0, cut) : '';
+}
+
 async function verifyTransferSize(downloadId, item) {
   const record = await searchDownload(downloadId);
   if (!record) return { suspicious: false, actualBytes: null, expectedBytes: 0 };
 
   const actualBytes = Number(record.bytesReceived) || 0;
   const expectedBytes = Number(item?.sizeKb) > 0 ? Math.round(Number(item.sizeKb) * 1024) : 0;
+  const folder = downloadFolderOf(record.filename);
 
   if (actualBytes === 0) {
-    return { suspicious: true, code: 'empty-file', actualBytes, expectedBytes };
+    return { suspicious: true, code: 'empty-file', actualBytes, expectedBytes, folder };
   }
   if (expectedBytes >= MIN_EXPECTED_BYTES_FOR_RATIO
     && actualBytes < expectedBytes * SHORT_TRANSFER_RATIO) {
-    return { suspicious: true, code: 'short-file', actualBytes, expectedBytes };
+    return { suspicious: true, code: 'short-file', actualBytes, expectedBytes, folder };
   }
-  return { suspicious: false, actualBytes, expectedBytes };
+  return { suspicious: false, actualBytes, expectedBytes, folder };
 }
 
 const NDC_ITEMS_KEY_PREFIX = 'nxtk_ndc_items:';
@@ -963,12 +1011,27 @@ async function finishNdcJob(job) {
       type: job.type
     });
   }
-  notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: job.status });
+  notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: job.status, folder: job.landedIn || '' });
   dropNdcJobItems(job.id);
 }
 
 const NDC_RESOLVE_RETRY_DELAY_MS = 1500;
 const BLOCKING_RESOLVE_CODES = new Set(['requires_login', 'cloudflare', 'account_suspended']);
+
+// Never finish here: that would report success and clear history for files never downloaded.
+function ndcJobItemsAreMissing(job, items) {
+  return !items.length && ndcJobItemCount(job) > 0;
+}
+
+async function abandonNdcJobWithoutItems(job) {
+  job.status = 'error';
+  job.lastError = 'queue-items-missing';
+  job.activeDownloadId = null;
+  clearNdcJobAlarm(job.id);
+  await saveNdcJob(bumpNdcControl(job));
+  notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: 'error', error: 'queue-items-missing' });
+  return null;
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -979,6 +1042,7 @@ async function advanceNdcJob(jobId) {
     let job = await readNdcJob(jobId);
     if (!job || job.status !== 'running' || job.activeDownloadId !== null) return null;
     const items = await readNdcJobItems(job);
+    if (ndcJobItemsAreMissing(job, items)) return abandonNdcJobWithoutItems(job);
     if (job.index >= items.length) {
       await finishNdcJob(job);
       return null;
@@ -1160,7 +1224,9 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
     return null;
   }
 
-  const item = (await readNdcJobItems(job))[job.index];
+  const items = await readNdcJobItems(job);
+  if (ndcJobItemsAreMissing(job, items)) return abandonNdcJobWithoutItems(job);
+  const item = items[job.index];
   if (!item) {
     await finishNdcJob(job);
     return null;
@@ -1168,8 +1234,10 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
 
   let effectiveState = state;
   let effectiveError = error;
+  let landedIn = '';
   if (state === 'complete') {
     const check = await verifyTransferSize(downloadId, item);
+    landedIn = check.folder || '';
     if (check.suspicious) {
       effectiveState = 'interrupted';
       effectiveError = check.code;
@@ -1191,6 +1259,7 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
       current.completed = Number(current.completed || 0) + 1;
       current.transferAttempts = 0;
       current.index = Number(current.index || 0) + 1;
+      if (landedIn) current.landedIn = landedIn;
     })) || job;
     notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
       itemName: item.name,
@@ -1304,7 +1373,7 @@ const NDC_QUEUE_HANDLERS = {
     const isReconnect = !!existing
       && !payload?.restart
       && existing.type === type
-      && (type !== null || existing.scopeKey === scopeKey);
+      && existing.scopeKey === scopeKey;
     if (isReconnect) {
 
       existing = (await mutateNdcJob(existing.id, (current) => { current.tabId = tabId; })) || existing;

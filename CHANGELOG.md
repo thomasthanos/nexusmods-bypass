@@ -7,16 +7,71 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
-## [Unreleased]
+## [Unreleased] - 2026-09-06
 
 ### Security
 
+- **Untrusted Nexus responses no longer pass through the HTML parser.** HTML entities in a download
+  response were decoded by writing the whole body into a detached `<textarea>`, which let the parser
+  build elements from anything after a stray `</textarea>` and silently truncated the value at that
+  point. Entities are now resolved directly, so the parser is never handed the response at all.
 - **The download folder no longer goes verbatim into a public bug report.** It is typed by the user
   and the report is pre-filled into a GitHub issue, so it could carry a real name or a full path.
   Whether it is set is the useful diagnostic; the text is not.
 
 ### Changed
 
+- **A finished modlist says what to do next, with the real folder.** The run ended with *Download
+  finished* and nothing else, leaving the one question that matters unanswered. The last line now names
+  the folder the files actually landed in — read back from the browser, not guessed — and what to set it
+  as in Wabbajack.
+- **An imported modlist no longer offers the Vortex handoff.** A modlist installer reads files from a
+  folder on disk, so sending them to Vortex puts them where nothing will look for them. An imported list
+  now downloads through the browser, the Vortex option is not drawn at all, and the choice is kept out of
+  the saved settings so the next real collection still starts with whatever you had picked.
+- **An imported modlist no longer looks like a collection.** The panel that appears after an import is
+  headed *Collection Downloader* with a *Ready Queue* badge, which reads as the wrong screen when what
+  you just imported was a modlist. It now carries the modlist's own name, says it came from a Wabbajack
+  import, opens its log, and states the next step — nothing starts on its own, and there was nothing on
+  screen saying so.
+- **The list of archives left out is grouped by reason, and names its source.** A big modlist leaves out
+  a hundred or more entries; one row each filled a log panel that starts collapsed, and every one of them
+  read the same unhelpful *not-on-nexus*. Each reason is now one line with its count and the first few
+  names, and the reason carries the downloader Wabbajack recorded — `not-on-nexus:GameFileSource` for
+  files taken from your own game install, `not-on-nexus:Http` or `:GitHub` for ones Wabbajack fetches
+  itself, `:Manual` for the few that need a person. Nothing there was ever the extension's to download.
+- **"Import downloaded mods" only offers mod files.** The picker accepted anything, so selecting a whole
+  downloads folder also handed over Vortex's `.meta` sidecar for every archive — each one counted as a
+  file that "did not match this collection". It now filters to the archive and installer types Nexus
+  actually serves, filters the selection again in code because the picker's filter can be switched off,
+  and says when something was left out.
+- **Bug reports say what actually happened.** The report now opens with a **Report ID** — a short
+  fingerprint of the fault that is identical for everyone hitting the same bug, so a duplicate can be
+  found by searching for it — and a *What went wrong* digest that counts every error by code with how
+  recently each one last happened. The digest survives every truncation step, so even a report that had
+  to be shortened to fit the URL still shows the shape of the failure.
+- **A repeating failure is counted instead of flooding the log.** The log holds fifty entries and a
+  retry loop could fill all of them with the same error, pushing out the history that explained it. The
+  same fault within half an hour now increments a count on one entry, keeps the newest detail, and is
+  reported as `×17` with a last-seen time.
+- **Stacks no longer repeat the extension address on every frame.** `chrome-extension://<id>/` is folded
+  to `ext://`, which shortens every stack, leaves more room inside the URL limit, and makes two people's
+  stacks directly comparable.
+- **The form's browser field is filled in too,** so a report that had to drop its diagnostics still
+  arrives with a browser and version.
+- **The report is built once instead of twice.** Opening the reporter read settings, the error log and
+  the browser details twice over — long enough that the clipboard copy could lose the permission the
+  click gave it.
+- **The collection log no longer re-scans a response it has already classified.** Two leftover calls
+  re-ran the content classifier over bodies that had been classified when they were read, where it
+  could only return the same answer — one of them on every failed collection file. The branches they
+  guarded were unreachable; the errors they were meant to raise still come from the request helper.
+- **The ZIP checksum walks its buffer by index.** Iterating a multi-megabyte typed array through the
+  iterator protocol measured roughly four times slower, and a Wabbajack import runs it on the page's
+  main thread.
+- **Dead code removed from the shared module.** An unused log-size constant, an unused download-method
+  constant and an exported activity getter with no callers are gone, and a collection object now
+  starts with its rate-limit counters and flags set instead of relying on `|| 0` everywhere.
 - **Wabbajack import now uses a dedicated importer and ZIP reader.** The game registry is aligned with
   current Wabbajack game names, including newer Nexus mappings and Terraria, while the saved beta
   setting and existing interface stay compatible.
@@ -34,6 +89,71 @@ they are simply not listed.
 
 ### Fixed
 
+- **Large Wabbajack modlists import instead of being refused.** A big list's `modlist` file is a few
+  hundred megabytes, nearly all of it the *Directives* array that describes every file the installation
+  touches — data the import never looks at. It was read past a 64 MiB ceiling and parsed whole, so lists
+  from the popular packs failed with *"too large to read safely"*, and a smaller one still cost the page
+  hundreds of megabytes of memory. The reader now lifts out the archive list in one pass and parses only
+  that: a 224 MiB modlist is read in about 1.4 s and leaves 13 MB behind instead of 570 MB. The ceiling
+  is now 256 MiB, and a refusal states the entry's real size and the limit rather than only that it was
+  too large.
+- **A logged error keeps the action that caused it.** Every error records what the extension was doing —
+  a collection run, an automatic start, a Cloudflare hand-back — but the field was dropped on the way
+  into storage, so the line only ever appeared for the error that was on screen. Every entry in a bug
+  report now carries it.
+- **A file page with several embedded download entries resolves the right one again.** The scanner that
+  reads Nexus metadata attributes shared one regular expression with the nested parse it starts, so an
+  entry containing further markup rewound the scan: the same entry was read until the parser's work
+  budget was spent, and the real link further down the page was never examined. Pages that failed with
+  *Nexus Mods did not return a usable download link* now resolve, and the entry for the requested file
+  is read first instead of last.
+- **A collection queue that loses its file list now reports an error instead of success.** An empty list
+  read as "nothing left to do", which finished the run and cleared the collection history — so every
+  file looked downloaded when none of them were. Losing the list is now a failure and history is left
+  untouched.
+- **A running queue is only rejoined when it holds the same files.** Rejoining compared the history type
+  but skipped the file set, so starting a download for one revision could attach to a run still working
+  through another and quietly fetch the wrong files.
+- **The Slow download button is picked up when Nexus relabels it.** A button was inspected once and then
+  ignored forever, so an element that showed a countdown first and became *Slow download* afterwards was
+  never intercepted and the wait came back.
+- **Mod URLs ending in a slash are handled.** `/mods/123/` and `/mods/123` are the same page for Nexus,
+  but only the second switched the download hooks on.
+- **The File archive button works on URLs that carry a fragment.** The category was appended to the raw
+  address, which put it inside the `#…` part where it is ignored, and the button opened the normal file
+  list again.
+- **A Wabbajack modlist spanning several games keeps one stable history bucket.** It was taken from
+  whichever entry happened to be first in the manifest, so a reordered or slightly edited list started
+  from a different bucket and every file looked new again. The game with the most files decides it.
+- **Handing a file back to the native Nexus buttons is no longer permanent.** Once a file could not be
+  resolved it was released for the rest of the session, so signing in or waiting out a moderation hold
+  changed nothing until the page was reloaded. The hand-back now lapses after a few minutes, is dropped
+  on navigation, and cannot grow without bound.
+- **A padded ZIP64 entry field no longer breaks a Wabbajack import.** The per-entry field only has to
+  carry the values whose legacy field is saturated, but writers exist that emit the whole set; reading
+  it positionally then mistook a file size for a file offset and the import failed on a valid archive.
+- **A collection revision with an incomplete file entry loads instead of failing.** A missing file list
+  threw before the retry logic could see it, and an entry without a game, mod or file ID produced a
+  download address containing "undefined". Such entries are now left out of the queue.
+- **An overlong download folder is capped instead of failing every download.** It is typed by hand and
+  the browser refuses the whole transfer if the path is too long, reporting nothing useful; the field
+  is now also length-limited in the settings dialog.
+- **An imported modlist no longer offers "mandatory" and "optional" downloads.** Both held the complete
+  list, so choosing one and then the other wrote the same files into two separate history buckets and
+  neither could tell the run had already finished.
+- **Pause does nothing once a run has finished or stopped.** The button told the worker to pause a queue
+  that no longer existed while the display stayed put, leaving the two out of step.
+- **Reconnecting to a background queue no longer keeps a dead job ID.** If the queue reported its result
+  before the start call returned, the finished ID was written back afterwards and later pause or stop
+  requests aimed at it instead of the live run.
+- **A bug report keeps the error code and the download state.** The redaction pass treats `code` and
+  `state` as secrets — they are OAuth parameter names — and the loose "name: value" rule applied that to
+  our own diagnostic lines, so the one field that says what went wrong arrived as `code: [redacted]`.
+  As query or JSON keys they are still redacted, and the two copies of the list are now checked against
+  each other when the package is built.
+- **A Vortex link followed by a separator is no longer refused.** The validity check compared the parsed
+  link against a differently normalised copy of the same text, so a link ending in `;` or `)` — as it
+  does when it sits inside a script — parsed correctly and was then rejected for not matching itself.
 - **Legacy and hidden file pages resolve their intended download more reliably.** The fallback now
   reads embedded Nexus metadata, keeps browser and Vortex links separate, and rejects ambiguous URLs.
 - **Wabbajack archives are validated before their manifest is trusted.** Imports now enforce actual

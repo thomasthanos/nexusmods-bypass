@@ -784,6 +784,9 @@
   "alertAllDownloaded": {
     "message": "Tüm modlar zaten indirilmiş."
   },
+  "alertImportSkippedFiles": {
+    "message": "Mod arşivi olmayan dosyalar atlandı."
+  },
   "dlgCantLoadCollection": {
     "message": "Koleksiyon yüklenemedi"
   },
@@ -1256,13 +1259,31 @@
     "message": "Wabbajack mod listesi içe aktar"
   },
   "wjImportSummary": {
-    "message": "$3 listesinden $2 dosyanın $1 tanesi kuyruğa alındı."
+    "message": "$3 içindeki $2 arşivden $1 tanesi Nexus’tan ve kuyruğa alındı."
   },
   "wjImportSkipped": {
-    "message": "$1 tanesi dışarıda bırakıldı — Nexus dışı veya tanınmayan oyun."
+    "message": "Diğer $1 tanesi Nexus indirmesi değil — Wabbajack bunları kendisi getirir. Günlükte listelenir."
   },
   "wjImportFailed": {
     "message": "Bu mod listesi okunamadı: $1"
+  },
+  "wjQueueReady": {
+    "message": "Mod listesi kuyruğa alındı. Başlamak için indirme düğmesine basın."
+  },
+  "wjDoneNextSteps": {
+    "message": "Wabbajack’te indirme klasörünü $1 olarak ayarlayıp kuruluma başla. Her dosyayı denetler ve yalnızca eksik olanları indirir."
+  },
+  "wjSkipGameFiles": {
+    "message": "$1 oyun kurulumundan gelir — Wabbajack bunları kendisi kopyalar."
+  },
+  "wjSkipOtherSites": {
+    "message": "$1 başka sitelerde barındırılıyor — Wabbajack bunları kendisi indirir."
+  },
+  "wjSkipManual": {
+    "message": "$1 Wabbajack istediğinde elle indirilmesi gerekir: $2"
+  },
+  "wjSkipUnreadable": {
+    "message": "$1 bu sürüm tarafından okunamadı: $2"
   },
   "tipWabbajackInfo": {
     "message": "Wabbajack içe aktarma hakkında"
@@ -1280,6 +1301,6 @@
     "message": "Nexus dışında barındırılan dosyalar ve bu sürümün tanımadığı oyunlar alınamaz. Her biri etkinlik günlüğünde adıyla listelenir, böylece kendin edinebilirsin."
   },
   "wjSkippedHeading": {
-    "message": "Bu mod listesinden kuyruğa alınmayanlar:"
+    "message": "Burada kuyruğa alınmaz — Wabbajack bunları kendisi getirir:"
   }
 }

@@ -159,14 +159,19 @@ window.NexusExt = window.NexusExt || {};
   }
 
   const MOD_PAGE_PATTERN = /\/mods\/\d+$/;
+
+  function normalizeModPathname(value) {
+    return String(value || '').replace(/\/+$/, '');
+  }
+
   function isModPage() {
-    return MOD_PAGE_PATTERN.test(location.pathname);
+    return MOD_PAGE_PATTERN.test(normalizeModPathname(location.pathname));
   }
 
   function getModPagePath(value = location.href) {
     try {
       const parsed = new URL(value, location.href);
-      const pathname = parsed.pathname.replace(/\/$/, '');
+      const pathname = normalizeModPathname(parsed.pathname);
       if (!MOD_PAGE_PATTERN.test(pathname)) return '';
       return `${parsed.origin}${pathname}`;
     } catch (_) {
@@ -413,22 +418,49 @@ window.NexusExt = window.NexusExt || {};
     }).catch((cause) => Logger.warn('Could not apply page enhancements:', cause));
   }
 
-  let decodeTextarea = null;
+  const HTML_NAMED_ENTITIES = {
+    amp: '&',
+    quot: '"',
+    apos: "'",
+    lt: '<',
+    gt: '>',
+    nbsp: '\u00a0'
+  };
+  const HTML_ENTITY_PATTERN = /&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{2,6});/gi;
+
+  // Never hand an untrusted response to the HTML parser; entities are resolved directly.
+  function decodeHtmlEntities(text) {
+    return text.replace(HTML_ENTITY_PATTERN, (entity, body) => {
+      const token = body.toLowerCase();
+      if (token[0] !== '#') {
+        return Object.prototype.hasOwnProperty.call(HTML_NAMED_ENTITIES, token)
+          ? HTML_NAMED_ENTITIES[token]
+          : entity;
+      }
+      const code = token[1] === 'x'
+        ? parseInt(token.slice(2), 16)
+        : parseInt(token.slice(1), 10);
+      if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return entity;
+      try {
+        return String.fromCodePoint(code);
+      } catch (_) {
+        return entity;
+      }
+    });
+  }
 
   function decodeDownloadUrlValue(value) {
     if (!value) return '';
-    if (!decodeTextarea) decodeTextarea = document.createElement('textarea');
-    decodeTextarea.innerHTML = String(value).trim();
-    return decodeTextarea.value
+    return decodeHtmlEntities(String(value).trim())
       .replace(/\\\//g, '/')
-      .replace(/&amp;/g, '&')
-      .replace(/\\u0026/g, '&')
+      .replace(/\\u0026/gi, '&')
       .trim();
   }
 
   const MAX_DOWNLOAD_RESPONSE_CHARS = 2 * 1024 * 1024;
   const MAX_JSON_DEPTH = 12;
   const MAX_JSON_NODES = 1000;
+  const MAX_EMBEDDED_FILE_ATTRS = 1024;
   const NXM_RAW_PATTERN = /nxm:(?:\\?\/){2}[^\s"'<>]+/gi;
   const EMBEDDED_FILE_ATTR_PATTERN = /(?:^|[\s<])(?:main-file|file)\s*=\s*(["'])([\s\S]*?)\1/gi;
   const BARE_CDN_PATTERN = /https?:\/\/[a-z0-9-]+\.nexus-cdn\.com[^\s"'<>]*/gi;
@@ -469,7 +501,8 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function isValidNxmUrl(url) {
-    return parseNxmDownloadLink(url) === decodeDownloadUrlValue(url);
+    const parsed = parseNxmDownloadLink(url);
+    return !!parsed && parsed === trimUrlPunctuation(url);
   }
 
   function normalizeResponseCandidate(value, context) {
@@ -552,19 +585,36 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function findEmbeddedAttrDownloadUrl(inputText, context, state, depth) {
-    EMBEDDED_FILE_ATTR_PATTERN.lastIndex = 0;
+    // A nested parse re-enters this function, so the shared pattern must not be iterated directly.
+    const pattern = new RegExp(EMBEDDED_FILE_ATTR_PATTERN);
+    const values = [];
+    let match;
+    while ((match = pattern.exec(inputText)) !== null) {
+      values.push(match[2]);
+      if (values.length >= MAX_EMBEDDED_FILE_ATTRS) break;
+    }
+
+    const ordered = context.fileId
+      ? values.slice().sort((a, b) => (
+        Number(b.includes(context.fileId)) - Number(a.includes(context.fileId))
+      ))
+      : values;
+
     const exact = [];
     const unscoped = [];
-    let match;
-    while ((match = EMBEDDED_FILE_ATTR_PATTERN.exec(inputText)) !== null) {
+    for (const value of ordered) {
       try {
-        const metadata = JSON.parse(decodeDownloadUrlValue(match[2]));
+        const metadata = JSON.parse(decodeDownloadUrlValue(value));
         const fileId = objectFileId(metadata);
         if (context.fileId && fileId && fileId !== context.fileId) continue;
         const extracted = findJsonDownloadUrl(metadata, 'embedded', context, state, depth + 1);
         if (!extracted) continue;
         const result = { url: extracted.url, source: 'embedded-file-attr' };
-        (context.fileId && fileId === context.fileId ? exact : unscoped).push(result);
+        if (context.fileId && fileId === context.fileId) {
+          exact.push(result);
+          break;
+        }
+        unscoped.push(result);
       } catch (_) {}
     }
     if (exact.length) return exact[0];
@@ -873,11 +923,6 @@ window.NexusExt = window.NexusExt || {};
         Logger.info('Manual download URL found from file page:', extracted.source);
         return { url: extracted.url };
       }
-      const unavailable = Errors.classifyContent(pageResponse.text, { context: 'Reading manual download page' });
-      if (unavailable?.code === 'mod_unavailable') {
-        Logger.info('Mod page indicates the mod is hidden or removed.');
-        return { url: null, error: unavailable };
-      }
       return { url: null, error: Errors.create('no_download_url', { context: 'Reading manual download page' }) };
     };
 
@@ -999,15 +1044,31 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
-  const nativePassthroughFiles = new Set();
+  const NATIVE_PASSTHROUGH_TTL_MS = 5 * 60 * 1000;
+  const MAX_NATIVE_PASSTHROUGH_FILES = 64;
+  const nativePassthroughFiles = new Map();
 
   function allowNativeDownload(fileId) {
     const key = String(fileId || '');
-    if (key) nativePassthroughFiles.add(key);
+    if (!key) return;
+    nativePassthroughFiles.delete(key);
+    nativePassthroughFiles.set(key, Date.now() + NATIVE_PASSTHROUGH_TTL_MS);
+    while (nativePassthroughFiles.size > MAX_NATIVE_PASSTHROUGH_FILES) {
+      nativePassthroughFiles.delete(nativePassthroughFiles.keys().next().value);
+    }
   }
 
   function shouldPassThroughToNative(fileId) {
-    return nativePassthroughFiles.has(String(fileId || ''));
+    const key = String(fileId || '');
+    const expiresAt = nativePassthroughFiles.get(key);
+    if (!expiresAt) return false;
+    if (expiresAt > Date.now()) return true;
+    nativePassthroughFiles.delete(key);
+    return false;
+  }
+
+  function clearNativeDownloadPassthrough() {
+    nativePassthroughFiles.clear();
   }
 
   const NATIVE_HANDOFF_CODES = new Set(['no_download_url', 'no_nmm_link', 'unsafe_download_url', 'mod_unavailable']);
@@ -1387,12 +1448,11 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function findSlowDownloadButtons(root, { includeBound = false } = {}) {
-
-    const selector = includeBound ? 'button' : 'button:not([data-nxtk-slow-seen])';
+    // Nexus relabels the same button, so anything not yet bound has to be re-read each pass.
+    const selector = includeBound ? 'button' : 'button:not([data-nxtk-slow-bound])';
     const buttons = Array.from(root.querySelectorAll(selector));
     return buttons.filter((button) => {
       const buttonText = normalizeText(button.textContent);
-      if (!includeBound && buttonText) button.dataset.nxtkSlowSeen = '1';
       if (!buttonText.includes('slow download')) return false;
 
       const cardText = normalizeText(button.closest('div,section,article')?.textContent);
@@ -1878,14 +1938,31 @@ window.NexusExt = window.NexusExt || {};
     return anchor;
   }
 
+  function buildArchivedFilesUrl(value = location.href) {
+    try {
+      const url = new URL(value, location.href);
+      url.searchParams.set('category', 'archived');
+      return url.href;
+    } catch (_) {
+      return '';
+    }
+  }
+
   function archivedFileHandler() {
     if (!cfg.HandleArchivedFiles) return;
     if (!isModPage()) return;
-    const url = location.href;
-    if (url.includes('tab=files') && !url.includes('category=archived')) {
+    let pageUrl;
+    try {
+      pageUrl = new URL(location.href);
+    } catch (_) {
+      return;
+    }
+    const isArchivedView = pageUrl.searchParams.get('category') === 'archived';
+    if (pageUrl.searchParams.get('tab') === 'files' && !isArchivedView) {
+      const archiveUrl = buildArchivedFilesUrl(pageUrl.href);
       cancelArchivedFooterWait?.();
       cancelArchivedFooterWait = waitForElement('#files-tab-footer', (footer) => {
-        if (!cfg.HandleArchivedFiles) return;
+        if (!cfg.HandleArchivedFiles || !archiveUrl) return;
         const p = footer.querySelector('p');
         if (p) {
           p.dataset.nxtkArchiveHidden = '1';
@@ -1895,7 +1972,7 @@ window.NexusExt = window.NexusExt || {};
         if (!hasArchiveBtn) {
 
           const btn = buildArchivedDownloadLink(
-            url + '&category=archived',
+            archiveUrl,
             NXTK.t('btnFileArchive', null, 'File archive')
           );
           btn.classList.add('nxtk-archive-btn');
@@ -1904,9 +1981,9 @@ window.NexusExt = window.NexusExt || {};
         }
       });
     }
-    if (!url.includes('category=archived')) return;
+    if (!isArchivedView) return;
     const headers = Array.from(document.getElementsByClassName('file-expander-header'));
-    const base = location.origin + location.pathname;
+    const base = getModPagePath() || `${location.origin}${normalizeModPathname(location.pathname)}`;
     const claimed = new Set();
     for (const header of headers) {
       const fileId = String(header?.dataset?.id ?? '');
@@ -1982,6 +2059,7 @@ window.NexusExt = window.NexusExt || {};
 
   async function onNavigate() {
     invalidateDownloadAttempts();
+    clearNativeDownloadPassthrough();
     cfg = await NexusExt.Storage.getSettings();
     syncNativeFallbackState();
     cancelArchivedFooterWait?.();

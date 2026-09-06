@@ -3,7 +3,6 @@
 
   const SETTINGS_KEY = 'nxtk_settings';
   const ERROR_LOG_KEY = 'nxtk_error_log';
-  const MAX_LOGGED_ERRORS = 50;
   const TOTAL_DOWNLOADS_KEY = 'nxtk_total_downloads';
   const RATING_PROMPT_KEY = 'nxtk_rating_prompted';
   const GITHUB_REPO_URL = 'https://github.com/thomasthanos/nexusmods-bypass';
@@ -64,10 +63,17 @@
     .sort((a, b) => b.length - a.length)
     .join('|');
 
+  // "code" and "state" are ordinary words in a log line; as keys the stricter rules still redact them.
+  const AMBIGUOUS_PARAM_NAMES = new Set(['code', 'state']);
+  const LOOSE_SENSITIVE_NAME_GROUP = SENSITIVE_PARAM_NAMES
+    .filter((name) => !AMBIGUOUS_PARAM_NAMES.has(name))
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+
   const SENSITIVE_PATTERNS = [
     new RegExp('\\b(' + SENSITIVE_NAME_GROUP + ')(=|%3D)([^&\\s"\'<>]+)', 'gi'),
     new RegExp('(["\'])(' + SENSITIVE_NAME_GROUP + ')\\1(\\s*:\\s*)(["\'])([^"\']*)\\4', 'gi'),
-    new RegExp('\\b(' + SENSITIVE_NAME_GROUP + ')(\\s*:\\s*)([^,;}"\'<>\\r\\n]+)', 'gi'),
+    new RegExp('\\b(' + LOOSE_SENSITIVE_NAME_GROUP + ')(\\s*:\\s*)([^,;}"\'<>\\r\\n]+)', 'gi'),
   ];
 
   function redactSensitiveValues(value) {
@@ -80,6 +86,7 @@
   }
 
   const URL_SHAPE = /^[a-z][a-z0-9+.-]*:\/\//i;
+  const EXTENSION_ORIGIN_PATTERN = /(?:chrome|moz|safari-web|ms-browser)-extension:\/\/[a-z0-9._-]+\//gi;
 
   function sanitizeUrlForReport(url) {
     const raw = String(url ?? '').trim();
@@ -102,13 +109,13 @@
   function sanitizeDiagnosticText(value, maxLength = 1500) {
     let text = String(value ?? '');
     if (!text) return text;
+    text = text.replace(EXTENSION_ORIGIN_PATTERN, 'ext://');
     text = text.replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, (match) => sanitizeUrlForReport(match));
     text = redactSensitiveValues(text);
     return text.slice(0, maxLength);
   }
 
   const DOWNLOAD_METHOD_VORTEX = 0;
-  const DOWNLOAD_METHOD_BROWSER = 1;
   const MAX_DOWNLOAD_URL_CHARS = 2048;
   const NEXUS_SITE_HOSTS = ['nexusmods.com'];
   const NEXUS_FILE_HOSTS = ['nexusmods.com', 'nexus-cdn.com'];
@@ -185,10 +192,6 @@
     activity = { ...activity, ...patch, at: Date.now() };
   }
 
-  function getActivity() {
-    return { ...activity };
-  }
-
   function describeActivity(source = activity) {
     if (!source || !source.trigger) return '';
     const parts = [TRIGGER_LABELS[source.trigger] || String(source.trigger)];
@@ -263,10 +266,75 @@
     });
   }
 
+  function shortHash(text) {
+    let hash = 5381;
+    for (let index = 0; index < text.length; index += 1) {
+      hash = (((hash << 5) + hash) ^ text.charCodeAt(index)) >>> 0;
+    }
+    return hash.toString(36).padStart(7, '0').slice(-7);
+  }
+
+  // Only the file and position are kept, so the same fault gives the same ID everywhere.
+  function errorFingerprint(error) {
+    if (!error) return '';
+    const frame = String(error.stack || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .map((line) => line.match(/([\w.-]+\.js):(\d+):(\d+)/))
+      .find(Boolean);
+    return shortHash([
+      String(error.code || ''),
+      String(error.context || ''),
+      frame ? `${frame[1]}:${frame[2]}` : ''
+    ].join('|'));
+  }
+
+  function relativeTime(at) {
+    const elapsed = Date.now() - (Number(at) || 0);
+    if (!Number.isFinite(elapsed) || elapsed < 0) return 'just now';
+    const seconds = Math.round(elapsed / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.round(minutes / 60);
+    return hours < 48 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
+  }
+
+  function entryRepeatCount(entry) {
+    return Math.max(1, Number(entry?.count) || 1);
+  }
+
+  const DIGEST_CODE_LIMIT = 8;
+
+  function describeErrorDigest(errors) {
+    if (!errors.length) return [];
+    const totals = new Map();
+    for (const entry of errors) {
+      const code = String(entry.code || 'request_failed');
+      const seen = totals.get(code) || { code, total: 0, lastAt: 0 };
+      seen.total += entryRepeatCount(entry);
+      seen.lastAt = Math.max(seen.lastAt, Number(entry.lastAt || entry.at) || 0);
+      totals.set(code, seen);
+    }
+    const ranked = [...totals.values()].sort((a, b) => b.total - a.total || b.lastAt - a.lastAt);
+    const lines = ['──────── What went wrong ────────'];
+    for (const item of ranked.slice(0, DIGEST_CODE_LIMIT)) {
+      lines.push(`${String(item.total).padStart(4)} × ${item.code.padEnd(20)} last ${relativeTime(item.lastAt)}`);
+    }
+    if (ranked.length > DIGEST_CODE_LIMIT) {
+      lines.push(`     … and ${ranked.length - DIGEST_CODE_LIMIT} other code(s)`);
+    }
+    return lines;
+  }
+
   function describeLoggedError(entry) {
     const lines = [];
     const status = entry.status ? ` (HTTP ${entry.status})` : '';
-    lines.push(`[${new Date(entry.at).toLocaleString('en-GB')}] ${entry.code}${status}`);
+    const repeats = entryRepeatCount(entry);
+    lines.push(`[${new Date(entry.at).toLocaleString('en-GB')}] ${entry.code}${status}${repeats > 1 ? ` ×${repeats}` : ''}`);
+    if (repeats > 1 && entry.lastAt) {
+      lines.push(`    last:    ${new Date(entry.lastAt).toLocaleString('en-GB')} (${relativeTime(entry.lastAt)})`);
+    }
     if (entry.action) lines.push(`    action:  ${sanitizeDiagnosticText(entry.action, 200)}`);
     if (entry.context) lines.push(`    context: ${sanitizeDiagnosticText(entry.context, 300)}`);
     if (entry.userMessage) lines.push(`    ${sanitizeDiagnosticText(entry.userMessage, 300)}`);
@@ -525,6 +593,9 @@
       ...await describeReportHeader(manifest)
     ];
 
+    const fingerprint = errorFingerprint(currentError || errors[errors.length - 1]);
+    if (fingerprint) lines.push(`Report ID: ${fingerprint} (same fault, same ID)`);
+
     const pageContext = describePageContext();
     if (pageContext) {
       lines.push('');
@@ -534,6 +605,12 @@
     if (currentError) {
       lines.push('');
       lines.push(...describeCurrentError(currentError));
+    }
+
+    const digest = describeErrorDigest(errors);
+    if (digest.length) {
+      lines.push('');
+      lines.push(...digest);
     }
 
     lines.push('');
@@ -568,6 +645,9 @@
 
     const lines = await describeReportHeader(manifest, { includeUserAgent: false });
 
+    const fingerprint = errorFingerprint(currentError || errors[errors.length - 1]);
+    if (fingerprint) lines.push(`Report ID: ${fingerprint} (same fault, same ID)`);
+
     const pageContext = describePageContext();
     if (pageContext) {
       lines.push('');
@@ -577,6 +657,12 @@
     if (currentError) {
       lines.push('');
       lines.push(...describeCurrentError(currentError, 300));
+    }
+
+    const digest = describeErrorDigest(errors);
+    if (digest.length) {
+      lines.push('');
+      lines.push(...digest);
     }
 
     lines.push('');
@@ -600,43 +686,46 @@
     return lines.join('\n');
   }
 
-  function buildIssueUrl(title, report) {
+  function buildIssueUrl(title, report, browser = '') {
     const url = new URL(ISSUE_NEW_URL);
     url.searchParams.set('template', 'nexus_bug_report.yml');
     url.searchParams.set('title', title);
     url.searchParams.set('report', report);
+    if (browser) url.searchParams.set('browser', browser);
     return url.href;
   }
+
+  const REPORT_REDUCTION_STEPS = [
+    { maxEntries: 12, stackChars: 900 },
+    { maxEntries: 20, stackChars: 0 },
+    { maxEntries: 10, stackChars: 0 },
+    { maxEntries: 5, stackChars: 0 },
+    { maxEntries: 2, stackChars: 0 },
+    { maxEntries: 0, stackChars: 0 }
+  ];
 
   async function buildReportIssueUrl(currentError = null, { fullReport = null } = {}) {
     const ownsCache = !reportCache;
     if (ownsCache) reportCache = {};
+    let report = fullReport || '';
     try {
       const title = currentError
         ? `[Bug] ${currentError.code || 'error'} — ${sanitizeDiagnosticText(currentError.userMessage, 60)}`
         : '[Bug] ';
-      const fits = (report) => buildIssueUrl(title, report).length <= MAX_ISSUE_URL_CHARS;
+      const { browser } = await cachedBrowser();
+      const fits = (candidate) => buildIssueUrl(title, candidate, browser).length <= MAX_ISSUE_URL_CHARS;
 
-      const full = fullReport || await buildBugReport(currentError);
-      if (fits(full)) return { url: buildIssueUrl(title, full), complete: true };
+      report = fullReport || await buildBugReport(currentError);
+      if (fits(report)) return { url: buildIssueUrl(title, report, browser), complete: true, report };
 
-      const steps = [
-        { maxEntries: 12, stackChars: 900 },
-        { maxEntries: 8, stackChars: 600 },
-        { maxEntries: 5, stackChars: 300 },
-        { maxEntries: 3, stackChars: 300 },
-        { maxEntries: 2, stackChars: 0 },
-        { maxEntries: 1, stackChars: 0 },
-        { maxEntries: 0, stackChars: 0 }
-      ];
-      for (const step of steps) {
+      for (const step of REPORT_REDUCTION_STEPS) {
         const reduced = await buildCompactBugReport(currentError, step);
-        if (fits(reduced)) return { url: buildIssueUrl(title, reduced), complete: false };
+        if (fits(reduced)) return { url: buildIssueUrl(title, reduced, browser), complete: false, report };
       }
 
-      return { url: buildIssueUrl(title, ''), complete: false };
+      return { url: buildIssueUrl(title, '', browser), complete: false, report };
     } catch (_) {
-      return { url: REPORT_ISSUE_URL, complete: false };
+      return { url: REPORT_ISSUE_URL, complete: false, report };
     } finally {
       if (ownsCache) reportCache = null;
     }
@@ -773,7 +862,6 @@
     isSafeNexusPageUrl,
     recordError,
     setActivity,
-    getActivity,
     describeActivity,
     buildBugReport,
     buildReportIssueUrl,

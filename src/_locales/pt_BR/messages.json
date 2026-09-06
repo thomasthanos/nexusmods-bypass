@@ -870,6 +870,9 @@
   "alertAllDownloaded": {
     "message": "Todos os mods já foram baixados."
   },
+  "alertImportSkippedFiles": {
+    "message": "Arquivos que não são pacotes de mods foram ignorados."
+  },
   "dlgCantLoadCollection": {
     "message": "Não foi possível carregar a coleção"
   },
@@ -1256,13 +1259,31 @@
     "message": "Importar modlist do Wabbajack"
   },
   "wjImportSummary": {
-    "message": "$1 de $2 arquivos enfileirados de $3."
+    "message": "$1 dos $2 arquivos de $3 vêm do Nexus e estão na fila."
   },
   "wjImportSkipped": {
-    "message": "$1 deixados de fora — hospedados fora do Nexus ou jogo não reconhecido."
+    "message": "Os outros $1 não são downloads do Nexus — o Wabbajack os obtém por conta própria. O log os lista."
   },
   "wjImportFailed": {
     "message": "Não foi possível ler esta modlist: $1"
+  },
+  "wjQueueReady": {
+    "message": "A modlist está na fila. Pressione o botão de download para começar."
+  },
+  "wjDoneNextSteps": {
+    "message": "No Wabbajack, defina a pasta de downloads como $1 e inicie a instalação. Ele verifica cada arquivo e só baixa o que ainda falta."
+  },
+  "wjSkipGameFiles": {
+    "message": "$1 vêm da sua instalação do jogo — o Wabbajack os copia por conta própria."
+  },
+  "wjSkipOtherSites": {
+    "message": "$1 estão hospedados em outros sites — o Wabbajack os baixa por conta própria."
+  },
+  "wjSkipManual": {
+    "message": "$1 terão de ser baixados à mão quando o Wabbajack pedir: $2"
+  },
+  "wjSkipUnreadable": {
+    "message": "$1 não puderam ser lidos por esta versão: $2"
   },
   "tipWabbajackInfo": {
     "message": "Sobre a importação do Wabbajack"
@@ -1280,6 +1301,6 @@
     "message": "Arquivos hospedados fora do Nexus, e jogos que esta versão não reconhece, não podem ser obtidos. Cada um é listado pelo nome no registro de atividades para que você possa buscá-los por conta própria."
   },
   "wjSkippedHeading": {
-    "message": "Não enfileirados desta modlist:"
+    "message": "Não entram na fila aqui — o Wabbajack os obtém por conta própria:"
   }
 }

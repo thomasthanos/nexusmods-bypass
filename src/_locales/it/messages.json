@@ -784,6 +784,9 @@
   "alertAllDownloaded": {
     "message": "Tutte le mod sono già scaricate."
   },
+  "alertImportSkippedFiles": {
+    "message": "I file che non sono archivi di mod sono stati ignorati."
+  },
   "dlgCantLoadCollection": {
     "message": "Impossibile caricare la collection"
   },
@@ -1256,13 +1259,31 @@
     "message": "Importa modlist Wabbajack"
   },
   "wjImportSummary": {
-    "message": "$1 di $2 file accodati da $3."
+    "message": "$1 dei $2 archivi in $3 vengono da Nexus e sono in coda."
   },
   "wjImportSkipped": {
-    "message": "$1 esclusi — ospitati fuori da Nexus o gioco non riconosciuto."
+    "message": "Gli altri $1 non sono download da Nexus: Wabbajack li recupera da solo. Il log li elenca."
   },
   "wjImportFailed": {
     "message": "Impossibile leggere questa modlist: $1"
+  },
+  "wjQueueReady": {
+    "message": "La modlist è in coda. Premi il pulsante di download per iniziare."
+  },
+  "wjDoneNextSteps": {
+    "message": "In Wabbajack imposta la cartella dei download su $1 e avvia l'installazione. Controlla ogni file e scarica solo quello che manca."
+  },
+  "wjSkipGameFiles": {
+    "message": "$1 provengono dalla tua installazione del gioco: Wabbajack li copia da solo."
+  },
+  "wjSkipOtherSites": {
+    "message": "$1 sono ospitati su altri siti: Wabbajack li scarica da solo."
+  },
+  "wjSkipManual": {
+    "message": "$1 dovranno essere scaricati a mano quando Wabbajack lo chiede: $2"
+  },
+  "wjSkipUnreadable": {
+    "message": "$1 non sono stati letti da questa versione: $2"
   },
   "tipWabbajackInfo": {
     "message": "Informazioni sull'importazione Wabbajack"
@@ -1280,6 +1301,6 @@
     "message": "I file ospitati fuori da Nexus, e i giochi che questa versione non riconosce, non possono essere scaricati. Ognuno viene elencato per nome nel registro attività così puoi procurarteli da solo."
   },
   "wjSkippedHeading": {
-    "message": "Non accodati da questa modlist:"
+    "message": "Non messi in coda qui: Wabbajack li recupera da solo:"
   }
 }

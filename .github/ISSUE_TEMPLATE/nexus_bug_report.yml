@@ -9,6 +9,10 @@ body:
         Thanks for reporting! If you clicked **Report a bug** inside the extension, the diagnostic
         report below is already filled in (and a full copy is on your clipboard — paste it over the
         short one if the field looks truncated).
+
+        The report starts with a **Report ID**. Searching this repository for that ID first is worth
+        a moment: the same fault always produces the same ID, so if it already appears in an open
+        issue, please comment there instead of opening a new one.
   - type: textarea
     id: what-happened
     attributes:
@@ -29,6 +33,7 @@ body:
     id: browser
     attributes:
       label: Browser & version
-      placeholder: "Chrome 138 (only if the report above is empty)"
+      description: "Auto-filled by the extension. Fill it in yourself only if it is empty."
+      placeholder: "Chrome 138"
     validations:
       required: false

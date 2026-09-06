@@ -870,6 +870,9 @@
   "alertAllDownloaded": {
     "message": "Todos los mods ya están descargados."
   },
+  "alertImportSkippedFiles": {
+    "message": "Se omitieron los archivos que no son archivos de mods."
+  },
   "dlgCantLoadCollection": {
     "message": "No se pudo cargar la colección"
   },
@@ -1256,13 +1259,31 @@
     "message": "Importar lista de Wabbajack"
   },
   "wjImportSummary": {
-    "message": "$1 de $2 archivos en cola desde $3."
+    "message": "$1 de los $2 archivos de $3 vienen de Nexus y están en la cola."
   },
   "wjImportSkipped": {
-    "message": "$1 omitidos: alojados fuera de Nexus o juego no reconocido."
+    "message": "Los otros $1 no son descargas de Nexus: Wabbajack los obtiene por su cuenta. El registro los detalla."
   },
   "wjImportFailed": {
     "message": "No se pudo leer esta lista: $1"
+  },
+  "wjQueueReady": {
+    "message": "La lista está en la cola. Pulsa el botón de descarga para empezar."
+  },
+  "wjDoneNextSteps": {
+    "message": "En Wabbajack, pon la carpeta de descargas en $1 y empieza la instalación. Comprueba cada archivo y solo descarga lo que falta."
+  },
+  "wjSkipGameFiles": {
+    "message": "$1 provienen de tu instalación del juego: Wabbajack las copia por su cuenta."
+  },
+  "wjSkipOtherSites": {
+    "message": "$1 están alojadas en otros sitios: Wabbajack las descarga por su cuenta."
+  },
+  "wjSkipManual": {
+    "message": "$1 habrá que descargarlas a mano cuando Wabbajack lo pida: $2"
+  },
+  "wjSkipUnreadable": {
+    "message": "$1 no se pudieron leer en esta versión: $2"
   },
   "tipWabbajackInfo": {
     "message": "Acerca de la importación de Wabbajack"
@@ -1280,6 +1301,6 @@
     "message": "Los archivos alojados fuera de Nexus, y los juegos que esta versión no reconoce, no se pueden obtener. Todos aparecen por nombre en el registro de actividad para que puedas conseguirlos por tu cuenta."
   },
   "wjSkippedHeading": {
-    "message": "No se pusieron en cola de esta lista:"
+    "message": "No se ponen en cola aquí: Wabbajack las obtiene por su cuenta:"
   }
 }

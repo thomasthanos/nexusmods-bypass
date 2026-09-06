@@ -784,6 +784,9 @@
   "alertAllDownloaded": {
     "message": "すべての MOD はダウンロード済みです。"
   },
+  "alertImportSkippedFiles": {
+    "message": "MOD のアーカイブではないファイルはスキップされました。"
+  },
   "dlgCantLoadCollection": {
     "message": "コレクションを読み込めませんでした"
   },
@@ -1180,13 +1183,31 @@
     "message": "Wabbajack モッドリストを読み込む"
   },
   "wjImportSummary": {
-    "message": "$3 から $2 件中 $1 件をキューに追加しました。"
+    "message": "$3 の $2 個のアーカイブのうち $1 個が Nexus のもので、キューに入りました。"
   },
   "wjImportSkipped": {
-    "message": "$1 件を除外しました — Nexus 以外のホスト、または未対応のゲームです。"
+    "message": "残りの $1 個は Nexus のダウンロードではなく、Wabbajack が自分で取得します。詳細はログにあります。"
   },
   "wjImportFailed": {
     "message": "このモッドリストを読み込めませんでした: $1"
+  },
+  "wjQueueReady": {
+    "message": "MOD リストをキューに登録しました。ダウンロードボタンを押して開始してください。"
+  },
+  "wjDoneNextSteps": {
+    "message": "Wabbajack のダウンロードフォルダーを $1 に設定してインストールを開始してください。各ファイルを確認し、足りないものだけを取得します。"
+  },
+  "wjSkipGameFiles": {
+    "message": "$1 はゲームのインストール先にあるファイルです。Wabbajack が自分でコピーします。"
+  },
+  "wjSkipOtherSites": {
+    "message": "$1 は他のサイトにあります。Wabbajack が自分でダウンロードします。"
+  },
+  "wjSkipManual": {
+    "message": "$1 は Wabbajack が要求したときに手動でダウンロードする必要があります: $2"
+  },
+  "wjSkipUnreadable": {
+    "message": "$1 はこのバージョンでは読み取れませんでした: $2"
   },
   "tipWabbajackInfo": {
     "message": "Wabbajack 読み込みについて"
@@ -1204,6 +1225,6 @@
     "message": "Nexus 以外でホストされているファイルや、このバージョンが認識できないゲームは取得できません。それぞれの名前はアクティビティログに記載されるので、ご自身で入手してください。"
   },
   "wjSkippedHeading": {
-    "message": "このモッドリストからキューに入らなかったもの:"
+    "message": "ここではキューに入りません。Wabbajack が自分で取得します:"
   }
 }

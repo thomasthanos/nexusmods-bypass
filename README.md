@@ -75,7 +75,7 @@ can pick up where it stopped instead of starting over.
 ### <img src=".github/assets/icon-globe.svg" width="20" align="middle"> Languages
 
 English, Greek, German, Spanish, French, Italian, Japanese, Korean, Polish, Portuguese (BR),
-Russian, Turkish, Simplified Chinese — 325 strings each (a few more or fewer where a language's
+Russian, Turkish, Simplified Chinese — 340 strings each (a few more or fewer where a language's
 plural rules need extra forms). There is also an **Always use English**
 switch for when your browser language and your Nexus language disagree.
 

@@ -77,6 +77,11 @@ window.NexusExt = window.NexusExt || {};
       this.claimTimer = null;
       this.onSettingsChanged = null;
       this.running = false;
+      this.external = false;
+      this.landedIn = '';
+      this.wabbajackImport = false;
+      this.rateLimitStrikes = 0;
+      this.rateLimitedUntil = 0;
 
       this.runStatus = STATUS_DOWNLOADING;
 
@@ -239,7 +244,8 @@ window.NexusExt = window.NexusExt || {};
       const settings = await NexusExt.Storage.getSettings();
       this.pauseBetweenDownload = settings.NDC_pauseBetweenDownload;
       this.downloadSpeed = settings.NDC_downloadSpeed;
-      this.downloadMethod = settings.NDC_downloadMethod;
+      // An imported modlist must reach the disk, so the saved collection method is not used.
+      this.downloadMethod = DOWNLOAD_METHOD_BROWSER;
       this.requestTimeout = settings.RequestTimeout || Errors.DEFAULT_TIMEOUT_MS;
       this.showAlertsOnError = settings.ShowAlertsOnError !== false;
       this.downloadFolder = settings.DownloadFolder ?? '';
@@ -248,7 +254,7 @@ window.NexusExt = window.NexusExt || {};
       this.watchSettings();
 
       const sorted = [...mods].sort((a, b) => nameCollator.compare(a.file.mod.name, b.file.mod.name));
-      this.mods = { all: sorted, mandatory: sorted, optional: [] };
+      this.mods = { all: sorted, mandatory: [...sorted], optional: [] };
       this.external = true;
       this.initialized = true;
       return true;
@@ -289,16 +295,22 @@ window.NexusExt = window.NexusExt || {};
         return null;
       }
 
-      if (!json?.data?.collectionRevision) {
+      if (!json?.data?.collectionRevision || !Array.isArray(json.data.collectionRevision.modFiles)) {
         this.lastError = Errors.classifyContent(response.text, { context: 'Loading collection details' })
           || Errors.create('invalid_response', { context: 'Loading collection details' });
         return null;
       }
 
-      json.data.collectionRevision.modFiles = json.data.collectionRevision.modFiles.map(modFile => {
-        modFile.file.url = `https://www.nexusmods.com/${modFile.file.mod.game.domainName}/mods/${modFile.file.mod.modId}?tab=files&file_id=${modFile.file.fileId}`;
-        return modFile;
-      });
+      json.data.collectionRevision.modFiles = json.data.collectionRevision.modFiles
+        .filter((modFile) => (
+          modFile?.file?.fileId
+          && modFile.file.mod?.modId
+          && modFile.file.mod.game?.domainName
+        ))
+        .map(modFile => {
+          modFile.file.url = `https://www.nexusmods.com/${modFile.file.mod.game.domainName}/mods/${modFile.file.mod.modId}?tab=files&file_id=${modFile.file.fileId}`;
+          return modFile;
+        });
 
       this.lastError = null;
       return json.data.collectionRevision;
@@ -478,7 +490,6 @@ window.NexusExt = window.NexusExt || {};
     resolveLinkError(result) {
       return Errors.normalize(
         result?.error
-        || Errors.classifyContent(result?.text, { context: 'Preparing collection download' })
         || Errors.create(this.downloadMethod === DOWNLOAD_METHOD_VORTEX ? 'no_nmm_link' : 'no_download_url')
       );
     }
@@ -755,6 +766,7 @@ window.NexusExt = window.NexusExt || {};
             return;
           }
           if (message.type === 'NXT_NDC_DONE') {
+            if (message.folder) this.landedIn = String(message.folder);
             finish(message.outcome || 'error', message.error || '');
           }
         };
@@ -785,6 +797,7 @@ window.NexusExt = window.NexusExt || {};
         }
 
         Promise.resolve(start()).then((reply) => {
+          if (settled) return;
           if (!reply?.ok || !reply.value?.jobId) {
             finish('error', reply?.error || 'background queue did not start');
             return;

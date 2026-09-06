@@ -827,6 +827,9 @@
   "alertAllDownloaded": {
     "message": "所有模组均已下载。"
   },
+  "alertImportSkippedFiles": {
+    "message": "已跳过非模组压缩包的文件。"
+  },
   "dlgCantLoadCollection": {
     "message": "无法加载合集"
   },
@@ -1180,13 +1183,31 @@
     "message": "导入 Wabbajack 模组列表"
   },
   "wjImportSummary": {
-    "message": "已从 $3 将 $2 个文件中的 $1 个加入队列。"
+    "message": "$3 的 $2 个压缩包中有 $1 个来自 Nexus，已加入队列。"
   },
   "wjImportSkipped": {
-    "message": "已排除 $1 个 — 托管在 Nexus 之外，或游戏无法识别。"
+    "message": "其余 $1 个不是 Nexus 下载，Wabbajack 会自行获取。日志中有明细。"
   },
   "wjImportFailed": {
     "message": "无法读取此模组列表：$1"
+  },
+  "wjQueueReady": {
+    "message": "模组列表已加入队列。点击下载按钮开始。"
+  },
+  "wjDoneNextSteps": {
+    "message": "在 Wabbajack 中把下载文件夹设为 $1 并开始安装。它会校验每个文件，只下载仍然缺失的部分。"
+  },
+  "wjSkipGameFiles": {
+    "message": "$1 来自你的游戏安装目录，Wabbajack 会自行复制。"
+  },
+  "wjSkipOtherSites": {
+    "message": "$1 托管在其他网站，Wabbajack 会自行下载。"
+  },
+  "wjSkipManual": {
+    "message": "$1 需要在 Wabbajack 提示时手动下载：$2"
+  },
+  "wjSkipUnreadable": {
+    "message": "$1 无法被此版本读取：$2"
   },
   "tipWabbajackInfo": {
     "message": "关于 Wabbajack 导入"
@@ -1204,6 +1225,6 @@
     "message": "托管在 Nexus 之外的文件，以及此版本无法识别的游戏，无法获取。每一项都会在活动日志中按名称列出，方便你自行下载。"
   },
   "wjSkippedHeading": {
-    "message": "未从此模组列表加入队列的项目："
+    "message": "不在此处排队 — Wabbajack 会自行获取："
   }
 }

@@ -67,6 +67,32 @@ window.NexusExt = window.NexusExt || {};
     return normalizedNameMatches(normalizeImportName(fileName), normalizeModKeys(mod));
   }
 
+  const IMPORT_FILE_EXTENSIONS = [
+    'zip', '7z', 'rar', '001', 'tar', 'gz', 'tgz', 'bz2', 'xz',
+    'exe', 'msi', 'jar', 'fomod', 'omod',
+    'esp', 'esm', 'esl', 'dll'
+  ];
+  const IMPORT_FILE_ACCEPT = IMPORT_FILE_EXTENSIONS.map((extension) => `.${extension}`).join(',');
+  const IMPORT_FILE_PATTERN = new RegExp(`\\.(?:${IMPORT_FILE_EXTENSIONS.join('|')})$`, 'i');
+
+  function createImportFileInput() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = IMPORT_FILE_ACCEPT;
+    return input;
+  }
+
+  // accept= is only a picker hint, so the selection is filtered again here.
+  function collectImportFileNames(files) {
+    const names = Array.from(files || [], (file) => file.name);
+    const archives = names.filter((name) => IMPORT_FILE_PATTERN.test(name));
+    return { names: archives, skipped: names.length - archives.length };
+  }
+
+  const importSkippedNotice = () => NXTK.t('alertImportSkippedFiles', null,
+    'Files that are not mod archives were skipped.');
+
   function matchModsToFileNames(mods, fileNames) {
     const candidates = fileNames.map(normalizeImportName);
     const modKeys = mods.map(normalizeModKeys);
@@ -97,11 +123,10 @@ window.NexusExt = window.NexusExt || {};
     let complete = false;
     let issueUrl = NXTK.REPORT_ISSUE_URL;
     try {
-      const report = await NXTK.buildBugReport(currentError);
-      const result = await NXTK.buildReportIssueUrl(currentError, { fullReport: report });
+      const result = await NXTK.buildReportIssueUrl(currentError);
       issueUrl = result.url;
       complete = result.complete;
-      if (!complete) copied = await NXTK.copyText(report);
+      if (!complete && result.report) copied = await NXTK.copyText(result.report);
     } catch (_) {
       copied = false;
     }
@@ -753,7 +778,7 @@ window.NexusExt = window.NexusExt || {};
       desc: () => NXTK.t('setForceEnglishDesc', null, 'Show this extension in English even when your browser is set to another language. Useful when following guides written in English. The extension name in your browser list still follows the browser language.')
     },
     { key: 'DebugLogs', label: () => NXTK.t('setDebugLogsLabel', null, 'Verbose extension logs'), type: 'bool', advanced: true, desc: () => NXTK.t('setDebugLogsDesc', null, 'Print detailed NexusMods Bypass activity in the console. Errors are always shown, and bug reports are unaffected by this setting.') },
-    { key: 'DownloadFolder', label: () => NXTK.t('setDownloadFolderLabel', null, 'Browser download folder'), type: 'text', desc: () => NXTK.t('setDownloadFolderDesc', null, 'Subfolder inside your browser Downloads directory, used by Browser Download mode. Leave it empty to save straight into Downloads — some mod managers only watch that folder and never look inside subfolders. Vortex downloads are handled by Vortex and are unaffected.') },
+    { key: 'DownloadFolder', label: () => NXTK.t('setDownloadFolderLabel', null, 'Browser download folder'), type: 'text', maxLength: 100, desc: () => NXTK.t('setDownloadFolderDesc', null, 'Subfolder inside your browser Downloads directory, used by Browser Download mode. Leave it empty to save straight into Downloads — some mod managers only watch that folder and never look inside subfolders. Vortex downloads are handled by Vortex and are unaffected.') },
     { key: 'RequestTimeout', label: () => NXTK.t('setRequestTimeoutLabel', null, 'Download request timeout'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, advanced: true, desc: () => NXTK.t('setRequestTimeoutDesc', null, 'How long the extension waits for Nexus to return a download link before it gives up.') },
     { key: 'CloseTabDelay', label: () => NXTK.t('setCloseTabDelayLabel', null, 'Close-tab delay'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, advanced: true, desc: () => NXTK.t('setCloseTabDelayDesc', null, 'Only applies to auto-started Vortex downloads that close their tab. Increase it if Vortex misses links.') },
     {
@@ -814,7 +839,8 @@ window.NexusExt = window.NexusExt || {};
         return `<div class="nxtk-setting-row nxtk-setting-row-field" data-key="${s.key}"><div class="nxtk-setting-label">${timingTitle}<span class="nxtk-setting-field"><input type="number" data-setting="${s.key}"${decimal}${scaleAttr}${step} value="${escapeHtml(displayValue)}" min="${escapeHtml(min)}"><span class="nxtk-setting-unit">${escapeHtml(text(s.unit))}</span></span></div></div>`;
       }
       if (s.type === 'text') {
-        return `<div class="nxtk-setting-row nxtk-setting-row-field" data-key="${s.key}"><div class="nxtk-setting-label">${timingTitle}<span class="nxtk-setting-field"><input type="text" data-setting="${s.key}" value="${escapeHtml(cfg[s.key] ?? '')}" spellcheck="false"></span></div></div>`;
+        const maxLength = Number(s.maxLength) > 0 ? ` maxlength="${Number(s.maxLength)}"` : '';
+        return `<div class="nxtk-setting-row nxtk-setting-row-field" data-key="${s.key}"><div class="nxtk-setting-label">${timingTitle}<span class="nxtk-setting-field"><input type="text" data-setting="${s.key}" value="${escapeHtml(cfg[s.key] ?? '')}"${maxLength} spellcheck="false"></span></div></div>`;
       }
       return '';
     };
@@ -1427,31 +1453,99 @@ window.NexusExt = window.NexusExt || {};
     return `wj-${base || 'modlist'}`.slice(0, 128);
   }
 
-  function logSkippedArchives(ndc, skipped) {
-    if (!skipped?.length) return;
-    ndc.ui?.logText?.(NXTK.t('wjSkippedHeading', null, 'Not queued from this modlist:'), 'info');
-    for (const entry of skipped) {
-      ndc.ui?.logText?.(`· ${entry.name} — ${entry.reason}`, 'info');
-    }
+  const SKIPPED_NAMES_SHOWN = 6;
+
+  function skippedBucket(reason) {
+    if (/^not-on-nexus:GameFileSource$/i.test(reason)) return 'game';
+    if (/^not-on-nexus:Manual$/i.test(reason)) return 'manual';
+    if (/^not-on-nexus/i.test(reason)) return 'other';
+    return 'unreadable';
   }
 
-  async function mountWabbajackDeck(list, mods) {
+  function logSkippedArchives(ndc, skipped) {
+    if (!skipped?.length) return;
+
+    const buckets = new Map();
+    for (const entry of skipped) {
+      const reason = String(entry?.reason || 'unknown');
+      const bucket = skippedBucket(reason);
+      if (!buckets.has(bucket)) buckets.set(bucket, { count: 0, names: [], reasons: new Set() });
+      const group = buckets.get(bucket);
+      group.count += 1;
+      const name = String(entry?.name || '').trim();
+      if (name) group.names.push(name);
+      group.reasons.add(reason);
+    }
+
+    const detail = (group, extra = []) => {
+      const shown = [...extra, ...group.names].slice(0, SKIPPED_NAMES_SHOWN);
+      const rest = group.count - group.names.slice(0, SKIPPED_NAMES_SHOWN).length;
+      return `${shown.join(', ')}${rest > 0 ? ` … +${rest}` : ''}`;
+    };
+
+    const say = (bucket, type, render) => {
+      const group = buckets.get(bucket);
+      if (group) ndc.ui?.logText?.(`· ${render(group)}`, type);
+    };
+
+    ndc.ui?.logText?.(NXTK.t('wjSkippedHeading', null,
+      'Not queued here — Wabbajack gets these on its own:'), 'info');
+
+    say('game', 'info', (group) => NXTK.t('wjSkipGameFiles', [String(group.count)],
+      `${group.count} come from your game install — Wabbajack copies these itself.`));
+    say('other', 'info', (group) => NXTK.t('wjSkipOtherSites', [String(group.count)],
+      `${group.count} are hosted on other sites — Wabbajack downloads these itself.`));
+    say('manual', 'info', (group) => NXTK.t('wjSkipManual', [String(group.count), detail(group)],
+      `${group.count} will have to be downloaded by hand when Wabbajack asks: ${detail(group)}`));
+    say('unreadable', 'error', (group) => {
+      const reasons = [...group.reasons].slice(0, 3);
+      return NXTK.t('wjSkipUnreadable', [String(group.count), detail(group, reasons)],
+        `${group.count} could not be read by this version: ${detail(group, reasons)}`);
+    });
+  }
+
+  function dominantGameDomain(mods) {
+    const counts = new Map();
+    for (const mod of mods) {
+      const domain = String(mod?.file?.mod?.game?.domainName || '').trim();
+      if (!domain) continue;
+      counts.set(domain, (counts.get(domain) || 0) + 1);
+    }
+    let best = '';
+    let bestCount = 0;
+    for (const [domain, count] of [...counts].sort((a, b) => a[0].localeCompare(b[0]))) {
+      if (count <= bestCount) continue;
+      best = domain;
+      bestCount = count;
+    }
+    return best;
+  }
+
+  async function mountWabbajackDeck(list, mods, { title = '' } = {}) {
     const existing = document.getElementById('nxtk-control-deck');
     if (existing) {
       disposeControlDeck(existing);
       existing.remove();
     }
 
-    const ndc = new NexusExt.NDC(mods[0].file.mod.game.domainName, wabbajackCollectionId(list));
+    const gameDomain = dominantGameDomain(mods) || mods[0].file.mod.game.domainName;
+    const ndc = new NexusExt.NDC(gameDomain, wabbajackCollectionId(list));
     await ndc.initFromMods(mods);
+    ndc.displayName = title || list.name || '';
 
     const deck = createControlDeck(ndc);
-    deck.querySelector('#nxtk-update-collection')?.remove();
+    for (const id of ['#nxtk-update-collection', '#nxtk-dl-mandatory', '#nxtk-dl-optional']) {
+      deck.querySelector(id)?.remove();
+    }
 
     const host = document.getElementById('mainContent') || document.body;
     host.insertBefore(deck, host.firstChild);
     deck.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    ndc.ui?.openLogs?.();
     logSkippedArchives(ndc, list.skipped);
+    ndc.ui?.logText?.(NXTK.t('wjQueueReady', null,
+      'The modlist is queued. Press the download button to start.'), 'info');
     return ndc;
   }
 
@@ -1477,17 +1571,17 @@ window.NexusExt = window.NexusExt || {};
 
         const lines = [
           NXTK.t('wjImportSummary', [String(mods.length), String(list.total), title],
-            `${mods.length} of ${list.total} files queued from ${title}.`)
+            `${mods.length} of the ${list.total} archives in ${title} come from Nexus and are queued.`)
         ];
         if (list.skipped.length) {
           lines.push(NXTK.t('wjImportSkipped', [String(list.skipped.length)],
-            `${list.skipped.length} left out — hosted outside Nexus, or an unrecognised game.`));
+            `The other ${list.skipped.length} are not Nexus downloads — Wabbajack gets those itself. The log lists them.`));
         }
         await nxtkAlert(lines.join('\n'));
         if (!mods.length) return;
 
         closeDialog?.();
-        await mountWabbajackDeck(list, mods);
+        await mountWabbajackDeck(list, mods, { title });
       } catch (cause) {
         const reason = String(cause?.message || cause);
         await nxtkAlert(NXTK.t('wjImportFailed', [reason], `Could not read this modlist: ${reason}`));
@@ -1575,6 +1669,7 @@ window.NexusExt = window.NexusExt || {};
       get modsCount() { return state.modsCount; },
       log: null,
       logText: null,
+      openLogs: null,
       incrementProgress: null,
       setProgress: null,
       setDownloadMethod: null,
@@ -1583,22 +1678,18 @@ window.NexusExt = window.NexusExt || {};
       endDownload: null
     };
 
-    deck.innerHTML = `
-      <div class="nxtk-deck-header">
-        <div class="nxtk-deck-heading">
-          <div class="nxtk-deck-kicker">NexusMods Bypass</div>
-          <div class="nxtk-deck-title">
-            <span class="nxtk-deck-title-main">${svgIcon('download')} ${L('deckTitle', 'Collection Downloader')} <span class="nxtk-badge nxtk-badge-accent" id="nxtk-total-mods"></span></span>
-            <span class="nxtk-badge nxtk-badge-outline">${L('deckReadyQueue', 'Ready Queue')}</span>
-          </div>
-          <div class="nxtk-deck-subtitle">${L('deckSubtitle', 'Queue full collections, import finished downloads, and tune download pacing from one control surface.')}</div>
-        </div>
-      </div>
+    const modlistLabel = NXTK.t('dlgWabbajackTitle', null, 'Wabbajack Modlist Import');
+    const deckHeading = ndc.external
+      ? escapeHtml(String(ndc.displayName || modlistLabel).slice(0, 80))
+      : L('deckTitle', 'Collection Downloader');
+    const deckBadge = ndc.external
+      ? escapeHtml(modlistLabel)
+      : L('deckReadyQueue', 'Ready Queue');
+    const deckSubtitle = ndc.external
+      ? L('dlgWabbajackLead', 'Queue every Nexus file a modlist needs.')
+      : L('deckSubtitle', 'Queue full collections, import finished downloads, and tune download pacing from one control surface.');
 
-      <div class="nxtk-deck-panels">
-        <div class="nxtk-panel nxtk-panel-compact" id="nxtk-download-method-panel">
-          <div class="nxtk-panel-label">${L('deckDownloadMethod', 'Download Method')}</div>
-          <div class="nxtk-radio-group">
+    const vortexMethodRow = ndc.external ? '' : `
             <label class="nxtk-radio-label">
               <input type="radio" name="nxtk-dl-method" value="${DOWNLOAD_METHOD_VORTEX}">
               <span class="nxtk-radio-copy">
@@ -1606,7 +1697,24 @@ window.NexusExt = window.NexusExt || {};
                 <span class="nxtk-radio-hint">${L('deckMethodVortexHint', 'Best for one-click handoff into your Vortex queue.')}</span>
               </span>
               ${svgIcon('vortex')}
-            </label>
+            </label>`;
+
+    deck.innerHTML = `
+      <div class="nxtk-deck-header">
+        <div class="nxtk-deck-heading">
+          <div class="nxtk-deck-kicker">NexusMods Bypass</div>
+          <div class="nxtk-deck-title">
+            <span class="nxtk-deck-title-main">${svgIcon('download')} ${deckHeading} <span class="nxtk-badge nxtk-badge-accent" id="nxtk-total-mods"></span></span>
+            <span class="nxtk-badge nxtk-badge-outline">${deckBadge}</span>
+          </div>
+          <div class="nxtk-deck-subtitle">${deckSubtitle}</div>
+        </div>
+      </div>
+
+      <div class="nxtk-deck-panels">
+        <div class="nxtk-panel nxtk-panel-compact" id="nxtk-download-method-panel">
+          <div class="nxtk-panel-label">${L('deckDownloadMethod', 'Download Method')}</div>
+          <div class="nxtk-radio-group">${vortexMethodRow}
             <label class="nxtk-radio-label">
               <input type="radio" name="nxtk-dl-method" value="${DOWNLOAD_METHOD_BROWSER}">
               <span class="nxtk-radio-copy">
@@ -1701,6 +1809,7 @@ window.NexusExt = window.NexusExt || {};
     prepareToolkitSurface(deck);
     const $ = (sel) => deck.querySelector(sel);
 
+
     $('#nxtk-total-mods').textContent =
       NXTK.tPlural('deckModCount', ndc.mods.all.length, `${ndc.mods.all.length} mods`);
     $('#nxtk-all-count').textContent = `${ndc.mods.all.length}`;
@@ -1717,6 +1826,7 @@ window.NexusExt = window.NexusExt || {};
     ui.setDownloadMethod = (method) => {
       const normalized = Number(method);
       if (normalized !== DOWNLOAD_METHOD_VORTEX && normalized !== DOWNLOAD_METHOD_BROWSER) return;
+      if (ndc.external && normalized === DOWNLOAD_METHOD_VORTEX) return;
       ndc.downloadMethod = normalized;
       deck.querySelectorAll('input[name="nxtk-dl-method"]').forEach((radio) => {
         radio.checked = Number(radio.value) === normalized;
@@ -1728,17 +1838,16 @@ window.NexusExt = window.NexusExt || {};
       if (parseInt(r.value) === ndc.downloadMethod) r.checked = true;
       r.addEventListener('change', () => {
         ui.setDownloadMethod(parseInt(r.value));
-        NexusExt.Storage.patchSetting('NDC_downloadMethod', ndc.downloadMethod);
+        // A modlist forces its own method; saving it would change what a real collection does.
+        if (!ndc.external) NexusExt.Storage.patchSetting('NDC_downloadMethod', ndc.downloadMethod);
       });
     });
     syncDownloadMethodUI();
 
     $('#nxtk-import-mods').addEventListener('click', () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.multiple = true;
+      const input = createImportFileInput();
       input.addEventListener('change', async () => {
-        const fileNames = Array.from(input.files, (file) => file.name);
+        const { names: fileNames, skipped } = collectImportFileNames(input.files);
         const { matched: downloaded, unmatchedCount } = matchModsToFileNames(ndc.mods.all, fileNames);
         const history = await NexusExt.Storage.getHistory();
         const existing = history?.[ndc.gameId]?.[ndc.collectionId] || {};
@@ -1760,8 +1869,9 @@ window.NexusExt = window.NexusExt || {};
             `Imported ${downloaded.length} of ${ndc.mods.all.length} collection mods into history.`),
           NXTK.tPlural('alertUnmatchedFiles', unmatchedCount,
             `${unmatchedCount} selected file${unmatchedCount === 1 ? '' : 's'} did not match this collection.`)
-        ].join('\n');
-        await nxtkAlert(summary);
+        ];
+        if (skipped) summary.push(importSkippedNotice());
+        await nxtkAlert(summary.join('\n'));
       });
       input.click();
     });
@@ -1790,6 +1900,7 @@ window.NexusExt = window.NexusExt || {};
     $('#nxtk-update-collection').addEventListener('click', () => { menuController?.close(); showUpdateModal(ndc); });
 
     $('#nxtk-play-pause').addEventListener('click', () => {
+      if (ndc.runStatus === STATUS_STOPPED || ndc.runStatus === STATUS_FINISHED) return;
       const pausing = ndc.runStatus !== STATUS_PAUSED;
       ndc.setPaused?.(pausing);
       ui.setDownloadStatus(pausing ? 'paused' : 'running');
@@ -1811,6 +1922,7 @@ window.NexusExt = window.NexusExt || {};
     logToggle.addEventListener('click', () => {
       setLogsOpen(state.logHidden);
     });
+    ui.openLogs = () => setLogsOpen(true);
 
     const MAX_LOG_ROWS = 300;
     let logScrollFrame = 0;
@@ -1968,6 +2080,13 @@ window.NexusExt = window.NexusExt || {};
       announce(NXTK.t('annOutcome', [result.label, progressText()],
         `${result.label}. ${state.progress} of ${state.modsCount} mods.`));
       ui.logText(result.message, outcome === 'error' ? 'error' : 'info');
+
+      if (ndc.external && (outcome === 'finished' || outcome === 'partial')) {
+        const folder = ndc.landedIn || ndc.downloadFolder || '';
+        ui.logText(NXTK.t('wjDoneNextSteps', [folder],
+          `In Wabbajack, set the Downloads folder to ${folder} and start the install. `
+          + 'It checks every file and only fetches what is still missing.'), 'info');
+      }
     };
 
     function renderProgress() {
@@ -2212,11 +2331,13 @@ window.NexusExt = window.NexusExt || {};
     });
 
     $('#nxtk-import-dl-mods').addEventListener('click', () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.multiple = true;
+      const input = createImportFileInput();
       input.addEventListener('change', () => {
-        const fileNames = Array.from(input.files, (file) => file.name);
+        const { names: fileNames, skipped } = collectImportFileNames(input.files);
+        if (!fileNames.length) {
+          if (skipped) nxtkAlert(importSkippedNotice());
+          return;
+        }
         const { matched } = matchModsToFileNames(ndc.mods.all, fileNames);
         const downloadedIds = new Set(matched.map(modEntryId));
         listEl.querySelectorAll('.nxtk-mod-item').forEach(el => {
@@ -2224,9 +2345,11 @@ window.NexusExt = window.NexusExt || {};
         });
         updateCount();
         const notDl = listEl.querySelectorAll('.nxtk-mod-item.nxtk-selected').length;
-        nxtkAlert(notDl
+        const summary = [notDl
           ? NXTK.tPlural('alertSelectedNotDownloaded', notDl, `Selected ${notDl} mods not yet downloaded.`)
-          : NXTK.t('alertAllDownloaded', null, 'All mods already downloaded.'));
+          : NXTK.t('alertAllDownloaded', null, 'All mods already downloaded.')];
+        if (skipped) summary.push(importSkippedNotice());
+        nxtkAlert(summary.join('\n'));
       });
       input.click();
     });
