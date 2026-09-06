@@ -21,6 +21,13 @@ they are simply not listed.
 
 ### Changed
 
+- **A report now shows what happened just before the fault, and the log switch is gone.** *Verbose
+  extension logs* asked the reader to find and flip a setting whose own description admitted it changed
+  nothing about bug reports — it only quietened the console. Activity is now recorded regardless and the
+  last handful of entries ride along in the report under *Leading up to it*, sanitised the same way
+  everything else is. That is the part a maintainer actually needs: not that a download failed, but the
+  three steps before it. The console itself stays quiet while things work — only warnings and errors are
+  printed, so the extension does not add to the noise a Nexus page already produces.
 - **The welcome page was rebuilt.** It was a narrow column down the middle of an empty tab, with the one
   thing a new reader should do — open Nexus Mods — sitting below everything else. The action now comes
   straight after the title, the three quick-start steps run across the page as a joined path that stacks

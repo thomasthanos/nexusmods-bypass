@@ -19,10 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Arşivlenmiş dosya düğmeleri"
-  },
-  "setDebugLogsLabel": {
-    "message": "Ayrıntılı eklenti günlükleri"
-  },
+  },
   "btnPageSettings": {
     "message": "Sayfa ayarları"
   },
@@ -492,10 +489,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus gizlediğinde, arşivlenmiş dosya girişlerine Vortex ve tarayıcı indirme düğmeleri ekler."
-  },
-  "setDebugLogsDesc": {
-    "message": "NexusMods Bypass etkinliğini konsola ayrıntılı yazar. Hatalar her zaman gösterilir ve bu ayar hata raporlarını etkilemez."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Tarayıcı indirme klasörü"
   },

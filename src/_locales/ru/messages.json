@@ -19,10 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Кнопки для архивных файлов"
-  },
-  "setDebugLogsLabel": {
-    "message": "Подробные логи расширения"
-  },
+  },
   "btnPageSettings": {
     "message": "Настройки страницы"
   },
@@ -632,10 +629,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Добавляет кнопки загрузки Vortex и браузера к архивным файлам, скрытым Nexus."
-  },
-  "setDebugLogsDesc": {
-    "message": "Выводит подробную активность NexusMods Bypass в консоль. Ошибки показываются всегда, на отчёты это не влияет."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Папка загрузок браузера"
   },

@@ -19,10 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Przyciski plików archiwalnych"
-  },
-  "setDebugLogsLabel": {
-    "message": "Szczegółowe logi rozszerzenia"
-  },
+  },
   "btnPageSettings": {
     "message": "Ustawienia strony"
   },
@@ -492,10 +489,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Dodaje przyciski pobierania Vortex i przeglądarki do wpisów plików archiwalnych, gdy Nexus je ukrywa."
-  },
-  "setDebugLogsDesc": {
-    "message": "Wypisuje w konsoli szczegółową aktywność NexusMods Bypass. Błędy są zawsze pokazywane, a to ustawienie nie wpływa na raporty błędów."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Folder pobierania przeglądarki"
   },

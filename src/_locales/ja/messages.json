@@ -19,10 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "アーカイブ済みファイルのボタン"
-  },
-  "setDebugLogsLabel": {
-    "message": "詳細な拡張機能ログ"
-  },
+  },
   "btnPageSettings": {
     "message": "ページ設定"
   },
@@ -492,10 +489,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus が非表示にしているアーカイブ済みファイルに、Vortex とブラウザーのダウンロードボタンを追加します。"
-  },
-  "setDebugLogsDesc": {
-    "message": "NexusMods Bypass の詳細な動作をコンソールに出力します。エラーは常に表示され、この設定はバグレポートに影響しません。"
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "ブラウザーのダウンロードフォルダー"
   },

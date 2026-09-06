@@ -19,10 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "보관된 파일 버튼"
-  },
-  "setDebugLogsLabel": {
-    "message": "상세 확장 프로그램 로그"
-  },
+  },
   "btnPageSettings": {
     "message": "페이지 설정"
   },
@@ -492,10 +489,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus가 숨기는 보관된 파일 항목에 Vortex 및 브라우저 다운로드 버튼을 추가합니다."
-  },
-  "setDebugLogsDesc": {
-    "message": "NexusMods Bypass의 상세 동작을 콘솔에 출력합니다. 오류는 항상 표시되며 이 설정은 버그 보고서에 영향을 주지 않습니다."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "브라우저 다운로드 폴더"
   },

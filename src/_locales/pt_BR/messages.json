@@ -19,10 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Botões de arquivos arquivados"
-  },
-  "setDebugLogsLabel": {
-    "message": "Logs detalhados da extensão"
-  },
+  },
   "btnPageSettings": {
     "message": "Configurações da página"
   },
@@ -562,10 +559,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Adiciona botões de download do Vortex e do navegador aos arquivos arquivados ocultados pelo Nexus."
-  },
-  "setDebugLogsDesc": {
-    "message": "Exibe no console a atividade detalhada do NexusMods Bypass. Os erros sempre aparecem e os relatórios não são afetados."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Pasta de downloads do navegador"
   },

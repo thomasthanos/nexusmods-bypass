@@ -231,6 +231,38 @@
 
   let activity = {};
 
+  const MAX_TRAIL_ENTRIES = 8;
+  const MAX_TRAIL_CHARS = 90;
+  const activityTrail = [];
+
+  function trailText(args) {
+    const parts = (Array.isArray(args) ? args : [args]).map((value) => {
+      if (typeof value === 'string') return value;
+      if (value instanceof Error) return value.message;
+      if (value && typeof value === 'object') return String(value.code || value.message || '');
+      return String(value ?? '');
+    });
+    return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // The console setting never reaches the person reading a report; this does.
+  function noteActivity(level, args) {
+    const text = sanitizeDiagnosticText(trailText(args), MAX_TRAIL_CHARS);
+    if (!text) return;
+    activityTrail.push({ at: Date.now(), level: String(level || 'info'), text });
+    while (activityTrail.length > MAX_TRAIL_ENTRIES) activityTrail.shift();
+  }
+
+  function describeActivityTrail() {
+    if (!activityTrail.length) return [];
+    const lines = ['──────── Leading up to it ────────'];
+    for (const entry of activityTrail) {
+      const time = new Date(entry.at).toLocaleTimeString('en-GB');
+      lines.push(`${time} ${entry.level.padEnd(5)} ${entry.text}`);
+    }
+    return lines;
+  }
+
   function setActivity(patch) {
     if (!patch || typeof patch !== 'object') return;
     activity = { ...activity, ...patch, at: Date.now() };
@@ -657,6 +689,12 @@
       lines.push(...digest);
     }
 
+    const trail = describeActivityTrail();
+    if (trail.length) {
+      lines.push('');
+      lines.push(...trail);
+    }
+
     lines.push('');
     lines.push(...await describeSession(errors.length));
 
@@ -707,6 +745,12 @@
     if (digest.length) {
       lines.push('');
       lines.push(...digest);
+    }
+
+    const trail = describeActivityTrail();
+    if (trail.length) {
+      lines.push('');
+      lines.push(...trail);
     }
 
     lines.push('');
@@ -910,6 +954,7 @@
     isSafeNexusPageUrl,
     recordError,
     setActivity,
+    noteActivity,
     describeActivity,
     buildBugReport,
     buildReportIssueUrl,

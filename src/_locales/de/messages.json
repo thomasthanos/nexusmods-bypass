@@ -19,10 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Buttons für archivierte Dateien"
-  },
-  "setDebugLogsLabel": {
-    "message": "Ausführliche Erweiterungs-Logs"
-  },
+  },
   "btnPageSettings": {
     "message": "Seiteneinstellungen"
   },
@@ -562,10 +559,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Vortex- und Browser-Download-Buttons zu archivierten Dateien hinzufügen, wenn Nexus sie ausblendet."
-  },
-  "setDebugLogsDesc": {
-    "message": "Gibt detaillierte NexusMods-Bypass-Aktivität in der Konsole aus. Fehler werden immer angezeigt; Fehlerberichte sind davon nicht betroffen."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Browser-Download-Ordner"
   },

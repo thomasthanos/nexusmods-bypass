@@ -20,9 +20,6 @@
   "setHandleArchivedFilesLabel": {
     "message": "Archived file buttons"
   },
-  "setDebugLogsLabel": {
-    "message": "Verbose extension logs"
-  },
   "btnPageSettings": {
     "message": "Page settings"
   },
@@ -702,10 +699,6 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Add Vortex and browser download buttons to archived file entries when Nexus hides them.",
-    "description": "Setting description."
-  },
-  "setDebugLogsDesc": {
-    "message": "Print detailed NexusMods Bypass activity in the console. Errors are always shown, and bug reports are unaffected by this setting.",
     "description": "Setting description."
   },
   "setDownloadFolderLabel": {

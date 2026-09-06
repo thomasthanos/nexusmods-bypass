@@ -19,10 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "已归档文件按钮"
-  },
-  "setDebugLogsLabel": {
-    "message": "详细扩展日志"
-  },
+  },
   "btnPageSettings": {
     "message": "页面设置"
   },
@@ -527,10 +524,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "当 Nexus 隐藏归档文件时，为其添加 Vortex 与浏览器下载按钮。"
-  },
-  "setDebugLogsDesc": {
-    "message": "在控制台输出 NexusMods Bypass 的详细活动记录。错误始终显示，且不影响错误报告。"
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "浏览器下载文件夹"
   },

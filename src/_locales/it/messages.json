@@ -19,10 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Pulsanti per i file archiviati"
-  },
-  "setDebugLogsLabel": {
-    "message": "Log dettagliati dell'estensione"
-  },
+  },
   "btnPageSettings": {
     "message": "Impostazioni pagina"
   },
@@ -492,10 +489,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Aggiunge i pulsanti di download Vortex e browser alle voci dei file archiviati quando Nexus li nasconde."
-  },
-  "setDebugLogsDesc": {
-    "message": "Stampa nella console l'attività dettagliata di NexusMods Bypass. Gli errori sono sempre mostrati e i report di bug non sono influenzati da questa impostazione."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Cartella di download del browser"
   },

@@ -19,10 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Κουμπιά αρχειοθετημένων αρχείων"
-  },
-  "setDebugLogsLabel": {
-    "message": "Αναλυτικά logs επέκτασης"
-  },
+  },
   "btnPageSettings": {
     "message": "Ρυθμίσεις σελίδας"
   },
@@ -562,10 +559,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Προσθέτει κουμπιά λήψης Vortex και περιηγητή σε αρχειοθετημένα αρχεία όταν το Nexus τα κρύβει."
-  },
-  "setDebugLogsDesc": {
-    "message": "Εκτυπώνει αναλυτική δραστηριότητα του NexusMods Bypass στην κονσόλα. Τα σφάλματα εμφανίζονται πάντα και οι αναφορές δεν επηρεάζονται."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Φάκελος λήψεων περιηγητή"
   },

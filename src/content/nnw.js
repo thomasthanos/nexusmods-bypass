@@ -57,11 +57,13 @@ window.NexusExt = window.NexusExt || {};
     fn('%cNexusMods Bypass%c ', LOG_BADGE, LOG_STYLES[level], ...args);
   }
 
+  // Recorded for the bug report either way; printed only when something is wrong,
+  // so a working page stays quiet.
   const Logger = {
     debug: (...args) => { if (cfg.DebugLogs) emitLog('debug', args); },
-    info: (...args) => { if (cfg.DebugLogs) emitLog('info', args); },
-    warn: (...args) => { if (cfg.DebugLogs) emitLog('warn', args); },
-    error: (...args) => emitLog('error', args)
+    info: (...args) => { NXTK.noteActivity?.('info', args); if (cfg.DebugLogs) emitLog('info', args); },
+    warn: (...args) => { NXTK.noteActivity?.('warn', args); emitLog('warn', args); },
+    error: (...args) => { NXTK.noteActivity?.('error', args); emitLog('error', args); }
   };
 
   function safeSendMessage(message) {
