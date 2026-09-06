@@ -35,6 +35,9 @@
   "ratingPrompt": {
     "message": "도움이 되었나요? 짧은 리뷰가 다른 모더들에게 도움이 됩니다."
   },
+  "ratingCta": {
+    "message": "$1 에서 평가하기"
+  },
   "methodCardTitle": {
     "message": "Vortex 또는 브라우저"
   },
@@ -298,6 +301,9 @@
   },
   "deckProgress": {
     "message": "다운로드 진행 상황"
+  },
+  "deckTimeLeft": {
+    "message": "약 $1 남음"
   },
   "deckAdaptivePacing": {
     "message": "적응형 속도 조절"
@@ -1187,6 +1193,9 @@
   },
   "wjImportFailed": {
     "message": "이 모드리스트를 읽을 수 없습니다: $1"
+  },
+  "wjImportNeedsExtracting": {
+    "message": "브라우저는 $1 압축 파일을 열 수 없습니다. 압축을 풀고 안에 있는 .wabbajack 파일을 선택하세요."
   },
   "wjQueueReady": {
     "message": "모드리스트를 대기열에 넣었습니다. 다운로드 버튼을 눌러 시작하세요."

@@ -35,6 +35,9 @@
   "ratingPrompt": {
     "message": "Przydało się? Krótka opinia pomoże innym modderom to znaleźć."
   },
+  "ratingCta": {
+    "message": "Oceń w $1"
+  },
   "methodCardTitle": {
     "message": "Vortex albo przeglądarka"
   },
@@ -298,6 +301,9 @@
   },
   "deckProgress": {
     "message": "Postęp pobierania"
+  },
+  "deckTimeLeft": {
+    "message": "Pozostało około $1"
   },
   "deckAdaptivePacing": {
     "message": "Adaptacyjne tempo"
@@ -1415,6 +1421,9 @@
   },
   "wjImportFailed": {
     "message": "Nie udało się odczytać tej listy: $1"
+  },
+  "wjImportNeedsExtracting": {
+    "message": "Przeglądarka nie może otworzyć archiwum $1. Rozpakuj je i wybierz znajdujący się w nim plik .wabbajack."
   },
   "wjQueueReady": {
     "message": "Lista modów jest w kolejce. Naciśnij przycisk pobierania, aby rozpocząć."

@@ -35,6 +35,9 @@
   "ratingPrompt": {
     "message": "Ti è utile? Una breve recensione aiuta altri modder a trovarlo."
   },
+  "ratingCta": {
+    "message": "Valuta su $1"
+  },
   "methodCardTitle": {
     "message": "Vortex o il browser"
   },
@@ -298,6 +301,9 @@
   },
   "deckProgress": {
     "message": "Avanzamento download"
+  },
+  "deckTimeLeft": {
+    "message": "Circa $1 rimanenti"
   },
   "deckAdaptivePacing": {
     "message": "Ritmo adattivo"
@@ -1263,6 +1269,9 @@
   },
   "wjImportFailed": {
     "message": "Impossibile leggere questa modlist: $1"
+  },
+  "wjImportNeedsExtracting": {
+    "message": "Un browser non può aprire un archivio $1. Estrailo e seleziona il file .wabbajack che contiene."
   },
   "wjQueueReady": {
     "message": "La modlist è in coda. Premi il pulsante di download per iniziare."

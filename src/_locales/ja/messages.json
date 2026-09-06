@@ -35,6 +35,9 @@
   "ratingPrompt": {
     "message": "役に立ちましたか? 短いレビューが他の MOD ユーザーの助けになります。"
   },
+  "ratingCta": {
+    "message": "$1 で評価する"
+  },
   "methodCardTitle": {
     "message": "Vortex かブラウザー"
   },
@@ -298,6 +301,9 @@
   },
   "deckProgress": {
     "message": "ダウンロードの進行状況"
+  },
+  "deckTimeLeft": {
+    "message": "残り約 $1"
   },
   "deckAdaptivePacing": {
     "message": "自動ペース調整"
@@ -1187,6 +1193,9 @@
   },
   "wjImportFailed": {
     "message": "このモッドリストを読み込めませんでした: $1"
+  },
+  "wjImportNeedsExtracting": {
+    "message": "ブラウザーは $1 アーカイブを開けません。展開してから、中にある .wabbajack ファイルを選んでください。"
   },
   "wjQueueReady": {
     "message": "MOD リストをキューに登録しました。ダウンロードボタンを押して開始してください。"

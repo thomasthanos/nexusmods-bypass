@@ -35,6 +35,10 @@
   "ratingPrompt": {
     "message": "Enjoying it? A short review helps other modders find it."
   },
+  "ratingCta": {
+    "message": "Rate on $1",
+    "description": "Link that opens the listing where a rating can be left. $1 is the store name, which is not translated."
+  },
   "methodCardTitle": {
     "message": "Vortex or your browser",
     "description": "Onboarding card title."
@@ -370,6 +374,10 @@
   "deckProgress": {
     "message": "Download Progress",
     "description": "Panel label above the progress bar."
+  },
+  "deckTimeLeft": {
+    "message": "About $1 left",
+    "description": "Remaining time for the whole queue, measured from the files already finished. $1 is a duration such as 12:30."
   },
   "deckAdaptivePacing": {
     "message": "Adaptive Pacing",
@@ -1538,6 +1546,10 @@
   "wjImportFailed": {
     "message": "Could not read this modlist: $1",
     "description": "Shown when a .wabbajack file cannot be read. $1 is the reason."
+  },
+  "wjImportNeedsExtracting": {
+    "message": "A browser cannot open a $1 archive. Extract it, then pick the .wabbajack file from inside it.",
+    "description": "Shown when the picked file is a RAR or 7z archive, which a browser cannot open. $1 is the format name."
   },
   "wjQueueReady": {
     "message": "The modlist is queued. Press the download button to start.",

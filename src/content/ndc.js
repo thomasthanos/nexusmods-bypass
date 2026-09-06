@@ -38,6 +38,69 @@ window.NexusExt = window.NexusExt || {};
       : `${minutes}:${pad(secs)}`;
   };
 
+  // A remaining-time figure is only worth showing if it is measured, so each finished file
+  // contributes two samples: how long its bytes took, and the gap before the next one
+  // started. That gap is the link resolve — a mod page fetch plus a POST — and on a queue
+  // of small files it is a real share of the total, so leaving it out would read low.
+  // Samples taken across a pause or a rate-limit wait are thrown away rather than averaged
+  // in, because that time says nothing about how fast the remaining files will arrive.
+  function createQueueEta(sizesKb) {
+    const sizes = sizesKb.map((value) => (Number(value) > 0 ? Number(value) : 0));
+    const known = sizes.filter((value) => value > 0);
+    const averageKb = known.length
+      ? known.reduce((sum, value) => sum + value, 0) / known.length
+      : 0;
+    const sizeOf = (index) => (sizes[index] > 0 ? sizes[index] : averageKb);
+
+    let bytes = 0;
+    let transferMs = 0;
+    let overheadMs = 0;
+    let samples = 0;
+    let gaps = 0;
+    // null rather than 0: a timestamp is a valid value that must not read as "not set".
+    let startedAt = null;
+    let completedAt = null;
+    let spoiled = false;
+
+    return {
+      itemStarted() {
+        const now = Date.now();
+        if (completedAt !== null && !spoiled) {
+          overheadMs += now - completedAt;
+          gaps += 1;
+        }
+        startedAt = now;
+        completedAt = null;
+        spoiled = false;
+      },
+      itemCompleted(index) {
+        const now = Date.now();
+        if (startedAt !== null && !spoiled && sizeOf(index) > 0) {
+          transferMs += now - startedAt;
+          bytes += sizeOf(index) * 1024;
+          samples += 1;
+        }
+        startedAt = null;
+        completedAt = now;
+      },
+      spoil() {
+        spoiled = true;
+      },
+      // Zero means there is nothing honest to say yet.
+      remainingSeconds(index, total) {
+        if (!samples || transferMs <= 0 || !averageKb) return 0;
+        const bytesPerSecond = bytes / (transferMs / 1000);
+        if (!(bytesPerSecond > 0)) return 0;
+
+        let remainingBytes = 0;
+        for (let cursor = index; cursor < total; cursor += 1) remainingBytes += sizeOf(cursor) * 1024;
+        const remainingFiles = Math.max(0, total - index);
+        const perFileOverhead = gaps ? overheadMs / gaps / 1000 : 0;
+        return remainingBytes / bytesPerSecond + remainingFiles * perFileOverhead;
+      }
+    };
+  }
+
   const escapeHtml = NXTK.escapeHtml;
   const T = (key, fallback) => NXTK.t(key, null, fallback);
   const TS = (key, subs, fallback) => NXTK.t(key, subs.map(String), fallback);
@@ -645,6 +708,7 @@ window.NexusExt = window.NexusExt || {};
         queueProgressBase,
         visibleTotal,
         fallbackQueueTotal: pending.length,
+        sizesKb: pending.map((item) => item.sizeKb),
         start: () => NexusExt.Storage.sendDownloadCommand('NDC_QUEUE_START', {
           gameId: this.gameId,
           collectionId: this.collectionId,
@@ -661,6 +725,7 @@ window.NexusExt = window.NexusExt || {};
       queueProgressBase = 0,
       visibleTotal = 0,
       fallbackQueueTotal = 0,
+      sizesKb = [],
       start = null
     } = {}) {
       return new Promise((resolve) => {
@@ -670,6 +735,8 @@ window.NexusExt = window.NexusExt || {};
         let pollFailures = 0;
         let waitTimer = null;
         let waitRow = null;
+        const queueTotal = sizesKb.length || fallbackQueueTotal;
+        const eta = sizesKb.length ? createQueueEta(sizesKb) : null;
 
         const stopWaitCountdown = () => {
           clearInterval(waitTimer);
@@ -724,6 +791,7 @@ window.NexusExt = window.NexusExt || {};
           if (settled) return;
           settled = true;
           cleanup();
+          this.ui.setTimeLeft?.(0);
           if (error) this.ui.logText(TS('logBackgroundError', [error], `Background collection error: ${error}`), 'error');
           this.ui.endDownload(outcome);
           resolve();
@@ -795,16 +863,22 @@ window.NexusExt = window.NexusExt || {};
           if (message.status === 'paused' || message.status === 'running') {
             this.ui.setDownloadStatus?.(message.status);
           }
+          if (message.status === 'paused') eta?.spoil();
           if (message.type === 'NXT_NDC_PROGRESS') {
             stopWaitCountdown();
             const name = message.itemName || 'Nexus file';
             if (message.itemState === 'started') {
+              eta?.itemStarted();
               this.ui.logText(TS('logDownloading', [name], `Downloading: ${name}`));
             } else if (message.itemState === 'complete') {
+              eta?.itemCompleted(queueIndex - 1);
+              this.ui.setTimeLeft?.(eta ? eta.remainingSeconds(queueIndex, queueTotal) : 0);
               this.ui.logText(TS('logCompleted', [name], `Completed: ${name}`), 'info');
             } else if (message.itemState === 'retrying') {
+              eta?.spoil();
               this.ui.logText(TS('logRetryingInterrupted', [name], `Retrying interrupted download: ${name}`), 'info');
             } else if (message.itemState === 'failed') {
+              eta?.spoil();
               const reason = message.error || 'download error';
               this.ui.logText(TS('logFailedItem', [name, reason], `Failed: ${name} (${reason})`), 'error');
             }
@@ -812,6 +886,7 @@ window.NexusExt = window.NexusExt || {};
           }
           if (message.type === 'NXT_NDC_STATE') return;
           if (message.type === 'NXT_NDC_WAITING') {
+            eta?.spoil();
             startWaitCountdown(Number(message.until) || 0);
             return;
           }
@@ -1268,6 +1343,7 @@ window.NexusExt = window.NexusExt || {};
     STATUS_FINISHED,
     STATUS_STOPPED,
     STATUS_TEXT,
-    convertSize
+    convertSize,
+    formatDuration
   };
 })();

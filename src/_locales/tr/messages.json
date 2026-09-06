@@ -35,6 +35,9 @@
   "ratingPrompt": {
     "message": "İşine yaradı mı? Kısa bir değerlendirme diğer modcuların bulmasına yardım eder."
   },
+  "ratingCta": {
+    "message": "$1 üzerinde puan ver"
+  },
   "methodCardTitle": {
     "message": "Vortex ya da tarayıcı"
   },
@@ -298,6 +301,9 @@
   },
   "deckProgress": {
     "message": "İndirme ilerlemesi"
+  },
+  "deckTimeLeft": {
+    "message": "Yaklaşık $1 kaldı"
   },
   "deckAdaptivePacing": {
     "message": "Uyarlanabilir hız"
@@ -1263,6 +1269,9 @@
   },
   "wjImportFailed": {
     "message": "Bu mod listesi okunamadı: $1"
+  },
+  "wjImportNeedsExtracting": {
+    "message": "Bir tarayıcı $1 arşivini açamaz. Arşivi çıkarın ve içindeki .wabbajack dosyasını seçin."
   },
   "wjQueueReady": {
     "message": "Mod listesi kuyruğa alındı. Başlamak için indirme düğmesine basın."

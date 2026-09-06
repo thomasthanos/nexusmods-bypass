@@ -176,7 +176,27 @@
     return true;
   }
 
-  async function findEntry(file, wantedName, maxBytes) {
+  const lowerAscii = (byte) => (byte >= 0x41 && byte <= 0x5a ? byte + 0x20 : byte);
+
+  // Entry names are UTF-8, but the suffixes looked for here are ASCII, so comparing the
+  // trailing bytes is enough and never has to decode the name.
+  function matchesAsciiSuffix(view, start, length, suffix) {
+    if (length <= suffix.length) return false;
+    const from = start + length - suffix.length;
+    for (let index = 0; index < suffix.length; index += 1) {
+      if (lowerAscii(view.getUint8(from + index)) !== lowerAscii(suffix.charCodeAt(index))) return false;
+    }
+    return true;
+  }
+
+  function decodeEntryName(view, start, length) {
+    const bytes = new Uint8Array(view.buffer, view.byteOffset + start, length);
+    return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+  }
+
+  // `wanted` is { name } for an exact match or { suffix } for the first entry whose name
+  // ends with it, which is how a modlist is found inside the archive it was published in.
+  async function findEntry(file, wanted, maxBytes) {
     const directory = await readDirectoryInfo(file);
     const view = await readView(file, directory.offset, directory.offset + directory.size);
     let offset = 0;
@@ -200,11 +220,23 @@
       const nextOffset = nameStart + nameLength + extraLength + commentLength;
       if (nextOffset > view.byteLength) fail('bad-central-directory', 'A ZIP directory entry is truncated.');
 
-      if (matchesAsciiName(view, nameStart, nameLength, wantedName)) {
+      const matched = wanted.name !== undefined
+        ? matchesAsciiName(view, nameStart, nameLength, wanted.name)
+        : matchesAsciiSuffix(view, nameStart, nameLength, wanted.suffix);
+
+      if (matched) {
+        const name = decodeEntryName(view, nameStart, nameLength);
         if (diskStart !== 0) fail('split-archive', 'Split ZIP entries are not supported.');
         if (flags & 0x0041) fail('encrypted-entry', 'Encrypted ZIP entries are not supported.');
         if (method !== 0 && method !== 8) {
           fail('unsupported-compression', `Unsupported ZIP compression method ${method}.`);
+        }
+        // Decided before any size is looked at: a deflated entry's unpacked size can
+        // exceed the whole archive, and the caller that only wants a slice must be told
+        // why it cannot have one rather than that the entry is too large.
+        if (wanted.storedOnly && method !== 0) {
+          fail('entry-compressed', `"${name}" is compressed inside this archive`
+            + ' — extract it and pick the extracted file instead.');
         }
 
         const fields = [];
@@ -217,13 +249,13 @@
         if (wide.localOffset !== undefined) localOffset = wide.localOffset;
 
         if (uncompressedSize > maxBytes || compressedSize > maxBytes + 1024 * 1024) {
-          fail('entry-too-large', `The "${wantedName}" entry holds ${humanSize(uncompressedSize)}`
+          fail('entry-too-large', `The "${name}" entry holds ${humanSize(uncompressedSize)}`
             + ` (${humanSize(compressedSize)} packed), above the ${humanSize(maxBytes)} this build reads.`);
         }
         if (method === 0 && compressedSize !== uncompressedSize) {
           fail('corrupt-entry', 'The stored ZIP entry has inconsistent sizes.');
         }
-        return { flags, method, crc32, compressedSize, uncompressedSize, localOffset };
+        return { name, flags, method, crc32, compressedSize, uncompressedSize, localOffset };
       }
       offset = nextOffset;
     }
@@ -289,20 +321,9 @@
     return (value ^ 0xffffffff) >>> 0;
   }
 
-  async function readEntry(file, wantedName, { maxBytes = DEFAULT_MAX_ENTRY_BYTES } = {}) {
-    if (!file || typeof file.slice !== 'function' || !Number.isSafeInteger(file.size)) {
-      fail('no-file', 'No readable ZIP file was provided.');
-    }
-    if (!/^[\x20-\x7e]{1,255}$/.test(wantedName || '')) {
-      fail('bad-entry-name', 'The requested ZIP entry name is invalid.');
-    }
-    if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
-      fail('bad-limit', 'The ZIP entry limit is invalid.');
-    }
-
-    const entry = await findEntry(file, wantedName, maxBytes);
-    if (!entry) return null;
-
+  // The local header repeats the directory record, so every field that decides where the
+  // data begins is checked against it before any of that data is used.
+  async function locateEntryData(file, entry) {
     const local = await readView(file, entry.localOffset, entry.localOffset + 30);
     if (local.getUint32(0, true) !== SIGNATURE.LOCAL) {
       fail('bad-entry', 'The ZIP entry has no valid local header.');
@@ -323,10 +344,27 @@
     }
 
     const localName = await readView(file, nameStart, nameStart + nameLength);
-    if (!matchesAsciiName(localName, 0, nameLength, wantedName)) {
+    if (!matchesAsciiName(localName, 0, nameLength, entry.name)) {
       fail('bad-entry', 'The ZIP entry name does not match its directory record.');
     }
+    return { dataStart, dataEnd };
+  }
 
+  async function readEntry(file, wantedName, { maxBytes = DEFAULT_MAX_ENTRY_BYTES } = {}) {
+    if (!file || typeof file.slice !== 'function' || !Number.isSafeInteger(file.size)) {
+      fail('no-file', 'No readable ZIP file was provided.');
+    }
+    if (!/^[\x20-\x7e]{1,255}$/.test(wantedName || '')) {
+      fail('bad-entry-name', 'The requested ZIP entry name is invalid.');
+    }
+    if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
+      fail('bad-limit', 'The ZIP entry limit is invalid.');
+    }
+
+    const entry = await findEntry(file, { name: wantedName }, maxBytes);
+    if (!entry) return null;
+
+    const { dataStart, dataEnd } = await locateEntryData(file, entry);
     const compressed = new Uint8Array(await file.slice(dataStart, dataEnd).arrayBuffer());
     const output = entry.method === 0 ? compressed : await inflateRaw(compressed, maxBytes);
 
@@ -337,5 +375,26 @@
     return output;
   }
 
-  NexusExt.ZipReader = Object.freeze({ ZipReaderError, readEntry });
+  // A modlist is normally published inside a plain .zip, next to its .meta.json. An
+  // archiver leaves an already-compressed file stored rather than deflated, and a stored
+  // entry's bytes are a valid archive in their own right — so the inner file is handed
+  // back as a slice of the outer one, with nothing unpacked and nothing held in memory.
+  async function sliceStoredEntry(file, suffix) {
+    if (!file || typeof file.slice !== 'function' || !Number.isSafeInteger(file.size)) {
+      fail('bad-file', 'The archive could not be read.');
+    }
+    if (typeof suffix !== 'string' || !suffix) {
+      fail('bad-limit', 'The ZIP entry suffix is invalid.');
+    }
+
+    // A stored entry cannot be larger than the file holding it, so the file's own size is
+    // the honest ceiling here — and nothing is read into memory either way.
+    const entry = await findEntry(file, { suffix, storedOnly: true }, file.size);
+    if (!entry) return null;
+
+    const { dataStart, dataEnd } = await locateEntryData(file, entry);
+    return { name: entry.name, blob: file.slice(dataStart, dataEnd) };
+  }
+
+  NexusExt.ZipReader = Object.freeze({ ZipReaderError, readEntry, sliceStoredEntry });
 })();

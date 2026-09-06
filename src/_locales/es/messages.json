@@ -35,6 +35,9 @@
   "ratingPrompt": {
     "message": "¿Te resulta útil? Una reseña corta ayuda a que otros lo encuentren."
   },
+  "ratingCta": {
+    "message": "Valorar en $1"
+  },
   "methodCardTitle": {
     "message": "Vortex o tu navegador"
   },
@@ -298,6 +301,9 @@
   },
   "deckProgress": {
     "message": "Progreso de la descarga"
+  },
+  "deckTimeLeft": {
+    "message": "Quedan unos $1"
   },
   "deckAdaptivePacing": {
     "message": "Ritmo adaptativo"
@@ -1263,6 +1269,9 @@
   },
   "wjImportFailed": {
     "message": "No se pudo leer esta lista: $1"
+  },
+  "wjImportNeedsExtracting": {
+    "message": "Un navegador no puede abrir un archivo $1. Extráelo y selecciona el archivo .wabbajack que contiene."
   },
   "wjQueueReady": {
     "message": "La lista está en la cola. Pulsa el botón de descarga para empezar."

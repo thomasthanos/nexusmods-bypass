@@ -4,7 +4,7 @@ window.NexusExt = window.NexusExt || {};
   'use strict';
 
   const { NDC_CONSTANTS } = NexusExt;
-  const { DOWNLOAD_METHOD_VORTEX, DOWNLOAD_METHOD_BROWSER, STATUS_DOWNLOADING, STATUS_PAUSED, STATUS_FINISHED, STATUS_STOPPED, STATUS_TEXT, convertSize } = NDC_CONSTANTS;
+  const { DOWNLOAD_METHOD_VORTEX, DOWNLOAD_METHOD_BROWSER, STATUS_DOWNLOADING, STATUS_PAUSED, STATUS_FINISHED, STATUS_STOPPED, STATUS_TEXT, convertSize, formatDuration } = NDC_CONSTANTS;
 
   const ICONS = {
     chevronDown: '<svg viewBox="0 0 24 24"><path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg>',
@@ -1559,7 +1559,9 @@ window.NexusExt = window.NexusExt || {};
 
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.wabbajack';
+    // The modlist is often still inside the archive it was downloaded in, and a 7z or rar
+    // has to be selectable to be told apart from an archive that can actually be opened.
+    input.accept = '.wabbajack,.zip,.7z,.rar';
     input.addEventListener('change', async () => {
       const file = input.files?.[0];
       if (!file) return;
@@ -1584,6 +1586,14 @@ window.NexusExt = window.NexusExt || {};
         closeDialog?.();
         await mountWabbajackDeck(list, mods, { title });
       } catch (cause) {
+        // Needing to be extracted is an instruction, not a fault, so it is not dressed up
+        // as one — there is nothing here for the user to report or retry.
+        if (cause?.code === 'needs-extracting') {
+          await nxtkAlert(NXTK.t('wjImportNeedsExtracting', [cause.format || '7z'],
+            `A browser cannot open a ${cause.format || '7z'} archive. Extract it, then pick the`
+            + ' .wabbajack file from inside it.'));
+          return;
+        }
         const reason = String(cause?.message || cause);
         await nxtkAlert(NXTK.t('wjImportFailed', [reason], `Could not read this modlist: ${reason}`));
       } finally {
@@ -1656,6 +1666,9 @@ window.NexusExt = window.NexusExt || {};
 
   const DECK_ASK_MIN_MODS = 5;
 
+  const STAR_PATH = 'M12 2.6l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.7l-5.88 3.01 '
+    + '1.12-6.55L2.48 9.52l6.58-.96z';
+
   // Asked once, after a run that actually saved the reader some time, and never
   // again whichever way it is answered.
   function maybeAskForReview(deck, finishedCount) {
@@ -1663,15 +1676,35 @@ window.NexusExt = window.NexusExt || {};
     NXTK.wasRatingPrompted().then((asked) => {
       if (asked || !deck.isConnected || deck.querySelector('.nxtk-deck-ask')) return;
 
+      const listing = NXTK.getStoreListing?.() || { name: 'Chrome Web Store', reviewUrl: NXTK.getStoreReviewUrl() };
+
       const row = document.createElement('div');
       row.className = 'nxtk-deck-ask';
 
       const link = document.createElement('a');
       link.className = 'nxtk-deck-ask-link';
-      link.href = NXTK.getStoreReviewUrl();
+      link.href = listing.reviewUrl;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.textContent = NXTK.t('ratingPrompt', null, 'Enjoying it? A short review helps other modders find it.');
+
+      // Decoration, not a control: the rating itself is left on the store page, so the
+      // stars are hidden from assistive tech and the link says where it goes.
+      const stars = document.createElement('span');
+      stars.className = 'nxtk-deck-ask-stars';
+      stars.setAttribute('aria-hidden', 'true');
+      stars.innerHTML = Array.from({ length: 5 }, () =>
+        `<svg viewBox="0 0 24 24" width="14" height="14"><path d="${STAR_PATH}"/></svg>`).join('');
+
+      const copy = document.createElement('span');
+      copy.className = 'nxtk-deck-ask-copy';
+      copy.textContent = NXTK.t('ratingPrompt', null,
+        'Enjoying it? A short review helps other modders find it.');
+
+      const cta = document.createElement('span');
+      cta.className = 'nxtk-deck-ask-cta';
+      cta.textContent = NXTK.t('ratingCta', [listing.name], `Rate on ${listing.name}`);
+
+      link.append(stars, copy, cta);
 
       const dismiss = document.createElement('button');
       dismiss.type = 'button';
@@ -1710,6 +1743,7 @@ window.NexusExt = window.NexusExt || {};
       openLogs: null,
       incrementProgress: null,
       setProgress: null,
+      setTimeLeft: null,
       setDownloadMethod: null,
       setDownloadStatus: null,
       startDownload: null,
@@ -1833,6 +1867,7 @@ window.NexusExt = window.NexusExt || {};
           </div>
         </div>
         <div class="nxtk-sr-only" id="nxtk-progress-announce" role="status" aria-live="polite"></div>
+        <div class="nxtk-progress-eta" id="nxtk-eta" hidden></div>
       </div>
 
       <div class="nxtk-log-wrap">
@@ -2013,6 +2048,22 @@ window.NexusExt = window.NexusExt || {};
       renderProgress();
     };
 
+    // Nothing is shown until a finished file has been timed, so the figure is always
+    // something this run actually measured rather than a guess from a setting.
+    ui.setTimeLeft = (seconds) => {
+      const row = $('#nxtk-eta');
+      if (!row) return;
+      const value = Math.round(Number(seconds) || 0);
+      if (value <= 0) {
+        row.hidden = true;
+        row.textContent = '';
+        return;
+      }
+      row.hidden = false;
+      row.textContent = NXTK.t('deckTimeLeft', [formatDuration(value)],
+        `About ${formatDuration(value)} left`);
+    };
+
     const setRunState = (runState) => {
       $('#nxtk-progress-area').dataset.runState = runState;
     };
@@ -2072,6 +2123,7 @@ window.NexusExt = window.NexusExt || {};
     };
 
     ui.endDownload = (outcome = 'finished') => {
+      ui.setTimeLeft?.(0);
       const vortexHandoff = ndc.downloadMethod === DOWNLOAD_METHOD_VORTEX;
       const outcomes = {
         finished: {

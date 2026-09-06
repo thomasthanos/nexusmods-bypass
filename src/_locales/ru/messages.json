@@ -35,6 +35,9 @@
   "ratingPrompt": {
     "message": "Пригодилось? Короткий отзыв поможет другим моддерам найти расширение."
   },
+  "ratingCta": {
+    "message": "Оценить в $1"
+  },
   "methodCardTitle": {
     "message": "Vortex или браузер"
   },
@@ -298,6 +301,9 @@
   },
   "deckProgress": {
     "message": "Ход загрузки"
+  },
+  "deckTimeLeft": {
+    "message": "Осталось около $1"
   },
   "deckAdaptivePacing": {
     "message": "Адаптивный темп"
@@ -1415,6 +1421,9 @@
   },
   "wjImportFailed": {
     "message": "Не удалось прочитать этот список: $1"
+  },
+  "wjImportNeedsExtracting": {
+    "message": "Браузер не может открыть архив $1. Распакуйте его и выберите файл .wabbajack внутри."
   },
   "wjQueueReady": {
     "message": "Список модов в очереди. Нажмите кнопку загрузки, чтобы начать."

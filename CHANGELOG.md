@@ -19,8 +19,42 @@ they are simply not listed.
   and the report is pre-filled into a GitHub issue, so it could carry a real name or a full path.
   Whether it is set is the useful diagnostic; the text is not.
 
+### Added
+
+- **A collection or modlist run now says how much longer it will take.** The deck showed a percentage and
+  a file count, which answers how far along a run is but not the question actually being asked — whether
+  there is time to wait for it. Browser mode now shows the remaining time under the progress bar. It is
+  measured, not assumed: every finished file contributes how long its bytes took and how long the gap
+  before the next one started, that gap being the link resolve, which on a queue of small files is a real
+  share of the total. Nothing appears until the first file has finished, because until then there is
+  nothing to measure and a number taken from the speed setting would only look authoritative. Time spent
+  paused, retrying, or waiting out a rate limit is discarded rather than averaged in, since it says
+  nothing about how fast the rest will arrive. Files the collection page gave no size for are counted as
+  an average one; if no size is known anywhere, no figure is shown. Vortex mode shows nothing here — the
+  browser cannot see a transfer happening inside Vortex, so there is nothing honest to report.
+
 ### Fixed
 
+- **The review link went to the wrong store for anyone whose browser and store disagree.** It decided
+  from the user agent, so every Edge user was sent to the Edge listing — including the many running a copy
+  installed from the Chrome Web Store, where their rating would have counted and where they could not
+  leave one at all on a listing they had never installed from. Each store issues its own extension id, so
+  the id is now what decides, and it says with certainty where a copy came from whatever browser is
+  running it. An unpacked copy belongs to no listing and falls back to the primary one. No user agent is
+  read any more. The link also names the store it opens, so there is no surprise about where it leads.
+- **A modlist still inside the archive it was downloaded in now imports.** Modlists are published as a
+  `.zip` holding the `.wabbajack` and its `.meta.json`, so the file most people have on disk is the
+  container, not the modlist — and picking it produced *This file has no "modlist" entry*, which reads as
+  though the download were broken. The picker now takes an archive as well, and the modlist is found
+  inside it by extension, at any depth and in any letter case, without being confused by the `.meta.json`
+  sitting next to it. Nothing is unpacked to do this: an archiver leaves an already-compressed file
+  stored, and a stored entry is a valid archive on its own, so it is read straight out of the outer file
+  as a slice. A `.rar` or `.7z` cannot be opened in a browser at all; those are now named as such and ask
+  to be extracted first, rather than failing as an unreadable ZIP. So is the rare case of a modlist that
+  was compressed rather than stored — reaching it would mean unpacking the whole thing, which is exactly
+  what the reader is built to avoid. Needing to extract an archive is presented as the next step in all
+  thirteen languages, not as *Could not read this modlist*: nothing failed, and there is nothing to
+  report or retry.
 - **The ad-timer cookie now survives a collection run.** The `ab` cookie that tells Nexus the ad
   countdown has elapsed lasts five minutes, and only a page can write it — a service worker has no
   `document`, and this extension deliberately does not ask for the browser's cookies permission.
@@ -32,6 +66,12 @@ they are simply not listed.
 
 ### Changed
 
+- **The review ask looks like what it is.** It was a line of grey text that happened to be a link, so the
+  one place the extension ever asks for anything was also the easiest thing on the panel to miss. It now
+  carries five stars and names the store it opens. The stars are decoration and are hidden from screen
+  readers, because the rating is left on the store page and nothing here records one — the link's own text
+  is what says where it goes. It still appears once, only after a run of at least five files finished, and
+  dismissing or following it settles the matter for good.
 - **A report now shows what happened just before the fault, and the log switch is gone.** *Verbose
   extension logs* asked the reader to find and flip a setting whose own description admitted it changed
   nothing about bug reports — it only quietened the console. Activity is now recorded regardless and the

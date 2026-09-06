@@ -35,6 +35,9 @@
   "ratingPrompt": {
     "message": "Σου φάνηκε χρήσιμο; Μια σύντομη κριτική βοηθά να το βρουν κι άλλοι."
   },
+  "ratingCta": {
+    "message": "Βαθμολόγησε στο $1"
+  },
   "methodCardTitle": {
     "message": "Vortex ή browser"
   },
@@ -298,6 +301,9 @@
   },
   "deckProgress": {
     "message": "Πρόοδος λήψης"
+  },
+  "deckTimeLeft": {
+    "message": "Απομένουν περίπου $1"
   },
   "deckAdaptivePacing": {
     "message": "Προσαρμοστικός ρυθμός"
@@ -1263,6 +1269,9 @@
   },
   "wjImportFailed": {
     "message": "Δεν ήταν δυνατή η ανάγνωση της λίστας: $1"
+  },
+  "wjImportNeedsExtracting": {
+    "message": "Το πρόγραμμα περιήγησης δεν μπορεί να ανοίξει αρχείο $1. Αποσυμπίεσέ το και διάλεξε το αρχείο .wabbajack που βρίσκεται μέσα."
   },
   "wjQueueReady": {
     "message": "Η λίστα μπήκε στην ουρά. Πάτα το κουμπί λήψης για να ξεκινήσει."

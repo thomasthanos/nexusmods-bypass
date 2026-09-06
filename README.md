@@ -55,6 +55,9 @@ can pick up where it stopped instead of starting over.
 
 - Detects collection pages and builds a **Ready Queue** of everything in the revision.
 - Choose your method per run: **Send to Vortex** or **Browser download**.
+- **Time left for the whole run** — browser mode shows how long the rest of the queue should take,
+  worked out from the speed the run is actually achieving, not from a setting. It appears once the
+  first file has finished, because before that there is nothing to measure.
 - **Paced queue** — a configurable pause between mods, plus a speed estimate for Vortex mode,
   because the browser cannot see a transfer happening inside Vortex.
 - **Rate-limit aware** — if Nexus throttles you, the queue pauses and resumes on its own.
@@ -62,6 +65,8 @@ can pick up where it stopped instead of starting over.
   *Skip Downloaded* or *Re-download All* when you retry a collection.
 - **Update collection** — compare revisions to see what actually changed.
 - **Wabbajack modlist import (beta)** — read a `.wabbajack` file to seamlessly queue its Nexus mods.
+  The `.zip` you downloaded works too; the modlist is found inside it. A `.rar` or `.7z` has to be
+  extracted first, since a browser cannot open those.
 - Runs in the background service worker, so it survives tab navigation.
 
 ### Quality of life
@@ -79,7 +84,7 @@ can pick up where it stopped instead of starting over.
 ### <img src=".github/assets/icon-globe.svg" width="20" align="middle"> Languages
 
 English, Greek, German, Spanish, French, Italian, Japanese, Korean, Polish, Portuguese (BR),
-Russian, Turkish, Simplified Chinese — 346 strings each (a few more or fewer where a language's
+Russian, Turkish, Simplified Chinese — 349 strings each (a few more or fewer where a language's
 plural rules need extra forms). There is also an **Always use English**
 switch for when your browser language and your Nexus language disagree.
 

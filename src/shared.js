@@ -9,22 +9,43 @@
   const ISSUE_NEW_URL = `${GITHUB_REPO_URL}/issues/new`;
   const REPORT_ISSUE_URL = `${GITHUB_REPO_URL}/issues/new/choose`;
   const TROUBLESHOOTING_URL = `${GITHUB_REPO_URL}#-troubleshooting`;
-  const STORE_REVIEW_URLS = {
-    chrome: 'https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj/reviews',
-    edge: 'https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa',
-    firefox: 'https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/reviews/'
+  // Each store issues its own extension id, so the id is what says where a copy came from —
+  // and that is the only listing where its rating can be left. The browser running it says
+  // nothing: Edge installs from the Chrome Web Store just as happily as from its own.
+  const STORE_LISTINGS = {
+    chrome: {
+      id: 'chfghiknjhpcncpcjopglefnckckdlpj',
+      name: 'Chrome Web Store',
+      reviewUrl: 'https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj/reviews'
+    },
+    edge: {
+      id: 'hcjpcnajmkanhodhpkoinodjbkeolgaa',
+      name: 'Edge Add-ons',
+      reviewUrl: 'https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa'
+    },
+    firefox: {
+      id: '',
+      name: 'Firefox Add-ons',
+      reviewUrl: 'https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/reviews/'
+    }
   };
 
-  // A rating only counts where the extension was installed from.
-  function getStoreReviewUrl() {
+  function getStoreListing() {
     try {
-      if (chrome.runtime.getManifest().browser_specific_settings?.gecko) return STORE_REVIEW_URLS.firefox;
+      // The Firefox package is built with this marker; no other package carries it.
+      if (chrome.runtime.getManifest().browser_specific_settings?.gecko) return STORE_LISTINGS.firefox;
+      const id = chrome.runtime.id;
+      for (const listing of Object.values(STORE_LISTINGS)) {
+        if (listing.id && listing.id === id) return listing;
+      }
     } catch (_) {
     }
-    const ua = typeof navigator !== 'undefined' ? String(navigator.userAgent || '') : '';
-    if (/\bFirefox\//.test(ua)) return STORE_REVIEW_URLS.firefox;
-    if (/\bEdg(?:e|A|iOS)?\//.test(ua)) return STORE_REVIEW_URLS.edge;
-    return STORE_REVIEW_URLS.chrome;
+    // An unpacked or sideloaded copy has an id of its own, which belongs to no listing.
+    return STORE_LISTINGS.chrome;
+  }
+
+  function getStoreReviewUrl() {
+    return getStoreListing().reviewUrl;
   }
 
   function wasRatingPrompted() {
@@ -944,6 +965,7 @@
     REPORT_ISSUE_URL,
     TROUBLESHOOTING_URL,
     getStoreReviewUrl,
+    getStoreListing,
     wasRatingPrompted,
     markRatingPrompted,
     DEFAULTS,

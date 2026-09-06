@@ -348,11 +348,34 @@ html, body {
 }
 .popup-rating[hidden] { display: none; }
 .popup-rating a {
-  color: var(--nxtk-accent-hover, #e8a45c);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--nxtk-text-muted, #b6b3c2);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 500;
 }
-.popup-rating a:hover { text-decoration: underline; }
+.popup-rating-stars {
+  flex: 0 0 auto;
+  display: inline-flex;
+  gap: 2px;
+}
+.popup-rating-stars svg {
+  fill: var(--nxtk-accent, #d98f40);
+  transition: transform .18s ease;
+}
+.popup-rating-cta {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--nxtk-accent-hover, #e8a45c);
+}
+.popup-rating a:hover .popup-rating-cta { text-decoration: underline; }
+.popup-rating a:hover .popup-rating-stars svg { transform: translateY(-1px); }
+@media (prefers-reduced-motion: reduce) {
+  .popup-rating-stars svg { transition: none; }
+  .popup-rating a:hover .popup-rating-stars svg { transform: none; }
+}
 .popup-rating button {
   flex: 0 0 auto;
   padding: 3px 8px;

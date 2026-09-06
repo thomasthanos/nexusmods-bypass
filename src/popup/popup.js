@@ -148,8 +148,20 @@
 
         const box = document.getElementById('popupRating');
         if (!box) return;
+        const listing = NXTK.getStoreListing?.()
+          || { name: 'Chrome Web Store', reviewUrl: NXTK.getStoreReviewUrl() };
         const link = document.getElementById('ratingLink');
-        if (link) link.href = NXTK.getStoreReviewUrl();
+        if (link) link.href = listing.reviewUrl;
+        const stars = document.getElementById('ratingStars');
+        if (stars) {
+          // Decoration: the rating is left on the store page, so this is hidden from
+          // assistive tech and the link's own text says where it leads.
+          stars.innerHTML = Array.from({ length: 5 }, () =>
+            '<svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 2.6l2.94 5.96 6.58.96'
+            + '-4.76 4.64 1.12 6.55L12 17.7l-5.88 3.01 1.12-6.55L2.48 9.52l6.58-.96z"/></svg>').join('');
+        }
+        const cta = document.getElementById('ratingCta');
+        if (cta) cta.textContent = NXTK.t('ratingCta', [listing.name], `Rate on ${listing.name}`);
         box.hidden = false;
         const markDone = () => {
           box.hidden = true;

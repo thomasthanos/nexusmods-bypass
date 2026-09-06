@@ -280,6 +280,31 @@
     return { ...scalars, Archives: archives };
   }
 
+  // A modlist is usually downloaded as a plain archive holding the .wabbajack and its
+  // .meta.json, so the file the user picks is often the container rather than the modlist.
+  const MODLIST_SUFFIX = '.wabbajack';
+  const UNREADABLE_CONTAINERS = [
+    { label: 'RAR', bytes: [0x52, 0x61, 0x72, 0x21, 0x1a, 0x07] },
+    { label: '7z', bytes: [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c] }
+  ];
+
+  async function describeUnreadableContainer(file) {
+    if (file.size < 8) return '';
+    const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+    const match = UNREADABLE_CONTAINERS.find(({ bytes }) => bytes.every((byte, index) => head[index] === byte));
+    return match ? match.label : '';
+  }
+
+  async function readModlistBytes(file) {
+    const direct = await NexusExt.ZipReader.readEntry(file, 'modlist', { maxBytes: MAX_MODLIST_BYTES });
+    if (direct) return direct;
+
+    // No "modlist" entry, so this is not a .wabbajack. It may be the archive one came in.
+    const inner = await NexusExt.ZipReader.sliceStoredEntry(file, MODLIST_SUFFIX);
+    if (!inner) return null;
+    return NexusExt.ZipReader.readEntry(inner.blob, 'modlist', { maxBytes: MAX_MODLIST_BYTES });
+  }
+
   async function importFile(file) {
     if (!file || typeof file.slice !== 'function') {
       throw new WabbajackImportError('no-file', 'No .wabbajack file was provided.');
@@ -288,9 +313,19 @@
       throw new WabbajackImportError('reader-unavailable', 'The ZIP reader is unavailable.');
     }
 
+    const unreadable = await describeUnreadableContainer(file);
+    if (unreadable) {
+      const error = new WabbajackImportError('needs-extracting',
+        `This is a ${unreadable} archive, which cannot be opened here.`
+        + ' Extract it and pick the .wabbajack file inside.');
+      // Named separately so the dialog can say which format without parsing the message.
+      error.format = unreadable;
+      throw error;
+    }
+
     let bytes;
     try {
-      bytes = await NexusExt.ZipReader.readEntry(file, 'modlist', { maxBytes: MAX_MODLIST_BYTES });
+      bytes = await readModlistBytes(file);
     } catch (cause) {
       if (cause instanceof NexusExt.ZipReader.ZipReaderError) {
         throw new WabbajackImportError(cause.code, cause.message, cause);
@@ -298,7 +333,9 @@
       throw cause;
     }
     if (!bytes) {
-      throw new WabbajackImportError('no-modlist', 'This file has no "modlist" entry — is it a .wabbajack?');
+      throw new WabbajackImportError('no-modlist',
+        'This file is not a modlist and holds no .wabbajack file — pick the .wabbajack itself,'
+        + ' or the archive you downloaded it in.');
     }
 
     let text = decodeManifestText(bytes);

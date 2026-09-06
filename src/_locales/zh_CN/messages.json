@@ -35,6 +35,9 @@
   "ratingPrompt": {
     "message": "觉得好用吗？一条简短的评价能帮其他模组玩家找到它。"
   },
+  "ratingCta": {
+    "message": "在 $1 评分"
+  },
   "methodCardTitle": {
     "message": "Vortex 还是浏览器"
   },
@@ -298,6 +301,9 @@
   },
   "deckProgress": {
     "message": "下载进度"
+  },
+  "deckTimeLeft": {
+    "message": "大约还需 $1"
   },
   "deckAdaptivePacing": {
     "message": "自适应节奏"
@@ -1187,6 +1193,9 @@
   },
   "wjImportFailed": {
     "message": "无法读取此模组列表：$1"
+  },
+  "wjImportNeedsExtracting": {
+    "message": "浏览器无法打开 $1 压缩包。请先解压，然后选择其中的 .wabbajack 文件。"
   },
   "wjQueueReady": {
     "message": "模组列表已加入队列。点击下载按钮开始。"
