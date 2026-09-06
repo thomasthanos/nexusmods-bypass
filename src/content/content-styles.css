@@ -789,6 +789,43 @@
   z-index: 2;
   margin-top: 22px;
 }
+.nxtk-deck-ask {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--nxtk-border);
+}
+.nxtk-deck-ask-link {
+  flex: 1 1 auto;
+  font-size: 11.5px;
+  color: var(--nxtk-text-muted);
+  text-decoration: none;
+}
+.nxtk-deck-ask-link:hover,
+.nxtk-deck-ask-link:focus-visible {
+  color: var(--nxtk-accent-hover);
+  text-decoration: underline;
+}
+.nxtk-deck-ask-dismiss {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nxtk-text-dim);
+  font-size: 15px;
+  line-height: 20px;
+  cursor: pointer;
+}
+.nxtk-deck-ask-dismiss:hover,
+.nxtk-deck-ask-dismiss:focus-visible {
+  color: var(--nxtk-text-bright);
+  background: var(--nxtk-surface-high);
+}
 .nxtk-deck.nxtk-dropdown-active .nxtk-log-wrap {
   z-index: 1;
 }

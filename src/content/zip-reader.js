@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const NXTK = window.NexusExt = window.NexusExt || {};
+  const NexusExt = window.NexusExt = window.NexusExt || {};
 
   const SIGNATURE = Object.freeze({
     EOCD: 0x06054b50,
@@ -337,5 +337,5 @@
     return output;
   }
 
-  NXTK.ZipReader = Object.freeze({ ZipReaderError, readEntry });
+  NexusExt.ZipReader = Object.freeze({ ZipReaderError, readEntry });
 })();

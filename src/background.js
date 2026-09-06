@@ -535,7 +535,9 @@ const DOWNLOAD_HANDLERS = {
 const NDC_JOBS_KEY = 'nxtk_background_ndc_jobs';
 const NDC_RATE_LIMIT_KEY = 'nxtk_ndc_rate_limit';
 const NDC_ALARM_PREFIX = 'nxtk-ndc-job:';
-const MAX_NDC_JOB_ITEMS = 5000;
+// Matches the importer's own ceiling so nothing it can read is refused here.
+// A queue this size costs about 2 MB of the 10 MB storage quota.
+const MAX_NDC_JOB_ITEMS = 10000;
 const MAX_NDC_JOB_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_NDC_ACTIVE_JOB_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const ndcProcessingJobs = new Set();
@@ -1116,7 +1118,23 @@ async function advanceNdcJob(jobId) {
     job.rateLimitStrikes = 0;
     job.waitingUntil = 0;
     job.resolveAttempts = 0;
-    const started = await startNdcDownload(job, item, resolved.url);
+
+    // One file the browser refuses to start must not take the rest of the queue
+    // down with it: record it and move on, the way a failed resolve does.
+    let started;
+    try {
+      started = await startNdcDownload(job, item, resolved.url);
+    } catch (cause) {
+      job.failed.push({ fileId: item.fileId, code: 'download-not-started' });
+      job.index += 1;
+      await saveNdcJob(job);
+      notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
+        itemName: item.name,
+        itemState: 'failed',
+        error: NXTK.sanitizeDiagnosticText(cause?.message || 'download-not-started', 120)
+      });
+      continue;
+    }
 
     const afterStart = await readNdcJob(jobId);
     if (!afterStart || afterStart.status !== 'running') {
@@ -1686,6 +1704,10 @@ if (chrome.runtime?.onStartup) {
 
 const TRUSTED_SENDER_URL = /^https:\/\/(?:[\w-]+\.)*nexusmods\.com\//i;
 
+// Answers, not faults: pausing or stopping when no queue is running is a normal
+// thing for a reader to do and must not fill the error log.
+const EXPECTED_HANDLER_OUTCOMES = new Set(['job-not-found']);
+
 function isTrustedSender(sender) {
   if (!sender || sender.id !== chrome.runtime.id) return false;
   if (!sender.url) return true;
@@ -1731,7 +1753,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .then((value) => sendResponse({ ok: true, value, error: null }))
       .catch((cause) => {
         const message = String(cause?.message || cause || 'storage-mutation-failed');
-        recordBackgroundError(msg.type, message);
+        if (!EXPECTED_HANDLER_OUTCOMES.has(message)) recordBackgroundError(msg.type, message);
         sendResponse({ ok: false, value: null, error: message });
       });
     return true;

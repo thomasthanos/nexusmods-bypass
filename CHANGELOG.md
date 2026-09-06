@@ -21,6 +21,23 @@ they are simply not listed.
 
 ### Changed
 
+- **The welcome page was rebuilt.** It was a narrow column down the middle of an empty tab, with the one
+  thing a new reader should do — open Nexus Mods — sitting below everything else. The action now comes
+  straight after the title, the three quick-start steps run across the page as a joined path that stacks
+  on a narrow window, the panels use the width, and the type is large enough for a full page rather than
+  a popup. Its three badges were hardcoded English in a project that ships thirteen languages; they and
+  the tab title are translated now, and the installed version is shown.
+- **The one place a rating is asked for now points at the right store.** Every ask sent people to GitHub,
+  where a star does nothing for anyone trying to find the extension. The ask now opens the review page of
+  the store the extension came from — detected from the Firefox build marker, then the browser — and it
+  appears once, in the deck, after a run of at least five files finished. Dismissing or following it
+  settles the matter permanently. The welcome page no longer asks for anything before it has been useful:
+  its third card explains Vortex versus browser downloads instead, and the footer links to the source.
+- **A rate limit is no longer presented as something to report.** Sign-in, Cloudflare, rate-limit and
+  suspension notices offered *Report a bug* next to them, which turns Nexus asking you to wait into an
+  issue in the tracker. Those four now offer *What does this mean?* and open the troubleshooting section;
+  everything that really is a fault still offers the reporter. Blank issues are off, and the template
+  chooser links the same section first.
 - **A finished modlist says what to do next, with the real folder.** The run ended with *Download
   finished* and nothing else, leaving the one question that matters unanswered. The last line now names
   the folder the files actually landed in — read back from the browser, not guessed — and what to set it
@@ -89,6 +106,23 @@ they are simply not listed.
 
 ### Fixed
 
+- **Pressing pause or stop no longer writes an error.** With no queue running — every Vortex run, and any
+  finished one — those buttons asked the worker to pause a job that does not exist, and the worker filed
+  the answer as a background fault. A handful of presses turned into *5 × background_error* at the top of
+  a bug report, hiding whatever was actually wrong. A Vortex run now keeps pause and stop local, and the
+  worker no longer logs an answer as a failure.
+- **One file the browser refuses to start no longer ends the whole queue.** If the downloads API turned a
+  file down — cancelled, blocked by policy, no disk space — the error escaped the queue processor and the
+  run was marked failed with every remaining file untouched. A refusal is now recorded against that file
+  and the queue carries on, exactly as it does when a link cannot be resolved.
+- **A rate-limited queue counts down instead of looking hung.** When Nexus throttles a browser-mode run
+  the queue waits up to ten minutes and said only that it would resume automatically, which is
+  indistinguishable from a freeze. The wait now ticks down in place, the way it already did for a Vortex
+  run, and clears itself the moment the next file starts.
+- **A large modlist is no longer refused by the queue that runs it.** The importer reads up to 10,000
+  archives but the background queue accepted 5,000, so a big list failed with nothing but
+  `invalid-job-size`. The two ceilings now match — a queue that size costs about 2 MB of the 10 MB
+  storage quota — and a test keeps them from drifting apart again.
 - **Large Wabbajack modlists import instead of being refused.** A big list's `modlist` file is a few
   hundred megabytes, nearly all of it the *Directives* array that describes every file the installation
   touches — data the import never looks at. It was read past a 64 MiB ceiling and parsed whole, so lists

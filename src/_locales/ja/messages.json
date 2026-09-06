@@ -36,7 +36,19 @@
     "message": "Nexus Mods と Vortex のためのダウンロード支援ツール"
   },
   "ratingPrompt": {
-    "message": "気に入りましたか？ ⭐ GitHub でスターを"
+    "message": "役に立ちましたか? 短いレビューが他の MOD ユーザーの助けになります。"
+  },
+  "methodCardTitle": {
+    "message": "Vortex かブラウザー"
+  },
+  "methodCardText": {
+    "message": "リンクを Vortex に直接送るか、実ファイルをダウンロードフォルダーに保存するか、実行ごとにデッキで選べます。"
+  },
+  "sourceBtn": {
+    "message": "ソースと解説"
+  },
+  "dlgWhatDoesThisMean": {
+    "message": "これはどういう意味?"
   },
   "ratingDismiss": {
     "message": "閉じる"
@@ -79,19 +91,10 @@
   },
   "bugCardText": {
     "message": "「バグを報告」ボタンは診断レポート全体をコピーし、内容が入力済みの GitHub Issue を開きます。"
-  },
-  "starCardTitle": {
-    "message": "⭐ 気に入りましたか？"
-  },
-  "starCardText": {
-    "message": "GitHub でのスターは、より多くの MOD 制作者に届く助けになります。"
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods を開く"
-  },
-  "starBtn": {
-    "message": "GitHub でスター"
-  },
+  },
   "disclaimer": {
     "message": "Nexus Mods とは無関係です。ご自身の Nexus Mods アカウントが必要で、Premium 限定コンテンツは Premium 限定のままです。"
   },

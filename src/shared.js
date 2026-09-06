@@ -8,6 +8,50 @@
   const GITHUB_REPO_URL = 'https://github.com/thomasthanos/nexusmods-bypass';
   const ISSUE_NEW_URL = `${GITHUB_REPO_URL}/issues/new`;
   const REPORT_ISSUE_URL = `${GITHUB_REPO_URL}/issues/new/choose`;
+  const TROUBLESHOOTING_URL = `${GITHUB_REPO_URL}#-troubleshooting`;
+  const STORE_REVIEW_URLS = {
+    chrome: 'https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj/reviews',
+    edge: 'https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa',
+    firefox: 'https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/reviews/'
+  };
+
+  // A rating only counts where the extension was installed from.
+  function getStoreReviewUrl() {
+    try {
+      if (chrome.runtime.getManifest().browser_specific_settings?.gecko) return STORE_REVIEW_URLS.firefox;
+    } catch (_) {
+    }
+    const ua = typeof navigator !== 'undefined' ? String(navigator.userAgent || '') : '';
+    if (/\bFirefox\//.test(ua)) return STORE_REVIEW_URLS.firefox;
+    if (/\bEdg(?:e|A|iOS)?\//.test(ua)) return STORE_REVIEW_URLS.edge;
+    return STORE_REVIEW_URLS.chrome;
+  }
+
+  function wasRatingPrompted() {
+    return new Promise((resolve) => {
+      try {
+        if (!chrome?.runtime?.id) {
+          resolve(true);
+          return;
+        }
+        chrome.storage.local.get(RATING_PROMPT_KEY, (result) => {
+          resolve(!!(chrome.runtime.lastError || result?.[RATING_PROMPT_KEY]));
+        });
+      } catch (_) {
+        resolve(true);
+      }
+    });
+  }
+
+  function markRatingPrompted() {
+    try {
+      if (!chrome?.runtime?.id) return;
+      chrome.storage.local.set({ [RATING_PROMPT_KEY]: true }, () => {
+        void chrome.runtime.lastError;
+      });
+    } catch (_) {
+    }
+  }
   const MAX_ISSUE_URL_CHARS = 7000;
 
   const DEFAULTS = {
@@ -854,6 +898,10 @@
     GITHUB_REPO_URL,
     ISSUE_NEW_URL,
     REPORT_ISSUE_URL,
+    TROUBLESHOOTING_URL,
+    getStoreReviewUrl,
+    wasRatingPrompted,
+    markRatingPrompted,
     DEFAULTS,
     escapeHtml,
     sanitizeUrlForReport,

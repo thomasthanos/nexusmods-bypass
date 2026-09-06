@@ -36,7 +36,19 @@
     "message": "Βοηθός λήψεων για Nexus Mods & Vortex"
   },
   "ratingPrompt": {
-    "message": "Σου αρέσει; ⭐ Δώσε star στο GitHub"
+    "message": "Σου φάνηκε χρήσιμο; Μια σύντομη κριτική βοηθά να το βρουν κι άλλοι."
+  },
+  "methodCardTitle": {
+    "message": "Vortex ή browser"
+  },
+  "methodCardText": {
+    "message": "Στείλε τα links κατευθείαν στο Vortex, ή κατέβασε πραγματικά αρχεία στον φάκελο Downloads — διάλεξε ανά εκτέλεση από το deck."
+  },
+  "sourceBtn": {
+    "message": "Κώδικας & οδηγίες"
+  },
+  "dlgWhatDoesThisMean": {
+    "message": "Τι σημαίνει αυτό;"
   },
   "ratingDismiss": {
     "message": "Απόκρυψη"
@@ -79,19 +91,10 @@
   },
   "bugCardText": {
     "message": "Κάθε κουμπί «Αναφορά σφάλματος» αντιγράφει πλήρες διαγνωστικό report και ανοίγει προσυμπληρωμένο GitHub issue."
-  },
-  "starCardTitle": {
-    "message": "⭐ Σου αρέσει;"
-  },
-  "starCardText": {
-    "message": "Ένα star στο GitHub βοηθά περισσότερους modders να βρουν την επέκταση."
-  },
+  },
   "openNexusBtn": {
     "message": "Άνοιγμα Nexus Mods"
-  },
-  "starBtn": {
-    "message": "Star στο GitHub"
-  },
+  },
   "disclaimer": {
     "message": "Καμία σχέση με το Nexus Mods. Χρειάζεσαι δικό σου λογαριασμό Nexus Mods· το premium περιεχόμενο παραμένει premium."
   },

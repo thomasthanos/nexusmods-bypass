@@ -115,6 +115,11 @@ window.NexusExt = window.NexusExt || {};
     }
 
     stopBackgroundQueue() {
+      // Only a browser-mode run has a worker job behind it.
+      if (this.downloadMethod !== DOWNLOAD_METHOD_BROWSER) {
+        this.settleBrowserQueue?.('stopped');
+        return;
+      }
       Promise.resolve(NexusExt.Storage.sendDownloadCommand('NDC_QUEUE_STOP', this.queueTarget()))
         .then((reply) => {
           if (!reply?.ok) this.settleBrowserQueue?.('stopped');
@@ -123,6 +128,7 @@ window.NexusExt = window.NexusExt || {};
     }
 
     setPaused(paused) {
+      if (this.downloadMethod !== DOWNLOAD_METHOD_BROWSER) return;
       NexusExt.Storage.sendDownloadCommand(
         paused ? 'NDC_QUEUE_PAUSE' : 'NDC_QUEUE_RESUME',
         this.queueTarget()
@@ -662,6 +668,41 @@ window.NexusExt = window.NexusExt || {};
         let watchdogTimer = null;
         let onVisibilityChange = null;
         let pollFailures = 0;
+        let waitTimer = null;
+        let waitRow = null;
+
+        const stopWaitCountdown = () => {
+          clearInterval(waitTimer);
+          waitTimer = null;
+          waitRow = null;
+        };
+
+        // A silent pause of up to ten minutes reads as a hang, so the wait counts
+        // down in place the same way the Vortex run does.
+        const startWaitCountdown = (until) => {
+          stopWaitCountdown();
+          if (!until || until <= Date.now()) {
+            this.ui.logText(T('logQueueRateLimited',
+              'Nexus Mods rate limit reached. The background queue will resume automatically.'), 'info');
+            return;
+          }
+          const left = () => Math.max(0, Math.round((until - Date.now()) / 1000));
+          const text = () => (left() > 0
+            ? TS('logRateLimitWaiting', [formatDuration(left())],
+              `Nexus Mods is rate limiting requests. Waiting ${formatDuration(left())}...`)
+            : T('logRateLimitCleared', 'Rate limit cleared. Resuming downloads.'));
+
+          waitRow = this.ui.logText(text(), 'info');
+          waitTimer = setInterval(() => {
+            const message = waitRow?.isConnected ? waitRow.querySelector('.nxtk-log-msg') : null;
+            if (settled || !message) {
+              stopWaitCountdown();
+              return;
+            }
+            message.textContent = text();
+            if (left() <= 0) stopWaitCountdown();
+          }, 1000);
+        };
 
         const cleanup = () => {
           try {
@@ -669,6 +710,7 @@ window.NexusExt = window.NexusExt || {};
           } catch (_) { }
           clearInterval(watchdogTimer);
           watchdogTimer = null;
+          stopWaitCountdown();
           if (onVisibilityChange) {
             document.removeEventListener('visibilitychange', onVisibilityChange);
             onVisibilityChange = null;
@@ -747,6 +789,7 @@ window.NexusExt = window.NexusExt || {};
             this.ui.setDownloadStatus?.(message.status);
           }
           if (message.type === 'NXT_NDC_PROGRESS') {
+            stopWaitCountdown();
             const name = message.itemName || 'Nexus file';
             if (message.itemState === 'started') {
               this.ui.logText(TS('logDownloading', [name], `Downloading: ${name}`));
@@ -762,10 +805,11 @@ window.NexusExt = window.NexusExt || {};
           }
           if (message.type === 'NXT_NDC_STATE') return;
           if (message.type === 'NXT_NDC_WAITING') {
-            this.ui.logText(T('logQueueRateLimited', 'Nexus Mods rate limit reached. The background queue will resume automatically.'), 'info');
+            startWaitCountdown(Number(message.until) || 0);
             return;
           }
           if (message.type === 'NXT_NDC_DONE') {
+            stopWaitCountdown();
             if (message.folder) this.landedIn = String(message.folder);
             finish(message.outcome || 'error', message.error || '');
           }

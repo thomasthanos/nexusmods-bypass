@@ -148,15 +148,15 @@
 
         const box = document.getElementById('popupRating');
         if (!box) return;
+        const link = document.getElementById('ratingLink');
+        if (link) link.href = NXTK.getStoreReviewUrl();
         box.hidden = false;
         const markDone = () => {
           box.hidden = true;
-          try {
-            chrome.storage.local.set({ [NXTK.RATING_PROMPT_KEY]: true });
-          } catch (_) { }
+          NXTK.markRatingPrompted();
         };
         document.getElementById('ratingDismiss')?.addEventListener('click', markDone);
-        document.getElementById('ratingLink')?.addEventListener('click', markDone);
+        link?.addEventListener('click', markDone);
       });
     } catch (_) {
     }

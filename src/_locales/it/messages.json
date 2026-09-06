@@ -36,7 +36,19 @@
     "message": "Assistente di download per Nexus Mods e Vortex"
   },
   "ratingPrompt": {
-    "message": "Ti piace? ⭐ Lascia una stella su GitHub"
+    "message": "Ti è utile? Una breve recensione aiuta altri modder a trovarlo."
+  },
+  "methodCardTitle": {
+    "message": "Vortex o il browser"
+  },
+  "methodCardText": {
+    "message": "Manda i link direttamente a Vortex, o scarica file veri nella cartella Download: si scegle a ogni avvio dal pannello."
+  },
+  "sourceBtn": {
+    "message": "Codice e documentazione"
+  },
+  "dlgWhatDoesThisMean": {
+    "message": "Che cosa significa?"
   },
   "ratingDismiss": {
     "message": "Chiudi"
@@ -79,19 +91,10 @@
   },
   "bugCardText": {
     "message": "Ogni pulsante \"Segnala un bug\" copia un report diagnostico completo e apre una issue GitHub precompilata."
-  },
-  "starCardTitle": {
-    "message": "⭐ Ti piace?"
-  },
-  "starCardText": {
-    "message": "Una stella su GitHub aiuta altri modder a scoprire l'estensione."
-  },
+  },
   "openNexusBtn": {
     "message": "Apri Nexus Mods"
-  },
-  "starBtn": {
-    "message": "Stella su GitHub"
-  },
+  },
   "disclaimer": {
     "message": "Non affiliato a Nexus Mods. Serve un tuo account Nexus Mods; i contenuti riservati ai Premium restano tali."
   },

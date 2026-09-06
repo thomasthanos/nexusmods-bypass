@@ -36,7 +36,19 @@
     "message": "Asystent pobierania dla Nexus Mods i Vortex"
   },
   "ratingPrompt": {
-    "message": "Podoba Ci się? ⭐ Zostaw gwiazdkę na GitHubie"
+    "message": "Przydało się? Krótka opinia pomoże innym modderom to znaleźć."
+  },
+  "methodCardTitle": {
+    "message": "Vortex albo przeglądarka"
+  },
+  "methodCardText": {
+    "message": "Wyślij linki wprost do Vortexa albo pobierz prawdziwe pliki do folderu Pobrane — wybierasz przy każdym uruchomieniu."
+  },
+  "sourceBtn": {
+    "message": "Kod i dokumentacja"
+  },
+  "dlgWhatDoesThisMean": {
+    "message": "Co to znaczy?"
   },
   "ratingDismiss": {
     "message": "Zamknij"
@@ -79,19 +91,10 @@
   },
   "bugCardText": {
     "message": "Każdy przycisk „Zgłoś błąd” kopiuje pełny raport diagnostyczny i otwiera wypełnione zgłoszenie na GitHubie."
-  },
-  "starCardTitle": {
-    "message": "⭐ Podoba Ci się?"
-  },
-  "starCardText": {
-    "message": "Gwiazdka na GitHubie pomaga innym modderom odnaleźć to rozszerzenie."
-  },
+  },
   "openNexusBtn": {
     "message": "Otwórz Nexus Mods"
-  },
-  "starBtn": {
-    "message": "Gwiazdka na GitHubie"
-  },
+  },
   "disclaimer": {
     "message": "Niepowiązane z Nexus Mods. Potrzebujesz własnego konta Nexus Mods; treści tylko dla Premium pozostają zastrzeżone."
   },

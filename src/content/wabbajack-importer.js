@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const NXTK = window.NexusExt = window.NexusExt || {};
+  const NexusExt = window.NexusExt = window.NexusExt || {};
   const MAX_MODLIST_BYTES = 256 * 1024 * 1024;
   const MAX_ARCHIVES_JSON_BYTES = 32 * 1024 * 1024;
   const MAX_ARCHIVE_ENTRIES = 10000;
@@ -284,15 +284,15 @@
     if (!file || typeof file.slice !== 'function') {
       throw new WabbajackImportError('no-file', 'No .wabbajack file was provided.');
     }
-    if (!NXTK.ZipReader?.readEntry) {
+    if (!NexusExt.ZipReader?.readEntry) {
       throw new WabbajackImportError('reader-unavailable', 'The ZIP reader is unavailable.');
     }
 
     let bytes;
     try {
-      bytes = await NXTK.ZipReader.readEntry(file, 'modlist', { maxBytes: MAX_MODLIST_BYTES });
+      bytes = await NexusExt.ZipReader.readEntry(file, 'modlist', { maxBytes: MAX_MODLIST_BYTES });
     } catch (cause) {
-      if (cause instanceof NXTK.ZipReader.ZipReaderError) {
+      if (cause instanceof NexusExt.ZipReader.ZipReaderError) {
         throw new WabbajackImportError(cause.code, cause.message, cause);
       }
       throw cause;
@@ -335,7 +335,7 @@
     }));
   }
 
-  NXTK.WabbajackImporter = Object.freeze({
+  NexusExt.WabbajackImporter = Object.freeze({
     GAMES,
     GAME_IDS,
     WabbajackImportError,

@@ -5,6 +5,12 @@
   if (!NXTK?.applyI18nTo) return;
 
   try {
+    const version = document.getElementById('welcomeVersion');
+    if (version) version.textContent = `v${chrome.runtime.getManifest().version}`;
+  } catch (_) {
+  }
+
+  try {
     chrome.storage.local.get(NXTK.SETTINGS_KEY, (result) => {
       if (!chrome.runtime.lastError) {
         const stored = result?.[NXTK.SETTINGS_KEY];

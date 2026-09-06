@@ -36,7 +36,19 @@
     "message": "Помощник загрузок для Nexus Mods и Vortex"
   },
   "ratingPrompt": {
-    "message": "Нравится? ⭐ Поставьте звезду на GitHub"
+    "message": "Пригодилось? Короткий отзыв поможет другим моддерам найти расширение."
+  },
+  "methodCardTitle": {
+    "message": "Vortex или браузер"
+  },
+  "methodCardText": {
+    "message": "Отправляйте ссылки прямо в Vortex или скачивайте файлы в папку загрузок — выбор при каждом запуске."
+  },
+  "sourceBtn": {
+    "message": "Код и документация"
+  },
+  "dlgWhatDoesThisMean": {
+    "message": "Что это значит?"
   },
   "ratingDismiss": {
     "message": "Скрыть"
@@ -79,19 +91,10 @@
   },
   "bugCardText": {
     "message": "Каждая кнопка «Сообщить об ошибке» копирует полный отчёт и открывает предзаполненный GitHub issue."
-  },
-  "starCardTitle": {
-    "message": "⭐ Нравится?"
-  },
-  "starCardText": {
-    "message": "Звезда на GitHub помогает большему числу моддеров найти расширение."
-  },
+  },
   "openNexusBtn": {
     "message": "Открыть Nexus Mods"
-  },
-  "starBtn": {
-    "message": "Звезда на GitHub"
-  },
+  },
   "disclaimer": {
     "message": "Не связано с Nexus Mods. Нужен собственный аккаунт Nexus Mods; премиум-контент остаётся премиум."
   },

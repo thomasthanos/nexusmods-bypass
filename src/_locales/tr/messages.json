@@ -36,7 +36,19 @@
     "message": "Nexus Mods ve Vortex için indirme yardımcısı"
   },
   "ratingPrompt": {
-    "message": "Beğendiniz mi? ⭐ GitHub'da yıldız verin"
+    "message": "İşine yaradı mı? Kısa bir değerlendirme diğer modcuların bulmasına yardım eder."
+  },
+  "methodCardTitle": {
+    "message": "Vortex ya da tarayıcı"
+  },
+  "methodCardText": {
+    "message": "Bağlantıları doğrudan Vortex’e gönder ya da gerçek dosyaları İndirilenler klasörüne indir — her çalıştırmada seçebilirsin."
+  },
+  "sourceBtn": {
+    "message": "Kaynak ve dokümanlar"
+  },
+  "dlgWhatDoesThisMean": {
+    "message": "Bu ne anlama geliyor?"
   },
   "ratingDismiss": {
     "message": "Kapat"
@@ -79,19 +91,10 @@
   },
   "bugCardText": {
     "message": "Her \"Hata bildir\" düğmesi tam bir tanılama raporu kopyalar ve önceden doldurulmuş bir GitHub konusu açar."
-  },
-  "starCardTitle": {
-    "message": "⭐ Beğendiniz mi?"
-  },
-  "starCardText": {
-    "message": "GitHub'daki bir yıldız, daha çok modcunun eklentiyi bulmasına yardımcı olur."
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods'u aç"
-  },
-  "starBtn": {
-    "message": "GitHub'da yıldız ver"
-  },
+  },
   "disclaimer": {
     "message": "Nexus Mods ile bağlantılı değildir. Kendi Nexus Mods hesabınız gerekir; yalnızca Premium içerikler Premium olarak kalır."
   },

@@ -36,7 +36,23 @@
     "message": "Download helper for Nexus Mods & Vortex"
   },
   "ratingPrompt": {
-    "message": "Enjoying it? ⭐ Star it on GitHub"
+    "message": "Enjoying it? A short review helps other modders find it."
+  },
+  "methodCardTitle": {
+    "message": "Vortex or your browser",
+    "description": "Onboarding card title."
+  },
+  "methodCardText": {
+    "message": "Send links straight to Vortex, or download real files into your Downloads folder — pick per run in the collection deck.",
+    "description": "Onboarding card body."
+  },
+  "sourceBtn": {
+    "message": "Source & docs",
+    "description": "Onboarding secondary button."
+  },
+  "dlgWhatDoesThisMean": {
+    "message": "What does this mean?",
+    "description": "Error dialog button for blocking errors that are not bugs."
   },
   "ratingDismiss": {
     "message": "Dismiss"
@@ -80,17 +96,8 @@
   "bugCardText": {
     "message": "Every \"Report a bug\" button copies a full diagnostic report and opens a prefilled GitHub issue."
   },
-  "starCardTitle": {
-    "message": "⭐ Enjoying it?"
-  },
-  "starCardText": {
-    "message": "A star on GitHub helps more modders find the extension."
-  },
   "openNexusBtn": {
     "message": "Open Nexus Mods"
-  },
-  "starBtn": {
-    "message": "Star on GitHub"
   },
   "disclaimer": {
     "message": "Not affiliated with Nexus Mods. You need your own Nexus Mods account; premium-only content stays premium-only."

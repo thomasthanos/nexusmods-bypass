@@ -36,7 +36,19 @@
     "message": "Nexus Mods 与 Vortex 下载助手"
   },
   "ratingPrompt": {
-    "message": "喜欢吗？⭐ 在 GitHub 上点个星"
+    "message": "觉得好用吗？一条简短的评价能帮其他模组玩家找到它。"
+  },
+  "methodCardTitle": {
+    "message": "Vortex 还是浏览器"
+  },
+  "methodCardText": {
+    "message": "把链接直接发给 Vortex，或把真实文件下载到下载文件夹——每次运行都可在面板中选择。"
+  },
+  "sourceBtn": {
+    "message": "源码与文档"
+  },
+  "dlgWhatDoesThisMean": {
+    "message": "这是什么意思？"
   },
   "ratingDismiss": {
     "message": "关闭"
@@ -79,19 +91,10 @@
   },
   "bugCardText": {
     "message": "每个\"报告问题\"按钮都会复制完整诊断报告并打开预填好的 GitHub issue。"
-  },
-  "starCardTitle": {
-    "message": "⭐ 喜欢吗？"
-  },
-  "starCardText": {
-    "message": "在 GitHub 上点星可以帮助更多玩家发现这个扩展。"
-  },
+  },
   "openNexusBtn": {
     "message": "打开 Nexus Mods"
-  },
-  "starBtn": {
-    "message": "在 GitHub 点星"
-  },
+  },
   "disclaimer": {
     "message": "与 Nexus Mods 无关联。您需要自己的 Nexus Mods 账户；高级版专属内容仍需高级版。"
   },

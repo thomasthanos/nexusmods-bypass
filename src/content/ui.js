@@ -1260,7 +1260,9 @@ window.NexusExt = window.NexusExt || {};
           <div class="nxtk-error-code">${escapeHtml(NXTK.t('dlgErrorId', null, 'Error ID'))}: ${escapeHtml(normalized.code)}</div>
         </div>
         <div class="nxtk-modal-footer nxtk-alert-footer nxtk-error-footer">
-          <button class="nxtk-btn nxtk-btn-secondary" type="button" data-report>${escapeHtml(NXTK.t('dlgReportBug', null, 'Report a bug'))}</button>
+          ${normalized.blocking
+            ? `<a class="nxtk-btn nxtk-btn-secondary" href="${escapeHtml(NXTK.TROUBLESHOOTING_URL)}" target="_blank" rel="noopener noreferrer">${escapeHtml(NXTK.t('dlgWhatDoesThisMean', null, 'What does this mean?'))}</a>`
+            : `<button class="nxtk-btn nxtk-btn-secondary" type="button" data-report>${escapeHtml(NXTK.t('dlgReportBug', null, 'Report a bug'))}</button>`}
           ${requiresLogin
             ? `<button class="nxtk-btn nxtk-btn-primary" type="button" data-login>${escapeHtml(NXTK.t('btnSignIn', null, 'Sign in to Nexus Mods'))}</button>`
             : canRetry
@@ -1288,7 +1290,7 @@ window.NexusExt = window.NexusExt || {};
 
       modal.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', finish));
       const reportButton = modal.querySelector('[data-report]');
-      reportButton.addEventListener('click', () => copyReportAndOpenIssue(reportButton, normalized));
+      reportButton?.addEventListener('click', () => copyReportAndOpenIssue(reportButton, normalized));
       modal.querySelector('[data-login]')?.addEventListener('click', () => {
         finish();
         NexusExt.Auth?.openLogin?.();
@@ -1651,6 +1653,43 @@ window.NexusExt = window.NexusExt || {};
     backdrop.appendChild(modal);
     document.body.appendChild(backdrop);
     modal.querySelector('[data-close]')?.focus?.({ preventScroll: true });
+  }
+
+  const DECK_ASK_MIN_MODS = 5;
+
+  // Asked once, after a run that actually saved the reader some time, and never
+  // again whichever way it is answered.
+  function maybeAskForReview(deck, finishedCount) {
+    if (finishedCount < DECK_ASK_MIN_MODS || deck.querySelector('.nxtk-deck-ask')) return;
+    NXTK.wasRatingPrompted().then((asked) => {
+      if (asked || !deck.isConnected || deck.querySelector('.nxtk-deck-ask')) return;
+
+      const row = document.createElement('div');
+      row.className = 'nxtk-deck-ask';
+
+      const link = document.createElement('a');
+      link.className = 'nxtk-deck-ask-link';
+      link.href = NXTK.getStoreReviewUrl();
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = NXTK.t('ratingPrompt', null, 'Enjoying it? A short review helps other modders find it.');
+
+      const dismiss = document.createElement('button');
+      dismiss.type = 'button';
+      dismiss.className = 'nxtk-deck-ask-dismiss';
+      dismiss.textContent = '×';
+      dismiss.setAttribute('aria-label', NXTK.t('ratingDismiss', null, 'Dismiss'));
+
+      const close = () => {
+        NXTK.markRatingPrompted();
+        row.remove();
+      };
+      link.addEventListener('click', close);
+      dismiss.addEventListener('click', close);
+
+      row.append(link, dismiss);
+      deck.appendChild(row);
+    }).catch(() => undefined);
   }
 
   function createControlDeck(ndc) {
@@ -2087,6 +2126,8 @@ window.NexusExt = window.NexusExt || {};
           `In Wabbajack, set the Downloads folder to ${folder} and start the install. `
           + 'It checks every file and only fetches what is still missing.'), 'info');
       }
+
+      if (outcome === 'finished') maybeAskForReview(deck, state.progress);
     };
 
     function renderProgress() {
