@@ -12,7 +12,7 @@
 [![Privacy](.github/assets/btn-privacy.svg)](PRIVACY.md)
 [![Troubleshooting](.github/assets/btn-troubleshooting.svg)](#-troubleshooting)
 
-<img src=".github/assets/spec-nexus-v2.svg?v=2.6.0-pos" alt="At a glance">
+<img src=".github/assets/spec-nexus-v2.svg?v=2.6.1-pos" alt="At a glance">
 
 <br>
 <a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj"><img src=".github/assets/btn-chrome.svg" alt="Chrome"></a>
@@ -67,15 +67,19 @@ can pick up where it stopped instead of starting over.
 ### Quality of life
 
 - **Hide ads and Premium panels** — advertising slots, empty ad containers and upgrade banners are
-  collapsed while you browse.
+  collapsed while you browse. It also keeps the Nexus ad-timer cookie current, which is what lets a
+  queued download skip the countdown before each link, so leaving it on matters for collection runs
+  and not only for how the page looks. See [PRIVACY.md](PRIVACY.md) for exactly what that cookie is.
 - **Guided onboarding page** the first time you install.
-- **Built-in bug reporter** that attaches recent extension errors to a pre-filled GitHub issue.
+- **Built-in bug reporter** that attaches recent extension errors, and the last few things the
+  extension did before the fault, to a pre-filled GitHub issue. Nothing to switch on beforehand, and
+  the draft is yours to read and edit before submitting.
 - **Support panel** — entirely optional, never gates a feature.
 
 ### <img src=".github/assets/icon-globe.svg" width="20" align="middle"> Languages
 
 English, Greek, German, Spanish, French, Italian, Japanese, Korean, Polish, Portuguese (BR),
-Russian, Turkish, Simplified Chinese — 340 strings each (a few more or fewer where a language's
+Russian, Turkish, Simplified Chinese — 346 strings each (a few more or fewer where a language's
 plural rules need extra forms). There is also an **Always use English**
 switch for when your browser language and your Nexus language disagree.
 
@@ -124,7 +128,7 @@ Reachable from the popup → **Page settings**. Changes save instantly.
 |---|---|
 | **Download Flow** | Start downloads automatically · Close Vortex tabs · Skip requirement screens · Show error popups · Hide ads and Premium panels · Archived file buttons · Wabbajack modlist import · Cloudflare fallback |
 | **Files & Pacing** | Browser download folder · Your Nexus download speed · Pause between mods |
-| **Advanced** | Verbose extension logs · Download request timeout · Close-tab delay |
+| **Advanced** | Download request timeout · Close-tab delay |
 | **Language** | Always use English |
 
 **Restore Defaults** resets everything and refreshes the Nexus page.
@@ -137,7 +141,7 @@ Reachable from the popup → **Page settings**. Changes save instantly.
 |---|---|
 | `storage` | Your settings and the local download history. |
 | `downloads` | Browser download mode — starting files and putting them in your chosen subfolder. |
-| `downloads.ui` | Chrome and Edge only — Firefox has no such API, and the Firefox package does not ask for it. Being removed anyway: the "hide the download button" setting is gone as of 2.4.3 and the permission is held only to put the button back for profiles that still have it hidden, which the extension does once at startup. |
+| `downloads.ui` | Chrome and Edge only — Firefox has no such API, and the Firefox package does not ask for it. The setting that used it is gone as of 2.4.3; the permission is still held only so startup can put the download button back for profiles that still have it hidden. |
 | `alarms` | Pacing the background queue between mods. |
 | `https://www.nexusmods.com/*` | The only site this extension touches. |
 
@@ -194,6 +198,17 @@ Completed files stay in history, so nothing is re-downloaded when it does.
 </details>
 
 <details>
+<summary><b>A collection downloads slower than the same file downloaded by hand</b></summary>
+
+<br>
+
+Two things the queue depends on, both easy to lose. Keep **Hide ads and Premium panels** on: it is what
+keeps the ad-timer cookie current, and the background queue cannot write that cookie itself. And leave
+the collection tab open — the queue stops when the tab closes, and while it is open that tab is what
+refreshes the cookie on the queue's behalf.
+</details>
+
+<details>
 <summary><b>A collection run keeps re-downloading files I already have</b></summary>
 
 <br>
@@ -207,8 +222,9 @@ has no way to know which files exist on disk.
 
 <br>
 
-Use the popup's **Report a bug** button — it pre-fills the GitHub form with the recent error log.
-Turning on **Verbose extension logs** first gives a much more useful report.
+Use the popup's **Report a bug** button — it pre-fills the GitHub form with the recent error log and
+the last few things the extension did before the fault, so there is no setting to turn on first. The
+draft is yours to read and edit before you decide whether to submit it.
 </details>
 
 <img src=".github/assets/divider.svg" width="100%" alt="">

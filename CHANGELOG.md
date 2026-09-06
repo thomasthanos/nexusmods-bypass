@@ -7,7 +7,7 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
-## [Unreleased] - 2026-09-06
+## [2.6.1] - 2026-09-06
 
 ### Security
 
@@ -21,14 +21,14 @@ they are simply not listed.
 
 ### Fixed
 
-- **The ad-timer cookie now survives a collection run.** The cookie that keeps Nexus from applying its
-  ad-blocked download speed lasts five minutes and can only be written by a page, because a service
-  worker has no `document`. Browser-mode collection runs are driven entirely by the service worker, so
-  nothing refreshed it: whatever a previous manual download left behind expired a few minutes in, and the
-  rest of the run downloaded at the throttled rate. The collection tab — which has to stay open for the
-  run anyway — now refreshes the cookie alongside the status poll it already runs, and once more before
-  the queue is started. This needs *Hide ads and Premium panels* left on, since that setting is what
-  writes the cookie, as its description says.
+- **The ad-timer cookie now survives a collection run.** The `ab` cookie that tells Nexus the ad
+  countdown has elapsed lasts five minutes, and only a page can write it — a service worker has no
+  `document`, and this extension deliberately does not ask for the browser's cookies permission.
+  Browser-mode collection runs are driven entirely by the service worker, so nothing refreshed it:
+  whatever the last manual download left behind expired a few minutes into the run, and every file after
+  that was resolved without it. The collection tab, which has to stay open for the run anyway, now
+  refreshes the cookie alongside the status poll it already performs, and once before the queue is
+  started. It needs *Hide ads and Premium panels* left on, since that setting is what writes the cookie.
 
 ### Changed
 

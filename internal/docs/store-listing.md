@@ -94,7 +94,7 @@ helper, Skyrim, Fallout, modding
 |---|---|
 | `storage` | Persist user settings, local download history and the local error log |
 | `downloads` | Start the files the user selects, cancel them on Stop, and read download state so a queue survives the service worker being suspended |
-| `downloads.ui` | Being removed. The setting that used it was dropped in 2.4.3; the permission is retained for this one release only, to re-enable the browser download button for profiles that still have it hidden. It disappears from the manifest in 2.5.0. |
+| `downloads.ui` | Chrome and Edge only; the Firefox package does not request it. The setting that used it was dropped in 2.4.3. The permission is still carried so that startup can put the download button back for profiles that still have it hidden — a profile that never opens the extension again would otherwise keep a button hidden by a setting that no longer exists. An earlier note here said it would disappear in 2.5.0; that has not happened, and dropping it needs a release where that repair is accepted as no longer necessary. |
 | `alarms` | Resume the queue after the scheduled pause between downloads, since an MV3 service worker cannot hold a timer while suspended |
 | `https://www.nexusmods.com/*` | Read download pages and start the downloads the user requests |
 
