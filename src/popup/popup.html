@@ -78,11 +78,12 @@
         </div>
 
         <div class="popup-rating" id="popupRating" hidden>
-          <a id="ratingLink" href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj/reviews" target="_blank" rel="noopener noreferrer">
-            <span class="popup-rating-stars" id="ratingStars" aria-hidden="true"></span>
-            <span data-i18n="ratingPrompt">Enjoying it? A short review helps other modders find it.</span>
-            <span class="popup-rating-cta" id="ratingCta"></span>
-          </a>
+          <span class="popup-rating-stars" id="ratingStars" aria-hidden="true"></span>
+          <span class="popup-rating-copy" id="ratingCopy">Enjoying it? A short review helps other modders find it.</span>
+          <span class="popup-rating-actions">
+            <a id="ratingLink" href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj/reviews" target="_blank" rel="noopener noreferrer" class="popup-rating-cta"></a>
+            <a id="ratingStarLink" href="https://github.com/thomasthanos/nexusmods-bypass" target="_blank" rel="noopener noreferrer" class="popup-rating-alt"></a>
+          </span>
           <button type="button" id="ratingDismiss" aria-label="Dismiss" data-i18n-aria-label="ratingDismiss" data-i18n="ratingDismiss">Dismiss</button>
         </div>
       </div>

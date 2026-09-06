@@ -32,8 +32,11 @@
   "popupFooter": {
     "message": "Asystent pobierania dla Nexus Mods i Vortex"
   },
-  "ratingPrompt": {
-    "message": "Przydało się? Krótka opinia pomoże innym modderom to znaleźć."
+  "ratingStarCta": {
+    "message": "Daj gwiazdkę na GitHubie"
+  },
+  "ratingPromptCount": {
+    "message": "Pobrano $1 plików. Krótka opinia pomoże innym modderom to znaleźć."
   },
   "ratingCta": {
     "message": "Oceń w $1"

@@ -66,12 +66,15 @@ they are simply not listed.
 
 ### Changed
 
-- **The review ask looks like what it is.** It was a line of grey text that happened to be a link, so the
-  one place the extension ever asks for anything was also the easiest thing on the panel to miss. It now
-  carries five stars and names the store it opens. The stars are decoration and are hidden from screen
-  readers, because the rating is left on the store page and nothing here records one — the link's own text
-  is what says where it goes. It still appears once, only after a run of at least five files finished, and
-  dismissing or following it settles the matter for good.
+- **The one ask the extension makes is no longer once-and-never, and no longer needs a collection.** It
+  only appeared after a collection run of at least five files, and only ever once — so someone who
+  downloads mods one at a time never saw it at all, and someone who had used it a thousand times had no
+  second chance to say anything. It now goes by how much the extension has actually been used, counting
+  every download whether it came from a collection, a modlist or a single file by hand, and comes round at
+  25, 120, 500 and 1500 files. Those gaps widen deliberately, and no two asks can land within three weeks
+  of each other however fast the count climbs. Dismissing clears only the milestone it was shown for, so
+  the next one may still come; following either link ends it for good. It now offers both a store rating
+  and a star on the repository, carries five stars, and names the store it opens.
 - **A report now shows what happened just before the fault, and the log switch is gone.** *Verbose
   extension logs* asked the reader to find and flip a setting whose own description admitted it changed
   nothing about bug reports — it only quietened the console. Activity is now recorded regardless and the

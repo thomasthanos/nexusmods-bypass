@@ -32,8 +32,11 @@
   "popupFooter": {
     "message": "Βοηθός λήψεων για Nexus Mods & Vortex"
   },
-  "ratingPrompt": {
-    "message": "Σου φάνηκε χρήσιμο; Μια σύντομη κριτική βοηθά να το βρουν κι άλλοι."
+  "ratingStarCta": {
+    "message": "Αστέρι στο GitHub"
+  },
+  "ratingPromptCount": {
+    "message": "$1 αρχεία κατεβασμένα. Μια σύντομη κριτική βοηθά να το βρουν κι άλλοι."
   },
   "ratingCta": {
     "message": "Βαθμολόγησε στο $1"

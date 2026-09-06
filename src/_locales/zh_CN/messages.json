@@ -32,8 +32,11 @@
   "popupFooter": {
     "message": "Nexus Mods 与 Vortex 下载助手"
   },
-  "ratingPrompt": {
-    "message": "觉得好用吗？一条简短的评价能帮其他模组玩家找到它。"
+  "ratingStarCta": {
+    "message": "在 GitHub 上加星"
+  },
+  "ratingPromptCount": {
+    "message": "已下载 $1 个文件。一条简短的评价能帮其他模组玩家找到它。"
   },
   "ratingCta": {
     "message": "在 $1 评分"

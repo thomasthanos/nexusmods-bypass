@@ -32,8 +32,11 @@
   "popupFooter": {
     "message": "Nexus Mods 및 Vortex용 다운로드 도우미"
   },
-  "ratingPrompt": {
-    "message": "도움이 되었나요? 짧은 리뷰가 다른 모더들에게 도움이 됩니다."
+  "ratingStarCta": {
+    "message": "GitHub에서 별 주기"
+  },
+  "ratingPromptCount": {
+    "message": "$1 개의 파일을 내려받았습니다. 짧은 리뷰가 다른 모더들에게 도움이 됩니다."
   },
   "ratingCta": {
     "message": "$1 에서 평가하기"

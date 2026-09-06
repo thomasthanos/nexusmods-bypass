@@ -32,8 +32,11 @@
   "popupFooter": {
     "message": "Nexus Mods ve Vortex için indirme yardımcısı"
   },
-  "ratingPrompt": {
-    "message": "İşine yaradı mı? Kısa bir değerlendirme diğer modcuların bulmasına yardım eder."
+  "ratingStarCta": {
+    "message": "GitHub'da yıldız ver"
+  },
+  "ratingPromptCount": {
+    "message": "$1 dosya indirildi. Kısa bir değerlendirme diğer modcuların bulmasına yardım eder."
   },
   "ratingCta": {
     "message": "$1 üzerinde puan ver"

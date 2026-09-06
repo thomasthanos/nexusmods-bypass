@@ -32,8 +32,11 @@
   "popupFooter": {
     "message": "Помощник загрузок для Nexus Mods и Vortex"
   },
-  "ratingPrompt": {
-    "message": "Пригодилось? Короткий отзыв поможет другим моддерам найти расширение."
+  "ratingStarCta": {
+    "message": "Поставить звезду на GitHub"
+  },
+  "ratingPromptCount": {
+    "message": "Загружено файлов: $1. Короткий отзыв поможет другим моддерам найти расширение."
   },
   "ratingCta": {
     "message": "Оценить в $1"

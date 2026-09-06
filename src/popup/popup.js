@@ -141,34 +141,54 @@
 
   function maybeShowRatingPrompt() {
     try {
-      chrome.storage.local.get([NXTK.TOTAL_DOWNLOADS_KEY, NXTK.RATING_PROMPT_KEY], (result) => {
+      chrome.storage.local.get([NXTK.TOTAL_DOWNLOADS_KEY], (result) => {
         if (getRuntimeError()) return;
         const count = Number(result?.[NXTK.TOTAL_DOWNLOADS_KEY]) || 0;
-        if (result?.[NXTK.RATING_PROMPT_KEY] || count < 25) return;
 
-        const box = document.getElementById('popupRating');
-        if (!box) return;
-        const listing = NXTK.getStoreListing?.()
-          || { name: 'Chrome Web Store', reviewUrl: NXTK.getStoreReviewUrl() };
-        const link = document.getElementById('ratingLink');
-        if (link) link.href = listing.reviewUrl;
-        const stars = document.getElementById('ratingStars');
-        if (stars) {
-          // Decoration: the rating is left on the store page, so this is hidden from
-          // assistive tech and the link's own text says where it leads.
-          stars.innerHTML = Array.from({ length: 5 }, () =>
-            '<svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 2.6l2.94 5.96 6.58.96'
-            + '-4.76 4.64 1.12 6.55L12 17.7l-5.88 3.01 1.12-6.55L2.48 9.52l6.58-.96z"/></svg>').join('');
-        }
-        const cta = document.getElementById('ratingCta');
-        if (cta) cta.textContent = NXTK.t('ratingCta', [listing.name], `Rate on ${listing.name}`);
-        box.hidden = false;
-        const markDone = () => {
-          box.hidden = true;
-          NXTK.markRatingPrompted();
-        };
-        document.getElementById('ratingDismiss')?.addEventListener('click', markDone);
-        link?.addEventListener('click', markDone);
+        NXTK.dueRatingMilestone(count).then((milestone) => {
+          if (!milestone) return;
+          const box = document.getElementById('popupRating');
+          if (!box) return;
+          NXTK.markRatingAsked(milestone);
+
+          const listing = NXTK.getStoreListing?.()
+            || { name: 'Chrome Web Store', reviewUrl: NXTK.getStoreReviewUrl() };
+          const link = document.getElementById('ratingLink');
+          if (link) {
+            link.href = listing.reviewUrl;
+            link.textContent = NXTK.t('ratingCta', [listing.name], `Rate on ${listing.name}`);
+          }
+          const stars = document.getElementById('ratingStars');
+          if (stars) {
+            // Decoration: the rating is left on the store page, so this is hidden from
+            // assistive tech and the link's own text says where it leads.
+            stars.innerHTML = Array.from({ length: 5 }, () =>
+              '<svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 2.6l2.94 5.96 6.58.96'
+              + '-4.76 4.64 1.12 6.55L12 17.7l-5.88 3.01 1.12-6.55L2.48 9.52l6.58-.96z"/></svg>').join('');
+          }
+          const copy = document.getElementById('ratingCopy');
+          if (copy) {
+            copy.textContent = NXTK.t('ratingPromptCount', [String(milestone)],
+              `${milestone} files downloaded. A short review helps other modders find this.`);
+          }
+          const starLink = document.getElementById('ratingStarLink');
+          if (starLink) {
+            starLink.href = NXTK.GITHUB_REPO_URL;
+            starLink.textContent = NXTK.t('ratingStarCta', null, 'Star on GitHub');
+          }
+
+          box.hidden = false;
+          // Following either link is an answer; dismissing clears this milestone only.
+          const settle = () => {
+            box.hidden = true;
+            NXTK.markRatingSettled();
+          };
+          document.getElementById('ratingDismiss')?.addEventListener('click', () => {
+            box.hidden = true;
+          });
+          link?.addEventListener('click', settle);
+          starLink?.addEventListener('click', settle);
+        }).catch(() => undefined);
       });
     } catch (_) {
     }

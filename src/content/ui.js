@@ -1664,64 +1664,88 @@ window.NexusExt = window.NexusExt || {};
     modal.querySelector('[data-close]')?.focus?.({ preventScroll: true });
   }
 
-  const DECK_ASK_MIN_MODS = 5;
-
   const STAR_PATH = 'M12 2.6l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.7l-5.88 3.01 '
     + '1.12-6.55L2.48 9.52l6.58-.96z';
 
-  // Asked once, after a run that actually saved the reader some time, and never
-  // again whichever way it is answered.
+  const readTotalDownloads = () => new Promise((resolve) => {
+    try {
+      if (!chrome?.runtime?.id) {
+        resolve(0);
+        return;
+      }
+      chrome.storage.local.get(NXTK.TOTAL_DOWNLOADS_KEY, (result) => {
+        resolve(chrome.runtime.lastError ? 0 : Number(result?.[NXTK.TOTAL_DOWNLOADS_KEY]) || 0);
+      });
+    } catch (_) {
+      resolve(0);
+    }
+  });
+
+  // Tied to how much the extension has been used overall, not to the size of one run: a
+  // single file downloaded by hand counts the same as one from a collection. The milestone
+  // decides whether there is anything to ask, so this only checks that a run did something.
   function maybeAskForReview(deck, finishedCount) {
-    if (finishedCount < DECK_ASK_MIN_MODS || deck.querySelector('.nxtk-deck-ask')) return;
-    NXTK.wasRatingPrompted().then((asked) => {
-      if (asked || !deck.isConnected || deck.querySelector('.nxtk-deck-ask')) return;
+    if (finishedCount < 1 || deck.querySelector('.nxtk-deck-ask')) return;
+    readTotalDownloads()
+      .then((total) => NXTK.dueRatingMilestone(total))
+      .then((milestone) => {
+        if (!milestone || !deck.isConnected || deck.querySelector('.nxtk-deck-ask')) return;
+        NXTK.markRatingAsked(milestone);
 
-      const listing = NXTK.getStoreListing?.() || { name: 'Chrome Web Store', reviewUrl: NXTK.getStoreReviewUrl() };
+        const listing = NXTK.getStoreListing?.()
+          || { name: 'Chrome Web Store', reviewUrl: NXTK.getStoreReviewUrl() };
 
-      const row = document.createElement('div');
-      row.className = 'nxtk-deck-ask';
+        const row = document.createElement('div');
+        row.className = 'nxtk-deck-ask';
 
-      const link = document.createElement('a');
-      link.className = 'nxtk-deck-ask-link';
-      link.href = listing.reviewUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
+        const stars = document.createElement('span');
+        stars.className = 'nxtk-deck-ask-stars';
+        stars.setAttribute('aria-hidden', 'true');
+        stars.innerHTML = Array.from({ length: 5 }, () =>
+          `<svg viewBox="0 0 24 24" width="14" height="14"><path d="${STAR_PATH}"/></svg>`).join('');
 
-      // Decoration, not a control: the rating itself is left on the store page, so the
-      // stars are hidden from assistive tech and the link says where it goes.
-      const stars = document.createElement('span');
-      stars.className = 'nxtk-deck-ask-stars';
-      stars.setAttribute('aria-hidden', 'true');
-      stars.innerHTML = Array.from({ length: 5 }, () =>
-        `<svg viewBox="0 0 24 24" width="14" height="14"><path d="${STAR_PATH}"/></svg>`).join('');
+        const copy = document.createElement('span');
+        copy.className = 'nxtk-deck-ask-copy';
+        copy.textContent = NXTK.t('ratingPromptCount', [String(milestone)],
+          `${milestone} files downloaded. A short review helps other modders find this.`);
 
-      const copy = document.createElement('span');
-      copy.className = 'nxtk-deck-ask-copy';
-      copy.textContent = NXTK.t('ratingPrompt', null,
-        'Enjoying it? A short review helps other modders find it.');
+        const actions = document.createElement('span');
+        actions.className = 'nxtk-deck-ask-actions';
 
-      const cta = document.createElement('span');
-      cta.className = 'nxtk-deck-ask-cta';
-      cta.textContent = NXTK.t('ratingCta', [listing.name], `Rate on ${listing.name}`);
+        const makeLink = (href, text, className) => {
+          const link = document.createElement('a');
+          link.className = className;
+          link.href = href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = text;
+          // Following either one is an answer, so neither is asked for again.
+          link.addEventListener('click', () => {
+            NXTK.markRatingSettled();
+            row.remove();
+          });
+          return link;
+        };
 
-      link.append(stars, copy, cta);
+        actions.append(
+          makeLink(listing.reviewUrl, NXTK.t('ratingCta', [listing.name], `Rate on ${listing.name}`),
+            'nxtk-deck-ask-cta'),
+          makeLink(NXTK.GITHUB_REPO_URL, NXTK.t('ratingStarCta', null, 'Star on GitHub'),
+            'nxtk-deck-ask-alt')
+        );
 
-      const dismiss = document.createElement('button');
-      dismiss.type = 'button';
-      dismiss.className = 'nxtk-deck-ask-dismiss';
-      dismiss.textContent = '×';
-      dismiss.setAttribute('aria-label', NXTK.t('ratingDismiss', null, 'Dismiss'));
+        const dismiss = document.createElement('button');
+        dismiss.type = 'button';
+        dismiss.className = 'nxtk-deck-ask-dismiss';
+        dismiss.textContent = '×';
+        dismiss.setAttribute('aria-label', NXTK.t('ratingDismiss', null, 'Dismiss'));
+        // A dismissal clears this milestone only; the next one may still come round.
+        dismiss.addEventListener('click', () => row.remove());
 
-      const close = () => {
-        NXTK.markRatingPrompted();
-        row.remove();
-      };
-      link.addEventListener('click', close);
-      dismiss.addEventListener('click', close);
-
-      row.append(link, dismiss);
-      deck.appendChild(row);
-    }).catch(() => undefined);
+        row.append(stars, copy, actions, dismiss);
+        deck.appendChild(row);
+      })
+      .catch(() => undefined);
   }
 
   function createControlDeck(ndc) {

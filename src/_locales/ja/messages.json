@@ -32,8 +32,11 @@
   "popupFooter": {
     "message": "Nexus Mods と Vortex のためのダウンロード支援ツール"
   },
-  "ratingPrompt": {
-    "message": "役に立ちましたか? 短いレビューが他の MOD ユーザーの助けになります。"
+  "ratingStarCta": {
+    "message": "GitHub でスターを付ける"
+  },
+  "ratingPromptCount": {
+    "message": "$1 ファイルをダウンロードしました。短いレビューが他の MOD ユーザーの助けになります。"
   },
   "ratingCta": {
     "message": "$1 で評価する"

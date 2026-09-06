@@ -5,6 +5,7 @@
   const ERROR_LOG_KEY = 'nxtk_error_log';
   const TOTAL_DOWNLOADS_KEY = 'nxtk_total_downloads';
   const RATING_PROMPT_KEY = 'nxtk_rating_prompted';
+  const RATING_STATE_KEY = 'nxtk_rating_state';
   const GITHUB_REPO_URL = 'https://github.com/thomasthanos/nexusmods-bypass';
   const ISSUE_NEW_URL = `${GITHUB_REPO_URL}/issues/new`;
   const REPORT_ISSUE_URL = `${GITHUB_REPO_URL}/issues/new/choose`;
@@ -48,30 +49,91 @@
     return getStoreListing().reviewUrl;
   }
 
-  function wasRatingPrompted() {
+  // Asked at download milestones rather than once and never again, because someone who has
+  // used this a thousand times has more reason to say something than someone who has used it
+  // twenty-five times. The gaps widen so it never becomes a nag, a dismissal only clears the
+  // milestone it was shown for, and following either link ends it for good.
+  const RATING_MILESTONES = [25, 120, 500, 1500];
+  const RATING_MIN_GAP_MS = 21 * 24 * 60 * 60 * 1000;
+
+  function readRatingState() {
     return new Promise((resolve) => {
+      // Anything unreadable resolves as settled, so a storage fault can never nag.
+      const settled = { done: true, cleared: 0, askedAt: 0 };
       try {
         if (!chrome?.runtime?.id) {
-          resolve(true);
+          resolve(settled);
           return;
         }
-        chrome.storage.local.get(RATING_PROMPT_KEY, (result) => {
-          resolve(!!(chrome.runtime.lastError || result?.[RATING_PROMPT_KEY]));
+        chrome.storage.local.get([RATING_STATE_KEY, RATING_PROMPT_KEY], (result) => {
+          if (chrome.runtime.lastError) {
+            resolve(settled);
+            return;
+          }
+          const state = result?.[RATING_STATE_KEY];
+          if (state && typeof state === 'object') {
+            resolve({
+              done: state.done === true,
+              cleared: Number(state.cleared) || 0,
+              askedAt: Number(state.askedAt) || 0
+            });
+            return;
+          }
+          // Already asked once under the old rule. That counts as the first milestone, and
+          // the gap runs from now, so an upgrade never produces an ask straight away.
+          if (result?.[RATING_PROMPT_KEY]) {
+            resolve({ done: false, cleared: RATING_MILESTONES[0], askedAt: Date.now() });
+            return;
+          }
+          resolve({ done: false, cleared: 0, askedAt: 0 });
         });
       } catch (_) {
-        resolve(true);
+        resolve(settled);
       }
     });
   }
 
-  function markRatingPrompted() {
+  function writeRatingState(state) {
     try {
       if (!chrome?.runtime?.id) return;
-      chrome.storage.local.set({ [RATING_PROMPT_KEY]: true }, () => {
+      chrome.storage.local.set({ [RATING_STATE_KEY]: state }, () => {
         void chrome.runtime.lastError;
       });
     } catch (_) {
     }
+  }
+
+  // The milestone that has come due, or 0 when there is nothing to ask about.
+  function ratingMilestoneDue(total, state) {
+    if (!state || state.done) return 0;
+    const count = Number(total) || 0;
+    let due = 0;
+    for (const milestone of RATING_MILESTONES) {
+      if (count >= milestone && milestone > state.cleared) due = milestone;
+    }
+    if (!due) return 0;
+    if (state.askedAt && Date.now() - state.askedAt < RATING_MIN_GAP_MS) return 0;
+    return due;
+  }
+
+  function dueRatingMilestone(total) {
+    return readRatingState().then((state) => ratingMilestoneDue(total, state));
+  }
+
+  function markRatingAsked(milestone) {
+    readRatingState().then((state) => {
+      writeRatingState({
+        done: state.done,
+        cleared: Math.max(state.cleared, Number(milestone) || 0),
+        askedAt: Date.now()
+      });
+    });
+  }
+
+  function markRatingSettled() {
+    readRatingState().then((state) => {
+      writeRatingState({ done: true, cleared: state.cleared, askedAt: Date.now() });
+    });
   }
   const MAX_ISSUE_URL_CHARS = 7000;
 
@@ -966,8 +1028,11 @@
     TROUBLESHOOTING_URL,
     getStoreReviewUrl,
     getStoreListing,
-    wasRatingPrompted,
-    markRatingPrompted,
+    dueRatingMilestone,
+    ratingMilestoneDue,
+    markRatingAsked,
+    markRatingSettled,
+    RATING_MILESTONES,
     DEFAULTS,
     escapeHtml,
     sanitizeUrlForReport,

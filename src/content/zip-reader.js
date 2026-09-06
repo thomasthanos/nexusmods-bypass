@@ -168,14 +168,6 @@
     return {};
   }
 
-  function matchesAsciiName(view, start, length, wantedName) {
-    if (length !== wantedName.length) return false;
-    for (let index = 0; index < length; index += 1) {
-      if (view.getUint8(start + index) !== wantedName.charCodeAt(index)) return false;
-    }
-    return true;
-  }
-
   const lowerAscii = (byte) => (byte >= 0x41 && byte <= 0x5a ? byte + 0x20 : byte);
 
   // Entry names are UTF-8, but the suffixes looked for here are ASCII, so comparing the
@@ -189,8 +181,24 @@
     return true;
   }
 
-  function decodeEntryName(view, start, length) {
-    const bytes = new Uint8Array(view.buffer, view.byteOffset + start, length);
+  // Names are compared as the bytes they are. Decoding first and comparing text would
+  // reject every name that is not plain ASCII, because one character is then more than one
+  // byte and the two lengths stop agreeing.
+  function readNameBytes(view, start, length) {
+    const bytes = new Uint8Array(length);
+    for (let index = 0; index < length; index += 1) bytes[index] = view.getUint8(start + index);
+    return bytes;
+  }
+
+  function matchesNameBytes(view, start, length, expected) {
+    if (length !== expected.length) return false;
+    for (let index = 0; index < length; index += 1) {
+      if (view.getUint8(start + index) !== expected[index]) return false;
+    }
+    return true;
+  }
+
+  function decodeEntryName(bytes) {
     return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
   }
 
@@ -199,6 +207,8 @@
   async function findEntry(file, wanted, maxBytes) {
     const directory = await readDirectoryInfo(file);
     const view = await readView(file, directory.offset, directory.offset + directory.size);
+    // Encoded once, so an exact match is a byte comparison like every other name check.
+    const wantedBytes = wanted.name !== undefined ? new TextEncoder().encode(wanted.name) : null;
     let offset = 0;
 
     for (let index = 0; index < directory.entries; index += 1) {
@@ -220,12 +230,13 @@
       const nextOffset = nameStart + nameLength + extraLength + commentLength;
       if (nextOffset > view.byteLength) fail('bad-central-directory', 'A ZIP directory entry is truncated.');
 
-      const matched = wanted.name !== undefined
-        ? matchesAsciiName(view, nameStart, nameLength, wanted.name)
+      const matched = wantedBytes
+        ? matchesNameBytes(view, nameStart, nameLength, wantedBytes)
         : matchesAsciiSuffix(view, nameStart, nameLength, wanted.suffix);
 
       if (matched) {
-        const name = decodeEntryName(view, nameStart, nameLength);
+        const nameBytes = readNameBytes(view, nameStart, nameLength);
+        const name = decodeEntryName(nameBytes);
         if (diskStart !== 0) fail('split-archive', 'Split ZIP entries are not supported.');
         if (flags & 0x0041) fail('encrypted-entry', 'Encrypted ZIP entries are not supported.');
         if (method !== 0 && method !== 8) {
@@ -255,7 +266,7 @@
         if (method === 0 && compressedSize !== uncompressedSize) {
           fail('corrupt-entry', 'The stored ZIP entry has inconsistent sizes.');
         }
-        return { name, flags, method, crc32, compressedSize, uncompressedSize, localOffset };
+        return { name, nameBytes, flags, method, crc32, compressedSize, uncompressedSize, localOffset };
       }
       offset = nextOffset;
     }
@@ -344,7 +355,7 @@
     }
 
     const localName = await readView(file, nameStart, nameStart + nameLength);
-    if (!matchesAsciiName(localName, 0, nameLength, entry.name)) {
+    if (!matchesNameBytes(localName, 0, nameLength, entry.nameBytes)) {
       fail('bad-entry', 'The ZIP entry name does not match its directory record.');
     }
     return { dataStart, dataEnd };
@@ -381,10 +392,10 @@
   // back as a slice of the outer one, with nothing unpacked and nothing held in memory.
   async function sliceStoredEntry(file, suffix) {
     if (!file || typeof file.slice !== 'function' || !Number.isSafeInteger(file.size)) {
-      fail('bad-file', 'The archive could not be read.');
+      fail('no-file', 'No readable ZIP file was provided.');
     }
-    if (typeof suffix !== 'string' || !suffix) {
-      fail('bad-limit', 'The ZIP entry suffix is invalid.');
+    if (!/^[\x20-\x7e]{1,255}$/.test(suffix || '')) {
+      fail('bad-entry-name', 'The requested ZIP entry suffix is invalid.');
     }
 
     // A stored entry cannot be larger than the file holding it, so the file's own size is
