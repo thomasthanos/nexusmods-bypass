@@ -773,9 +773,16 @@ window.NexusExt = window.NexusExt || {};
           if (outcome) finish(outcome, snapshot.lastError || '');
         };
 
+        // The queue resolves its links in the service worker, which has no document and
+        // so cannot write the Nexus ad-timer cookie. The cookie lasts five minutes, so a
+        // run longer than that used to continue with it expired. This tab is open for the
+        // whole run anyway, so it keeps the cookie alive on the queue's behalf. The helper
+        // rate-limits itself to one write a minute, so every tick costing nothing is fine.
         const runWatchdog = () => {
+          NexusExt.NNW?.refreshAdTimerCookie?.();
           pollQueueStatus().catch(() => undefined);
         };
+        NexusExt.NNW?.refreshAdTimerCookie?.();
         watchdogTimer = setInterval(runWatchdog, 7000);
         onVisibilityChange = () => {
           if (!settled && !document.hidden) runWatchdog();

@@ -19,6 +19,17 @@ they are simply not listed.
   and the report is pre-filled into a GitHub issue, so it could carry a real name or a full path.
   Whether it is set is the useful diagnostic; the text is not.
 
+### Fixed
+
+- **The ad-timer cookie now survives a collection run.** The cookie that keeps Nexus from applying its
+  ad-blocked download speed lasts five minutes and can only be written by a page, because a service
+  worker has no `document`. Browser-mode collection runs are driven entirely by the service worker, so
+  nothing refreshed it: whatever a previous manual download left behind expired a few minutes in, and the
+  rest of the run downloaded at the throttled rate. The collection tab — which has to stay open for the
+  run anyway — now refreshes the cookie alongside the status poll it already runs, and once more before
+  the queue is started. This needs *Hide ads and Premium panels* left on, since that setting is what
+  writes the cookie, as its description says.
+
 ### Changed
 
 - **A report now shows what happened just before the fault, and the log switch is gone.** *Verbose
