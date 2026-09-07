@@ -7,6 +7,51 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.6.2] - 2026-09-07
+
+### Fixed
+
+- **A mod that downloaded correctly is no longer failed for a size Nexus got wrong, and no longer
+  re-downloaded on every retry.** A finished transfer was checked against the size the collection page
+  advertises, and anything under half of it was called a short file. Nexus does not always describe a
+  file accurately, so a mod that arrived complete could be marked failed — and because history is only
+  written for a completed file, it was never recorded as downloaded. *Skip Downloaded* then had no idea
+  it already existed, fetched it again, failed it again, and a run could end in an error over files that
+  were sitting on disk the whole time. The server's own `Content-Length` now settles it: receiving
+  everything that was promised is a complete transfer whatever the listing claims. A transfer that
+  stopped short of the declared size is still refused, and so is a page served in place of a file, which
+  is told apart by its content type rather than its size. Failures also now carry what was measured —
+  bytes received, bytes declared, the listed size and the content type — so a report explains itself
+  instead of only naming a code.
+- **Downloading picked mods, or a collection update, now counts as having downloaded them.** History was
+  only written for a run started from the whole collection. *Download selected* and *Update collection*
+  pass no history bucket, so every file they fetched was recorded nowhere — and the next full run with
+  *Skip Downloaded* dutifully fetched all of them again. Those runs now file each completed mod under
+  `all` and under whichever of `mandatory` or `optional` it belongs to, so any later run that would have
+  fetched it skips it instead. A run started from the whole collection still writes only its own bucket,
+  exactly as before.
+- **A file judged unusable is no longer left on disk under the name the mod manager looks for.** Downloads
+  are saved with a unique name, so the one retry landed beside the bad file instead of over it: the
+  truncated archive or error page kept `Mod.7z` and the good copy became `Mod (1).7z`. Whatever was just
+  refused is now deleted before the retry, so the retry takes the proper name and nothing broken is left
+  behind. A transfer the browser itself reported as interrupted has nothing to delete and is untouched.
+- **A run that goes wrong early no longer fills local storage with its own failures.** Every failed file
+  appended a record, and a queue can hold ten thousand of them, in a store with ten megabytes to spend.
+  Fifty are kept — the earliest, since the first failure of a cascade is the one that explains it — while
+  the count carries on separately, so the deck and the finished-run summary still report the real number
+  rather than the number that happened to be stored.
+
+### Changed
+
+- **Reporting a bug from the issue page instead of the extension now says where the button is.** The form
+  assumed everyone arrived from *Report a bug* and told them to paste from their clipboard; someone who
+  opened the form directly had nothing on their clipboard and no idea what the diagnostic field wanted,
+  so reports arrived with it blank and nothing to act on. The form now names the button and where to find
+  it. The extension's own path was measured and never sends an empty field, even with forty errors logged.
+- **The download conflict rule is a named constant** rather than a function that ignored its argument and
+  returned the same answer every time. Behaviour is unchanged: a download never overwrites a file that is
+  already there.
+
 ## [2.6.1] - 2026-09-06
 
 ### Security

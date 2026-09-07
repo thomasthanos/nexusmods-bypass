@@ -6,13 +6,17 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting! If you clicked **Report a bug** inside the extension, the diagnostic
-        report below is already filled in (and a full copy is on your clipboard — paste it over the
-        short one if the field looks truncated).
+        **The extension fills this form in for you.** Open its popup on a Nexus Mods page →
+        **Help & Bugs** → **Report a bug**. GitHub reopens with the diagnostic report and your
+        browser version already in place, and you only have to describe what you were doing.
 
-        The report starts with a **Report ID**. Searching this repository for that ID first is worth
-        a moment: the same fault always produces the same ID, so if it already appears in an open
-        issue, please comment there instead of opening a new one.
+        Writing this by hand instead is fine, but the report is what makes a fault findable —
+        without it there is usually nothing to go on. Go and press that button, then paste what
+        it gives you into the second field.
+
+        The report starts with a **Report ID**. Searching this repository for that ID first is
+        worth a moment: the same fault always produces the same ID, so if it already appears in
+        an open issue, please comment there instead of opening a new one.
   - type: textarea
     id: what-happened
     attributes:
@@ -25,7 +29,7 @@ body:
     id: report
     attributes:
       label: Diagnostic report
-      description: "Auto-filled by the extension. If empty, paste the report from your clipboard here (the extension copies it when you click Report a bug)."
+      description: "Filled in for you if you used the extension's Report a bug button. If it is empty, that button is in the popup under Help & Bugs — press it and this field will be filled in for you."
       render: text
     validations:
       required: false

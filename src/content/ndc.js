@@ -691,7 +691,8 @@ window.NexusExt = window.NexusExt || {};
           gameId: mod.file.mod.game.id,
           name: mod.file.name,
           pageUrl: mod.file.url,
-          sizeKb: mod.file.size
+          sizeKb: mod.file.size,
+          optional: mod.optional === true
         });
       }
 

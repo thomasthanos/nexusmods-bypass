@@ -464,10 +464,7 @@ function buildDownloadPath(folder, rawName) {
   return dir ? `${dir}/${name}` : name;
 }
 
-function conflictActionFor(_filename) {
-
-  return 'uniquify';
-}
+const DOWNLOAD_CONFLICT_ACTION = 'uniquify';
 
 const DOWNLOAD_EXTENSIONS = new Set([
   'zip', '7z', 'rar', 'tar', 'gz', 'tgz', 'bz2', 'tbz2', 'xz', 'txz', 'lzma', '001',
@@ -519,7 +516,7 @@ const DOWNLOAD_HANDLERS = {
       const options = {
         url: verdict.url,
         filename,
-        conflictAction: conflictActionFor(filename),
+        conflictAction: DOWNLOAD_CONFLICT_ACTION,
         saveAs: false
       };
       chrome.downloads.download(options, (id) => {
@@ -577,7 +574,7 @@ function sanitizeNdcJobItem(raw) {
     return null;
   }
 
-  return { fileId, historyId, gameId, name, pageUrl, sizeKb };
+  return { fileId, historyId, gameId, name, pageUrl, sizeKb, optional: raw?.optional === true };
 }
 
 const SHORT_TRANSFER_RATIO = 0.5;
@@ -589,22 +586,33 @@ function downloadFolderOf(filename) {
   return cut > 0 ? full.slice(0, cut) : '';
 }
 
+const DOCUMENT_MIME_PATTERN = /^(?:text\/|application\/(?:json|xml|xhtml))/i;
+
 async function verifyTransferSize(downloadId, item) {
   const record = await searchDownload(downloadId);
   if (!record) return { suspicious: false, actualBytes: null, expectedBytes: 0 };
 
   const actualBytes = Number(record.bytesReceived) || 0;
+  const declaredBytes = Number(record.totalBytes) || 0;
   const expectedBytes = Number(item?.sizeKb) > 0 ? Math.round(Number(item.sizeKb) * 1024) : 0;
   const folder = downloadFolderOf(record.filename);
+  const detail = `got ${actualBytes}`
+    + (declaredBytes ? ` of ${declaredBytes} declared` : ', nothing declared')
+    + (expectedBytes ? `, Nexus listed ${expectedBytes}` : '')
+    + (record.mime ? `, ${String(record.mime).slice(0, 40)}` : '');
 
   if (actualBytes === 0) {
-    return { suspicious: true, code: 'empty-file', actualBytes, expectedBytes, folder };
+    return { suspicious: true, code: 'empty-file', actualBytes, expectedBytes, folder, detail };
+  }
+  if (declaredBytes > 0 && actualBytes < declaredBytes) {
+    return { suspicious: true, code: 'short-file', actualBytes, expectedBytes, folder, detail };
   }
   if (expectedBytes >= MIN_EXPECTED_BYTES_FOR_RATIO
-    && actualBytes < expectedBytes * SHORT_TRANSFER_RATIO) {
-    return { suspicious: true, code: 'short-file', actualBytes, expectedBytes, folder };
+    && actualBytes < expectedBytes * SHORT_TRANSFER_RATIO
+    && DOCUMENT_MIME_PATTERN.test(String(record.mime || ''))) {
+    return { suspicious: true, code: 'not-a-file', actualBytes, expectedBytes, folder, detail };
   }
-  return { suspicious: false, actualBytes, expectedBytes, folder };
+  return { suspicious: false, actualBytes, expectedBytes, folder, detail };
 }
 
 const NDC_ITEMS_KEY_PREFIX = 'nxtk_ndc_items:';
@@ -767,7 +775,7 @@ function notifyNdcJob(job, type, extra = {}, alsoTabIds = []) {
     index: job.index,
     total: ndcJobItemCount(job),
     completed: job.completed,
-    failedCount: Array.isArray(job.failed) ? job.failed.length : 0,
+    failedCount: jobFailureCount(job),
     ...extra
   };
   for (const tabId of targets) {
@@ -987,7 +995,7 @@ async function startNdcDownload(job, item, url) {
     chrome.downloads.download({
       url,
       filename,
-      conflictAction: conflictActionFor(filename),
+      conflictAction: DOWNLOAD_CONFLICT_ACTION,
       saveAs: false
     }, (id) => {
       const error = getRuntimeError();
@@ -1002,11 +1010,11 @@ async function startNdcDownload(job, item, url) {
 async function finishNdcJob(job) {
   clearNdcJobAlarm(job.id);
   job = (await mutateNdcJob(job.id, (current) => {
-    current.status = (Array.isArray(current.failed) && current.failed.length) ? 'partial' : 'finished';
+    current.status = jobFailureCount(current) ? 'partial' : 'finished';
     current.activeDownloadId = null;
     current.finishedAt = Date.now();
   })) || job;
-  if (job.type && !job.failed.length) {
+  if (job.type && !jobFailureCount(job)) {
     await STORAGE_HANDLERS.NDC_HISTORY_CLEAR_TYPE({
       gameId: job.gameId,
       collectionId: job.collectionId,
@@ -1089,7 +1097,7 @@ async function advanceNdcJob(jobId) {
       if (BLOCKING_RESOLVE_CODES.has(resolved.code)) {
         job.status = resolved.code === 'requires_login' ? 'requires_login' : 'error';
         job.lastError = resolved.code;
-        job.failed.push({ fileId: item.fileId, code: resolved.code });
+        recordJobFailure(job, { fileId: item.fileId, code: resolved.code });
         clearNdcJobAlarm(job.id);
         await saveNdcJob(job);
         notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: resolved.code, itemName: item.name });
@@ -1103,7 +1111,7 @@ async function advanceNdcJob(jobId) {
         await sleep(NDC_RESOLVE_RETRY_DELAY_MS);
         continue;
       }
-      job.failed.push({ fileId: item.fileId, code: resolved.code || 'request_failed' });
+      recordJobFailure(job, { fileId: item.fileId, code: resolved.code || 'request_failed' });
       job.resolveAttempts = 0;
       job.index += 1;
       await saveNdcJob(job);
@@ -1125,7 +1133,7 @@ async function advanceNdcJob(jobId) {
     try {
       started = await startNdcDownload(job, item, resolved.url);
     } catch (cause) {
-      job.failed.push({ fileId: item.fileId, code: 'download-not-started' });
+      recordJobFailure(job, { fileId: item.fileId, code: 'download-not-started' });
       job.index += 1;
       await saveNdcJob(job);
       notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
@@ -1224,6 +1232,36 @@ async function handleNdcDownloadTerminal(downloadId, state, error) {
   }
 }
 
+const MAX_TRACKED_FAILURES = 50;
+
+function recordJobFailure(current, entry) {
+  if (!Array.isArray(current.failed)) current.failed = [];
+  current.failedTotal = Number(current.failedTotal || current.failed.length || 0) + 1;
+  if (current.failed.length < MAX_TRACKED_FAILURES) current.failed.push(entry);
+}
+
+function jobFailureCount(job) {
+  const total = Number(job?.failedTotal);
+  if (Number.isFinite(total) && total >= 0) return total;
+  return Array.isArray(job?.failed) ? job.failed.length : 0;
+}
+
+function discardDownloadedFile(downloadId) {
+  return new Promise((resolve) => {
+    try {
+      if (typeof chrome.downloads?.removeFile !== 'function') return resolve(false);
+      chrome.downloads.removeFile(downloadId, () => resolve(!getRuntimeError()));
+    } catch (_) {
+      resolve(false);
+    }
+  });
+}
+
+function historyTypesFor(job, item) {
+  if (job?.type) return [job.type];
+  return ['all', item?.optional === true ? 'optional' : 'mandatory'];
+}
+
 async function applyNdcDownloadTerminal(job, downloadId, state, error) {
   handledTerminalDownloads.add(downloadId);
   pendingTerminalDownloads.delete(downloadId);
@@ -1258,16 +1296,16 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
     landedIn = check.folder || '';
     if (check.suspicious) {
       effectiveState = 'interrupted';
-      effectiveError = check.code;
+      effectiveError = check.detail ? `${check.code} (${check.detail})` : check.code;
     }
   }
 
   if (effectiveState === 'complete') {
-    if (job.type) {
+    for (const historyType of historyTypesFor(job, item)) {
       await STORAGE_HANDLERS.NDC_HISTORY_ADD({
         gameId: job.gameId,
         collectionId: job.collectionId,
-        type: job.type,
+        type: historyType,
         fileId: item.historyId ?? item.fileId
       });
     }
@@ -1284,6 +1322,7 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
       itemState: 'complete'
     });
   } else if ((job.transferAttempts || 0) < 1) {
+    if (state === 'complete') await discardDownloadedFile(downloadId);
     job = (await mutateNdcJob(job.id, (current) => {
       current.activeDownloadId = null;
       current.transferAttempts = Number(current.transferAttempts || 0) + 1;
@@ -1296,8 +1335,7 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
   } else {
     job = (await mutateNdcJob(job.id, (current) => {
       current.activeDownloadId = null;
-      if (!Array.isArray(current.failed)) current.failed = [];
-      current.failed.push({ fileId: item.fileId, code: effectiveError || 'interrupted' });
+      recordJobFailure(current, { fileId: item.fileId, code: effectiveError || 'interrupted' });
       current.transferAttempts = 0;
       current.index = Number(current.index || 0) + 1;
     })) || job;
@@ -1462,7 +1500,7 @@ const NDC_QUEUE_HANDLERS = {
       index: job.index,
       total: ndcJobItemCount(job),
       completed: job.completed,
-      failedCount: job.failed.length,
+      failedCount: jobFailureCount(job),
       waitingUntil: Number(job.waitingUntil) || 0,
       lastError: String(job.lastError || '')
     };
@@ -1490,7 +1528,7 @@ const NDC_QUEUE_HANDLERS = {
       index: job.index,
       total: ndcJobItemCount(job),
       completed: job.completed,
-      failedCount: job.failed.length,
+      failedCount: jobFailureCount(job),
       type: job.type
     };
   },
