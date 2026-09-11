@@ -191,6 +191,30 @@
   "errNoDownloadUrlFix": {
     "message": "ファイルページを開き、ログイン状態を確認してから再試行してください。"
   },
+  "errDownloadNotStartedFix": {
+    "message": "設定のダウンロードフォルダーと、ダウンロードがブロックされていないかを確認してください。"
+  },
+  "errDownloadNotStartedMsg": {
+    "message": "ブラウザーがこのダウンロードの開始を拒否しました。"
+  },
+  "errNotAFileFix": {
+    "message": "ファイルページを開き、サインインしているか確認してから再試行してください。"
+  },
+  "errNotAFileMsg": {
+    "message": "Nexus Mods がファイルではなくページを返しました。"
+  },
+  "errEmptyFileFix": {
+    "message": "再試行してください。空のままならファイルページから個別にダウンロードしてください。"
+  },
+  "errEmptyFileMsg": {
+    "message": "ダウンロードされたファイルが空でした。"
+  },
+  "errShortFileFix": {
+    "message": "再試行してください。止まり続ける場合はファイルページから個別にダウンロードしてください。"
+  },
+  "errShortFileMsg": {
+    "message": "ファイル全体が届く前にダウンロードが止まりました。"
+  },
   "errNoNmmLinkMsg": {
     "message": "Nexus Mods から有効な Vortex リンクが返されませんでした。"
   },

@@ -228,6 +228,38 @@
     "message": "Open the file page, check that you are signed in, then retry.",
     "description": "Recovery advice for errNoDownloadUrlMsg."
   },
+  "errDownloadNotStartedFix": {
+    "message": "Check the download folder in settings, and that downloads are not blocked.",
+    "description": "Recovery advice when the browser will not start a download."
+  },
+  "errDownloadNotStartedMsg": {
+    "message": "The browser refused to start this download.",
+    "description": "The browser declined to begin a download the extension asked for."
+  },
+  "errNotAFileFix": {
+    "message": "Open the file page, check that you are signed in, then retry.",
+    "description": "Recovery advice when a page arrives in place of a file."
+  },
+  "errNotAFileMsg": {
+    "message": "Nexus Mods sent a page instead of the file.",
+    "description": "Nexus answered a download request with a web page rather than the file."
+  },
+  "errEmptyFileFix": {
+    "message": "Retry it. If it stays empty, download that one from its file page.",
+    "description": "Recovery advice for an empty downloaded file."
+  },
+  "errEmptyFileMsg": {
+    "message": "The download produced an empty file.",
+    "description": "A queued download finished with nothing in the file."
+  },
+  "errShortFileFix": {
+    "message": "Retry it. If it keeps stopping, download that one from its file page.",
+    "description": "Recovery advice for a download that stopped early."
+  },
+  "errShortFileMsg": {
+    "message": "The download stopped before the whole file arrived.",
+    "description": "A queued download stopped before the whole file had arrived."
+  },
   "errNoNmmLinkMsg": {
     "message": "Nexus Mods did not return a valid Vortex link.",
     "description": "Error message: no nxm:// link. Vortex is a product name, keep it untranslated."

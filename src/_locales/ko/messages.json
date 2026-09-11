@@ -191,6 +191,30 @@
   "errNoDownloadUrlFix": {
     "message": "파일 페이지를 열고 로그인 상태를 확인한 뒤 다시 시도하세요."
   },
+  "errDownloadNotStartedFix": {
+    "message": "설정의 다운로드 폴더와 다운로드가 차단되지 않았는지 확인하세요."
+  },
+  "errDownloadNotStartedMsg": {
+    "message": "브라우저가 이 다운로드를 시작하지 않았습니다."
+  },
+  "errNotAFileFix": {
+    "message": "파일 페이지를 열어 로그인 상태를 확인한 뒤 다시 시도하세요."
+  },
+  "errNotAFileMsg": {
+    "message": "Nexus Mods가 파일이 아니라 페이지를 보냈습니다."
+  },
+  "errEmptyFileFix": {
+    "message": "다시 시도하세요. 계속 비어 있으면 해당 파일 페이지에서 직접 받으세요."
+  },
+  "errEmptyFileMsg": {
+    "message": "다운로드된 파일이 비어 있습니다."
+  },
+  "errShortFileFix": {
+    "message": "다시 시도하세요. 계속 멈추면 해당 파일 페이지에서 직접 받으세요."
+  },
+  "errShortFileMsg": {
+    "message": "파일이 모두 도착하기 전에 다운로드가 멈췄습니다."
+  },
   "errNoNmmLinkMsg": {
     "message": "Nexus Mods가 유효한 Vortex 링크를 반환하지 않았습니다."
   },

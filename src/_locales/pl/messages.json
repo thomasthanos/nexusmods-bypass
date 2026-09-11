@@ -191,6 +191,30 @@
   "errNoDownloadUrlFix": {
     "message": "Otwórz stronę pliku, sprawdź, czy jesteś zalogowany, i spróbuj ponownie."
   },
+  "errDownloadNotStartedFix": {
+    "message": "Sprawdź folder pobierania w ustawieniach oraz czy pobieranie nie jest blokowane."
+  },
+  "errDownloadNotStartedMsg": {
+    "message": "Przeglądarka odmówiła rozpoczęcia tego pobierania."
+  },
+  "errNotAFileFix": {
+    "message": "Otwórz stronę pliku, sprawdź, czy jesteś zalogowany, i spróbuj ponownie."
+  },
+  "errNotAFileMsg": {
+    "message": "Nexus Mods przysłał stronę zamiast pliku."
+  },
+  "errEmptyFileFix": {
+    "message": "Spróbuj ponownie. Jeśli nadal jest pusty, pobierz go ze strony pliku."
+  },
+  "errEmptyFileMsg": {
+    "message": "Pobieranie dało pusty plik."
+  },
+  "errShortFileFix": {
+    "message": "Spróbuj ponownie. Jeśli nadal się przerywa, pobierz go ze strony pliku."
+  },
+  "errShortFileMsg": {
+    "message": "Pobieranie zatrzymało się przed końcem pliku."
+  },
   "errNoNmmLinkMsg": {
     "message": "Nexus Mods nie zwrócił prawidłowego linku Vortex."
   },

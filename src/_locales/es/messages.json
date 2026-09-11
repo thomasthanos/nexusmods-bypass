@@ -191,6 +191,30 @@
   "errNoDownloadUrlFix": {
     "message": "Abre la página del archivo, comprueba que has iniciado sesión y reinténtalo."
   },
+  "errDownloadNotStartedFix": {
+    "message": "Comprueba la carpeta de descargas en los ajustes y que las descargas no estén bloqueadas."
+  },
+  "errDownloadNotStartedMsg": {
+    "message": "El navegador se negó a iniciar esta descarga."
+  },
+  "errNotAFileFix": {
+    "message": "Abre la página del archivo, comprueba que has iniciado sesión y reinténtalo."
+  },
+  "errNotAFileMsg": {
+    "message": "Nexus Mods envió una página en lugar del archivo."
+  },
+  "errEmptyFileFix": {
+    "message": "Vuelve a intentarlo. Si sigue vacío, descárgalo desde su página de archivo."
+  },
+  "errEmptyFileMsg": {
+    "message": "La descarga produjo un archivo vacío."
+  },
+  "errShortFileFix": {
+    "message": "Vuelve a intentarlo. Si sigue deteniéndose, descárgalo desde su página de archivo."
+  },
+  "errShortFileMsg": {
+    "message": "La descarga se detuvo antes de completar el archivo."
+  },
   "errNoNmmLinkMsg": {
     "message": "Nexus Mods no devolvió un enlace de Vortex válido."
   },

@@ -81,6 +81,26 @@ window.NexusExt = window.NexusExt || {};
       recovery: 'Refresh the file page and retry.',
       retryable: true
     },
+    short_file: {
+      userMessage: 'The download stopped before the whole file arrived.',
+      recovery: 'Retry it. If it keeps stopping, download that one from its file page.',
+      retryable: true
+    },
+    empty_file: {
+      userMessage: 'The download produced an empty file.',
+      recovery: 'Retry it. If it stays empty, download that one from its file page.',
+      retryable: true
+    },
+    not_a_file: {
+      userMessage: 'Nexus Mods sent a page instead of the file.',
+      recovery: 'Open the file page, check that you are signed in, then retry.',
+      retryable: true
+    },
+    download_not_started: {
+      userMessage: 'The browser refused to start this download.',
+      recovery: 'Check the download folder in settings, and that downloads are not blocked.',
+      retryable: true
+    },
     no_download_url: {
       userMessage: 'Nexus Mods did not return a usable download link.',
       recovery: 'Open the file page, check that you are signed in, then retry.',
@@ -167,66 +187,23 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
-  // Limit inspection of untrusted responses to keep classification bounded.
-  const MAX_CLASSIFY_CHARS = 200000;
-
-  function classifyContent(text, { status = null, context = '', extra = '' } = {}) {
-    const content = String(text || '').slice(0, MAX_CLASSIFY_CHARS).toLowerCase();
-    if (!content) return null;
+  function classifyContent(text, {
+    status = null,
+    context = '',
+    extra = '',
+    finalUrl = '',
+    cfMitigated = '',
+    contentType = ''
+  } = {}) {
     const detail = (reason) => ({ status, context, technicalMessage: [reason, extra].filter(Boolean).join(' | ') });
-    const signedIn = content.includes('/auth/sign_out')
-      || content.includes('data-testid="profile-image"')
-      || content.includes("data-testid='profile-image'")
-      || content.includes('id="profile-menu"')
-      || /"(?:is)?_?logged_?in"\s*:\s*true/.test(content);
-    const loginButton = /<button\b[^>]*>\s*(?:<[^>]+>\s*)*(?:log|sign)\s*in\b/i.test(content);
-    const loginLink = /<a\b[^>]*>\s*(?:<[^>]+>\s*)*(?:log|sign)\s*in\b/i.test(content);
-    const loginForm = /<form\b[^>]*action=["'][^"']*\/auth\/sign_in/i.test(content)
-      || (/<form\b[^>]*id=["']new_user["']/i.test(content)
-        && /name=["']user\[login\]["']/i.test(content)
-        && /name=["']user\[password\]["']/i.test(content));
-    const loginHeading = /<h1\b[^>]*>[\s\S]{0,200}?(?:log|sign)\s*in(?:\s+to)?[\s\S]{0,100}?nexus\s*mods/i.test(content);
-    const loginSubmit = /<input\b[^>]*\btype=["']submit["'][^>]*\bvalue=["'](?:log|sign)\s*in["']/i.test(content)
-      || /<input\b[^>]*\bvalue=["'](?:log|sign)\s*in["'][^>]*\btype=["']submit["']/i.test(content);
-    const apiUnauthenticated = /"code"\s*:\s*"unauthenticated"/i.test(content);
-    if (!signedIn) {
-      if (apiUnauthenticated) return create('requires_login', detail('login signal: API "code":"unauthenticated"'));
-      const weakReasons = [];
-      if (loginButton) weakReasons.push('"Log in" button');
-      if (loginLink) weakReasons.push('"Log in" link');
-      if (loginForm) weakReasons.push('sign-in form');
-      if (loginHeading) weakReasons.push('"Sign in to Nexus Mods" heading');
-      if (loginSubmit) weakReasons.push('sign-in submit input');
-      if (/(?:authentication required|not logged in)/i.test(content)) weakReasons.push('"authentication required"/"not logged in" text');
-      if (content.includes('sign in to nexus mods')) weakReasons.push('"sign in to nexus mods" text');
-      if (weakReasons.length && !isLiveDocumentSignedIn()) {
-        return create('requires_login', detail(`login signal: ${weakReasons.join(', ')}`));
-      }
-    }
-    const modUnavailable = content.includes('this mod has been set to hidden')
-      || content.includes('the author has hidden this mod')
-      || content.includes('this mod has been removed')
-      || content.includes('this file has been removed')
-      || /\bmod\b[^.]{0,40}\bno longer available\b/.test(content)
-      || /\bthis mod\b[^.]{0,60}\b(?:hidden|archived|taken down)\b/.test(content);
-    if (modUnavailable) {
-      return create('mod_unavailable', detail('hidden/removed mod page markup'));
-    }
-    const cloudflareChallenge = content.includes('just a moment')
-      || content.includes('cf-chl-interstitial')
-      || /id=["']challenge-form["']/i.test(content)
-      || content.includes('cf-mitigated')
-      || /attention required[^<]{0,80}cloudflare/i.test(content);
-    if (cloudflareChallenge) {
-      return create('cloudflare', detail('cloudflare challenge markup'));
-    }
-    if (content.includes('temporarily suspended')) {
-      return create('account_suspended', detail('"temporarily suspended" text'));
-    }
-    if (content.includes('too many requests')) {
-      return create('rate_limited', detail('"too many requests" text'));
-    }
-    return null;
+    const verdict = globalThis.NXTKResponseClassifier?.classify({
+      text,
+      finalUrl,
+      cfMitigated,
+      contentType,
+      liveSignedIn: isLiveDocumentSignedIn()
+    });
+    return verdict ? create(verdict.code, detail(verdict.reason)) : null;
   }
 
   function fromResponse({ status = 0, text = '', context = '', extra = '', classified = false } = {}) {
@@ -318,21 +295,17 @@ window.NexusExt = window.NexusExt || {};
 
       const finalUrl = response.url || String(url);
       const rateLimit = readRateLimitHeaders(response);
-      let redirectedToLogin = false;
-      try {
-        const parsedFinalUrl = new URL(finalUrl);
-        redirectedToLogin = parsedFinalUrl.hostname === 'users.nexusmods.com'
-          && /^\/auth\/sign_in(?:\/|$)/.test(parsedFinalUrl.pathname);
-      } catch (_) {
-        redirectedToLogin = false;
-      }
       const respInfo = describeResponse(finalUrl, response.status, text);
       const cloudflareMitigation = String(response.headers?.get?.('Cf-Mitigated') || '').trim().toLowerCase();
-      const semanticError = redirectedToLogin
-        ? create('requires_login', { status: response.status || null, context, technicalMessage: `login signal: redirected to ${safeUrl(finalUrl)} | ${respInfo}` })
-        : cloudflareMitigation === 'challenge'
-          ? create('cloudflare', { status: response.status || null, context, technicalMessage: `cf-mitigated: challenge | ${respInfo}` })
-          : classifyContent(text, { status: response.status || null, context, extra: respInfo });
+      const contentType = String(response.headers?.get?.('Content-Type') || '').trim().toLowerCase();
+      const semanticError = classifyContent(text, {
+        status: response.status || null,
+        context,
+        extra: respInfo,
+        finalUrl,
+        cfMitigated: cloudflareMitigation,
+        contentType
+      });
       if (semanticError) {
         return {
           ok: false,

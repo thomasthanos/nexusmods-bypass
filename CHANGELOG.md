@@ -7,6 +7,82 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.6.4] - 2026-09-11
+
+### Fixed
+
+- **Firefox no longer starts a duplicate after a transient interrupted event.** Terminal events for
+  each browser download are processed in order, resumable attempts are explicitly resumed, and an
+  interrupted record is re-checked before the queue retries it. If the original attempt is still
+  active or finishes during confirmation, the queue keeps it; if the browser cannot confirm a
+  cancellation, the item is failed safely instead of launching a second copy. Complete events and
+  Stop/Restart transitions use conditional updates, and a replacement waits for the old browser
+  callback and exact download ID to be retired, so stale work cannot advance the same queue twice.
+- **Cleanup is limited to the exact download attempt the extension started.** The queue no longer
+  searches by filename, so it cannot delete an unrelated or previously valid same-named file. A
+  failed attempt is removed only when its own browser download record confirms that it left a file.
+- **The page and background queue agree on Nexus error responses.** Sign-in walls, Cloudflare
+  challenges, rate limits, suspended accounts and unavailable mods now use one shared classifier.
+  Successful JSON is parsed as data rather than searched as page prose, so a user-written collection
+  description cannot accidentally turn a valid GraphQL response into an account or connection error.
+- **Failure reports keep different files and causes separate.** Queue failures no longer collapse
+  into one generic entry, and a browser start failure shows translated recovery guidance while its
+  technical cause remains available in the report.
+
+### Internal
+
+- The build script and all seven regression suites are included with the repository, so a fresh
+  checkout can run the same release gate. The gate also checks every packaged script's syntax and
+  verifies the shared classifier load order in both the Chrome and Firefox background contexts.
+
+## [2.6.3] - 2026-09-08
+
+### Fixed
+
+- **A failed file says what went wrong instead of showing its measurements.** The deck printed exactly
+  what the worker had recorded — `short-file (got 16103 of 166716 declared, Nexus listed 166912,
+  application/x-7z-compressed)` — which is the right thing for a bug report and the wrong thing to put in
+  front of someone watching a download. The four transfer outcomes are now proper error codes with a
+  translated sentence and recovery advice in all thirteen languages, so the log reads *The download
+  stopped before the whole file arrived.* A code that has no sentence of its own keeps its raw text rather
+  than being flattened to something generic, and the numbers stay in the report, which now carries them.
+- **The report no longer contradicts itself about closing tabs.** Every browser download recorded *tab
+  auto-close off* next to a settings block that said the setting was on, because closing the tab is a
+  Vortex step and the flag was written as false for anything else. Reading that report meant chasing a
+  setting that had nothing to do with the fault. The line is now only printed for a Vortex handoff, where
+  it means something.
+- **A live mod is no longer refused because its description mentions a mod that was pulled.** The phrases
+  that mean "this mod is gone" were matched against the whole page — description, changelog and
+  requirement list included — so an author writing *"the original version of this mod has been removed by
+  its author, so I reuploaded it here"* had their own working mod reported as hidden or removed. One of the
+  patterns was loose enough to fire on *"this mod is archived, use the new one"* and even *"this mod has
+  hidden requirements"*. Nexus does not render a download control for a mod nobody can have, so the
+  presence of one now settles it, and the report names which phrase matched instead of only saying that
+  one did.
+- **A phrase in a mod description can no longer stop the queue or accuse your account.** *Just a moment*,
+  *temporarily suspended* and *too many requests* were each enough on their own to return a blocking
+  verdict — a Cloudflare challenge, a suspended account, a rate limit — so a description reading
+  *"updates are temporarily suspended while I rebuild the meshes"* told the reader their Nexus account had
+  been suspended, and *"wait just a moment for the plugin to initialise"* sent the tab through the
+  Cloudflare fallback. Those three now need the page to not be a working Nexus page. The markers that
+  cannot occur in ordinary text — the `Cf-Mitigated` header, `challenge-form`, `cf-chl-interstitial`,
+  `cf_chl_`, Cloudflare's own title — are still believed on their own, since a challenge can be served in
+  place of anything.
+- **A download that finished is no longer reported as truncated.** The size check read the browser's
+  download record at the instant the "complete" event fired, and that record can still hold counters from
+  mid-transfer — on Firefox it reported a tenth of the bytes. A 163 KB archive that was whole on disk, and
+  opened fine, was failed as `got 16103 of 166716 declared`, retried, failed again, and took the run down
+  with it. Because the browser saves under a unique name, each attempt also left another copy behind, so
+  the same mod piled up as `(1)`, `(2)`, `(3)`. The record is now re-read until it stops looking in
+  flight, and the size the file actually has on disk is preferred over the running byte counter. A
+  transfer that really was cut short is still refused; the loop that waits is bounded, so a record that
+  never settles cannot hold the queue.
+- **A file that fails in the queue is written to the error log.** Per-file failures only ever reached the
+  deck's own log, so a bug report about them arrived with nothing in it — the fault being reported was the
+  one thing the report could not show, and diagnosing it needed screenshots. Those failures are now
+  recorded like any other error, with the code, the file and the run type, and collapse into a single
+  counted entry when the same one repeats.
+
 ## [2.6.2] - 2026-09-07
 
 ### Fixed

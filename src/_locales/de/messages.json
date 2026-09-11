@@ -191,6 +191,30 @@
   "errNoDownloadUrlFix": {
     "message": "Öffnen Sie die Dateiseite, prüfen Sie Ihre Anmeldung und versuchen Sie es erneut."
   },
+  "errDownloadNotStartedFix": {
+    "message": "Prüfe den Download-Ordner in den Einstellungen und ob Downloads blockiert sind."
+  },
+  "errDownloadNotStartedMsg": {
+    "message": "Der Browser hat diesen Download nicht gestartet."
+  },
+  "errNotAFileFix": {
+    "message": "Öffne die Dateiseite, prüfe, ob du angemeldet bist, und versuche es erneut."
+  },
+  "errNotAFileMsg": {
+    "message": "Nexus Mods hat eine Seite statt der Datei geliefert."
+  },
+  "errEmptyFileFix": {
+    "message": "Erneut versuchen. Bleibt sie leer, lade diese Datei über ihre Dateiseite."
+  },
+  "errEmptyFileMsg": {
+    "message": "Der Download ergab eine leere Datei."
+  },
+  "errShortFileFix": {
+    "message": "Erneut versuchen. Wenn es weiter abbricht, lade diese Datei über ihre Dateiseite."
+  },
+  "errShortFileMsg": {
+    "message": "Der Download brach ab, bevor die Datei vollständig war."
+  },
   "errNoNmmLinkMsg": {
     "message": "Nexus Mods hat keinen gültigen Vortex-Link geliefert."
   },

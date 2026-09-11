@@ -12,7 +12,7 @@
 [![Privacy](.github/assets/btn-privacy.svg)](PRIVACY.md)
 [![Troubleshooting](.github/assets/btn-troubleshooting.svg)](#-troubleshooting)
 
-<img src=".github/assets/spec-nexus-v2.svg?v=2.6.2-pos" alt="At a glance">
+<img src=".github/assets/spec-nexus-v2.svg?v=2.6.4-pos" alt="At a glance">
 
 <br>
 <a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj"><img src=".github/assets/btn-chrome.svg" alt="Chrome"></a>
@@ -84,7 +84,7 @@ can pick up where it stopped instead of starting over.
 ### <img src=".github/assets/icon-globe.svg" width="20" align="middle"> Languages
 
 English, Greek, German, Spanish, French, Italian, Japanese, Korean, Polish, Portuguese (BR),
-Russian, Turkish, Simplified Chinese — 350 strings each (a few more or fewer where a language's
+Russian, Turkish, Simplified Chinese — 358 strings each (a few more or fewer where a language's
 plural rules need extra forms). There is also an **Always use English**
 switch for when your browser language and your Nexus language disagree.
 

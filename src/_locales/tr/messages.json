@@ -191,6 +191,30 @@
   "errNoDownloadUrlFix": {
     "message": "Dosya sayfasını açın, oturumunuzun açık olduğunu doğrulayın ve tekrar deneyin."
   },
+  "errDownloadNotStartedFix": {
+    "message": "Ayarlardaki indirme klasörünü ve indirmelerin engellenmediğini kontrol edin."
+  },
+  "errDownloadNotStartedMsg": {
+    "message": "Tarayıcı bu indirmeyi başlatmayı reddetti."
+  },
+  "errNotAFileFix": {
+    "message": "Dosya sayfasını açın, oturum açtığınızı doğrulayın ve yeniden deneyin."
+  },
+  "errNotAFileMsg": {
+    "message": "Nexus Mods dosya yerine bir sayfa gönderdi."
+  },
+  "errEmptyFileFix": {
+    "message": "Yeniden deneyin. Boş kalırsa o dosyayı kendi sayfasından indirin."
+  },
+  "errEmptyFileMsg": {
+    "message": "İndirme boş bir dosya üretti."
+  },
+  "errShortFileFix": {
+    "message": "Yeniden deneyin. Durmaya devam ederse o dosyayı kendi sayfasından indirin."
+  },
+  "errShortFileMsg": {
+    "message": "İndirme, dosya tamamlanmadan durdu."
+  },
   "errNoNmmLinkMsg": {
     "message": "Nexus Mods geçerli bir Vortex bağlantısı döndürmedi."
   },

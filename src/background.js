@@ -1,3 +1,10 @@
+if (!globalThis.NXTKResponseClassifier && typeof importScripts === 'function') {
+  importScripts('response-classifier.js');
+}
+
+const RESPONSE_CLASSIFIER = globalThis.NXTKResponseClassifier;
+if (!RESPONSE_CLASSIFIER) throw new Error('response-classifier-not-loaded');
+
 const NXTK = (() => {
   const SETTINGS_KEY = 'nxtk_settings';
   const ERROR_LOG_KEY = 'nxtk_error_log';
@@ -521,7 +528,7 @@ const DOWNLOAD_HANDLERS = {
       };
       chrome.downloads.download(options, (id) => {
         const error = getRuntimeError();
-        if (error || id === undefined) return reject(new Error(error || 'download-not-started'));
+        if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
         resolve(id);
       });
     });
@@ -537,7 +544,9 @@ const NDC_ALARM_PREFIX = 'nxtk-ndc-job:';
 const MAX_NDC_JOB_ITEMS = 10000;
 const MAX_NDC_JOB_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_NDC_ACTIVE_JOB_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const ndcProcessingJobs = new Set();
+// One promise per job, rather than only a boolean, lets Restart wait until an old in-flight
+// downloads.download callback has been observed and canceled before the replacement can start.
+const ndcProcessingJobs = new Map();
 const ndcDownloadJobs = new Map();
 
 function makeNdcJobId() {
@@ -587,12 +596,66 @@ function downloadFolderOf(filename) {
 }
 
 const DOCUMENT_MIME_PATTERN = /^(?:text\/|application\/(?:json|xml|xhtml))/i;
+const SETTLE_ATTEMPTS = 6;
+const SETTLE_DELAY_MS = 120;
+const INTERRUPTED_RECHECK_MS = 30000;
+const INTERRUPTED_CONFIRMATIONS_BEFORE_FAILURE = 2;
 
-async function verifyTransferSize(downloadId, item) {
-  const record = await searchDownload(downloadId);
+const waitMs = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// The record behind a just-fired 'complete' can still carry mid-transfer counters, so it is
+// re-read until it stops looking in flight. Judging a finished file on that first snapshot is
+// how a complete download gets reported as truncated.
+function recordLooksSettled(record) {
+  if (!record) return false;
+  if (record.state && record.state !== 'complete') return false;
+  if (Number(record.fileSize) > 0) return true;
+  const declared = Number(record.totalBytes);
+  const received = Number(record.bytesReceived) || 0;
+  if (declared > 0) return received >= declared;
+  // A just-fired complete event can briefly expose zero/unknown counters. A real empty file
+  // stays that way and is rejected after the bounded settle loop.
+  return received > 0;
+}
+
+async function settledDownloadRecord(downloadId) {
+  let record = await searchDownload(downloadId);
+  for (let attempt = 1; attempt < SETTLE_ATTEMPTS && !recordLooksSettled(record); attempt += 1) {
+    await waitMs(SETTLE_DELAY_MS);
+    record = await searchDownload(downloadId);
+  }
+  return record;
+}
+
+// The 'interrupted' delta is no more trustworthy than the 'complete' one was. Firefox fires it for a
+// transfer it goes on to resume and finish by itself; acting on that first snapshot retries a file
+// that was never lost, and the abandoned attempt then completes beside the retry under a uniquified
+// name. A record that is paused, or that the browser says it can resume, has not settled yet.
+async function settledInterruptedState(downloadId) {
+  let record = await searchDownload(downloadId);
+  // The delta and the first search result can disagree in either direction. Give every
+  // interrupted snapshot the same bounded grace period instead of trusting canResume, which
+  // Firefox may update separately from state.
+  for (let attempt = 1;
+    attempt < SETTLE_ATTEMPTS && (!record || record.state === 'interrupted');
+    attempt += 1) {
+    await waitMs(SETTLE_DELAY_MS);
+    record = await searchDownload(downloadId);
+  }
+  if (!record) return { state: 'interrupted', record: null };
+  if (record.state === 'complete') return { state: 'complete', record };
+  if (record.paused === true) return { state: 'paused', record };
+  if (record.state === 'in_progress') return { state: 'in_progress', record };
+  if (record.canResume === true) return { state: 'resumable', record };
+  return { state: 'interrupted', record };
+}
+
+async function verifyTransferSize(downloadId, item, confirmedRecord = null) {
+  const record = confirmedRecord || await settledDownloadRecord(downloadId);
   if (!record) return { suspicious: false, actualBytes: null, expectedBytes: 0 };
 
-  const actualBytes = Number(record.bytesReceived) || 0;
+  const onDisk = Number(record.fileSize);
+  const actualBytes = onDisk > 0 ? onDisk : Number(record.bytesReceived) || 0;
   const declaredBytes = Number(record.totalBytes) || 0;
   const expectedBytes = Number(item?.sizeKb) > 0 ? Math.round(Number(item.sizeKb) * 1024) : 0;
   const folder = downloadFolderOf(record.filename);
@@ -602,15 +665,15 @@ async function verifyTransferSize(downloadId, item) {
     + (record.mime ? `, ${String(record.mime).slice(0, 40)}` : '');
 
   if (actualBytes === 0) {
-    return { suspicious: true, code: 'empty-file', actualBytes, expectedBytes, folder, detail };
+    return { suspicious: true, code: 'empty_file', actualBytes, expectedBytes, folder, detail };
   }
   if (declaredBytes > 0 && actualBytes < declaredBytes) {
-    return { suspicious: true, code: 'short-file', actualBytes, expectedBytes, folder, detail };
+    return { suspicious: true, code: 'short_file', actualBytes, expectedBytes, folder, detail };
   }
   if (expectedBytes >= MIN_EXPECTED_BYTES_FOR_RATIO
     && actualBytes < expectedBytes * SHORT_TRANSFER_RATIO
     && DOCUMENT_MIME_PATTERN.test(String(record.mime || ''))) {
-    return { suspicious: true, code: 'not-a-file', actualBytes, expectedBytes, folder, detail };
+    return { suspicious: true, code: 'not_a_file', actualBytes, expectedBytes, folder, detail };
   }
   return { suspicious: false, actualBytes, expectedBytes, folder, detail };
 }
@@ -705,19 +768,28 @@ async function saveNdcJob(job) {
   return job;
 }
 
-async function mutateNdcJob(jobId, mutate) {
-  let updated = null;
+async function mutateNdcJobIf(jobId, guard, mutate) {
+  let result = { applied: false, job: null };
   await enqueueStorageTask(NDC_JOBS_KEY, async () => {
     const jobs = await readNdcJobs();
     const job = jobs[jobId];
     if (!job) return;
+    if (!guard(job)) {
+      result = { applied: false, job };
+      return;
+    }
     mutate(job);
     job.updatedAt = Date.now();
     jobs[jobId] = job;
     await storageSetLocal(NDC_JOBS_KEY, jobs);
-    updated = job;
+    result = { applied: true, job };
   });
-  return updated;
+  return result;
+}
+
+async function mutateNdcJob(jobId, mutate) {
+  const result = await mutateNdcJobIf(jobId, () => true, mutate);
+  return result.job;
 }
 
 function ndcJobIsActive(job) {
@@ -828,32 +900,29 @@ function findBackgroundDownloadUrl(value) {
   return '';
 }
 
-function responseLooksLoggedOut(response, text) {
-  try {
-    const finalUrl = new URL(response?.url || '');
-    if (String(finalUrl.hostname || '').toLowerCase().replace(/\.$/, '') === 'users.nexusmods.com'
-      && /^\/auth\/sign_in(?:\/|$)/.test(finalUrl.pathname)) return true;
-  } catch (_) { }
-  return /(?:auth\/sign_in|name=["']login|sign in to nexus mods)/i.test(String(text || '').slice(0, 200000));
+function classifyNexusResponse(response, text) {
+  return RESPONSE_CLASSIFIER.classify({
+    text,
+    finalUrl: response?.url || '',
+    cfMitigated: response?.cfMitigated || '',
+    contentType: response?.contentType || ''
+  });
 }
 
-const CLOUDFLARE_MARKERS = /just a moment|cf-browser-verification|challenge-platform|cf_chl_|attention required!/i;
-const SUSPENDED_MARKERS = /temporarily suspended|too many requests from your account/i;
+function responseLooksLoggedOut(response, text) {
+  return classifyNexusResponse(response, text)?.code === 'requires_login';
+}
 
 function responseLooksChallenged(response, text) {
-  const mitigated = String(response?.cfMitigated || '').trim().toLowerCase();
-  if (mitigated === 'challenge') return true;
-  return CLOUDFLARE_MARKERS.test(String(text || '').slice(0, 200000));
+  return classifyNexusResponse(response, text)?.code === 'cloudflare';
 }
 
 function responseLooksSuspended(text) {
-  return SUSPENDED_MARKERS.test(String(text || '').slice(0, 200000));
+  return classifyNexusResponse(null, text)?.code === 'account_suspended';
 }
 
-const UNAVAILABLE_MARKERS = /this mod has been set to hidden|the author has hidden this mod|this mod has been removed|this file has been removed/i;
-
 function responseLooksUnavailable(text) {
-  return UNAVAILABLE_MARKERS.test(String(text || '').slice(0, 200000));
+  return classifyNexusResponse(null, text)?.code === 'mod_unavailable';
 }
 
 async function fetchNdcResponse(url, options, timeoutMs) {
@@ -869,7 +938,8 @@ async function fetchNdcResponse(url, options, timeoutMs) {
       text,
       url: response.url || url,
       retryAfter: response.headers?.get?.('Retry-After') || '',
-      cfMitigated: response.headers?.get?.('Cf-Mitigated') || ''
+      cfMitigated: response.headers?.get?.('Cf-Mitigated') || '',
+      contentType: response.headers?.get?.('Content-Type') || ''
     };
   } catch (cause) {
     return { ok: false, status: 0, text: '', url, error: String(cause?.message || cause) };
@@ -953,10 +1023,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     method: 'GET',
     credentials: 'include'
   }, timeoutMs);
-  if (responseLooksLoggedOut(page, page.text)) return { ok: false, code: 'requires_login' };
-  if (responseLooksChallenged(page, page.text)) return { ok: false, code: 'cloudflare' };
-  if (responseLooksSuspended(page.text)) return { ok: false, code: 'account_suspended' };
-  if (responseLooksUnavailable(page.text)) return { ok: false, code: 'mod_unavailable' };
+  const pageIssue = classifyNexusResponse(page, page.text);
+  if (pageIssue) return { ok: false, code: pageIssue.code };
   if (!page.ok) return ndcResolveFailure(page.status === 429 ? 'rate_limited' : 'page_request_failed', page);
 
   const generated = await fetchNdcResponse(
@@ -972,9 +1040,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     },
     timeoutMs
   );
-  if (responseLooksLoggedOut(generated, generated.text)) return { ok: false, code: 'requires_login' };
-  if (responseLooksChallenged(generated, generated.text)) return { ok: false, code: 'cloudflare' };
-  if (responseLooksSuspended(generated.text)) return { ok: false, code: 'account_suspended' };
+  const generatedIssue = classifyNexusResponse(generated, generated.text);
+  if (generatedIssue) return { ok: false, code: generatedIssue.code };
   if (!generated.ok) {
     return ndcResolveFailure(generated.status === 429 ? 'rate_limited' : 'generate_failed', generated);
   }
@@ -999,7 +1066,7 @@ async function startNdcDownload(job, item, url) {
       saveAs: false
     }, (id) => {
       const error = getRuntimeError();
-      if (error || id === undefined) return reject(new Error(error || 'download-not-started'));
+      if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
       ndcDownloadJobs.set(id, job.id);
       resolve(id);
     });
@@ -1008,12 +1075,19 @@ async function startNdcDownload(job, item, url) {
 }
 
 async function finishNdcJob(job) {
-  clearNdcJobAlarm(job.id);
-  job = (await mutateNdcJob(job.id, (current) => {
-    current.status = jobFailureCount(current) ? 'partial' : 'finished';
-    current.activeDownloadId = null;
-    current.finishedAt = Date.now();
-  })) || job;
+  const eligibility = await mutateNdcJobIf(
+    job.id,
+    (current) => current.status === 'running'
+      && current.activeDownloadId === null
+      && Number(current.index || 0) >= ndcJobItemCount(current),
+    () => {}
+  );
+  if (!eligibility.applied) return eligibility.job || job;
+  job = eligibility.job;
+
+  // Keep the job discoverable as running until its successful-run history cleanup is complete.
+  // A concurrent Restart then stops this job and waits for its processing promise before the new
+  // run can add history, instead of letting this late clear erase the new run's entries.
   if (job.type && !jobFailureCount(job)) {
     await STORAGE_HANDLERS.NDC_HISTORY_CLEAR_TYPE({
       gameId: job.gameId,
@@ -1021,8 +1095,25 @@ async function finishNdcJob(job) {
       type: job.type
     });
   }
+
+  const transition = await mutateNdcJobIf(
+    job.id,
+    (current) => current.status === 'running'
+      && current.activeDownloadId === null
+      && Number(current.index || 0) >= ndcJobItemCount(current),
+    (current) => {
+      current.status = jobFailureCount(current) ? 'partial' : 'finished';
+      current.activeDownloadId = null;
+      current.finishedAt = Date.now();
+      bumpNdcControl(current);
+    }
+  );
+  if (!transition.applied) return transition.job || job;
+  job = transition.job;
+  clearNdcJobAlarm(job.id);
   notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: job.status, folder: job.landedIn || '' });
   dropNdcJobItems(job.id);
+  return job;
 }
 
 const NDC_RESOLVE_RETRY_DELAY_MS = 1500;
@@ -1034,11 +1125,24 @@ function ndcJobItemsAreMissing(job, items) {
 }
 
 async function abandonNdcJobWithoutItems(job) {
-  job.status = 'error';
-  job.lastError = 'queue-items-missing';
-  job.activeDownloadId = null;
+  const expectedDownloadId = job.activeDownloadId;
+  const expectedIndex = Number(job.index || 0);
+  const transition = await mutateNdcJobIf(
+    job.id,
+    (current) => ndcJobIsActive(current)
+      && current.activeDownloadId === expectedDownloadId
+      && Number(current.index || 0) === expectedIndex,
+    (current) => {
+      current.status = 'error';
+      current.lastError = 'queue-items-missing';
+      current.activeDownloadId = null;
+      delete current.interruptConfirmations;
+      bumpNdcControl(current);
+    }
+  );
+  if (!transition.applied) return null;
+  job = transition.job;
   clearNdcJobAlarm(job.id);
-  await saveNdcJob(bumpNdcControl(job));
   notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: 'error', error: 'queue-items-missing' });
   return null;
 }
@@ -1049,8 +1153,17 @@ function sleep(ms) {
 
 async function advanceNdcJob(jobId) {
   for (;;) {
+    if (terminalNdcJobs.has(jobId)) return null;
     let job = await readNdcJob(jobId);
     if (!job || job.status !== 'running' || job.activeDownloadId !== null) return null;
+    if (Number.isInteger(job.retiringDownloadId)) {
+      if (!await finishNdcRetirement(job.id, job.retiringDownloadId)) {
+        scheduleNdcJobAlarm(job.id, Date.now() + INTERRUPTED_RECHECK_MS);
+        return null;
+      }
+      job = await readNdcJob(jobId);
+      if (!job || job.status !== 'running' || job.activeDownloadId !== null) return null;
+    }
     const items = await readNdcJobItems(job);
     if (ndcJobItemsAreMissing(job, items)) return abandonNdcJobWithoutItems(job);
     if (job.index >= items.length) {
@@ -1060,11 +1173,19 @@ async function advanceNdcJob(jobId) {
 
     const sharedUntil = await readSharedRateLimitUntil();
     if (sharedUntil > Date.now()) {
-      job.waitingUntil = sharedUntil;
-      await saveNdcJob(job);
+      const waitingIndex = Number(job.index || 0);
+      const transition = await mutateNdcJobIf(
+        job.id,
+        (current) => current.status === 'running'
+          && current.activeDownloadId === null
+          && Number(current.index || 0) === waitingIndex,
+        (current) => { current.waitingUntil = sharedUntil; }
+      );
+      if (!transition.applied) return null;
+      job = transition.job;
       scheduleNdcJobAlarm(job.id, sharedUntil);
       notifyNdcJob(job, 'NXT_NDC_WAITING', {
-        itemName: items[job.index]?.name || '',
+        itemName: items[waitingIndex]?.name || '',
         until: sharedUntil,
         reason: 'rate_limited'
       });
@@ -1081,45 +1202,85 @@ async function advanceNdcJob(jobId) {
 
     if (!resolved.ok) {
       if (resolved.code === 'rate_limited') {
-        job.rateLimitStrikes = Math.min((job.rateLimitStrikes || 0) + 1, 6);
-        job.waitingUntil = Date.now() + retryAfterMilliseconds(resolved.retryAfter, job.rateLimitStrikes);
-        await saveNdcJob(job);
-        await publishSharedRateLimit(job.waitingUntil);
-        scheduleNdcJobAlarm(job.id, job.waitingUntil);
+        let waitingUntil = 0;
+        const transition = await mutateNdcJobIf(
+          job.id,
+          (current) => current.status === 'running'
+            && current.activeDownloadId === null
+            && Number(current.index || 0) === startIndex,
+          (current) => {
+            current.rateLimitStrikes = Math.min(Number(current.rateLimitStrikes || 0) + 1, 6);
+            current.waitingUntil = Date.now()
+              + retryAfterMilliseconds(resolved.retryAfter, current.rateLimitStrikes);
+            waitingUntil = current.waitingUntil;
+          }
+        );
+        if (!transition.applied) return null;
+        job = transition.job;
+        scheduleNdcJobAlarm(job.id, waitingUntil);
         notifyNdcJob(job, 'NXT_NDC_WAITING', {
           itemName: item.name,
-          until: job.waitingUntil,
+          until: waitingUntil,
           reason: 'rate_limited'
         });
+        await publishSharedRateLimit(waitingUntil);
         return null;
       }
 
       if (BLOCKING_RESOLVE_CODES.has(resolved.code)) {
-        job.status = resolved.code === 'requires_login' ? 'requires_login' : 'error';
-        job.lastError = resolved.code;
-        recordJobFailure(job, { fileId: item.fileId, code: resolved.code });
+        const transition = await mutateNdcJobIf(
+          job.id,
+          (current) => current.status === 'running'
+            && current.activeDownloadId === null
+            && Number(current.index || 0) === startIndex,
+          (current) => {
+            current.status = resolved.code === 'requires_login' ? 'requires_login' : 'error';
+            current.lastError = resolved.code;
+            recordJobFailure(current, { fileId: item.fileId, code: resolved.code });
+            bumpNdcControl(current);
+          }
+        );
+        if (!transition.applied) return null;
+        job = transition.job;
         clearNdcJobAlarm(job.id);
-        await saveNdcJob(job);
         notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: resolved.code, itemName: item.name });
         dropNdcJobItems(job.id);
+        await recordQueueItemFailure(job, item, resolved.code);
         return null;
       }
       const attempts = Number(job.resolveAttempts || 0) + 1;
-      job.resolveAttempts = attempts;
       if (attempts < 2) {
-        await saveNdcJob(job);
+        const transition = await mutateNdcJobIf(
+          job.id,
+          (current) => current.status === 'running'
+            && current.activeDownloadId === null
+            && Number(current.index || 0) === startIndex,
+          (current) => { current.resolveAttempts = attempts; }
+        );
+        if (!transition.applied) return null;
         await sleep(NDC_RESOLVE_RETRY_DELAY_MS);
         continue;
       }
-      recordJobFailure(job, { fileId: item.fileId, code: resolved.code || 'request_failed' });
-      job.resolveAttempts = 0;
-      job.index += 1;
-      await saveNdcJob(job);
+      const failureCode = resolved.code || 'request_failed';
+      const transition = await mutateNdcJobIf(
+        job.id,
+        (current) => current.status === 'running'
+          && current.activeDownloadId === null
+          && Number(current.index || 0) === startIndex,
+        (current) => {
+          recordJobFailure(current, { fileId: item.fileId, code: failureCode });
+          current.resolveAttempts = 0;
+          current.index = Number(current.index || 0) + 1;
+        }
+      );
+      if (!transition.applied) return null;
+      job = transition.job;
       notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
         itemName: item.name,
         itemState: 'failed',
-        error: resolved.code || 'request_failed'
+        error: failureCode
       });
+      await recordQueueItemFailure(job, item, failureCode);
       continue;
     }
 
@@ -1133,26 +1294,57 @@ async function advanceNdcJob(jobId) {
     try {
       started = await startNdcDownload(job, item, resolved.url);
     } catch (cause) {
-      recordJobFailure(job, { fileId: item.fileId, code: 'download-not-started' });
-      job.index += 1;
-      await saveNdcJob(job);
+      const transition = await mutateNdcJobIf(
+        job.id,
+        (current) => current.status === 'running'
+          && current.activeDownloadId === null
+          && Number(current.index || 0) === startIndex,
+        (current) => {
+          recordJobFailure(current, { fileId: item.fileId, code: 'download_not_started' });
+          current.rateLimitStrikes = 0;
+          current.waitingUntil = 0;
+          current.resolveAttempts = 0;
+          current.index = Number(current.index || 0) + 1;
+        }
+      );
+      if (!transition.applied) return null;
+      job = transition.job;
       notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
         itemName: item.name,
         itemState: 'failed',
-        error: NXTK.sanitizeDiagnosticText(cause?.message || 'download-not-started', 120)
+        error: 'download_not_started'
       });
+      await recordQueueItemFailure(job, item, 'download_not_started', cause?.message || cause);
       continue;
     }
 
-    const afterStart = await readNdcJob(jobId);
-    if (!afterStart || afterStart.status !== 'running') {
+    const claim = await mutateNdcJobIf(
+      jobId,
+      (current) => current.status === 'running'
+        && current.activeDownloadId === null
+        && Number(current.index || 0) === startIndex,
+      (current) => {
+        current.activeDownloadId = started.downloadId;
+        current.rateLimitStrikes = 0;
+        current.waitingUntil = 0;
+        current.resolveAttempts = 0;
+        delete current.interruptConfirmations;
+      }
+    );
+    const afterStart = claim.job;
+    if (!claim.applied || !afterStart) {
       ndcDownloadJobs.delete(started.downloadId);
       pendingTerminalDownloads.delete(started.downloadId);
-      chrome.downloads.cancel(started.downloadId, () => void getRuntimeError());
+      await setNdcRetirement(jobId, started.downloadId);
+      const retired = await finishNdcRetirement(jobId, started.downloadId);
+      if (!retired) {
+        recordBackgroundError(
+          'collection replacement safety',
+          new Error(`download ${started.downloadId} could not be retired`)
+        );
+      }
       return null;
     }
-    afterStart.activeDownloadId = started.downloadId;
-    await saveNdcJob(afterStart);
     notifyNdcJob(afterStart, 'NXT_NDC_PROGRESS', {
       itemName: item.name,
       itemState: 'started'
@@ -1168,21 +1360,35 @@ async function advanceNdcJob(jobId) {
 }
 
 async function failNdcJob(jobId, cause, context = 'background collection queue') {
-  let job = null;
+  let lastError = 'collection queue failed';
+  let failedDownloadId = null;
   try {
-    job = await readNdcJob(jobId);
+    lastError = NXTK.sanitizeDiagnosticText(cause?.message || cause, 300);
   } catch (_) { }
-  if (job && (job.status === 'running' || job.status === 'paused')) {
-    job.status = 'error';
-    try {
-      job.lastError = NXTK.sanitizeDiagnosticText(cause?.message || cause, 300);
-    } catch (_) {
-      job.lastError = 'collection queue failed';
-    }
+  let transition = { applied: false, job: null };
+  try {
+    transition = await mutateNdcJobIf(
+      jobId,
+      (current) => ndcJobIsActive(current),
+      (current) => {
+        failedDownloadId = current.activeDownloadId;
+        current.status = 'error';
+        current.lastError = lastError;
+        current.activeDownloadId = null;
+        if (Number.isInteger(failedDownloadId)) current.retiringDownloadId = failedDownloadId;
+        delete current.interruptConfirmations;
+        bumpNdcControl(current);
+      }
+    );
+  } catch (_) { }
+  if (transition.applied) {
+    const job = transition.job;
     clearNdcJobAlarm(job.id);
-    try {
-      await saveNdcJob(job);
-    } catch (_) { }
+    if (Number.isInteger(failedDownloadId)) {
+      ndcDownloadJobs.delete(failedDownloadId);
+      pendingTerminalDownloads.delete(failedDownloadId);
+      await finishNdcRetirement(job.id, failedDownloadId);
+    }
     try {
       notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: 'error', error: job.lastError });
     } catch (_) { }
@@ -1191,10 +1397,11 @@ async function failNdcJob(jobId, cause, context = 'background collection queue')
   recordBackgroundError(context, cause);
 }
 
-async function processNdcJob(jobId) {
-  if (ndcProcessingJobs.has(jobId)) return;
-  ndcProcessingJobs.add(jobId);
-  try {
+function processNdcJob(jobId) {
+  const running = ndcProcessingJobs.get(jobId);
+  if (running) return running;
+
+  const work = (async () => {
     let currentId = jobId;
     while (currentId) {
       let replay = null;
@@ -1208,14 +1415,30 @@ async function processNdcJob(jobId) {
       const nextId = await handleNdcDownloadTerminal(replay.downloadId, replay.state, replay.error);
       currentId = nextId === currentId ? currentId : null;
     }
-  } finally {
-    ndcProcessingJobs.delete(jobId);
-  }
+  })();
+  const task = work.finally(() => {
+    if (ndcProcessingJobs.get(jobId) === task) ndcProcessingJobs.delete(jobId);
+  });
+  ndcProcessingJobs.set(jobId, task);
+  return task;
 }
 
 const handledTerminalDownloads = new Set();
+const terminalDownloadTasks = new Map();
+const terminalNdcJobs = new Map();
 
-async function handleNdcDownloadTerminal(downloadId, state, error) {
+function handleNdcDownloadTerminal(downloadId, state, error) {
+  const previous = terminalDownloadTasks.get(downloadId) || Promise.resolve(null);
+  const task = previous
+    .catch(() => null)
+    .then(() => handleNdcDownloadTerminalUnlocked(downloadId, state, error));
+  terminalDownloadTasks.set(downloadId, task);
+  return task.finally(() => {
+    if (terminalDownloadTasks.get(downloadId) === task) terminalDownloadTasks.delete(downloadId);
+  });
+}
+
+async function handleNdcDownloadTerminalUnlocked(downloadId, state, error) {
   if (handledTerminalDownloads.has(downloadId)) return null;
 
   const job = await findNdcJobByDownloadId(downloadId);
@@ -1225,10 +1448,30 @@ async function handleNdcDownloadTerminal(downloadId, state, error) {
   }
 
   try {
+    terminalNdcJobs.set(job.id, downloadId);
     return await applyNdcDownloadTerminal(job, downloadId, state, error);
   } catch (cause) {
     await failNdcJob(job.id, cause, 'collection download terminal');
     return null;
+  } finally {
+    if (terminalNdcJobs.get(job.id) === downloadId) terminalNdcJobs.delete(job.id);
+  }
+}
+
+async function waitForNdcTerminalJob(jobId) {
+  const downloadId = terminalNdcJobs.get(jobId);
+  if (!Number.isInteger(downloadId)) return;
+  const task = terminalDownloadTasks.get(downloadId);
+  if (task) await task.catch(() => undefined);
+}
+
+async function waitForNdcCollectionWork(gameId, collectionId) {
+  const jobs = await readNdcJobs();
+  for (const job of Object.values(jobs)) {
+    if (job.gameId !== gameId || job.collectionId !== collectionId) continue;
+    const processing = ndcProcessingJobs.get(job.id);
+    if (processing) await processing.catch(() => undefined);
+    await waitForNdcTerminalJob(job.id);
   }
 }
 
@@ -1257,28 +1500,247 @@ function discardDownloadedFile(downloadId) {
   });
 }
 
+function cancelDownload(downloadId) {
+  return new Promise((resolve) => {
+    try {
+      if (typeof chrome.downloads?.cancel !== 'function') return resolve(false);
+      let finished = false;
+      const done = (ok) => {
+        if (finished) return;
+        finished = true;
+        resolve(ok);
+      };
+      const pending = chrome.downloads.cancel(downloadId, () => done(!getRuntimeError()));
+      if (pending && typeof pending.then === 'function') pending.then(() => done(true), () => done(false));
+    } catch (_) {
+      resolve(false);
+    }
+  });
+}
+
+function resumeDownload(downloadId) {
+  return new Promise((resolve) => {
+    try {
+      if (typeof chrome.downloads?.resume !== 'function') return resolve(false);
+      let finished = false;
+      const done = (ok) => {
+        if (finished) return;
+        finished = true;
+        resolve(ok);
+      };
+      const pending = chrome.downloads.resume(downloadId, () => done(!getRuntimeError()));
+      if (pending && typeof pending.then === 'function') pending.then(() => done(true), () => done(false));
+    } catch (_) {
+      resolve(false);
+    }
+  });
+}
+
+// Only ever a download this worker started: every id reaching here came out of our own
+// chrome.downloads.download call, and where the browser attributes the record we re-check it.
+// A record that names another extension is never touched.
+function downloadWasStartedHere(record) {
+  const owner = String(record?.byExtensionId || '');
+  return !owner || owner === chrome.runtime?.id;
+}
+
+// The file the extension is about to stop waiting on. removeFile only acts on a download that
+// finished, so a transfer that produced nothing is left alone by the API itself; the record is
+// read first so an unfinished one does not even reach it.
+async function discardAbandonedDownload(downloadId, record = null) {
+  if (!Number.isInteger(downloadId)) return false;
+  const item = record || await searchDownload(downloadId);
+  if (!item || item.state !== 'complete' || !downloadWasStartedHere(item)) return false;
+  if (item.exists === false) return true;
+  if (await discardDownloadedFile(downloadId)) return true;
+  const refreshed = await searchDownload(downloadId);
+  return refreshed?.state === 'complete'
+    && refreshed.exists === false
+    && downloadWasStartedHere(refreshed);
+}
+
+async function retireNdcDownload(downloadId) {
+  if (!Number.isInteger(downloadId)) return true;
+  const canceled = await cancelDownload(downloadId);
+  let record = await searchDownload(downloadId);
+  for (let attempt = 1;
+    attempt < SETTLE_ATTEMPTS
+      && record
+      && (record.state === 'in_progress' || record.paused === true || record.canResume === true);
+    attempt += 1) {
+    await waitMs(SETTLE_DELAY_MS);
+    record = await searchDownload(downloadId);
+  }
+  if (record?.state === 'complete') return discardAbandonedDownload(downloadId, record);
+  if (!record) return canceled;
+  if (record.state === 'in_progress' || record.paused === true || record.canResume === true) return false;
+  // The bug that motivated this fix reports an interrupted/non-resumable snapshot and then carries
+  // on. Only a successful cancel is strong enough to permit a replacement download.
+  return canceled;
+}
+
+async function setNdcRetirement(jobId, downloadId) {
+  return mutateNdcJobIf(
+    jobId,
+    (current) => !!current,
+    (current) => { current.retiringDownloadId = downloadId; }
+  );
+}
+
+async function clearNdcRetirement(jobId, downloadId) {
+  return mutateNdcJobIf(
+    jobId,
+    (current) => current.retiringDownloadId === downloadId,
+    (current) => { delete current.retiringDownloadId; }
+  );
+}
+
+async function finishNdcRetirement(jobId, downloadId) {
+  if (!Number.isInteger(downloadId)) return true;
+  if (!await retireNdcDownload(downloadId)) return false;
+  await clearNdcRetirement(jobId, downloadId);
+  return true;
+}
+
+async function clearCollectionRetirements(gameId, collectionId) {
+  const jobs = await readNdcJobs();
+  for (const job of Object.values(jobs)) {
+    if (job.gameId !== gameId || job.collectionId !== collectionId) continue;
+    const downloadId = job.retiringDownloadId;
+    if (!Number.isInteger(downloadId)) continue;
+    if (!await finishNdcRetirement(job.id, downloadId)) return false;
+  }
+  return true;
+}
+
+function recordQueueItemFailure(job, item, code, detail = '') {
+  const rawCode = String(code || 'request_failed');
+  const rootCode = rawCode.split(/[\s(]/, 1)[0] || 'request_failed';
+  const fileId = String(item?.fileId ?? '?');
+  const gameId = String(job?.gameId ?? '?');
+  const runType = String(job?.type || 'selection');
+  return appendErrorLogEntry(NXTK.buildErrorEntry({
+    code: 'queue_item_failed',
+    context: `Downloading queued file ${fileId} for game ${gameId} (${rootCode}, ${runType})`,
+    userMessage: 'A file in the collection queue could not be downloaded.',
+    technicalMessage: [rawCode, detail, `file ${fileId}`, `game ${gameId}`, runType]
+      .filter(Boolean)
+      .join(' | ')
+  }));
+}
+
 function historyTypesFor(job, item) {
   if (job?.type) return [job.type];
   return ['all', item?.optional === true ? 'optional' : 'mandatory'];
 }
 
+async function retainUnconfirmedInterrupt(jobId, downloadId) {
+  let shouldDefer = true;
+  const transition = await mutateNdcJobIf(
+    jobId,
+    (current) => current.status === 'running' && current.activeDownloadId === downloadId,
+    (current) => {
+      const confirmations = Number(current.interruptConfirmations || 0) + 1;
+      if (confirmations >= INTERRUPTED_CONFIRMATIONS_BEFORE_FAILURE) {
+        delete current.interruptConfirmations;
+        shouldDefer = false;
+      } else {
+        current.interruptConfirmations = confirmations;
+      }
+    }
+  );
+  if (transition.applied && shouldDefer) {
+    scheduleNdcJobAlarm(jobId, Date.now() + INTERRUPTED_RECHECK_MS);
+  }
+  return !transition.applied || shouldDefer;
+}
+
+async function retainLiveDownload(jobId, downloadId, { recheck = false } = {}) {
+  const transition = await mutateNdcJobIf(
+    jobId,
+    (current) => current.status === 'running' && current.activeDownloadId === downloadId,
+    (current) => { delete current.interruptConfirmations; }
+  );
+  if (transition.applied && recheck) scheduleNdcJobAlarm(jobId, Date.now() + INTERRUPTED_RECHECK_MS);
+  return transition.applied;
+}
+
 async function applyNdcDownloadTerminal(job, downloadId, state, error) {
-  handledTerminalDownloads.add(downloadId);
-  pendingTerminalDownloads.delete(downloadId);
-  if (handledTerminalDownloads.size > 1000) {
-    for (const id of handledTerminalDownloads) {
-      handledTerminalDownloads.delete(id);
-      if (handledTerminalDownloads.size <= 500) break;
+  // Confirmed before it is believed, and before the id is marked handled: a download still running
+  // is not terminal at all, and marking it handled here is what made the real 'complete' that
+  // followed get dropped on the floor while a retry ran beside it.
+  let confirmedState = state;
+  let confirmedRecord = null;
+  let retryAllowed = true;
+  if (state === 'interrupted') {
+    let settled = await settledInterruptedState(downloadId);
+    if (settled.state === 'in_progress') {
+      await retainLiveDownload(job.id, downloadId);
+      return null;
+    }
+    if (settled.state === 'paused') {
+      await retainLiveDownload(job.id, downloadId, { recheck: true });
+      return null;
+    }
+    if (settled.state === 'resumable') {
+      await resumeDownload(downloadId);
+      settled = await settledInterruptedState(downloadId);
+      if (settled.state === 'complete') {
+        error = null;
+      } else if (settled.state === 'in_progress' || settled.state === 'paused') {
+        await retainLiveDownload(job.id, downloadId, { recheck: settled.state === 'paused' });
+        return null;
+      } else if (settled.state === 'resumable') {
+        if (await retainUnconfirmedInterrupt(job.id, downloadId)) return null;
+        // Repeated resume attempts left the same resumable record behind. Do not launch a second
+        // id that the user could later run beside this one; report the item and move on safely.
+        settled = { state: 'interrupted', record: settled.record };
+        retryAllowed = false;
+      }
+    }
+    confirmedState = settled.state;
+    confirmedRecord = settled.record;
+    if (confirmedState === 'complete') error = null;
+
+    // Before retrying, explicitly close the old attempt. The cancel callback only runs once the
+    // browser says that id is canceled, complete, interrupted or gone. If it completed in the
+    // meantime, accept that exact attempt instead of launching a duplicate.
+    if (confirmedState === 'interrupted') {
+      const canceled = await cancelDownload(downloadId);
+      const afterCancel = await searchDownload(downloadId);
+      if (afterCancel?.state === 'complete') {
+        confirmedState = 'complete';
+        confirmedRecord = afterCancel;
+        error = null;
+      } else if (afterCancel?.state === 'in_progress'
+        || afterCancel?.paused === true
+        || (afterCancel?.canResume === true && retryAllowed)) {
+        await retainLiveDownload(job.id, downloadId, { recheck: afterCancel?.state !== 'in_progress' });
+        return null;
+      } else {
+        confirmedRecord = afterCancel || confirmedRecord;
+        if (!canceled && retryAllowed) {
+          if (await retainUnconfirmedInterrupt(job.id, downloadId)) return null;
+          // Two separated observations make this a real failure, but an unsuccessful cancel
+          // still does not authorize a second download. Move on instead of risking two copies.
+          retryAllowed = false;
+        }
+      }
     }
   }
 
-  ndcDownloadJobs.delete(downloadId);
-  job.activeDownloadId = null;
-
-  if (job.status === 'stopped') {
-    await mutateNdcJob(job.id, (current) => { current.activeDownloadId = null; });
-    return null;
+  if (confirmedState === 'complete') {
+    const completeRecord = await settledDownloadRecord(downloadId);
+    if (!completeRecord || completeRecord.state !== 'complete') {
+      await retainLiveDownload(job.id, downloadId, { recheck: true });
+      return null;
+    }
+    confirmedRecord = completeRecord;
   }
+
+  const latestJob = await readNdcJob(job.id);
+  if (!latestJob || !ndcJobIsActive(latestJob) || latestJob.activeDownloadId !== downloadId) return null;
+  job = latestJob;
 
   const items = await readNdcJobItems(job);
   if (ndcJobItemsAreMissing(job, items)) return abandonNdcJobWithoutItems(job);
@@ -1288,11 +1750,11 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
     return null;
   }
 
-  let effectiveState = state;
+  let effectiveState = confirmedState;
   let effectiveError = error;
   let landedIn = '';
-  if (state === 'complete') {
-    const check = await verifyTransferSize(downloadId, item);
+  if (confirmedState === 'complete') {
+    const check = await verifyTransferSize(downloadId, item, confirmedRecord);
     landedIn = check.folder || '';
     if (check.suspicious) {
       effectiveState = 'interrupted';
@@ -1300,7 +1762,69 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
     }
   }
 
-  if (effectiveState === 'complete') {
+  const expectedTransferAttempts = Number(job.transferAttempts || 0);
+  let plannedOutcome = effectiveState === 'complete'
+    ? 'complete'
+    : (retryAllowed && expectedTransferAttempts < 1 ? 'retrying' : 'failed');
+
+  // A rejected complete file must be gone before activeDownloadId is released; otherwise the
+  // retry is forced into a uniquified "(1)" name. The terminalNdcJobs lock around this handler
+  // keeps status/restart nudges behind the remaining post-commit history work.
+  if (plannedOutcome !== 'complete') {
+    const discarded = await discardAbandonedDownload(downloadId, confirmedRecord);
+    const latestArtifact = discarded ? null : await searchDownload(downloadId);
+    const unsafeToReplace = !discarded && (
+      (latestArtifact?.state === 'complete' && latestArtifact.exists !== false)
+      || latestArtifact?.state === 'in_progress'
+      || latestArtifact?.paused === true
+      || latestArtifact?.canResume === true
+    );
+    if (unsafeToReplace) {
+      retryAllowed = false;
+      plannedOutcome = 'failed';
+      effectiveError = `${effectiveError || 'interrupted'} cleanup_failed`;
+    }
+  }
+
+  const expectedIndex = Number(job.index || 0);
+  let outcome = '';
+  const transition = await mutateNdcJobIf(
+    job.id,
+    (current) => ndcJobIsActive(current)
+      && current.activeDownloadId === downloadId
+      && Number(current.index || 0) === expectedIndex,
+    (current) => {
+      current.activeDownloadId = null;
+      delete current.interruptConfirmations;
+      outcome = plannedOutcome;
+      if (plannedOutcome === 'complete') {
+        current.completed = Number(current.completed || 0) + 1;
+        current.transferAttempts = 0;
+        current.index = Number(current.index || 0) + 1;
+        if (landedIn) current.landedIn = landedIn;
+      } else if (plannedOutcome === 'retrying') {
+        current.transferAttempts = Number(current.transferAttempts || 0) + 1;
+      } else {
+        recordJobFailure(current, { fileId: item.fileId, code: effectiveError || 'interrupted' });
+        current.transferAttempts = 0;
+        current.index = Number(current.index || 0) + 1;
+      }
+    }
+  );
+  if (!transition.applied || !outcome) return null;
+  job = transition.job;
+
+  handledTerminalDownloads.add(downloadId);
+  pendingTerminalDownloads.delete(downloadId);
+  if (handledTerminalDownloads.size > 1000) {
+    for (const id of handledTerminalDownloads) {
+      handledTerminalDownloads.delete(id);
+      if (handledTerminalDownloads.size <= 500) break;
+    }
+  }
+  ndcDownloadJobs.delete(downloadId);
+
+  if (outcome === 'complete') {
     for (const historyType of historyTypesFor(job, item)) {
       await STORAGE_HANDLERS.NDC_HISTORY_ADD({
         gameId: job.gameId,
@@ -1310,55 +1834,51 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
       });
     }
     await STORAGE_HANDLERS.TOTAL_DOWNLOADS_INCREMENT();
-    job = (await mutateNdcJob(job.id, (current) => {
-      current.activeDownloadId = null;
-      current.completed = Number(current.completed || 0) + 1;
-      current.transferAttempts = 0;
-      current.index = Number(current.index || 0) + 1;
-      if (landedIn) current.landedIn = landedIn;
-    })) || job;
     notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
       itemName: item.name,
       itemState: 'complete'
     });
-  } else if ((job.transferAttempts || 0) < 1) {
-    if (state === 'complete') await discardDownloadedFile(downloadId);
-    job = (await mutateNdcJob(job.id, (current) => {
-      current.activeDownloadId = null;
-      current.transferAttempts = Number(current.transferAttempts || 0) + 1;
-    })) || job;
-    notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
-      itemName: item.name,
-      itemState: 'retrying',
-      error: effectiveError || 'interrupted'
-    });
   } else {
-    job = (await mutateNdcJob(job.id, (current) => {
-      current.activeDownloadId = null;
-      recordJobFailure(current, { fileId: item.fileId, code: effectiveError || 'interrupted' });
-      current.transferAttempts = 0;
-      current.index = Number(current.index || 0) + 1;
-    })) || job;
-    notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
-      itemName: item.name,
-      itemState: 'failed',
-      error: effectiveError || 'interrupted'
-    });
+    if (outcome === 'retrying') {
+      notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
+        itemName: item.name,
+        itemState: 'retrying',
+        error: effectiveError || 'interrupted'
+      });
+    } else {
+      await recordQueueItemFailure(job, item, effectiveError || 'interrupted');
+      notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
+        itemName: item.name,
+        itemState: 'failed',
+        error: effectiveError || 'interrupted'
+      });
+    }
   }
 
-  return job.status === 'running' ? job.id : null;
+  const afterEffects = await readNdcJob(job.id);
+  return afterEffects?.status === 'running' ? job.id : null;
 }
 
 async function haltNdcJob(job, { notifyTabIds = [] } = {}) {
-  job.status = 'stopped';
-  const activeDownloadId = job.activeDownloadId;
-  job.activeDownloadId = null;
+  let activeDownloadId = null;
+  const transition = await mutateNdcJobIf(
+    job.id,
+    (current) => ndcJobIsActive(current),
+    (current) => {
+      activeDownloadId = current.activeDownloadId;
+      current.status = 'stopped';
+      current.activeDownloadId = null;
+      if (Number.isInteger(activeDownloadId)) current.retiringDownloadId = activeDownloadId;
+      delete current.interruptConfirmations;
+      bumpNdcControl(current);
+    }
+  );
+  job = transition.job || job;
   clearNdcJobAlarm(job.id);
-  await saveNdcJob(bumpNdcControl(job));
   if (Number.isInteger(activeDownloadId)) {
     ndcDownloadJobs.delete(activeDownloadId);
     pendingTerminalDownloads.delete(activeDownloadId);
-    chrome.downloads.cancel(activeDownloadId, () => void getRuntimeError());
+    await finishNdcRetirement(job.id, activeDownloadId);
   }
   notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: 'stopped' }, notifyTabIds);
   dropNdcJobItems(job.id);
@@ -1410,6 +1930,86 @@ async function resolveNdcJob(payload) {
   return findActiveNdcJobForCollection(gameId, collectionId);
 }
 
+const pendingNdcStarts = new Map();
+const pendingNdcStartsByScope = new Map();
+const canceledNdcStarts = new Map();
+const ndcStartQueues = new Map();
+const NDC_START_INTENT_TTL_MS = 2 * 60 * 1000;
+
+function cleanNdcStartIntents() {
+  const cutoff = Date.now() - NDC_START_INTENT_TTL_MS;
+  for (const [startId, entry] of canceledNdcStarts) {
+    if (Number(entry?.at || 0) < cutoff) canceledNdcStarts.delete(startId);
+  }
+}
+
+function ndcStartId(payload) {
+  const value = String(payload?.startId || '');
+  return isSafeId(value) ? value : '';
+}
+
+function registerNdcStart(payload, gameId, collectionId) {
+  cleanNdcStartIntents();
+  const startId = ndcStartId(payload);
+  const canceled = startId ? canceledNdcStarts.get(startId) : null;
+  const scope = `${gameId}/${collectionId}`;
+  const token = {
+    id: startId,
+    scope,
+    gameId,
+    collectionId,
+    canceled: !!canceled && canceled.gameId === gameId && canceled.collectionId === collectionId
+  };
+  if (startId) pendingNdcStarts.set(startId, token);
+  const scoped = pendingNdcStartsByScope.get(scope) || new Set();
+  scoped.add(token);
+  pendingNdcStartsByScope.set(scope, scoped);
+  return token;
+}
+
+function cancelNdcStart(payload) {
+  cleanNdcStartIntents();
+  const startId = ndcStartId(payload);
+  const gameId = String(payload?.gameId || '');
+  const collectionId = String(payload?.collectionId || '');
+  if (startId) {
+    const token = pendingNdcStarts.get(startId);
+    if (token && token.gameId === gameId && token.collectionId === collectionId) token.canceled = true;
+    canceledNdcStarts.set(startId, { gameId, collectionId, at: Date.now() });
+    return true;
+  }
+  const scoped = pendingNdcStartsByScope.get(`${gameId}/${collectionId}`);
+  if (!scoped?.size) return false;
+  for (const token of scoped) token.canceled = true;
+  return true;
+}
+
+function releaseNdcStart(token) {
+  if (!token) return;
+  if (token.id && pendingNdcStarts.get(token.id) === token) pendingNdcStarts.delete(token.id);
+  if (token.id) canceledNdcStarts.delete(token.id);
+  const scoped = pendingNdcStartsByScope.get(token.scope);
+  if (scoped) {
+    scoped.delete(token);
+    if (!scoped.size) pendingNdcStartsByScope.delete(token.scope);
+  }
+}
+
+async function acquireNdcStartLock(scope) {
+  const previous = ndcStartQueues.get(scope) || Promise.resolve();
+  let releaseHold;
+  const hold = new Promise((resolve) => { releaseHold = resolve; });
+  const tail = previous.catch(() => undefined).then(() => hold);
+  ndcStartQueues.set(scope, tail);
+  await previous.catch(() => undefined);
+  return () => {
+    releaseHold();
+    tail.finally(() => {
+      if (ndcStartQueues.get(scope) === tail) ndcStartQueues.delete(scope);
+    });
+  };
+}
+
 const NDC_QUEUE_HANDLERS = {
   async NDC_QUEUE_START(payload, sender) {
     const tabId = Number(sender?.tab?.id);
@@ -1424,8 +2024,14 @@ const NDC_QUEUE_HANDLERS = {
     const collectionId = String(payload?.collectionId || '');
     if (!isSafeId(gameId) || !isSafeId(collectionId)) throw new Error('invalid-collection-identifier');
 
+    const startToken = registerNdcStart(payload, gameId, collectionId);
+    const releaseStartLock = await acquireNdcStartLock(`${gameId}/${collectionId}`);
+    try {
+      if (startToken?.canceled) return { stopped: true };
+
     const scopeKey = ndcScopeKey(type, items);
     let existing = await findActiveNdcJobForCollection(gameId, collectionId);
+    if (startToken?.canceled) return { stopped: true };
     const isReconnect = !!existing
       && !payload?.restart
       && existing.type === type
@@ -1434,7 +2040,7 @@ const NDC_QUEUE_HANDLERS = {
 
       existing = (await mutateNdcJob(existing.id, (current) => { current.tabId = tabId; })) || existing;
       if (existing.status === 'running') {
-        processNdcJob(existing.id).catch((cause) => recordBackgroundError('resume adopted job', cause));
+        reconcileNdcJob(existing.id).catch((cause) => recordBackgroundError('resume adopted job', cause));
       }
       return {
         jobId: existing.id,
@@ -1447,21 +2053,46 @@ const NDC_QUEUE_HANDLERS = {
     }
 
     if (existing) {
-      existing.status = 'stopped';
-      const supersededDownloadId = existing.activeDownloadId;
-      existing.activeDownloadId = null;
+      const supersededJobId = existing.id;
+      let supersededDownloadId = null;
+      const transition = await mutateNdcJobIf(
+        existing.id,
+        (current) => ndcJobIsActive(current),
+        (current) => {
+          supersededDownloadId = current.activeDownloadId;
+          current.status = 'stopped';
+          current.activeDownloadId = null;
+          if (Number.isInteger(supersededDownloadId)) current.retiringDownloadId = supersededDownloadId;
+          delete current.interruptConfirmations;
+          bumpNdcControl(current);
+        }
+      );
+      existing = transition.job || existing;
       clearNdcJobAlarm(existing.id);
-      await saveNdcJob(bumpNdcControl(existing));
       if (Number.isInteger(supersededDownloadId)) {
         ndcDownloadJobs.delete(supersededDownloadId);
         pendingTerminalDownloads.delete(supersededDownloadId);
-        chrome.downloads.cancel(supersededDownloadId, () => void getRuntimeError());
+        await finishNdcRetirement(existing.id, supersededDownloadId);
       }
+      const oldProcessing = ndcProcessingJobs.get(supersededJobId);
+      if (oldProcessing) await oldProcessing.catch(() => undefined);
+      await waitForNdcTerminalJob(supersededJobId);
       dropNdcJobItems(existing.id);
+    }
+
+    if (startToken?.canceled) return { stopped: true };
+    await waitForNdcCollectionWork(gameId, collectionId);
+    if (startToken?.canceled) return { stopped: true };
+    if (!await clearCollectionRetirements(gameId, collectionId)) {
+      throw new Error('previous_download_not_retired');
     }
 
     const jobId = makeNdcJobId();
     await writeNdcJobItems(jobId, items);
+    if (startToken?.canceled) {
+      dropNdcJobItems(jobId);
+      return { stopped: true };
+    }
     const job = {
       id: jobId,
       tabId,
@@ -1481,18 +2112,24 @@ const NDC_QUEUE_HANDLERS = {
       updatedAt: Date.now()
     };
     await saveNdcJob(job);
+    if (startToken?.canceled) {
+      await haltNdcJob(job, { notifyTabIds: [tabId] });
+      return { jobId: job.id, total: items.length, stopped: true };
+    }
     await processNdcJob(job.id);
     return { jobId: job.id, total: items.length };
+    } finally {
+      releaseStartLock();
+      releaseNdcStart(startToken);
+    }
   },
 
   async NDC_QUEUE_STATUS(payload) {
     const job = await resolveNdcJob(payload);
     if (!job) return null;
 
-    if (job.status === 'running'
-      && job.activeDownloadId === null
-      && (Number(job.waitingUntil) || 0) <= Date.now()) {
-      processNdcJob(job.id).catch((cause) => recordBackgroundError('status nudge', cause));
+    if (job.status === 'running') {
+      reconcileNdcJob(job.id).catch((cause) => recordBackgroundError('status nudge', cause));
     }
     return {
       jobId: job.id,
@@ -1518,8 +2155,8 @@ const NDC_QUEUE_HANDLERS = {
 
     const job = await claimNdcJobOwnership(found, tabId);
 
-    if (job.status === 'running' && job.activeDownloadId === null) {
-      processNdcJob(job.id).catch((cause) => recordBackgroundError('attach nudge', cause));
+    if (job.status === 'running') {
+      reconcileNdcJob(job.id).catch((cause) => recordBackgroundError('attach nudge', cause));
     }
 
     return {
@@ -1534,29 +2171,49 @@ const NDC_QUEUE_HANDLERS = {
   },
 
   async NDC_QUEUE_STOP(payload, sender) {
+    const canceledPendingStart = cancelNdcStart(payload);
     const job = await resolveNdcJob(payload);
-    if (!job) throw new Error('job-not-found');
+    if (!job) {
+      if (canceledPendingStart) return { stopped: true, pending: true };
+      throw new Error('job-not-found');
+    }
     await haltNdcJob(job, { notifyTabIds: [Number(sender?.tab?.id)] });
     return { stopped: true };
   },
 
   async NDC_QUEUE_PAUSE(payload) {
-    const job = await resolveNdcJob(payload);
+    let job = await resolveNdcJob(payload);
     if (!job) throw new Error('job-not-found');
-    if (job.status === 'running') job.status = 'paused';
-    await saveNdcJob(bumpNdcControl(job));
+    const transition = await mutateNdcJobIf(
+      job.id,
+      (current) => current.status === 'running',
+      (current) => {
+        current.status = 'paused';
+        bumpNdcControl(current);
+      }
+    );
+    job = transition.job || job;
     notifyNdcJob(job, 'NXT_NDC_STATE');
-    return { paused: true };
+    return { paused: job.status === 'paused' };
   },
 
   async NDC_QUEUE_RESUME(payload) {
-    const job = await resolveNdcJob(payload);
+    let job = await resolveNdcJob(payload);
     if (!job) throw new Error('job-not-found');
-    if (job.status === 'paused') job.status = 'running';
-    await saveNdcJob(bumpNdcControl(job));
+    const transition = await mutateNdcJobIf(
+      job.id,
+      (current) => current.status === 'paused',
+      (current) => {
+        current.status = 'running';
+        bumpNdcControl(current);
+      }
+    );
+    job = transition.job || job;
     notifyNdcJob(job, 'NXT_NDC_STATE');
-    await processNdcJob(job.id);
-    return { resumed: true };
+    // A paused job can have finished or interrupted while the worker was asleep. Reconcile the
+    // browser record first; processNdcJob alone intentionally refuses to touch an active id.
+    if (job.status === 'running') await reconcileNdcJob(job.id);
+    return { resumed: job.status === 'running' };
   },
 
   async NDC_RUN_CLAIM(payload, sender) {
@@ -1608,8 +2265,8 @@ if (chrome.alarms?.onAlarm) {
       return;
     }
     if (!name.startsWith(NDC_ALARM_PREFIX)) return;
-    processNdcJob(name.slice(NDC_ALARM_PREFIX.length))
-      .catch((cause) => recordBackgroundError('rate-limit alarm', cause));
+    reconcileNdcJob(name.slice(NDC_ALARM_PREFIX.length))
+      .catch((cause) => recordBackgroundError('collection queue alarm', cause));
   });
 }
 
@@ -1638,12 +2295,58 @@ function searchDownload(downloadId) {
   });
 }
 
+async function reconcileNdcJob(jobId) {
+  if (terminalNdcJobs.has(jobId)) return;
+  let job = await readNdcJob(jobId);
+  if (!job || job.status !== 'running') return;
+
+  if (Number.isInteger(job.retiringDownloadId)) {
+    if (!await finishNdcRetirement(job.id, job.retiringDownloadId)) {
+      scheduleNdcJobAlarm(job.id, Date.now() + INTERRUPTED_RECHECK_MS);
+      return;
+    }
+    job = await readNdcJob(jobId);
+    if (!job || job.status !== 'running') return;
+  }
+
+  if (Number.isInteger(job.activeDownloadId)) {
+    const record = await searchDownload(job.activeDownloadId);
+    if (!record || record.state === 'complete' || record.state === 'interrupted') {
+      const nextJobId = await handleNdcDownloadTerminal(
+        job.activeDownloadId,
+        record?.state || 'interrupted',
+        record?.error || (record ? null : 'download-record-missing')
+      );
+      if (nextJobId) await processNdcJob(nextJobId);
+    }
+    return;
+  }
+
+  const waitingUntil = Number(job.waitingUntil) || 0;
+  if (waitingUntil > Date.now()) {
+    scheduleNdcJobAlarm(job.id, waitingUntil);
+    return;
+  }
+  await processNdcJob(job.id);
+}
+
 async function reconcileNdcJobs() {
   if (!hasDownloadsApi()) return;
   const jobs = await readNdcJobs();
   let runningCount = 0;
 
   for (const job of Object.values(jobs)) {
+    if (Number.isInteger(job.retiringDownloadId)) {
+      if (!await finishNdcRetirement(job.id, job.retiringDownloadId)) {
+        // Keep the global reconciliation alarm alive even for a stopped job: Stop promised not
+        // to leave an attempt that can later resume beside a future run.
+        runningCount++;
+        if (job.status === 'running') {
+          scheduleNdcJobAlarm(job.id, Date.now() + INTERRUPTED_RECHECK_MS);
+        }
+        continue;
+      }
+    }
     if (job.status !== 'running') continue;
     runningCount++;
 

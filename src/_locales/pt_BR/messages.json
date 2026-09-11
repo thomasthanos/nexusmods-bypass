@@ -191,6 +191,30 @@
   "errNoDownloadUrlFix": {
     "message": "Abra a página do arquivo, verifique se está conectado e tente novamente."
   },
+  "errDownloadNotStartedFix": {
+    "message": "Confira a pasta de download nas configurações e se os downloads não estão bloqueados."
+  },
+  "errDownloadNotStartedMsg": {
+    "message": "O navegador recusou iniciar este download."
+  },
+  "errNotAFileFix": {
+    "message": "Abra a página do arquivo, confirme que está conectado e tente de novo."
+  },
+  "errNotAFileMsg": {
+    "message": "O Nexus Mods enviou uma página em vez do arquivo."
+  },
+  "errEmptyFileFix": {
+    "message": "Tente de novo. Se continuar vazio, baixe esse arquivo pela página dele."
+  },
+  "errEmptyFileMsg": {
+    "message": "O download gerou um arquivo vazio."
+  },
+  "errShortFileFix": {
+    "message": "Tente de novo. Se continuar parando, baixe esse arquivo pela página dele."
+  },
+  "errShortFileMsg": {
+    "message": "O download parou antes de o arquivo chegar por completo."
+  },
   "errNoNmmLinkMsg": {
     "message": "O Nexus Mods não retornou um link válido do Vortex."
   },

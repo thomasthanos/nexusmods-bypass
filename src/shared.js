@@ -357,8 +357,12 @@
     if (source.method) parts.push(METHOD_LABELS[source.method] || String(source.method));
     if (source.fileId) parts.push('file ' + String(source.fileId).slice(0, 12));
     if (source.attempt) parts.push('attempt ' + source.attempt);
-    if (source.autoClose === true) parts.push('tab auto-close armed');
-    if (source.autoClose === false) parts.push('tab auto-close off');
+    // Closing the tab is only ever a Vortex step, so reporting its state next to a browser
+    // download reads as a setting being off when the setting does not apply at all.
+    if (source.method === 'vortex') {
+      if (source.autoClose === true) parts.push('tab auto-close armed');
+      if (source.autoClose === false) parts.push('tab auto-close off');
+    }
     if (source.fallbackActive) parts.push('after a Cloudflare fallback');
     return parts.join(' · ');
   }

@@ -191,6 +191,30 @@
   "errNoDownloadUrlFix": {
     "message": "打开文件页面，确认已登录后重试。"
   },
+  "errDownloadNotStartedFix": {
+    "message": "检查设置中的下载文件夹，以及下载是否被阻止。"
+  },
+  "errDownloadNotStartedMsg": {
+    "message": "浏览器拒绝开始此次下载。"
+  },
+  "errNotAFileFix": {
+    "message": "打开文件页面，确认已登录，然后重试。"
+  },
+  "errNotAFileMsg": {
+    "message": "Nexus Mods 返回的是网页，不是文件。"
+  },
+  "errEmptyFileFix": {
+    "message": "请重试。如果仍为空，请从该文件页面单独下载。"
+  },
+  "errEmptyFileMsg": {
+    "message": "下载得到的是空文件。"
+  },
+  "errShortFileFix": {
+    "message": "请重试。如果一直中断，请从该文件页面单独下载。"
+  },
+  "errShortFileMsg": {
+    "message": "下载在文件传完之前就停止了。"
+  },
   "errNoNmmLinkMsg": {
     "message": "Nexus Mods 未返回有效的 Vortex 链接。"
   },

@@ -20,6 +20,13 @@ window.NexusExt = window.NexusExt || {};
   const Errors = NexusExt.Errors;
   const Auth = NexusExt.Auth;
 
+  function makeBackgroundStartId() {
+    try {
+      if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+    } catch (_) { }
+    return `start-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+  }
+
   const convertSize = (sizeInKB) => {
     const sizeInMB = sizeInKB / 1024;
     const sizeInGB = sizeInMB / 1024;
@@ -136,6 +143,7 @@ window.NexusExt = window.NexusExt || {};
       this.lifecycleController = typeof AbortController === 'function' ? new AbortController() : null;
       this.downloadController = null;
       this.backgroundJobId = null;
+      this.backgroundStartId = null;
       this.settleBrowserQueue = null;
       this.claimTimer = null;
       this.onSettingsChanged = null;
@@ -172,6 +180,7 @@ window.NexusExt = window.NexusExt || {};
     queueTarget() {
       return {
         jobId: this.backgroundJobId || null,
+        startId: this.backgroundStartId || null,
         gameId: this.gameId,
         collectionId: this.collectionId
       };
@@ -185,7 +194,7 @@ window.NexusExt = window.NexusExt || {};
       }
       Promise.resolve(NexusExt.Storage.sendDownloadCommand('NDC_QUEUE_STOP', this.queueTarget()))
         .then((reply) => {
-          if (!reply?.ok) this.settleBrowserQueue?.('stopped');
+          if (!reply?.ok || reply.value?.pending) this.settleBrowserQueue?.('stopped');
         })
         .catch(() => this.settleBrowserQueue?.('stopped'));
     }
@@ -704,6 +713,8 @@ window.NexusExt = window.NexusExt || {};
 
       const queueProgressBase = this.ui.progress;
       const visibleTotal = mods.length;
+      const startId = makeBackgroundStartId();
+      this.backgroundStartId = startId;
 
       await this.watchBackgroundJob({
         queueProgressBase,
@@ -713,6 +724,7 @@ window.NexusExt = window.NexusExt || {};
         start: () => NexusExt.Storage.sendDownloadCommand('NDC_QUEUE_START', {
           gameId: this.gameId,
           collectionId: this.collectionId,
+          startId,
           type,
           restart,
           folder: this.downloadFolder,
@@ -785,6 +797,7 @@ window.NexusExt = window.NexusExt || {};
           }
           this.settleBrowserQueue = null;
           this.backgroundJobId = null;
+          this.backgroundStartId = null;
           this.downloadController = null;
         };
 
@@ -880,7 +893,15 @@ window.NexusExt = window.NexusExt || {};
               this.ui.logText(TS('logRetryingInterrupted', [name], `Retrying interrupted download: ${name}`), 'info');
             } else if (message.itemState === 'failed') {
               eta?.spoil();
-              const reason = message.error || 'download error';
+              // The worker reports a code with its measurements attached. A code that has a
+              // sentence of its own is shown as that sentence; anything else is left as it
+              // came, so nothing is lost. Either way the numbers are in the report.
+              const raw = String(message.error || '');
+              const code = raw.split(' ')[0].trim();
+              const known = code && Errors.normalize({ code }).code === code;
+              const reason = known
+                ? Errors.toLogMessage({ code })
+                : (raw || Errors.displayText({ code: 'request_failed' }).message);
               this.ui.logText(TS('logFailedItem', [name, reason], `Failed: ${name} (${reason})`), 'error');
             }
             return;
@@ -923,8 +944,21 @@ window.NexusExt = window.NexusExt || {};
           return;
         }
 
+        const requestedStartId = this.backgroundStartId;
         Promise.resolve(start()).then((reply) => {
-          if (settled) return;
+          if (settled) {
+            // Stop can be clicked while START is still writing the background job. The worker also
+            // tracks startId, but this closes the loop if it restarted between those two messages.
+            if (reply?.ok && reply.value?.jobId) {
+              NexusExt.Storage.sendDownloadCommand('NDC_QUEUE_STOP', {
+                jobId: reply.value.jobId,
+                startId: requestedStartId,
+                gameId: this.gameId,
+                collectionId: this.collectionId
+              }).catch?.(() => undefined);
+            }
+            return;
+          }
           if (!reply?.ok || !reply.value?.jobId) {
             finish('error', reply?.error || 'background queue did not start');
             return;
