@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/assets/banner-nexus-v2.svg" alt="NexusMods Bypass">
+<img src=".github/assets/banner-nexus-v2.svg?v=2.6.4" alt="NexusMods Bypass">
 
 [![Manifest V3](.github/assets/badge-manifest.svg)](src/manifest.json)
 [![13 languages](.github/assets/badge-lang-13.svg)](src/_locales)
