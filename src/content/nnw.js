@@ -1339,6 +1339,22 @@ window.NexusExt = window.NexusExt || {};
 
   let lastAutoStartHref = '';
 
+  // True once the tab is shown while it is still on the same address and automatic starts are still on;
+  // false if either changed while it waited.
+  function waitUntilShown(pageKey) {
+    const stillWanted = () => !!cfg.AutoStartDownload
+      && location.origin + location.pathname + location.search === pageKey;
+    if (!document.hidden) return Promise.resolve(stillWanted());
+    return new Promise((resolve) => {
+      const onVisibility = () => {
+        if (document.hidden) return;
+        document.removeEventListener('visibilitychange', onVisibility);
+        resolve(stillWanted());
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+    });
+  }
+
   async function autoStartDownload() {
     if (!cfg.AutoStartDownload) return;
     if (isCloudflareChallengeDocument()) return;
@@ -1354,6 +1370,9 @@ window.NexusExt = window.NexusExt || {};
     if (lastAutoStartHref === autoStartKey) return;
     lastAutoStartHref = autoStartKey;
     const isNMM = wantsVortexHandoff(params);
+    // Handing a link to Vortex asks the browser to open another program, then counts down to close this tab
+    // behind a "Keep open" button. Neither should happen in a tab nobody is looking at, so it waits to be shown.
+    if (isNMM && !await waitUntilShown(autoStartKey)) return;
     Logger.debug('Auto-start: fileId', fileId, 'isNMM', isNMM);
     await new Promise(r => setTimeout(r, 200));
     Logger.info(`Auto ${isNMM ? 'NMM' : 'manual'}: starting download`);

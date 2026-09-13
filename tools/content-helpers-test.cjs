@@ -34,8 +34,13 @@ function extractFunction(source, name) {
   return assert.fail(`${name} is unterminated`);
 }
 
+// The page UI is split between what every Nexus page loads and the bundles added when a page needs them;
+// checks on its source read all of it.
+const UI_SOURCES = ['src/content/ui.js', 'src/content/ui-settings.js', 'src/content/ui-collection.js', 'src/content/ui-wabbajack.js'];
+const readUi = () => UI_SOURCES.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+
 const nnw = fs.readFileSync('src/content/nnw.js', 'utf8');
-const ui = fs.readFileSync('src/content/ui.js', 'utf8');
+const ui = readUi();
 
 function archivedFilesUrlTests() {
   const location = { href: 'https://www.nexusmods.com/skyrim/mods/1?tab=files' };
@@ -401,7 +406,7 @@ function adTimerCookieBehaviour() {
 // An archive that has to be extracted is the user's next step, not a fault, so it must not
 // arrive wrapped in the failure wording that invites a bug report.
 function needsExtractingIsNotAFailure() {
-  const ui = fs.readFileSync('src/content/ui.js', 'utf8');
+  const ui = readUi();
   const at = ui.indexOf("if (cause?.code === 'needs-extracting')");
   assert.notEqual(at, -1, 'the dialog separates it from a read failure');
 
@@ -493,7 +498,7 @@ function queueEtaBehaviour() {
   assert.equal(noSizes.eta.remainingSeconds(1, 3), 0,
     'with no size anywhere there is nothing to claim');
 
-  const ui = fs.readFileSync('src/content/ui.js', 'utf8');
+  const ui = readUi();
   const setter = ui.slice(ui.indexOf('ui.setTimeLeft = (seconds)'));
   assert.match(setter.slice(0, 420), /row\.hidden = true;/, 'zero hides the row instead of showing 0s');
   assert.match(setter.slice(0, 620), /deckTimeLeft/, 'and the text is translated');
@@ -575,7 +580,7 @@ function storeListingBehaviour() {
   assert.match(prompt, /getStoreListing\(\)/, 'the ask uses the resolved listing');
   assert.match(prompt, /ratingCta/, 'and names the store in the link');
 
-  const ui = fs.readFileSync('src/content/ui.js', 'utf8');
+  const ui = readUi();
   const popup = fs.readFileSync('src/popup/popup.js', 'utf8');
   for (const [label, source] of [['deck', ui], ['popup', popup]]) {
     assert.match(source, /NXTK\.prepareRatingPrompt\(\)/, `${label}: asks through the shared helper`);
@@ -957,7 +962,7 @@ function activityLineTests() {
 // Escape closed an alert and the dialog under it together, and the revision comparison rendered
 // whichever answer arrived last rather than the one for the revisions on screen.
 function dialogRegressionTests() {
-  const ui = fs.readFileSync('src/content/ui.js', 'utf8');
+  const ui = readUi();
   assert.doesNotMatch(ui, /registerModalSettle|settleModalBackdrop/, 'no dialog is wired by hand any more');
   assert.match(extractFunction(ui, 'nxtkConfirm'), /closest\?\.\('button, a, input, select, textarea'\)\) return;/,
     'Enter on a focused control does what that control does instead of confirming');
@@ -1007,6 +1012,112 @@ function extensionErrorFilterTests() {
     'once the context is gone the scheme still decides');
 }
 
+// Most Nexus pages need neither the collection deck, the settings dialog, the modlist importer nor the bug
+// report, so those are bundles the worker adds to a page when it first asks. What every page loads must
+// not reach into them before they are there, and the worker must add nothing else.
+function bundleBoundaryTests() {
+  const core = fs.readFileSync('src/content/ui.js', 'utf8');
+  for (const name of ['NDC_CONSTANTS', 'WabbajackImporter', 'function createControlDeck(', 'function bindDropdownToggle(',
+    'SETTINGS_UI', 'function nxtkConfirm(', 'function importWabbajackModlist(']) {
+    assert.ok(!core.includes(name), `the core UI does not carry ${name}`);
+  }
+  const copy = extractFunction(core, 'copyReportAndOpenIssue');
+  const loadsReport = copy.indexOf("await loadBundle('report')");
+  assert.ok(loadsReport !== -1 && loadsReport < copy.indexOf('NXTK.buildReportIssueUrl('),
+    'the report builder is loaded before it is used');
+  assert.match(extractFunction(core, 'showSettingsModal'), /isContextValid[\s\S]*await loadBundle\('settings'\)/,
+    'a reloaded extension is reported before the settings are asked for');
+
+  const manifest = JSON.parse(fs.readFileSync('src/manifest.json', 'utf8'));
+  const declared = manifest.content_scripts.flatMap((script) => script.js);
+  for (const file of ['content/ndc.js', 'content/zip-reader.js', 'content/wabbajack-importer.js',
+    'content/ui-collection.js', 'content/ui-settings.js', 'content/ui-wabbajack.js', 'report.js']) {
+    assert.ok(!declared.includes(file), `${file} is loaded on demand, not by every page`);
+  }
+  assert.ok(manifest.permissions.includes('scripting'), 'adding a bundle to a page needs the scripting permission');
+
+  const main = fs.readFileSync('src/content/main.js', 'utf8');
+  assert.doesNotMatch(main, /const \{[^}]*\bNDC\b[^}]*\} = window\.NexusExt/, 'main.js does not read NDC before it is loaded');
+  const route = extractFunction(main, 'handleRouteChangeInner');
+  const loadsCollection = route.indexOf("UI.loadBundle('collection')");
+  assert.ok(loadsCollection !== -1 && loadsCollection < route.indexOf('new window.NexusExt.NDC('),
+    'a collection page loads the downloader before creating one');
+
+  const worker = fs.readFileSync('src/background.js', 'utf8');
+  const inject = extractFunction(worker, 'injectContentBundle');
+  assert.match(inject, /hasOwnProperty\.call\(CONTENT_BUNDLES, name\)/, 'only a listed bundle can be injected');
+  assert.match(inject, /TRUSTED_SENDER_URL\.test/, 'and only into a Nexus Mods page');
+  assert.match(inject, /executeScript\(\{ target, files \}\)/, 'with the packaged files of that bundle');
+  assert.equal((worker.match(/chrome\.scripting\./g) || []).length, 1, 'nothing else in the worker injects anything');
+
+  assert.doesNotMatch(fs.readFileSync('src/shared.js', 'utf8'), /function buildReport\(/,
+    'the report builder is not part of shared.js, which the worker and every page load');
+  assert.match(fs.readFileSync('src/report.js', 'utf8'), /Object\.assign\(NXTK, \{ buildBugReport, buildReportIssueUrl \}\)/,
+    'report.js provides it instead');
+}
+
+// A background tab starts on its own; handing a link to Vortex is the one start that waits to be seen.
+async function hiddenTabStartTests() {
+  const main = fs.readFileSync('src/content/main.js', 'utf8');
+  const paint = extractFunction(main, 'waitForNextPaint');
+  assert.match(paint, /if \(document\.hidden\) return Promise\.resolve\(\);/,
+    'a background tab does not wait for a frame it will never paint');
+  assert.match(paint, /setTimeout\(done, \d+\)/, 'nor does a page that says it is visible but is not being drawn');
+  const autoStart = extractFunction(nnw, 'autoStartDownload');
+  assert.match(autoStart, /if \(isNMM && !await waitUntilShown\(autoStartKey\)\) return;/,
+    'an automatic Vortex handoff waits for the tab to be shown');
+  assert.ok(autoStart.indexOf('waitUntilShown') < autoStart.indexOf('runDownload('), 'before anything is requested');
+
+  const page = () => {
+    const listeners = new Set();
+    const state = {
+      listeners,
+      cfg: { AutoStartDownload: true },
+      location: { origin: 'https://www.nexusmods.com', pathname: '/skyrim/mods/1', search: '?tab=files&file_id=2&nmm=1' },
+      document: {
+        hidden: true,
+        addEventListener: (_type, listener) => listeners.add(listener),
+        removeEventListener: (_type, listener) => listeners.delete(listener)
+      },
+      show() {
+        state.document.hidden = false;
+        [...listeners].forEach((listener) => listener());
+      }
+    };
+    state.key = state.location.origin + state.location.pathname + state.location.search;
+    state.wait = new Function('document', 'location', 'cfg',
+      `${extractFunction(nnw, 'waitUntilShown')}; return waitUntilShown;`)(state.document, state.location, state.cfg);
+    return state;
+  };
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  const hidden = page();
+  let outcome = null;
+  hidden.wait(hidden.key).then((value) => { outcome = value; });
+  await settle();
+  assert.equal(outcome, null, 'a hidden tab keeps waiting');
+  hidden.show();
+  await settle();
+  assert.equal(outcome, true, 'and goes ahead once it is shown');
+  assert.equal(hidden.listeners.size, 0, 'without leaving its listener behind');
+
+  const moved = page();
+  const movedOutcome = moved.wait(moved.key);
+  moved.location.search = '?tab=files&file_id=3&nmm=1';
+  moved.show();
+  assert.equal(await movedOutcome, false, 'a tab that moved on to another file does not start the old one');
+
+  const switchedOff = page();
+  const switchedOffOutcome = switchedOff.wait(switchedOff.key);
+  switchedOff.cfg.AutoStartDownload = false;
+  switchedOff.show();
+  assert.equal(await switchedOffOutcome, false, 'nor once automatic starts were switched off');
+
+  const visible = page();
+  visible.document.hidden = false;
+  assert.equal(await visible.wait(visible.key), true, 'a tab already shown does not wait');
+}
+
 archivedFilesUrlTests();
 slowDownloadButtonTests();
 dominantGameDomainTests();
@@ -1026,6 +1137,8 @@ activityLineTests();
 dialogRegressionTests();
 blockingQueueOutcomeTests();
 extensionErrorFilterTests();
+bundleBoundaryTests();
 requestClassifierForwardingTests()
+  .then(hiddenTabStartTests)
   .then(() => console.log('content-script helper behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

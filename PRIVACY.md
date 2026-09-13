@@ -1,6 +1,6 @@
 # Privacy policy - NexusMods Bypass
 
-**Last updated:** 6 September 2026
+**Last updated:** 13 September 2026
 **Publisher:** Thomas Thanos
 
 NexusMods Bypass has no analytics SDK, advertising SDK, tracking pixel, telemetry, account system, or remote data service. The published extension source is not minified or obfuscated, so these claims can be audited.
@@ -32,6 +32,10 @@ The **Report a bug** action opens a GitHub issue form with recent errors, and th
 ## Downloads permission
 
 The `downloads` permission starts browser downloads and places files in the configured subfolder. It does not read the user's existing download history.
+
+## Scripting permission
+
+The `scripting` permission lets the extension add parts of its own packaged code — the collection downloader, the settings dialog, the bug report builder and the Wabbajack importer — to a Nexus Mods page the first time that page needs them, instead of loading them into every page. It is used only on nexusmods.com and only with files inside the extension package. It gives the extension no access it did not already have there, and nothing is fetched from anywhere else.
 
 ## Your controls
 

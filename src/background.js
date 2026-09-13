@@ -275,20 +275,6 @@ function hasDownloadsApi() {
   }
 }
 
-function restoreBrowserDownloadUi() {
-  try {
-    if (typeof chrome.downloads?.setUiOptions !== 'function') return;
-    const pending = chrome.downloads.setUiOptions({ enabled: true });
-    pending?.catch?.((cause) => {
-      recordBackgroundError('restore download UI', cause);
-    });
-  } catch (cause) {
-    recordBackgroundError('restore download UI', cause);
-  }
-}
-
-restoreBrowserDownloadUi();
-
 function sanitizePathSegment(value, { allowDots = true } = {}) {
   let segment = String(value ?? '')
     .replace(/[\\/]+/g, ' ')
@@ -2211,9 +2197,44 @@ function isTrustedSender(sender) {
   return TRUSTED_SENDER_URL.test(sender.url);
 }
 
+// The parts of the page script only some pages use. A Nexus Mods page asks for one the first time it needs
+// it (loadBundle in content/ui.js) and gets exactly these packaged files added to the frame that asked —
+// never a file the page names itself, and never a page outside nexusmods.com.
+const CONTENT_BUNDLES = {
+  report: ['report.js'],
+  settings: ['content/ui-settings.js'],
+  collection: ['content/ndc.js', 'content/ui-collection.js'],
+  wabbajack: ['content/zip-reader.js', 'content/wabbajack-importer.js', 'content/ui-wabbajack.js']
+};
+
+async function injectContentBundle(name, sender) {
+  const files = Object.prototype.hasOwnProperty.call(CONTENT_BUNDLES, name) ? CONTENT_BUNDLES[name] : null;
+  if (!files) throw new Error('unknown-bundle');
+  if (typeof sender?.tab?.id !== 'number' || !TRUSTED_SENDER_URL.test(String(sender.url || ''))) {
+    throw new Error('bundle-needs-a-nexus-page');
+  }
+  // Addressing the document keeps a tab that navigated meanwhile from receiving files meant for the page it
+  // left. Where the browser does not say which document asked, the frame is addressed instead.
+  const target = sender.documentId
+    ? { tabId: sender.tab.id, documentIds: [sender.documentId] }
+    : { tabId: sender.tab.id, frameIds: [Number.isInteger(sender.frameId) ? sender.frameId : 0] };
+  await chrome.scripting.executeScript({ target, files });
+}
+
 // Reject untrusted senders before any privileged action.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!isTrustedSender(sender)) return false;
+
+  if (msg?.type === 'LOAD_BUNDLE') {
+    injectContentBundle(msg.bundle, sender)
+      .then(() => sendResponse({ ok: true }))
+      .catch((cause) => {
+        const error = String(cause?.message || cause || 'bundle-load-failed');
+        recordBackgroundError('LOAD_BUNDLE', error);
+        sendResponse({ ok: false, error });
+      });
+    return true;
+  }
 
   if (msg?.type === 'OPEN_REPORT_ISSUE') {
     const url = typeof msg.url === 'string' && msg.url.startsWith(NXTK.ISSUE_NEW_URL)

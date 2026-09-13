@@ -45,9 +45,37 @@ they are simply not listed.
   one rule in `shared.js`, applied by the worker, the page fallback and the settings dialog, which also
   writes the stored value back into its field. The request timeout is at least 5 seconds everywhere.
 - **Escape closes only the dialog on top.** An alert opened over the settings no longer closes both.
+- **Nexus pages load about half as much script.** Every nexusmods.com tab received the collection
+  downloader, the settings dialog, the Wabbajack importer and the bug report builder, though most pages
+  use none of them: 368 KB of script per tab, now 174 KB. Each is a bundle the worker adds to a page the
+  first time it is needed — a collection page, a click on the settings button, an error dialog that can
+  be reported — through the new `scripting` permission, which no browser shows a warning for. Only the
+  extension's own packaged files can be added, only to the frame that asked, and only on nexusmods.com.
+  The worker no longer loads the report builder at all.
+- **A file page opened in a background tab starts straight away.** Start-up waited for the page to
+  paint, which a background tab never does, so nothing happened until the tab was shown. A browser
+  download or a collection queue now starts without anyone looking. Handing a link to Vortex still waits
+  for the tab to be shown, because it opens another program and then counts down to close the tab. The
+  wait for a first paint is also capped at a second, for a page that reports itself visible but is not
+  being drawn.
+- **The packaged translations leave out the notes for translators.** No browser shows a `messages.json`
+  description; the build removes them and compacts each catalogue (537 KB to 408 KB across 13
+  languages), and checks that every key, message and placeholder is unchanged.
+
+### Removed
+
+- **The `downloads.ui` permission** (Chrome and Edge). It was kept only so start-up could put back a
+  download button hidden by the setting retired in 2.4.3. Chromium holds that hidden state in memory and
+  clears it when the extension that set it is unloaded, which every update does, so the repair had
+  nothing left to fix. The `downloads` permission, which starts, names and follows browser downloads,
+  stays.
 
 ### Internal
 
+- The build checks the permissions against the documented list, that every on-demand bundle is packaged,
+  is not also a manifest content script and lists its files after the ones they build on, and that the
+  page and the worker agree on which bundles exist. `content-helpers-test.cjs` pins what the core UI may
+  not carry, and that a hidden tab holds back only a Vortex handoff.
 - The worker imports `shared.js` instead of carrying its own copies of the defaults, redaction rules
   and download-target checks. The build refuses a copy creeping back in, and the Firefox background
   scripts now follow the worker's imports.

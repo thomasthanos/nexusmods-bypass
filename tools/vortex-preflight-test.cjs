@@ -25,7 +25,8 @@ vm.runInThisContext(fs.readFileSync('src/content/ndc.js', 'utf8'), {
   filename: 'src/content/ndc.js'
 });
 
-const uiSource = fs.readFileSync('src/content/ui.js', 'utf8');
+// The page UI is split into what every page loads and the collection bundle; both are checked.
+const uiSource = ['src/content/ui.js', 'src/content/ui-collection.js'].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const boundModalList = uiSource.match(/const NDC_BOUND_MODAL_IDS = \[[\s\S]*?\];/)?.[0] || '';
 assert.match(
   boundModalList,
@@ -131,7 +132,8 @@ function createHarness(choice) {
   assert.deepEqual(modlist.ndc.mods.mandatory, modlist.ndc.mods.all, 'mandatory mirrors the full list');
   assert.notEqual(modlist.ndc.mods.mandatory, modlist.ndc.mods.all, 'but is not the same array');
 
-  const uiSourceForDeck = fs.readFileSync('src/content/ui.js', 'utf8');  assert.match(
+  const uiSourceForDeck = uiSource;
+  assert.match(
     uiSourceForDeck,
     /const vortexMethodRow = ndc\.external \? ''/,
     'the deck must drop the Vortex option for an imported modlist'

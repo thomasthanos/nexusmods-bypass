@@ -8,7 +8,7 @@
   "permissions": [
     "storage",
     "downloads",
-    "downloads.ui",
+    "scripting",
     "alarms"
   ],
   "host_permissions": [
@@ -48,9 +48,6 @@
         "content/errors.js",
         "content/auth.js",
         "content/nnw.js",
-        "content/zip-reader.js",
-        "content/wabbajack-importer.js",
-        "content/ndc.js",
         "content/ui.js",
         "content/main.js"
       ],

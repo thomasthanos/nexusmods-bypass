@@ -15,6 +15,7 @@ const ALLOWLIST = [
   { path: 'response-classifier.js' },
   { path: 'download-url-parser.js' },
   { path: 'shared.js' },
+  { path: 'report.js' },
   { path: 'content', ext: ['.js', '.css'] },
   { path: 'popup', ext: ['.js', '.css', '.html'] },
   { path: 'onboarding', ext: ['.js', '.css', '.html'] },
@@ -212,6 +213,54 @@ function assertWorkerUsesShared() {
 
 assertWorkerUsesShared();
 
+// The worker adds these files to a page the first time it needs them (loadBundle in content/ui.js). Each has
+// to be packaged, must not also be a manifest content script — a second copy would run over the first —
+// and comes after the files it builds on. The page and the worker have to agree on which bundles exist.
+function assertContentBundles() {
+  const bundles = readLiteralAfter(readFileSync(join(pkg, 'background.js'), 'utf8'),
+    'const CONTENT_BUNDLES = ', '{', '}', 'background.js');
+  const asked = readLiteralAfter(readFileSync(join(pkg, 'content/ui.js'), 'utf8'),
+    'const BUNDLES = ', '{', '}', 'content/ui.js');
+  const declared = new Set((manifest.content_scripts || []).flatMap((script) => script.js || []));
+  const problems = [];
+  for (const [name, files] of Object.entries(bundles)) {
+    if (!Array.isArray(files) || !files.length) {
+      problems.push(`${name} lists no files`);
+      continue;
+    }
+    for (const file of files) {
+      if (!packaged.has(file)) problems.push(`${name}: ${file} is not packaged`);
+      if (declared.has(file)) problems.push(`${name}: ${file} is also a manifest content script`);
+    }
+  }
+  for (const [name, first, then] of [
+    ['collection', 'content/ndc.js', 'content/ui-collection.js'],
+    ['wabbajack', 'content/zip-reader.js', 'content/wabbajack-importer.js'],
+    ['wabbajack', 'content/wabbajack-importer.js', 'content/ui-wabbajack.js']
+  ]) {
+    const files = Array.isArray(bundles[name]) ? bundles[name] : [];
+    const at = files.indexOf(first);
+    if (at === -1 || at > files.indexOf(then)) problems.push(`${name} must list ${first} before ${then}`);
+  }
+  const workerNames = Object.keys(bundles).sort().join(', ');
+  const pageNames = Object.keys(asked).sort().join(', ');
+  if (workerNames !== pageNames) problems.push(`content/ui.js asks for ${pageNames}; the worker has ${workerNames}`);
+  if (problems.length) fail(`CONTENT_BUNDLES in background.js:\n  ${problems.join('\n  ')}`);
+}
+
+assertContentBundles();
+
+// The popup builds bug reports with report.js, which extends what shared.js defines.
+function assertPopupLoadsReport() {
+  const popup = readFileSync(join(pkg, 'popup/popup.html'), 'utf8');
+  const at = ['../shared.js', '../report.js', 'popup.js'].map((file) => popup.indexOf(`<script src="${file}"></script>`));
+  if (at.includes(-1) || at[0] > at[1] || at[1] > at[2]) {
+    fail('popup/popup.html must load ../shared.js, then ../report.js, before popup.js');
+  }
+}
+
+assertPopupLoadsReport();
+
 function readLiteralAfter(source, needle, openChar, closeChar, file) {
   const start = source.indexOf(needle);
   if (start === -1) fail(`${file}: no ${needle.trim()} literal found`);
@@ -250,7 +299,26 @@ const GECKO_ID = 'nexus-mods-bypass@thomasthanos.github.io';
 
 const GECKO_MIN_VERSION = '140.0';
 
-const CHROME_ONLY_PERMISSIONS = ['downloads.ui'];
+// Every permission the package asks for, each one explained in README.md, PRIVACY.md and the store
+// listing. A new permission that shows a warning stops an update until the user accepts it, so one is
+// never added without changing this list on purpose.
+const EXPECTED_PERMISSIONS = ['storage', 'downloads', 'scripting', 'alarms'];
+const EXPECTED_HOST_PERMISSIONS = ['https://www.nexusmods.com/*'];
+
+function assertPermissions(source) {
+  const same = (actual, expected) => JSON.stringify([...(actual || [])].sort()) === JSON.stringify([...expected].sort());
+  if (!same(source.permissions, EXPECTED_PERMISSIONS)) {
+    fail(`manifest permissions are ${JSON.stringify(source.permissions || [])}, expected ${JSON.stringify(EXPECTED_PERMISSIONS)}`);
+  }
+  if (!same(source.host_permissions, EXPECTED_HOST_PERMISSIONS)) {
+    fail(`manifest host_permissions are ${JSON.stringify(source.host_permissions || [])}, expected ${JSON.stringify(EXPECTED_HOST_PERMISSIONS)}`);
+  }
+  if (source.optional_permissions?.length || source.optional_host_permissions?.length) {
+    fail('manifest declares optional permissions that nothing documents');
+  }
+}
+
+assertPermissions(manifest);
 
 function toFirefoxManifest(source) {
   const firefox = JSON.parse(JSON.stringify(source));
@@ -268,9 +336,6 @@ function toFirefoxManifest(source) {
   // A Firefox background page has no importScripts, so the worker's imports load before it,
   // in the order the worker imports them.
   firefox.background = { scripts: [...workerImports(), worker] };
-
-  firefox.permissions = (source.permissions || [])
-    .filter((name) => !CHROME_ONLY_PERMISSIONS.includes(name));
 
   return firefox;
 }
@@ -368,6 +433,42 @@ function buildArchive(names, replacements = new Map(), { verbose = false } = {})
   return Buffer.concat([...chunks, centralBuffer, eocd]);
 }
 
+// A description in messages.json is a note for translators that no browser ever shows, and most of the
+// English catalogue is those notes. The package carries each catalogue without them and compacted, with
+// every key, message and placeholder exactly as written — checked here before any archive is built.
+function packagedLocale(name) {
+  const source = JSON.parse(readFileSync(join(pkg, name), 'utf8'));
+  const kept = {};
+  for (const [key, entry] of Object.entries(source)) {
+    if (!entry || typeof entry.message !== 'string') fail(`${name}: "${key}" has no message`);
+    const { description, ...rest } = entry;
+    if (rest.placeholders) {
+      rest.placeholders = Object.fromEntries(Object.entries(rest.placeholders)
+        .map(([placeholder, { example, ...definition }]) => [placeholder, definition]));
+    }
+    kept[key] = rest;
+  }
+
+  const text = JSON.stringify(kept);
+  const packaged = JSON.parse(text);
+  if (Object.keys(packaged).join('\n') !== Object.keys(source).join('\n')) {
+    fail(`${name}: packaging changed the keys`);
+  }
+  const placeholderContent = (entry) => JSON.stringify(Object.entries(entry.placeholders || {})
+    .map(([placeholder, definition]) => [placeholder, definition?.content]));
+  for (const [key, entry] of Object.entries(source)) {
+    if (packaged[key].message !== entry.message) fail(`${name}: packaging changed the message of "${key}"`);
+    if (placeholderContent(packaged[key]) !== placeholderContent(entry)) {
+      fail(`${name}: packaging changed the placeholders of "${key}"`);
+    }
+  }
+  return Buffer.from(text, 'utf8');
+}
+
+const localeReplacements = new Map(entryNames
+  .filter((name) => name.startsWith('_locales/'))
+  .map((name) => [name, packagedLocale(name)]));
+
 const outDir = join(root, 'dist');
 mkdirSync(outDir, { recursive: true });
 
@@ -382,9 +483,10 @@ function emit(fileName, archive) {
   written.push(`${shown}  (${(archive.length / 1024).toFixed(1)} KB)`);
 }
 
-emit(`nexus.mods.bypass-${version}.zip`, buildArchive(entryNames, new Map(), { verbose: true }));
+emit(`nexus.mods.bypass-${version}.zip`, buildArchive(entryNames, localeReplacements, { verbose: true }));
 
 const firefoxOverride = new Map([
+  ...localeReplacements,
   ['manifest.json', Buffer.from(`${JSON.stringify(firefoxManifest, null, 2)}\n`, 'utf8')]
 ]);
 emit(`nexus.mods.bypass-${version}-firefox.zip`, buildArchive(entryNames, firefoxOverride));

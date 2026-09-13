@@ -145,8 +145,8 @@ Reachable from the popup → **Page settings**. Changes save instantly.
 | Permission | Why it is needed |
 |---|---|
 | `storage` | Your settings and the local download history. |
-| `downloads` | Browser download mode — starting files and putting them in your chosen subfolder. |
-| `downloads.ui` | Chrome and Edge only — Firefox has no such API, and the Firefox package does not ask for it. The setting that used it is gone as of 2.4.3; the permission is still held only so startup can put the download button back for profiles that still have it hidden. |
+| `downloads` | Browser download mode — starting files, putting them in your chosen subfolder, and following each one until it finishes, so the queue knows its size, the name it was saved under and when to move on. |
+| `scripting` | Adding the collection downloader, the settings dialog, the bug reporter and the Wabbajack importer to a Nexus Mods page only when that page needs them, instead of to every page you open. Only the extension's own packaged files, and only on nexusmods.com. No browser shows a warning for it. |
 | `alarms` | Pacing the background queue between mods. |
 | `https://www.nexusmods.com/*` | The only site this extension touches. |
 

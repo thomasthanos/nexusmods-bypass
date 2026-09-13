@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { NNW, UI, NDC } = window.NexusExt;
+  const { NNW, UI } = window.NexusExt;
 
   let previousRoute = null;
   let activeNdc = null;
@@ -10,6 +10,9 @@
   let initAttempts = 0;
   let initRetryAt = 0;
   let initRetryTimer = null;
+  let bundleRetryAt = 0;
+  let bundleRetryTimer = null;
+  let bundleErrorShown = false;
 
   const INIT_RETRY_BASE_MS = 15000;
   const INIT_RETRY_MAX_MS = 5 * 60 * 1000;
@@ -49,9 +52,23 @@
     });
   });
 
+  // A background tab does not paint, so waiting for a frame there held everything back until the tab was
+  // shown — a browser download or a collection queue included, and neither needs anyone watching. The one
+  // start that does, handing a link to Vortex, waits for the tab itself in nnw.js.
   function waitForNextPaint() {
+    if (document.hidden) return Promise.resolve();
     return new Promise((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(resolve));
+      let timer = 0;
+      const done = () => {
+        clearTimeout(timer);
+        document.removeEventListener('visibilitychange', done);
+        resolve();
+      };
+      // A tab hidden while it waits would otherwise wait until it is shown again, and a page that reports
+      // itself visible but is not being drawn, as an embedded browser view can, would wait for ever.
+      document.addEventListener('visibilitychange', done);
+      timer = setTimeout(done, 1000);
+      requestAnimationFrame(() => requestAnimationFrame(done));
     });
   }
 
@@ -176,6 +193,20 @@
       return;
     }
 
+    // The collection downloader is not among the scripts every page loads; the first collection page asks.
+    if (!window.NexusExt.NDC) {
+      if (Date.now() < bundleRetryAt) return;
+      try {
+        await UI.loadBundle('collection');
+      } catch (cause) {
+        await reportCollectionBundleFailure(cause);
+        return;
+      }
+      // The page can have moved on while it loaded, so the route is read again.
+      if (window.NexusExt.NDC) await handleRouteChangeInner();
+      return;
+    }
+
     const { gameDomain, collectionSlug, revisionNumber } = route;
     const routeKey = `${gameDomain}/${collectionSlug}/`;
     const parsedRevision = revisionNumber ? parseInt(revisionNumber, 10) : NaN;
@@ -187,7 +218,7 @@
 
       teardownActiveCollection();
 
-      activeNdc = new NDC(gameDomain, collectionSlug, rev);
+      activeNdc = new window.NexusExt.NDC(gameDomain, collectionSlug, rev);
       initAttempts = 0;
       initRetryAt = 0;
       await startCollection(activeNdc);
@@ -202,6 +233,25 @@
 
     if (activeNdc && !document.getElementById('nxtk-control-deck')) {
       await ensureControlDeckMounted(activeNdc);
+    }
+  }
+
+  async function reportCollectionBundleFailure(cause) {
+    const error = logUnhandled(cause, 'Loading the collection downloader');
+    // A reloaded extension cannot add anything to this page again; only a refresh brings the deck back.
+    const reloaded = window.NexusExt.Storage?.isContextValid?.() === false;
+    bundleRetryAt = reloaded ? Infinity : Date.now() + INIT_RETRY_BASE_MS;
+    clearTimeout(bundleRetryTimer);
+    if (!reloaded) bundleRetryTimer = setTimeout(handleRouteChange, INIT_RETRY_BASE_MS);
+    if (bundleErrorShown) return;
+    bundleErrorShown = true;
+    let cfg = null;
+    try {
+      cfg = await window.NexusExt.Storage.getSettings();
+    } catch (_) {
+    }
+    if (cfg?.ShowAlertsOnError) {
+      UI.showError(error, { title: NXTK.t('dlgCantLoadCollection', null, 'Could not load collection') });
     }
   }
 

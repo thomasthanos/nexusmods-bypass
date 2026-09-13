@@ -94,7 +94,7 @@ helper, Skyrim, Fallout, modding
 |---|---|
 | `storage` | Persist user settings, local download history and the local error log |
 | `downloads` | Start the files the user selects, cancel them on Stop, and read download state so a queue survives the service worker being suspended |
-| `downloads.ui` | Chrome and Edge only; the Firefox package does not request it. The setting that used it was dropped in 2.4.3. The permission is still carried so that startup can put the download button back for profiles that still have it hidden — a profile that never opens the extension again would otherwise keep a button hidden by a setting that no longer exists. An earlier note here said it would disappear in 2.5.0; that has not happened, and dropping it needs a release where that repair is accepted as no longer necessary. |
+| `scripting` | Inject the extension's own packaged scripts — the collection downloader, the settings dialog, the bug report builder and the Wabbajack importer — into a nexusmods.com tab only when that page first needs them, so the scripts every Nexus page loads stay small. Only files from the extension package, only into the frame that asked, and only on the host the extension already has access to; no remote code. |
 | `alarms` | Resume the queue after the scheduled pause between downloads, since an MV3 service worker cannot hold a timer while suspended |
 | `https://www.nexusmods.com/*` | Read download pages and start the downloads the user requests |
 

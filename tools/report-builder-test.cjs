@@ -57,7 +57,10 @@ function loadShared({
   };
   context.window = context;
   context.globalThis = context;
-  vm.runInNewContext(fs.readFileSync('src/shared.js', 'utf8'), context, { filename: 'src/shared.js' });
+  // In the order the popup loads them: report.js builds on what shared.js defines.
+  for (const file of ['src/shared.js', 'src/report.js']) {
+    vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
+  }
   return { NXTK: context.NXTK, reads, store };
 }
 
@@ -330,7 +333,8 @@ function settingLimitTests() {
 }
 
 function ratingSurfaceTests() {
-  const ui = fs.readFileSync('src/content/ui.js', 'utf8');
+  // The deck's ask lives in the collection bundle.
+  const ui = ['src/content/ui.js', 'src/content/ui-collection.js'].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
   const popup = fs.readFileSync('src/popup/popup.js', 'utf8');
 
   for (const [label, source] of [['deck', ui], ['popup', popup]]) {
