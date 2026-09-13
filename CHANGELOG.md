@@ -34,6 +34,10 @@ they are simply not listed.
 
 ### Changed
 
+- **A queued browser download reads Nexus's answer the way a single download does.** The background
+  queue had a simpler reader of its own. It now shares one with the page, so it takes the link of the
+  file it asked for rather than the first one a response lists, understands the files tab's metadata,
+  and never mistakes a Vortex resolver page for the file itself.
 - **Background downloads are listed in the popup.** Every collection or modlist run the worker still
   holds is shown with its progress and a Stop button. A modlist deck cannot be reattached after a
   reload, so this is where such a run can still be seen and ended.
@@ -59,6 +63,12 @@ they are simply not listed.
   halt path and one reconcile path in the worker; one settings loader in the collection runner. The
   browser branch of the in-page collection link resolver, unused since browser runs moved to the worker,
   is removed.
+- Finding the link in a Nexus response lives in `src/download-url-parser.js`, written for this extension
+  and loaded by both the content scripts and the worker; `nnw.js` no longer carries a parser of its own.
+  `LICENSE`, `THIRD-PARTY-NOTICES.md` and the README now say explicitly that it is covered by the main
+  licence, not by the GPL that covers `nnw.js`.
+  `tools/download-parser-test.cjs` runs every parser case in a worker-like context, and the same cases
+  run through the page wrappers in `tools/nnw-parser-test.cjs`.
 - The build script and regression suites are tracked again, and a GitHub Actions workflow runs
   `tools/build-zip.mjs` on every push and pull request.
 

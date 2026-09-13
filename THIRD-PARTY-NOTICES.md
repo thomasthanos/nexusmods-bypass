@@ -16,6 +16,11 @@ Wait ++ maintainer has confirmed that `nnw.js` may be distributed as part of Nex
 GPL-3.0-or-later with this attribution, while the remaining original extension code retains its
 current licence. The repository's main [licence](LICENSE) documents that scope.
 
+Reading download links out of Nexus Mods responses is handled by
+[`src/download-url-parser.js`](src/download-url-parser.js), which both `nnw.js` and the background
+worker call. That file is original NexusMods Bypass code under the main licence; `nnw.js` no longer
+contains a parser of its own.
+
 ## Nexus Mods and Vortex
 
 The extension operates on Nexus Mods pages and can hand download links to Vortex. *Nexus Mods*, *Vortex*, their logos, product names, site content, and trademarks belong to their respective owners.

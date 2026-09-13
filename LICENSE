@@ -11,6 +11,10 @@ src/LICENSE-GPL-3.0-or-later.txt, and its attribution is documented in
 THIRD-PARTY-NOTICES.md. For the purposes of this licence, "Software" excludes
 src/content/nnw.js.
 
+Other files that src/content/nnw.js calls are not part of it. In particular,
+src/download-url-parser.js, which reads download links out of Nexus Mods responses, is
+original code of the Software and is covered by this licence.
+
 The Software is source-available, NOT open source. The source is published so that anyone
 can read and audit exactly what the extensions do. Publishing it does not place it in the
 public domain and does not grant permission to reuse it.

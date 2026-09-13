@@ -245,7 +245,8 @@ branding.
 [GPL-3.0-or-later](src/LICENSE-GPL-3.0-or-later.txt). It is based on
 [Nexus No Wait ++](https://github.com/torkelicious/nexus-no-wait-pp) by Torkelicious and upstream
 contributors and is distributed as part of this extension with attribution to that project. All
-other original extension code remains under the repository licence. See the
+other original extension code remains under the repository licence, including
+`src/download-url-parser.js`, which `nnw.js` uses to read download links. See the
 [third-party notices](THIRD-PARTY-NOTICES.md) for details.
 
 [![Read the main licence](.github/assets/btn-licence-read.svg)](LICENSE)

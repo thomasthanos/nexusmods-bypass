@@ -3,6 +3,7 @@
 if (typeof importScripts === 'function') {
   if (!globalThis.NXTK) importScripts('shared.js');
   if (!globalThis.NXTKResponseClassifier) importScripts('response-classifier.js');
+  if (!globalThis.NXTKDownloadParser) importScripts('download-url-parser.js');
 }
 
 const NXTK = globalThis.NXTK;
@@ -10,6 +11,9 @@ if (!NXTK?.validateDownloadTarget) throw new Error('shared-not-loaded');
 
 const RESPONSE_CLASSIFIER = globalThis.NXTKResponseClassifier;
 if (!RESPONSE_CLASSIFIER) throw new Error('response-classifier-not-loaded');
+
+const DOWNLOAD_PARSER = globalThis.NXTKDownloadParser;
+if (!DOWNLOAD_PARSER) throw new Error('download-url-parser-not-loaded');
 
 const LEGACY_SETTINGS_KEYS = ['PlayErrorSound', 'ErrorSoundUrl', 'QuietSiteErrors', 'HideDownloadBar'];
 
@@ -703,49 +707,6 @@ function notifyNdcJob(job, type, extra = {}, alsoTabIds = []) {
   }
 }
 
-function decodeBackgroundDownloadValue(value) {
-  return String(value || '')
-    .trim()
-    .replace(/\\\//g, '/')
-    .replace(/\\u0026/gi, '&')
-    .replace(/&amp;|&#0*38;|&#x0*26;/gi, '&')
-    .replace(/&quot;|&#0*34;|&#x0*22;/gi, '"')
-    .replace(/&#0*39;|&#x0*27;|&apos;/gi, "'")
-    .trim();
-}
-
-function findBackgroundDownloadUrl(value) {
-  if (!value) return '';
-  if (typeof value === 'string') {
-    const text = decodeBackgroundDownloadValue(value);
-    try {
-      const fromJson = findBackgroundDownloadUrl(JSON.parse(text));
-      if (fromJson) return fromJson;
-    } catch (_) { }
-    const patterns = [
-      /id=["']dl_link["'][^>]*value=["']([^"']+)["']/i,
-      /data-download-url=["']([^"']+)["']/i,
-      /const\s+downloadUrl\s*=\s*["']([^"']+)["']/i
-    ];
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match) return decodeBackgroundDownloadValue(match[1] || match[0]);
-    }
-    return '';
-  }
-  if (typeof value !== 'object') return '';
-  for (const key of ['url', 'downloadUrl', 'vortexDownloadUrl', 'nmmDownloadUrl']) {
-    if (typeof value[key] === 'string' && value[key].trim()) {
-      return decodeBackgroundDownloadValue(value[key]);
-    }
-  }
-  for (const key of ['data', 'html', 'links', 'downloadLinks']) {
-    const nested = findBackgroundDownloadUrl(value[key]);
-    if (nested) return nested;
-  }
-  return '';
-}
-
 function classifyNexusResponse(response, text) {
   return RESPONSE_CLASSIFIER.classify({
     text,
@@ -755,20 +716,12 @@ function classifyNexusResponse(response, text) {
   });
 }
 
-function responseLooksLoggedOut(response, text) {
-  return classifyNexusResponse(response, text)?.code === 'requires_login';
-}
-
 function responseLooksChallenged(response, text) {
   return classifyNexusResponse(response, text)?.code === 'cloudflare';
 }
 
 function responseLooksSuspended(text) {
   return classifyNexusResponse(null, text)?.code === 'account_suspended';
-}
-
-function responseLooksUnavailable(text) {
-  return classifyNexusResponse(null, text)?.code === 'mod_unavailable';
 }
 
 async function fetchNdcResponse(url, options, timeoutMs) {
@@ -886,8 +839,11 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     return ndcResolveFailure(generated.status === 429 ? 'rate_limited' : 'generate_failed', generated);
   }
 
-  const url = findBackgroundDownloadUrl(generated.text);
-  const verdict = NXTK.validateDownloadTarget(url, { method: 1 });
+  // Scoped to this file, so a response that lists several files cannot hand back another one's link.
+  const found = DOWNLOAD_PARSER.findDownloadLink(generated.text, { mode: 'browser', fileId: item.fileId });
+  // The parser applies the same rules; they are checked again because this is the last stop before
+  // the URL reaches chrome.downloads.
+  const verdict = NXTK.validateDownloadTarget(found?.url, { method: 1 });
   if (!verdict.ok) return { ok: false, code: 'no_download_url' };
   return { ok: true, url: verdict.url };
 }

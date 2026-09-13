@@ -32,7 +32,8 @@ Do not include Nexus credentials, cookies, tokens, or private URLs.
    node tools/check-locales.mjs
    ```
 
-5. Run the package builder before submitting:
+5. Run the package builder before submitting. It runs the locale check and every regression suite in
+   `tools/` first and packages nothing unless they all pass; the same gate runs on every push:
 
    ```bash
    node tools/build-zip.mjs

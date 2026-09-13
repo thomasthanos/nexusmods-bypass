@@ -1093,7 +1093,6 @@
     prepareRatingPrompt,
     ratingStarsMarkup,
     DEFAULTS,
-    SETTING_LIMITS,
     normalizeSetting,
     ARCHIVE_FILE_EXTENSIONS,
     DOWNLOAD_FILE_EXTENSIONS,

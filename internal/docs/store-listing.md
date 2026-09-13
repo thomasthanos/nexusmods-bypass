@@ -105,7 +105,7 @@ helper, Skyrim, Fallout, modding
 - [ ] `node tools/build-zip.mjs` passes and writes `dist/nexus.mods.bypass-<version>.zip`
 - [ ] That zip is the one uploaded — never a hand-made archive
 
-The build script gates on `check-locales.mjs`, packages from an explicit allowlist, and
+The build script gates on `check-locales.mjs` and every regression suite in `tools/`, packages from an explicit allowlist, and
 fails if the manifest references a file the package does not carry. It replaces the manual
 "zip everything except…" step, which is how `docs/`, `README.md` and `PRIVACY.md` ended up
 published inside the 2.4.2 package.

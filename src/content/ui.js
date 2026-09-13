@@ -63,10 +63,6 @@ window.NexusExt = window.NexusExt || {};
     return suffix === '' || /^[0-9 ]+$/.test(suffix);
   }
 
-  function fileNameMatchesMod(fileName, mod) {
-    return normalizedNameMatches(normalizeImportName(fileName), normalizeModKeys(mod));
-  }
-
   const IMPORT_FILE_EXTENSIONS = NXTK.ARCHIVE_FILE_EXTENSIONS;
   const IMPORT_FILE_ACCEPT = IMPORT_FILE_EXTENSIONS.map((extension) => `.${extension}`).join(',');
   const IMPORT_FILE_PATTERN = new RegExp(`\\.(?:${IMPORT_FILE_EXTENSIONS.join('|')})$`, 'i');
