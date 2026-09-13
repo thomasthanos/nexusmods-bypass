@@ -746,6 +746,9 @@
   "alertSelectionInvalid": {
     "message": "该文件不是有效的 NexusMods Bypass 选择文件。"
   },
+  "popupQueuesTitle": {
+    "message": "后台下载"
+  },
   "popupReloadFirst": {
     "message": "打开页面设置前，请先刷新 Nexus Mods 页面。"
   },

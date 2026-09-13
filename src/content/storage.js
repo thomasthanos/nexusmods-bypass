@@ -76,6 +76,7 @@ window.NexusExt = window.NexusExt || {};
       cache[SETTINGS_KEY] = reply.value;
       return true;
     }
+    if (!reply.transport) return false;
     return saveSettings({ ...DEFAULTS });
   }
 
@@ -85,8 +86,11 @@ window.NexusExt = window.NexusExt || {};
       cache[SETTINGS_KEY] = reply.value;
       return true;
     }
+    if (!reply.transport) return false;
+    const normalized = NXTK.normalizeSetting(key, value);
+    if (normalized === undefined) return false;
     const current = await getSettings();
-    return saveSettings({ ...current, [key]: value });
+    return saveSettings({ ...current, [key]: normalized });
   }
 
   async function getHistory() {
@@ -115,20 +119,21 @@ window.NexusExt = window.NexusExt || {};
     });
   }
 
-  // Retry transport failures only; logical failures must surface immediately.
+  const TRANSPORT_ERROR = /could not establish|receiving end|message port closed|context invalidated|context-invalid|empty-reply/i;
+
+  // Retry transport failures only; logical failures must surface immediately. Only a reply marked
+  // `transport` never reached the worker, so only then may a caller fall back to a local write —
+  // after a rejection that write would bypass the worker's validation and its write queue.
   async function mutateWithRetry(type, payload) {
     for (let attempt = 0; attempt <= MUTATION_RETRY_DELAYS.length; attempt += 1) {
       const reply = await sendMutation(type, payload);
       if (reply.ok) return reply;
-      const transient = /could not establish|receiving end|message port closed|context invalidated|context-invalid|empty-reply/i;
-      if (reply.error && !transient.test(reply.error)) {
-        return reply;
-      }
+      if (reply.error && !TRANSPORT_ERROR.test(reply.error)) return reply;
       const delay = MUTATION_RETRY_DELAYS[attempt];
-      if (delay === undefined) return reply;
+      if (delay === undefined) return { ...reply, transport: true };
       await new Promise((r) => setTimeout(r, delay));
     }
-    return { ok: false, error: 'retries-exhausted' };
+    return { ok: false, error: 'retries-exhausted', transport: true };
   }
 
   async function sendDownloadCommand(type, payload) {
@@ -174,6 +179,7 @@ window.NexusExt = window.NexusExt || {};
   async function addHistoryEntry({ gameId, collectionId, type, fileId }) {
     const reply = await mutateWithRetry('NDC_HISTORY_ADD', { gameId, collectionId, type, fileId });
     if (reply.ok) return applyHistoryBranch(reply.value);
+    if (!reply.transport) return getHistory();
     return localHistoryMutate(gameId, collectionId, (collection) => {
       const list = Array.isArray(collection[type]) ? collection[type] : [];
       collection[type] = [...new Set([...list, fileId])];
@@ -183,6 +189,7 @@ window.NexusExt = window.NexusExt || {};
   async function clearHistoryType({ gameId, collectionId, type }) {
     const reply = await mutateWithRetry('NDC_HISTORY_CLEAR_TYPE', { gameId, collectionId, type });
     if (reply.ok) return applyHistoryBranch(reply.value);
+    if (!reply.transport) return getHistory();
     return localHistoryMutate(gameId, collectionId, (collection) => {
       collection[type] = [];
     });
@@ -191,6 +198,7 @@ window.NexusExt = window.NexusExt || {};
   async function setCollectionHistory({ gameId, collectionId, lists }) {
     const reply = await mutateWithRetry('NDC_HISTORY_SET_COLLECTION', { gameId, collectionId, lists });
     if (reply.ok) return applyHistoryBranch(reply.value);
+    if (!reply.transport) return getHistory();
     return localHistoryMutate(gameId, collectionId, (collection) => {
       for (const key of ['all', 'mandatory', 'optional']) {
         collection[key] = Array.isArray(lists?.[key]) ? [...new Set(lists[key])] : [];

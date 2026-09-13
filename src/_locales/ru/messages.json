@@ -875,6 +875,9 @@
   "alertSelectionInvalid": {
     "message": "Файл не является корректным выбором NexusMods Bypass."
   },
+  "popupQueuesTitle": {
+    "message": "Фоновые загрузки"
+  },
   "popupReloadFirst": {
     "message": "Обновите страницу Nexus Mods, прежде чем открывать настройки."
   },

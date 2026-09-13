@@ -242,18 +242,13 @@ window.NexusExt = window.NexusExt || {};
   function normalizeTimeout(value) {
     const timeout = Number(value);
     if (!Number.isFinite(timeout) || timeout <= 0) return DEFAULT_TIMEOUT_MS;
-    return Math.min(Math.max(Math.round(timeout), 1000), 120000);
+    return NXTK.normalizeSetting?.('RequestTimeout', timeout) ?? DEFAULT_TIMEOUT_MS;
   }
 
   function readRateLimitHeaders(response) {
     try {
-      const raw = response?.headers?.get?.('Retry-After');
-      if (!raw) return { retryAfterSeconds: null };
-      const seconds = Number(raw);
-      if (Number.isFinite(seconds) && seconds >= 0) return { retryAfterSeconds: Math.round(seconds) };
-      const asDate = Date.parse(raw);
-      if (!Number.isNaN(asDate)) return { retryAfterSeconds: Math.max(0, Math.round((asDate - Date.now()) / 1000)) };
-      return { retryAfterSeconds: null };
+      const seconds = NXTK.parseRetryAfterSeconds?.(response?.headers?.get?.('Retry-After'));
+      return { retryAfterSeconds: Number.isFinite(seconds) ? seconds : null };
     } catch (_) {
       return { retryAfterSeconds: null };
     }

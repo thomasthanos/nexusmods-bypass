@@ -3,6 +3,7 @@
 
   const SETTINGS_KEY = 'nxtk_settings';
   const ERROR_LOG_KEY = 'nxtk_error_log';
+  const MAX_LOGGED_ERRORS = 50;
   const TOTAL_DOWNLOADS_KEY = 'nxtk_total_downloads';
   const RATING_PROMPT_KEY = 'nxtk_rating_prompted';
   const RATING_STATE_KEY = 'nxtk_rating_state';
@@ -135,6 +136,33 @@
       writeRatingState({ done: true, cleared: state.cleared, askedAt: Date.now() });
     });
   }
+
+  const RATING_STAR_PATH = 'M12 2.6l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.7l-5.88 3.01 '
+    + '1.12-6.55L2.48 9.52l6.58-.96z';
+
+  // Decoration only: the caller marks the container aria-hidden, and the link text names the store.
+  function ratingStarsMarkup(size) {
+    const px = Number(size) > 0 ? Math.round(Number(size)) : 14;
+    return Array.from({ length: 5 }, () =>
+      `<svg viewBox="0 0 24 24" width="${px}" height="${px}"><path d="${RATING_STAR_PATH}"/></svg>`).join('');
+  }
+
+  // The popup and the deck ask in the same words, at the same milestones, for the same listing.
+  async function prepareRatingPrompt() {
+    const total = await readTotalDownloads();
+    const milestone = await dueRatingMilestone(total);
+    if (!milestone) return null;
+    const listing = getStoreListing();
+    return {
+      milestone,
+      listing,
+      copy: t('ratingPromptCount', [String(milestone)],
+        `${milestone} files downloaded. A short review helps other modders find this.`),
+      reviewText: t('ratingCta', [listing.name], `Rate on ${listing.name}`),
+      starText: t('ratingStarCta', null, 'Star on GitHub'),
+      starUrl: GITHUB_REPO_URL
+    };
+  }
   const MAX_ISSUE_URL_CHARS = 7000;
 
   const DEFAULTS = {
@@ -155,6 +183,59 @@
     NDC_downloadMethod: 0,
     WabbajackImport: false
   };
+
+  // Bounds every writer applies, so a value typed into a field never reaches storage out of range.
+  const SETTING_LIMITS = Object.freeze({
+    CloseTabDelay: Object.freeze({ min: 0, max: 60000, integer: true }),
+    RequestTimeout: Object.freeze({ min: 5000, max: 120000, integer: true }),
+    NDC_pauseBetweenDownload: Object.freeze({ min: 0, max: 600, integer: true }),
+    NDC_downloadSpeed: Object.freeze({ min: 0.1, max: 1000 }),
+    NDC_downloadMethod: Object.freeze({ min: 0, max: 1, integer: true }),
+    DownloadFolder: Object.freeze({ maxLength: 100 })
+  });
+
+  // The stored form of a setting, or undefined when the value cannot be stored at all.
+  function normalizeSetting(key, value) {
+    if (!Object.prototype.hasOwnProperty.call(DEFAULTS, key)) return undefined;
+    if (typeof value !== typeof DEFAULTS[key]) return undefined;
+    const limits = SETTING_LIMITS[key];
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) return undefined;
+      if (!limits) return value;
+      const rounded = limits.integer ? Math.round(value) : value;
+      return Math.min(Math.max(rounded, limits.min), limits.max);
+    }
+    if (typeof value === 'string' && limits?.maxLength) return value.slice(0, limits.maxLength);
+    return value;
+  }
+
+  const ARCHIVE_FILE_EXTENSIONS = Object.freeze([
+    'zip', '7z', 'rar', '001', 'tar', 'gz', 'tgz', 'bz2', 'tbz2', 'xz', 'txz', 'lzma',
+    'exe', 'msi', 'jar', 'fomod', 'omod', 'esp', 'esm', 'esl', 'dll'
+  ]);
+  const DOWNLOAD_FILE_EXTENSIONS = Object.freeze([
+    ...ARCHIVE_FILE_EXTENSIONS,
+    'txt', 'pdf', 'json', 'xml', 'ini', 'cfg'
+  ]);
+
+  const RATE_LIMIT_BASE_SECONDS = 30;
+  const RATE_LIMIT_MAX_SECONDS = 10 * 60;
+  const RATE_LIMIT_MAX_STRIKES = 6;
+
+  // Seconds a Retry-After header asks for, or null when there is no usable header.
+  function parseRetryAfterSeconds(raw) {
+    const header = String(raw ?? '').trim();
+    if (!header) return null;
+    const seconds = Number(header);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds);
+    const asDate = Date.parse(header);
+    return Number.isNaN(asDate) ? null : Math.max(0, Math.round((asDate - Date.now()) / 1000));
+  }
+
+  function rateLimitBackoffSeconds(strike) {
+    const step = Math.max(0, (Number(strike) || 1) - 1);
+    return Math.min(RATE_LIMIT_BASE_SECONDS * Math.pow(2, step), RATE_LIMIT_MAX_SECONDS);
+  }
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -367,19 +448,27 @@
     return parts.join(' · ');
   }
 
-  function recordError(error) {
-    const entry = {
+  // One shape for every log entry, whichever context writes it, with every free-text field redacted.
+  function buildErrorEntry(error, fallbackCode = 'request_failed') {
+    return {
       at: Date.now(),
-      code: String(error?.code || 'request_failed'),
+      code: String(error?.code || fallbackCode),
       status: Number.isInteger(error?.status) ? error.status : null,
       context: sanitizeDiagnosticText(error?.context, 300),
+      action: sanitizeDiagnosticText(error?.action, 200),
       userMessage: String(error?.userMessage || ''),
       technicalMessage: sanitizeDiagnosticText(error?.technicalMessage, 600),
       stack: sanitizeDiagnosticText(error?.stack, 1500),
-      url: typeof location !== 'undefined' && location?.href ? sanitizeUrlForReport(location.href) : ''
+      url: sanitizeUrlForReport(error?.url)
     };
-    const action = describeActivity();
-    if (action) entry.action = sanitizeDiagnosticText(action, 200);
+  }
+
+  function recordError(error) {
+    const entry = buildErrorEntry({
+      ...error,
+      action: describeActivity(),
+      url: typeof location !== 'undefined' && location?.href ? location.href : ''
+    });
     try {
       if (!chrome?.runtime?.id) return;
       chrome.runtime.sendMessage({ type: 'ERROR_LOG_APPEND', payload: { entry } }, () => {
@@ -746,15 +835,15 @@
     return value;
   }
 
-  async function buildBugReport(currentError = null) {
+  // The full report is what the reporter copies; the compact one is cut down step by step until the
+  // issue URL fits. One builder, so the two can never disagree about what they contain.
+  async function buildReport(currentError = null, { compact = false, maxEntries = 3, stackChars = 300 } = {}) {
     const cfg = await cachedSettings();
     const errors = await cachedErrorLog();
     const manifest = chrome.runtime.getManifest();
 
-    const lines = [
-      '════════ NEXUSMODS BYPASS — BUG REPORT ════════',
-      ...await describeReportHeader(manifest)
-    ];
+    const header = await describeReportHeader(manifest, { includeUserAgent: !compact });
+    const lines = compact ? header : ['════════ NEXUSMODS BYPASS — BUG REPORT ════════', ...header];
 
     const fingerprint = errorFingerprint(currentError || errors[errors.length - 1]);
     if (fingerprint) lines.push(`Report ID: ${fingerprint} (same fault, same ID)`);
@@ -767,7 +856,7 @@
 
     if (currentError) {
       lines.push('');
-      lines.push(...describeCurrentError(currentError));
+      lines.push(...describeCurrentError(currentError, compact ? 300 : 1500));
     }
 
     const digest = describeErrorDigest(errors);
@@ -789,64 +878,22 @@
     lines.push(...describeSettings(cfg));
 
     lines.push('');
-    lines.push(`──────── Recent errors (${errors.length}) ────────`);
-    if (!errors.length) {
-      lines.push('(no errors recorded)');
-    }
-    for (const entry of errors) {
+    if (!compact) {
+      lines.push(`──────── Recent errors (${errors.length}) ────────`);
+      if (!errors.length) lines.push('(no errors recorded)');
+      for (const entry of errors) {
+        lines.push('');
+        lines.push(...describeLoggedError(entry));
+      }
       lines.push('');
-      lines.push(...describeLoggedError(entry));
+      lines.push('════════ END OF REPORT ════════');
+      return lines.join('\n');
     }
 
-    lines.push('');
-    lines.push('════════ END OF REPORT ════════');
-    return lines.join('\n');
-  }
-
-  async function buildCompactBugReport(currentError = null, { maxEntries = 3, stackChars = 300 } = {}) {
-    const cfg = await cachedSettings();
-    const errors = await cachedErrorLog();
-    const manifest = chrome.runtime.getManifest();
     const recent = (maxEntries > 0 ? errors.slice(-maxEntries) : []).map((entry) => ({
       ...entry,
       stack: stackChars > 0 ? String(entry.stack || '').slice(0, stackChars) : ''
     }));
-
-    const lines = await describeReportHeader(manifest, { includeUserAgent: false });
-
-    const fingerprint = errorFingerprint(currentError || errors[errors.length - 1]);
-    if (fingerprint) lines.push(`Report ID: ${fingerprint} (same fault, same ID)`);
-
-    const pageContext = describePageContext();
-    if (pageContext) {
-      lines.push('');
-      lines.push(...pageContext);
-    }
-
-    if (currentError) {
-      lines.push('');
-      lines.push(...describeCurrentError(currentError, 300));
-    }
-
-    const digest = describeErrorDigest(errors);
-    if (digest.length) {
-      lines.push('');
-      lines.push(...digest);
-    }
-
-    const trail = describeActivityTrail();
-    if (trail.length) {
-      lines.push('');
-      lines.push(...trail);
-    }
-
-    lines.push('');
-    lines.push(...await describeSession(errors.length));
-
-    lines.push('');
-    lines.push(...describeSettings(cfg));
-
-    lines.push('');
     lines.push(`──────── Last ${recent.length} of ${errors.length} logged errors ────────`);
     if (!recent.length) lines.push('(no errors recorded)');
     for (const entry of recent) {
@@ -859,6 +906,10 @@
       lines.push(`(${dropped} older log entr${dropped === 1 ? 'y was' : 'ies were'} left out so this fits the form. The complete report is on the reporter's clipboard.)`);
     }
     return lines.join('\n');
+  }
+
+  function buildBugReport(currentError = null) {
+    return buildReport(currentError);
   }
 
   function buildIssueUrl(title, report, browser = '') {
@@ -894,7 +945,7 @@
       if (fits(report)) return { url: buildIssueUrl(title, report, browser), complete: true, report };
 
       for (const step of REPORT_REDUCTION_STEPS) {
-        const reduced = await buildCompactBugReport(currentError, step);
+        const reduced = await buildReport(currentError, { compact: true, ...step });
         if (fits(reduced)) return { url: buildIssueUrl(title, reduced, browser), complete: false, report };
       }
 
@@ -1024,6 +1075,8 @@
 
   globalThis.NXTK = {
     SETTINGS_KEY,
+    ERROR_LOG_KEY,
+    MAX_LOGGED_ERRORS,
     TOTAL_DOWNLOADS_KEY,
     RATING_PROMPT_KEY,
     GITHUB_REPO_URL,
@@ -1037,12 +1090,23 @@
     markRatingAsked,
     markRatingSettled,
     RATING_MILESTONES,
+    prepareRatingPrompt,
+    ratingStarsMarkup,
     DEFAULTS,
+    SETTING_LIMITS,
+    normalizeSetting,
+    ARCHIVE_FILE_EXTENSIONS,
+    DOWNLOAD_FILE_EXTENSIONS,
+    RATE_LIMIT_MAX_SECONDS,
+    RATE_LIMIT_MAX_STRIKES,
+    parseRetryAfterSeconds,
+    rateLimitBackoffSeconds,
     escapeHtml,
     sanitizeUrlForReport,
     sanitizeDiagnosticText,
     validateDownloadTarget,
     isSafeNexusPageUrl,
+    buildErrorEntry,
     recordError,
     setActivity,
     noteActivity,

@@ -1004,6 +1004,10 @@
     "message": "Selection file is not a valid NexusMods Bypass selection.",
     "description": "Alert when a selection file is not ours."
   },
+  "popupQueuesTitle": {
+    "message": "Background downloads",
+    "description": "Popup heading above the collection and modlist runs the background worker is still running."
+  },
   "popupReloadFirst": {
     "message": "Reload the Nexus Mods page before opening page settings.",
     "description": "Popup status."

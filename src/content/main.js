@@ -28,8 +28,18 @@
     return error;
   }
 
+  // Firefox serves extension files from moz-extension://, so the scheme alone cannot identify them.
+  function isExtensionScript(filename) {
+    const file = String(filename || '');
+    try {
+      if (chrome.runtime?.id) return file.startsWith(chrome.runtime.getURL(''));
+    } catch (_) {
+    }
+    return /^(?:chrome|moz|safari-web|ms-browser)-extension:\/\//i.test(file);
+  }
+
   window.addEventListener('error', (event) => {
-    if (!String(event.filename || '').includes('chrome-extension://')) return;
+    if (!isExtensionScript(event.filename)) return;
     globalThis.NXTK?.recordError?.({
       code: 'uncaught_exception',
       context: `Uncaught at ${event.filename}:${event.lineno}:${event.colno}`,
@@ -130,16 +140,25 @@
     resumeBackgroundRunFor(ndc);
   }
 
+  const ROUTE_CHANGE_DEBOUNCE_MS = 150;
+  // A page that never stops mutating would otherwise push the update back indefinitely.
+  const ROUTE_CHANGE_MAX_WAIT_MS = 1000;
   let routeChangeTimer = null;
+  let routeChangePendingSince = 0;
   // Serialize SPA route updates so navigation cannot race deck setup.
   let routeChangeChain = Promise.resolve();
   function handleRouteChange() {
+    const now = Date.now();
+    if (!routeChangePendingSince) routeChangePendingSince = now;
+    const overdue = now - routeChangePendingSince >= ROUTE_CHANGE_MAX_WAIT_MS;
     clearTimeout(routeChangeTimer);
     routeChangeTimer = setTimeout(() => {
+      routeChangeTimer = null;
+      routeChangePendingSince = 0;
       const run = () => handleRouteChangeInner()
         .catch((cause) => logUnhandled(cause, 'Updating Nexus route'));
       routeChangeChain = routeChangeChain.then(run, run);
-    }, 150);
+    }, overdue ? 0 : ROUTE_CHANGE_DEBOUNCE_MS);
   }
 
   async function handleRouteChangeInner() {

@@ -703,6 +703,9 @@
   "alertSelectionInvalid": {
     "message": "Dosya geçerli bir NexusMods Bypass seçimi değil."
   },
+  "popupQueuesTitle": {
+    "message": "Arka plan indirmeleri"
+  },
   "popupReloadFirst": {
     "message": "Sayfa ayarlarını açmadan önce Nexus Mods sayfasını yenileyin."
   },

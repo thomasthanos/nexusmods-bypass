@@ -703,6 +703,9 @@
   "alertSelectionInvalid": {
     "message": "このファイルは有効な NexusMods Bypass の選択ファイルではありません。"
   },
+  "popupQueuesTitle": {
+    "message": "バックグラウンドのダウンロード"
+  },
   "popupReloadFirst": {
     "message": "ページ設定を開く前に Nexus Mods のページを再読み込みしてください。"
   },

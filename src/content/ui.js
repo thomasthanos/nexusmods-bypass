@@ -67,11 +67,7 @@ window.NexusExt = window.NexusExt || {};
     return normalizedNameMatches(normalizeImportName(fileName), normalizeModKeys(mod));
   }
 
-  const IMPORT_FILE_EXTENSIONS = [
-    'zip', '7z', 'rar', '001', 'tar', 'gz', 'tgz', 'bz2', 'xz',
-    'exe', 'msi', 'jar', 'fomod', 'omod',
-    'esp', 'esm', 'esl', 'dll'
-  ];
+  const IMPORT_FILE_EXTENSIONS = NXTK.ARCHIVE_FILE_EXTENSIONS;
   const IMPORT_FILE_ACCEPT = IMPORT_FILE_EXTENSIONS.map((extension) => `.${extension}`).join(',');
   const IMPORT_FILE_PATTERN = new RegExp(`\\.(?:${IMPORT_FILE_EXTENSIONS.join('|')})$`, 'i');
 
@@ -419,8 +415,18 @@ window.NexusExt = window.NexusExt || {};
     });
   }
 
+  // Each deck and the run behind it, so removing a deck also ends what it was showing.
+  const deckOwners = new WeakMap();
+
+  // A deck whose run is still going: replacing it would leave that run with no Stop button.
+  function deckRunIsActive(deck) {
+    return !!deck && !!deckOwners.get(deck)?.running;
+  }
+
   function disposeControlDeck(deck) {
     if (!deck) return;
+    deckOwners.get(deck)?.dispose?.();
+    deckOwners.delete(deck);
 
     const menus = new Set([
       ...deck.querySelectorAll('.nxtk-dropdown-menu'),
@@ -809,18 +815,6 @@ window.NexusExt = window.NexusExt || {};
 
     const cfg = await NexusExt.Storage.getSettings();
 
-    const backdrop = document.createElement('div');
-    backdrop.className = 'nxtk-modal-backdrop';
-    backdrop.id = 'nxtk-settings-modal';
-
-    const modal = document.createElement('div');
-    modal.className = 'nxtk-modal nxtk-modal-sm';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-label', NXTK.t('setTitle', null, 'Download Helper Settings'));
-
-    const previouslyFocused = document.activeElement;
-
     const text = (v) => (typeof v === 'function' ? v() : (v ?? ''));
     const buildRow = (s) => {
       const copy = `<span class="nxtk-setting-copy"><span class="nxtk-setting-title">${escapeHtml(text(s.label))}</span><span class="nxtk-setting-desc">${escapeHtml(text(s.desc))}</span></span>`;
@@ -850,7 +844,22 @@ window.NexusExt = window.NexusExt || {};
     const timing = SETTINGS_UI.filter(s => isField(s) && !s.advanced).map(buildRow).join('');
     const advanced = SETTINGS_UI.filter(s => s.advanced).map(buildRow).join('');
 
-    modal.innerHTML = `
+    const SETTING_INPUT_DEBOUNCE_MS = 400;
+    const pendingInputWrites = new Map();
+
+    const { modal, close } = openModal({
+      id: 'nxtk-settings-modal',
+      ariaLabel: NXTK.t('setTitle', null, 'Download Helper Settings'),
+      restoreFocus: true,
+      // Flush pending edits before the dialog and its inputs leave the page.
+      beforeClose: () => {
+        for (const [target, timer] of pendingInputWrites) {
+          clearTimeout(timer);
+          if (target.isConnected) update(target, { commit: true });
+        }
+        pendingInputWrites.clear();
+      },
+      html: `
       <div class="nxtk-modal-header">
         <div>
           <div class="nxtk-modal-title">${L('setTitle', 'Download Helper Settings')}</div>
@@ -889,10 +898,12 @@ window.NexusExt = window.NexusExt || {};
         <button class="nxtk-btn nxtk-btn-secondary" data-reset>${L('setRestoreDefaults', 'Restore Defaults & Refresh')}</button>
         <button class="nxtk-btn nxtk-btn-primary" data-close>${L('btnDone', 'Done')}</button>
       </div>
-    `;
-    prepareToolkitSurface(modal);
+    `
+    });
 
-    const update = (el) => {
+    // `commit` marks a finished edit (a change, or the dialog closing). Only then is a value the
+    // stored form had to bring into range written back into its field, so typing is never fought.
+    function update(el, { commit = false } = {}) {
       const key = el.dataset.setting;
       if (!key) return;
       let value;
@@ -907,7 +918,14 @@ window.NexusExt = window.NexusExt || {};
         value = parseInt(el.value, 10);
         if (isNaN(value)) return;
       }
-      if (el.dataset.scale) value *= Number(el.dataset.scale) || 1;
+      const scale = Number(el.dataset.scale) || 1;
+      if (typeof value === 'number') value *= scale;
+      value = NXTK.normalizeSetting(key, value);
+      if (value === undefined) return;
+      if (commit && el.type !== 'checkbox') {
+        const shown = typeof value === 'number' ? String(value / scale) : value;
+        if (el.value !== shown) el.value = shown;
+      }
       cfg[key] = value;
       NexusExt.Storage.patchSetting(key, value);
       if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
@@ -924,39 +942,13 @@ window.NexusExt = window.NexusExt || {};
         close();
         showSettingsModal().catch(() => undefined);
       }
-    };
-
-    const onKeyDown = (e) => {
-      if (!document.contains(backdrop)) {
-        document.removeEventListener('keydown', onKeyDown);
-        return;
-      }
-      if (e.key === 'Escape') close();
-    };
-    const SETTING_INPUT_DEBOUNCE_MS = 400;
-    const pendingInputWrites = new Map();
-
-    // Flush pending edits before removing the settings dialog.
-    const flushPendingInputWrites = () => {
-      for (const [target, timer] of pendingInputWrites) {
-        clearTimeout(timer);
-        if (target.isConnected) update(target);
-      }
-      pendingInputWrites.clear();
-    };
-
-    const close = () => {
-      flushPendingInputWrites();
-      document.removeEventListener('keydown', onKeyDown);
-      backdrop.remove();
-      if (previouslyFocused?.isConnected) previouslyFocused.focus?.({ preventScroll: true });
-    };
+    }
 
     modal.addEventListener('change', e => {
       if (!e.target.dataset.setting) return;
       clearTimeout(pendingInputWrites.get(e.target));
       pendingInputWrites.delete(e.target);
-      update(e.target);
+      update(e.target, { commit: true });
     });
     modal.addEventListener('input', e => {
       const target = e.target;
@@ -967,7 +959,6 @@ window.NexusExt = window.NexusExt || {};
         if (target.isConnected) update(target);
       }, SETTING_INPUT_DEBOUNCE_MS));
     });
-    modal.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', close));
     modal.querySelectorAll('[data-report-issue]').forEach(b => b.addEventListener('click', () => copyReportAndOpenIssue(b)));
     modal.querySelector('#nxtk-wj-import')?.addEventListener('click', () => importWabbajackModlist(close));
 
@@ -1002,32 +993,22 @@ window.NexusExt = window.NexusExt || {};
       location.reload();
     });
 
-    backdrop.appendChild(modal);
-    backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
-    document.addEventListener('keydown', onKeyDown);
-    document.body.appendChild(backdrop);
     modal.querySelector('[data-close]')?.focus?.({ preventScroll: true });
   }
 
   function showVortexHandoffModal() {
-    closeModal('nxtk-vortex-check-modal');
-
     return new Promise((resolve) => {
-      const backdrop = document.createElement('div');
-      backdrop.className = 'nxtk-modal-backdrop';
-      backdrop.id = 'nxtk-vortex-check-modal';
-
-      const modal = document.createElement('div');
-      modal.className = 'nxtk-modal nxtk-modal-sm nxtk-vortex-check-modal';
-      modal.setAttribute('role', 'dialog');
-      modal.setAttribute('aria-modal', 'true');
-      modal.innerHTML = `
+      const { modal } = openModal({
+        id: 'nxtk-vortex-check-modal',
+        className: 'nxtk-modal nxtk-modal-sm nxtk-vortex-check-modal',
+        onClose: (choice) => resolve(choice === 'vortex' || choice === 'browser' ? choice : 'cancel'),
+        html: `
         <div class="nxtk-modal-header">
           <div>
             <div class="nxtk-modal-title">${L('deckMethodVortex', 'Send to Vortex')}</div>
             <div class="nxtk-modal-subtitle">${L('deckMethodVortexHint', 'Best for one-click handoff into your Vortex queue.')}</div>
           </div>
-          <button class="nxtk-modal-close" data-cancel aria-label="${L('ariaClose', 'Close')}">&times;</button>
+          <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
         </div>
         <div class="nxtk-history-summary">
           <div class="nxtk-history-copy">
@@ -1035,66 +1016,34 @@ window.NexusExt = window.NexusExt || {};
             <div class="nxtk-history-text">${L('deckMethodBrowserHint', 'Use native browser downloads when Vortex is not handling links.')}</div>
           </div>
           <div class="nxtk-history-grid">
-            <button type="button" class="nxtk-history-option nxtk-history-option-accent" data-choice="vortex">
+            <button type="button" class="nxtk-history-option nxtk-history-option-accent" data-close="vortex">
               <span class="nxtk-history-option-title">${L('deckMethodVortex', 'Send to Vortex')}</span>
               <span class="nxtk-history-option-text">${L('deckMethodVortexHint', 'Best for one-click handoff into your Vortex queue.')}</span>
             </button>
-            <button type="button" class="nxtk-history-option" data-choice="browser">
+            <button type="button" class="nxtk-history-option" data-close="browser">
               <span class="nxtk-history-option-title">${L('deckMethodBrowser', 'Browser Download')}</span>
               <span class="nxtk-history-option-text">${L('deckMethodBrowserHint', 'Use native browser downloads when Vortex is not handling links.')}</span>
             </button>
           </div>
         </div>
         <div class="nxtk-modal-footer">
-          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-cancel>${L('btnCancel', 'Cancel')}</button>
+          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-close>${L('btnCancel', 'Cancel')}</button>
         </div>
-      `;
-      prepareToolkitSurface(modal);
-
-      let finished = false;
-      const finish = (choice) => {
-        if (finished) return;
-        finished = true;
-        document.removeEventListener('keydown', onKeyDown);
-        backdrop.remove();
-        resolve(choice);
-      };
-      const onKeyDown = (event) => {
-        if (!document.contains(backdrop) || event.key === 'Escape') finish('cancel');
-      };
-      registerModalSettle(backdrop, () => finish('cancel'));
-
-      modal.querySelectorAll('[data-choice]').forEach((button) => {
-        button.addEventListener('click', () => finish(button.dataset.choice));
+      `
       });
-      modal.querySelectorAll('[data-cancel]').forEach((button) => {
-        button.addEventListener('click', () => finish('cancel'));
-      });
-      backdrop.addEventListener('click', (event) => {
-        if (event.target === backdrop) finish('cancel');
-      });
-      document.addEventListener('keydown', onKeyDown);
-
-      backdrop.appendChild(modal);
-      document.body.appendChild(backdrop);
-      modal.querySelector('[data-choice="vortex"]')?.focus();
+      modal.querySelector('[data-close="vortex"]')?.focus();
     });
   }
 
   function showHistoryDecisionModal({ downloadedCount, totalCount }) {
-    closeModal('nxtk-history-modal');
-
     return new Promise((resolve) => {
-      const backdrop = document.createElement('div');
-      backdrop.className = 'nxtk-modal-backdrop';
-      backdrop.id = 'nxtk-history-modal';
-
-      const modal = document.createElement('div');
-      modal.className = 'nxtk-modal nxtk-modal-sm';
-      modal.innerHTML = `
+      const { modal } = openModal({
+        id: 'nxtk-history-modal',
+        onClose: (choice) => resolve(choice === 'skip' || choice === 'redownload' ? choice : 'cancel'),
+        html: `
         <div class="nxtk-modal-header">
           <div class="nxtk-modal-title">${L('dlgHistoryTitle', 'Downloaded Mods Found')}</div>
-          <button class="nxtk-modal-close" data-cancel aria-label="${L('ariaClose', 'Close')}">&times;</button>
+          <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
         </div>
         <div class="nxtk-history-summary">
           <div class="nxtk-history-copy">
@@ -1102,69 +1051,30 @@ window.NexusExt = window.NexusExt || {};
             <div class="nxtk-history-text">${L('dlgHistoryHelp', 'Choose how you want this collection run to behave before anything starts. If files are missing, pick Re-download All.')}</div>
           </div>
           <div class="nxtk-history-grid">
-            <button type="button" class="nxtk-history-option nxtk-history-option-accent" data-choice="skip">
+            <button type="button" class="nxtk-history-option nxtk-history-option-accent" data-close="skip">
               <span class="nxtk-history-option-title">${L('dlgHistorySkip', 'Skip Downloaded')}</span>
               <span class="nxtk-history-option-text">${L('dlgHistorySkipHint', 'Continue with the remaining mods only.')}</span>
             </button>
-            <button type="button" class="nxtk-history-option" data-choice="redownload">
+            <button type="button" class="nxtk-history-option" data-close="redownload">
               <span class="nxtk-history-option-title">${L('dlgHistoryRedownload', 'Re-download All')}</span>
               <span class="nxtk-history-option-text">${L('dlgHistoryRedownloadHint', 'Clear saved history and start the full list again.')}</span>
             </button>
           </div>
         </div>
         <div class="nxtk-modal-footer">
-          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-cancel>${L('btnCancel', 'Cancel')}</button>
+          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-close>${L('btnCancel', 'Cancel')}</button>
         </div>
-      `;
-      prepareToolkitSurface(modal);
-
-      let finished = false;
-      const onKeyDown = (e) => {
-        if (!document.contains(backdrop)) {
-          finish('cancel');
-          return;
-        }
-        if (e.key === 'Escape') finish('cancel');
-      };
-      const finish = (choice) => {
-        if (finished) return;
-        finished = true;
-        document.removeEventListener('keydown', onKeyDown);
-        backdrop.remove();
-        resolve(choice);
-      };
-      registerModalSettle(backdrop, () => finish('cancel'));
-
-      modal.querySelectorAll('[data-choice]').forEach((button) => {
-        button.addEventListener('click', () => finish(button.dataset.choice));
+      `
       });
-
-      modal.querySelectorAll('[data-cancel]').forEach((button) => {
-        button.addEventListener('click', () => finish('cancel'));
-      });
-
-      backdrop.addEventListener('click', (e) => {
-        if (e.target === backdrop) finish('cancel');
-      });
-
-      document.addEventListener('keydown', onKeyDown);
-
-      backdrop.appendChild(modal);
-      document.body.appendChild(backdrop);
-      modal.querySelector('[data-choice="skip"]')?.focus();
+      modal.querySelector('[data-close="skip"]')?.focus();
     });
   }
 
   function showImportInfoModal(gameId) {
-    closeModal('nxtk-import-info-modal');
-
-    const backdrop = document.createElement('div');
-    backdrop.className = 'nxtk-modal-backdrop';
-    backdrop.id = 'nxtk-import-info-modal';
-
-    const modal = document.createElement('div');
-    modal.className = 'nxtk-modal nxtk-modal-sm nxtk-import-modal';
-    modal.innerHTML = `
+    openModal({
+      id: 'nxtk-import-info-modal',
+      className: 'nxtk-modal nxtk-modal-sm nxtk-import-modal',
+      html: `
       <div class="nxtk-modal-header">
         <div class="nxtk-modal-title">${L('dlgImportTitle', 'Import Downloaded Mods')}</div>
         <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
@@ -1185,37 +1095,11 @@ window.NexusExt = window.NexusExt || {};
       <div class="nxtk-modal-footer">
         <button type="button" class="nxtk-btn nxtk-btn-primary" data-close>${L('btnGotIt', 'Got it')}</button>
       </div>
-    `;
-    prepareToolkitSurface(modal);
-
-    const onKeyDown = (e) => {
-      if (!document.contains(backdrop)) {
-        document.removeEventListener('keydown', onKeyDown);
-        return;
-      }
-      if (e.key === 'Escape') close();
-    };
-    const close = () => {
-      document.removeEventListener('keydown', onKeyDown);
-      backdrop.remove();
-    };
-    modal.querySelectorAll('[data-close]').forEach((button) => {
-      button.addEventListener('click', close);
+    `
     });
-
-    backdrop.addEventListener('click', (e) => {
-      if (e.target === backdrop) close();
-    });
-
-    document.addEventListener('keydown', onKeyDown);
-
-    backdrop.appendChild(modal);
-    document.body.appendChild(backdrop);
   }
 
-  function showError(error, { onRetry = null, title = 'Download issue' } = {}) {
-    closeModal('nxtk-error-modal');
-
+  function showError(error, { onRetry = null, title = '' } = {}) {
     const normalized = NexusExt.Errors?.normalize
       ? NexusExt.Errors.normalize(error)
       : {
@@ -1229,23 +1113,20 @@ window.NexusExt = window.NexusExt || {};
     const shown = NexusExt.Errors?.displayText
       ? NexusExt.Errors.displayText(normalized)
       : { message: normalized.userMessage, recovery: normalized.recovery };
-    const defaultTitle = requiresLogin && title === 'Download issue'
+    // Without a title of its own the dialog names what is needed: a sign-in, or a look at the
+    // download. A caller's title is kept as given, in whatever language it was translated into.
+    const dialogTitle = title || (requiresLogin
       ? NXTK.t('dlgSignInRequired', null, 'Sign in required')
-      : title;
-    const dialogTitle = title === 'Download issue' && !requiresLogin
-      ? NXTK.t('dlgDownloadIssue', null, 'Download issue')
-      : defaultTitle;
+      : NXTK.t('dlgDownloadIssue', null, 'Download issue'));
 
     return new Promise((resolve) => {
-      const backdrop = document.createElement('div');
-      backdrop.className = 'nxtk-modal-backdrop nxtk-alert-backdrop';
-      backdrop.id = 'nxtk-error-modal';
-
-      const modal = document.createElement('div');
-      modal.className = 'nxtk-modal nxtk-modal-sm nxtk-alert-modal nxtk-error-modal';
-      modal.setAttribute('role', 'alertdialog');
-      modal.setAttribute('aria-modal', 'true');
-      modal.innerHTML = `
+      const { modal, close } = openModal({
+        id: 'nxtk-error-modal',
+        className: 'nxtk-modal nxtk-modal-sm nxtk-alert-modal nxtk-error-modal',
+        backdropClassName: 'nxtk-modal-backdrop nxtk-alert-backdrop',
+        role: 'alertdialog',
+        onClose: () => resolve(),
+        html: `
         <div class="nxtk-modal-header">
           <div class="nxtk-alert-header-inner">
             <span class="nxtk-alert-icon nxtk-error-icon">${svgIcon('info')}</span>
@@ -1267,35 +1148,17 @@ window.NexusExt = window.NexusExt || {};
             : canRetry
               ? `<button class="nxtk-btn nxtk-btn-primary" type="button" data-retry>${escapeHtml(NXTK.t('btnRetry', null, 'Retry'))}</button>`
               : `<button class="nxtk-btn nxtk-btn-primary" type="button" data-close>${escapeHtml(NXTK.t('btnDone', null, 'Done'))}</button>`}
-        </div>`;
-      prepareToolkitSurface(modal);
+        </div>`
+      });
 
-      let closed = false;
-      const onKeyDown = (event) => {
-        if (!document.contains(backdrop)) {
-          finish();
-          return;
-        }
-        if (event.key === 'Escape') finish();
-      };
-      const finish = () => {
-        if (closed) return;
-        closed = true;
-        backdrop.remove();
-        document.removeEventListener('keydown', onKeyDown);
-        resolve();
-      };
-      registerModalSettle(backdrop, finish);
-
-      modal.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', finish));
       const reportButton = modal.querySelector('[data-report]');
       reportButton?.addEventListener('click', () => copyReportAndOpenIssue(reportButton, normalized));
       modal.querySelector('[data-login]')?.addEventListener('click', () => {
-        finish();
+        close();
         NexusExt.Auth?.openLogin?.();
       });
       modal.querySelector('[data-retry]')?.addEventListener('click', () => {
-        finish();
+        close();
         Promise.resolve().then(onRetry).catch((cause) => {
           const retryError = NexusExt.Errors?.fromException
             ? NexusExt.Errors.fromException(cause, { context: 'Retrying download' })
@@ -1303,26 +1166,20 @@ window.NexusExt = window.NexusExt || {};
           showError(retryError, { onRetry, title });
         });
       });
-      backdrop.addEventListener('click', (event) => { if (event.target === backdrop) finish(); });
-      document.addEventListener('keydown', onKeyDown);
-
-      backdrop.appendChild(modal);
-      document.body.appendChild(backdrop);
       (modal.querySelector('[data-login]') || modal.querySelector('[data-retry]') || modal.querySelector('[data-close]'))?.focus();
     });
   }
 
   function nxtkAlert(message) {
     return new Promise((resolve) => {
-      const backdrop = document.createElement('div');
-      backdrop.className = 'nxtk-modal-backdrop nxtk-alert-backdrop';
-
       const lines = String(message).split('\n');
       const bodyHtml = lines.map(l => `<div class="nxtk-alert-line">${escapeHtml(l)}</div>`).join('');
 
-      const modal = document.createElement('div');
-      modal.className = 'nxtk-modal nxtk-modal-sm nxtk-alert-modal';
-      modal.innerHTML = `
+      const { modal } = openModal({
+        className: 'nxtk-modal nxtk-modal-sm nxtk-alert-modal',
+        backdropClassName: 'nxtk-modal-backdrop nxtk-alert-backdrop',
+        onClose: () => resolve(),
+        html: `
         <div class="nxtk-modal-header">
           <div class="nxtk-alert-header-inner">
             <span class="nxtk-alert-icon">${svgIcon('info')}</span>
@@ -1331,33 +1188,9 @@ window.NexusExt = window.NexusExt || {};
         </div>
         <div class="nxtk-alert-body">${bodyHtml}</div>
         <div class="nxtk-modal-footer nxtk-alert-footer">
-          <button class="nxtk-btn nxtk-btn-primary nxtk-alert-ok" type="button">${L('btnOk', 'OK')}</button>
-        </div>`;
-      prepareToolkitSurface(modal);
-
-      let closed = false;
-      const onKeyDown = (e) => {
-        if (!document.contains(backdrop)) {
-          close();
-          return;
-        }
-        if (e.key === 'Escape') close();
-      };
-      const close = () => {
-        if (closed) return;
-        closed = true;
-        document.removeEventListener('keydown', onKeyDown);
-        backdrop.remove();
-        resolve();
-      };
-      registerModalSettle(backdrop, close);
-
-      modal.querySelector('.nxtk-alert-ok').addEventListener('click', close);
-      document.addEventListener('keydown', onKeyDown);
-      backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
-
-      backdrop.appendChild(modal);
-      document.body.appendChild(backdrop);
+          <button class="nxtk-btn nxtk-btn-primary nxtk-alert-ok" type="button" data-close>${L('btnOk', 'OK')}</button>
+        </div>`
+      });
       modal.querySelector('.nxtk-alert-ok').focus();
     });
   }
@@ -1367,84 +1200,128 @@ window.NexusExt = window.NexusExt || {};
     confirmText = confirmText || NXTK.t('btnOk', null, 'OK');
     cancelText = cancelText || NXTK.t('btnCancel', null, 'Cancel');
     return new Promise((resolve) => {
-      closeModal('nxtk-confirm-modal');
-
-      const backdrop = document.createElement('div');
-      backdrop.className = 'nxtk-modal-backdrop nxtk-alert-backdrop';
-      backdrop.id = 'nxtk-confirm-modal';
-
-      const modal = document.createElement('div');
-      modal.className = 'nxtk-modal nxtk-modal-sm nxtk-alert-modal';
-      modal.innerHTML = `
+      const { modal } = openModal({
+        id: 'nxtk-confirm-modal',
+        className: 'nxtk-modal nxtk-modal-sm nxtk-alert-modal',
+        backdropClassName: 'nxtk-modal-backdrop nxtk-alert-backdrop',
+        // Enter confirms only when no control has focus. On a focused button it has to do what that
+        // button does, or Enter on Cancel would confirm the very thing it was meant to refuse.
+        onKeyDown: (event, close) => {
+          if (event.key !== 'Enter') return;
+          if (event.target?.closest?.('button, a, input, select, textarea')) return;
+          close('confirm');
+        },
+        onClose: (value) => resolve(value === 'confirm'),
+        html: `
         <div class="nxtk-modal-header">
           <div class="nxtk-alert-header-inner">
             <span class="nxtk-alert-icon">${svgIcon('info')}</span>
             <span class="nxtk-modal-title">${escapeHtml(title)}</span>
           </div>
-          <button class="nxtk-modal-close" data-cancel>&times;</button>
+          <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
         </div>
         <div class="nxtk-alert-body">
           <div class="nxtk-alert-line">${escapeHtml(message)}</div>
         </div>
         <div class="nxtk-modal-footer nxtk-alert-footer">
-          <button class="nxtk-btn nxtk-btn-secondary" type="button" data-cancel>${escapeHtml(cancelText)}</button>
-          <button class="nxtk-btn nxtk-btn-primary" type="button" data-confirm>${escapeHtml(confirmText)}</button>
-        </div>`;
-      prepareToolkitSurface(modal);
-
-      let finished = false;
-      const finish = (value) => {
-        if (finished) return;
-        finished = true;
-        backdrop.remove();
-        document.removeEventListener('keydown', onKeyDown);
-        resolve(value);
-      };
-      const onKeyDown = (e) => {
-        if (!document.contains(backdrop)) {
-          finish(false);
-          return;
-        }
-        if (e.key === 'Escape') finish(false);
-        if (e.key === 'Enter') finish(true);
-      };
-      registerModalSettle(backdrop, () => finish(false));
-
-      modal.querySelectorAll('[data-cancel]').forEach(button => button.addEventListener('click', () => finish(false)));
-      modal.querySelector('[data-confirm]').addEventListener('click', () => finish(true));
-      backdrop.addEventListener('click', (e) => { if (e.target === backdrop) finish(false); });
-      document.addEventListener('keydown', onKeyDown);
-
-      backdrop.appendChild(modal);
-      document.body.appendChild(backdrop);
-      modal.querySelector('[data-confirm]').focus();
+          <button class="nxtk-btn nxtk-btn-secondary" type="button" data-close="cancel">${escapeHtml(cancelText)}</button>
+          <button class="nxtk-btn nxtk-btn-primary" type="button" data-close="confirm">${escapeHtml(confirmText)}</button>
+        </div>`
+      });
+      modal.querySelector('[data-close="confirm"]').focus();
     });
   }
 
   const MODAL_SETTLE = Symbol('nxtkModalSettle');
 
-  function registerModalSettle(backdrop, settle) {
-    backdrop[MODAL_SETTLE] = settle;
-  }
+  // Every extension dialog is built here: the backdrop, Escape and a backdrop click to close, and any
+  // [data-close] control closing with its value. onClose runs exactly once, whatever closed the dialog
+  // (closeModal() from a teardown included), so a promise waiting on the dialog always settles.
+  function openModal({
+    id = '',
+    className = 'nxtk-modal nxtk-modal-sm',
+    backdropClassName = 'nxtk-modal-backdrop',
+    role = 'dialog',
+    ariaLabel = '',
+    html = '',
+    restoreFocus = false,
+    onKeyDown = null,
+    beforeClose = null,
+    onClose = null
+  } = {}) {
+    if (id) closeModal(id);
 
-  function settleModalBackdrop(backdrop) {
-    const settle = backdrop && backdrop[MODAL_SETTLE];
-    if (typeof settle !== 'function') return;
-    backdrop[MODAL_SETTLE] = null;
-    try {
-      settle();
-    } catch (_) {
+    const backdrop = document.createElement('div');
+    backdrop.className = backdropClassName;
+    if (id) backdrop.id = id;
+
+    const modal = document.createElement('div');
+    modal.className = className;
+    modal.setAttribute('role', role);
+    modal.setAttribute('aria-modal', 'true');
+    if (ariaLabel) modal.setAttribute('aria-label', ariaLabel);
+    modal.innerHTML = html;
+    prepareToolkitSurface(modal);
+
+    const previouslyFocused = restoreFocus ? document.activeElement : null;
+    let closed = false;
+
+    const handleKeyDown = (event) => {
+      if (!document.contains(backdrop)) {
+        close();
+        return;
+      }
+      // Only the dialog on top answers, so Escape on an alert does not also close what it sits on.
+      if (getTopModalBackdrop() !== backdrop) return;
+      if (event.key === 'Escape') {
+        close();
+        return;
+      }
+      onKeyDown?.(event, close);
+    };
+
+    function close(value) {
+      if (closed) return;
+      closed = true;
+      beforeClose?.();
+      document.removeEventListener('keydown', handleKeyDown);
+      backdrop[MODAL_SETTLE] = null;
+      modal.querySelectorAll('.nxtk-dropdown-menu').forEach(disposeDropdownMenu);
+      backdrop.remove();
+      syncDropdownPageLock();
+      if (previouslyFocused?.isConnected) previouslyFocused.focus?.({ preventScroll: true });
+      try {
+        onClose?.(value);
+      } catch (_) {
+      }
     }
+
+    backdrop[MODAL_SETTLE] = () => close();
+    modal.addEventListener('click', (event) => {
+      const trigger = event.target.closest?.('[data-close]');
+      if (trigger && modal.contains(trigger)) close(trigger.dataset.close || undefined);
+    });
+    backdrop.addEventListener('click', (event) => {
+      if (event.target === backdrop) close();
+    });
+    document.addEventListener('keydown', handleKeyDown);
+
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+    return { backdrop, modal, close };
   }
 
   function closeModal(id) {
     const existing = document.getElementById(id);
-    if (existing) {
+    if (!existing) return;
+    const settle = existing[MODAL_SETTLE];
+    if (typeof settle === 'function') {
+      settle();
+    } else {
       existing.querySelectorAll('.nxtk-dropdown-menu').forEach(disposeDropdownMenu);
-      settleModalBackdrop(existing);
       existing.remove();
-      syncDropdownPageLock();
     }
+    syncDropdownPageLock();
   }
 
   const WABBAJACK_UNSAFE_ID = /[^A-Za-z0-9._-]+/g;
@@ -1554,6 +1431,13 @@ window.NexusExt = window.NexusExt || {};
     const importer = NexusExt.WabbajackImporter;
     if (!importer) return;
 
+    const refuseWhileRunning = async () => {
+      if (!deckRunIsActive(document.getElementById('nxtk-control-deck'))) return false;
+      await nxtkAlert(NXTK.t('logAlreadyRunning', null, 'A download is already running. Please wait or stop it first.'));
+      return true;
+    };
+    if (await refuseWhileRunning()) return;
+
     const triggers = Array.from(document.querySelectorAll('#nxtk-wj-import, #nxtk-wj-deck-import'));
     const setBusy = (busy) => triggers.forEach((button) => { button.disabled = busy; });
 
@@ -1582,6 +1466,8 @@ window.NexusExt = window.NexusExt || {};
         }
         await nxtkAlert(lines.join('\n'));
         if (!mods.length) return;
+        // Asked again: a run can have started while the file picker was open.
+        if (await refuseWhileRunning()) return;
 
         closeDialog?.();
         await mountWabbajackDeck(list, mods, { title });
@@ -1604,20 +1490,12 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function showWabbajackInfoModal() {
-    closeModal('nxtk-wj-info-modal');
-
-    const backdrop = document.createElement('div');
-    backdrop.className = 'nxtk-modal-backdrop';
-    backdrop.id = 'nxtk-wj-info-modal';
-
-    const previouslyFocused = document.activeElement;
-
-    const modal = document.createElement('div');
-    modal.className = 'nxtk-modal nxtk-modal-sm nxtk-import-modal';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-label', NXTK.t('dlgWabbajackTitle', null, 'Wabbajack Modlist Import'));
-    modal.innerHTML = `
+    const { modal } = openModal({
+      id: 'nxtk-wj-info-modal',
+      className: 'nxtk-modal nxtk-modal-sm nxtk-import-modal',
+      ariaLabel: NXTK.t('dlgWabbajackTitle', null, 'Wabbajack Modlist Import'),
+      restoreFocus: true,
+      html: `
       <div class="nxtk-modal-header">
         <div class="nxtk-modal-title">${L('dlgWabbajackTitle', 'Wabbajack Modlist Import')}</div>
         <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
@@ -1638,62 +1516,21 @@ window.NexusExt = window.NexusExt || {};
       <div class="nxtk-modal-footer">
         <button type="button" class="nxtk-btn nxtk-btn-primary" data-close>${L('btnGotIt', 'Got it')}</button>
       </div>
-    `;
-    prepareToolkitSurface(modal);
-
-    const onKeyDown = (e) => {
-      if (!document.contains(backdrop)) {
-        document.removeEventListener('keydown', onKeyDown);
-        return;
-      }
-      if (e.key === 'Escape') close();
-    };
-    const close = () => {
-      document.removeEventListener('keydown', onKeyDown);
-      backdrop.remove();
-      if (previouslyFocused?.isConnected) previouslyFocused.focus?.({ preventScroll: true });
-    };
-    modal.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', close));
-    backdrop.addEventListener('click', (e) => {
-      if (e.target === backdrop) close();
+    `
     });
-    document.addEventListener('keydown', onKeyDown);
-
-    backdrop.appendChild(modal);
-    document.body.appendChild(backdrop);
     modal.querySelector('[data-close]')?.focus?.({ preventScroll: true });
   }
 
-  const STAR_PATH = 'M12 2.6l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.7l-5.88 3.01 '
-    + '1.12-6.55L2.48 9.52l6.58-.96z';
-
-  const readTotalDownloads = () => new Promise((resolve) => {
-    try {
-      if (!chrome?.runtime?.id) {
-        resolve(0);
-        return;
-      }
-      chrome.storage.local.get(NXTK.TOTAL_DOWNLOADS_KEY, (result) => {
-        resolve(chrome.runtime.lastError ? 0 : Number(result?.[NXTK.TOTAL_DOWNLOADS_KEY]) || 0);
-      });
-    } catch (_) {
-      resolve(0);
-    }
-  });
 
   // Tied to how much the extension has been used overall, not to the size of one run: a
   // single file downloaded by hand counts the same as one from a collection. The milestone
   // decides whether there is anything to ask, so this only checks that a run did something.
   function maybeAskForReview(deck, finishedCount) {
     if (finishedCount < 1 || deck.querySelector('.nxtk-deck-ask')) return;
-    readTotalDownloads()
-      .then((total) => NXTK.dueRatingMilestone(total))
-      .then((milestone) => {
-        if (!milestone || !deck.isConnected || deck.querySelector('.nxtk-deck-ask')) return;
-        NXTK.markRatingAsked(milestone);
-
-        const listing = NXTK.getStoreListing?.()
-          || { name: 'Chrome Web Store', reviewUrl: NXTK.getStoreReviewUrl() };
+    NXTK.prepareRatingPrompt()
+      .then((prompt) => {
+        if (!prompt || !deck.isConnected || deck.querySelector('.nxtk-deck-ask')) return;
+        NXTK.markRatingAsked(prompt.milestone);
 
         const row = document.createElement('div');
         row.className = 'nxtk-deck-ask';
@@ -1701,13 +1538,11 @@ window.NexusExt = window.NexusExt || {};
         const stars = document.createElement('span');
         stars.className = 'nxtk-deck-ask-stars';
         stars.setAttribute('aria-hidden', 'true');
-        stars.innerHTML = Array.from({ length: 5 }, () =>
-          `<svg viewBox="0 0 24 24" width="14" height="14"><path d="${STAR_PATH}"/></svg>`).join('');
+        stars.innerHTML = NXTK.ratingStarsMarkup(14);
 
         const copy = document.createElement('span');
         copy.className = 'nxtk-deck-ask-copy';
-        copy.textContent = NXTK.t('ratingPromptCount', [String(milestone)],
-          `${milestone} files downloaded. A short review helps other modders find this.`);
+        copy.textContent = prompt.copy;
 
         const actions = document.createElement('span');
         actions.className = 'nxtk-deck-ask-actions';
@@ -1728,10 +1563,8 @@ window.NexusExt = window.NexusExt || {};
         };
 
         actions.append(
-          makeLink(listing.reviewUrl, NXTK.t('ratingCta', [listing.name], `Rate on ${listing.name}`),
-            'nxtk-deck-ask-cta'),
-          makeLink(NXTK.GITHUB_REPO_URL, NXTK.t('ratingStarCta', null, 'Star on GitHub'),
-            'nxtk-deck-ask-alt')
+          makeLink(prompt.listing.reviewUrl, prompt.reviewText, 'nxtk-deck-ask-cta'),
+          makeLink(prompt.starUrl, prompt.starText, 'nxtk-deck-ask-alt')
         );
 
         const dismiss = document.createElement('button');
@@ -2240,19 +2073,15 @@ window.NexusExt = window.NexusExt || {};
     }
 
     ndc.ui = ui;
+    deckOwners.set(deck, ndc);
     return deck;
   }
 
   function showSelectModsModal(ndc) {
-    closeModal('nxtk-select-modal');
-    const backdrop = document.createElement('div');
-    backdrop.className = 'nxtk-modal-backdrop';
-    backdrop.id = 'nxtk-select-modal';
-
-    const modal = document.createElement('div');
-    modal.className = 'nxtk-modal';
-
-    modal.innerHTML = `
+    const { modal, close } = openModal({
+      id: 'nxtk-select-modal',
+      className: 'nxtk-modal',
+      html: `
       <div class="nxtk-modal-header">
         <div class="nxtk-modal-title">${L('dlgSelectTitle', 'Select Mods')}</div>
         <div class="nxtk-modal-header-actions">
@@ -2303,8 +2132,8 @@ window.NexusExt = window.NexusExt || {};
         <button class="nxtk-btn nxtk-btn-secondary" data-close>${L('btnCancel', 'Cancel')}</button>
         <button class="nxtk-btn nxtk-btn-primary" id="nxtk-dl-selected">${L('selDownloadSelected', 'Download selected')}</button>
       </div>
-    `;
-    prepareToolkitSurface(modal);
+    `
+    });
 
     const $ = (sel) => modal.querySelector(sel);
     const listEl = $('#nxtk-mod-list');
@@ -2512,28 +2341,13 @@ window.NexusExt = window.NexusExt || {};
         if (mod) selected.push(mod);
       });
       if (!selected.length) { nxtkAlert(NXTK.t('alertPickOneMod', null, 'Select at least one mod.')); return; }
-      closeModal('nxtk-select-modal');
+      close();
       runUiTask(
         () => ndc.downloadMods(selected),
         { context: 'Downloading selected mods', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }
       );
     });
 
-    modal.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal('nxtk-select-modal')));
-    backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal('nxtk-select-modal'); });
-    const onSelectKeyDown = (event) => {
-      if (!document.contains(backdrop)) {
-        document.removeEventListener('keydown', onSelectKeyDown);
-        return;
-      }
-      if (event.key === 'Escape') {
-        document.removeEventListener('keydown', onSelectKeyDown);
-        closeModal('nxtk-select-modal');
-      }
-    };
-    document.addEventListener('keydown', onSelectKeyDown);
-    backdrop.appendChild(modal);
-    document.body.appendChild(backdrop);
   }
 
   const SELECTION_SCHEMA_VERSION = 1;
@@ -2664,14 +2478,10 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function showUpdateModal(ndc) {
-    closeModal('nxtk-update-modal');
-    const backdrop = document.createElement('div');
-    backdrop.className = 'nxtk-modal-backdrop';
-    backdrop.id = 'nxtk-update-modal';
-
-    const modal = document.createElement('div');
-    modal.className = 'nxtk-modal';
-    modal.innerHTML = `
+    const { backdrop, modal, close } = openModal({
+      id: 'nxtk-update-modal',
+      className: 'nxtk-modal',
+      html: `
       <div class="nxtk-spinner" id="nxtk-update-spinner">${svgIcon('spinner')}</div>
       <div id="nxtk-update-body" class="nxtk-hidden">
         <div class="nxtk-modal-header">
@@ -2706,11 +2516,28 @@ window.NexusExt = window.NexusExt || {};
           <button class="nxtk-btn nxtk-btn-primary nxtk-hidden" id="nxtk-do-update">${L('dlgUpdateDownload', 'Download updates')}</button>
         </div>
       </div>
-    `;
-    prepareToolkitSurface(modal);
+    `
+    });
 
     const $ = (sel) => modal.querySelector(sel);
     let modsToDownload = [];
+    // Each change of either revision starts a comparison, and only the newest may render: a slow
+    // earlier answer landing last would make "Download updates" fetch a diff no longer on screen.
+    let compareRun = 0;
+    const revisionMods = new Map();
+    const loadRevisionMods = (revision) => {
+      if (!revisionMods.has(revision)) {
+        const pending = ndc.fetchMods(ndc.collectionId, revision).then((data) => {
+          if (!data?.modFiles) revisionMods.delete(revision);
+          return data;
+        }, (cause) => {
+          revisionMods.delete(revision);
+          throw cause;
+        });
+        revisionMods.set(revision, pending);
+      }
+      return revisionMods.get(revision);
+    };
 
     async function loadRevisions() {
       const revisions = await ndc.fetchRevisions();
@@ -2726,18 +2553,6 @@ window.NexusExt = window.NexusExt || {};
           </div>
         `;
         prepareToolkitSurface(modal);
-        modal.querySelector('[data-close]')?.addEventListener('click', () => closeModal('nxtk-update-modal'));
-        const onUpdateKeyDown = (event) => {
-          if (!document.contains(backdrop)) {
-            document.removeEventListener('keydown', onUpdateKeyDown);
-            return;
-          }
-          if (event.key === 'Escape') {
-            document.removeEventListener('keydown', onUpdateKeyDown);
-            closeModal('nxtk-update-modal');
-          }
-        };
-        document.addEventListener('keydown', onUpdateKeyDown);
         return;
       }
 
@@ -2769,6 +2584,8 @@ window.NexusExt = window.NexusExt || {};
       $('#nxtk-update-body').classList.remove('nxtk-hidden');
 
       const compareRevisions = async () => {
+        const run = ++compareRun;
+        modsToDownload = [];
         if (!currentSel.value || !newSel.value) {
           $('#nxtk-do-update').classList.add('nxtk-hidden');
           $('#nxtk-update-list').classList.add('nxtk-hidden');
@@ -2779,9 +2596,10 @@ window.NexusExt = window.NexusExt || {};
         $('#nxtk-do-update').classList.add('nxtk-hidden');
 
         const [curData, newData] = await Promise.all([
-          ndc.fetchMods(ndc.collectionId, parseInt(currentSel.value)),
-          ndc.fetchMods(ndc.collectionId, parseInt(newSel.value))
+          loadRevisionMods(parseInt(currentSel.value, 10)),
+          loadRevisionMods(parseInt(newSel.value, 10))
         ]);
+        if (run !== compareRun || !backdrop.isConnected) return;
 
         if (!curData?.modFiles || !newData?.modFiles) {
           $('#nxtk-update-list').innerHTML = `<div class="nxtk-update-item" style="opacity:0.7">${L('dlgUpdateCompareFailed', 'Failed to compare revisions. Try again later.')}</div>`;
@@ -2823,17 +2641,14 @@ window.NexusExt = window.NexusExt || {};
     runUiTask(loadRevisions, { context: 'Loading collection revisions', title: NXTK.t('dlgCantLoadRevisions', null, 'Could not load revisions') });
 
     $('#nxtk-do-update').addEventListener('click', () => {
-      closeModal('nxtk-update-modal');
+      const mods = modsToDownload;
+      close();
       runUiTask(
-        () => ndc.downloadMods(modsToDownload),
+        () => ndc.downloadMods(mods),
         { context: 'Downloading collection updates', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }
       );
     });
 
-    modal.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal('nxtk-update-modal')));
-    backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal('nxtk-update-modal'); });
-    backdrop.appendChild(modal);
-    document.body.appendChild(backdrop);
   }
 
   function showCloseCountdown({ ms = 3000, onDone = null, onCancel = null } = {}) {

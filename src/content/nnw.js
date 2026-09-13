@@ -1016,7 +1016,8 @@ window.NexusExt = window.NexusExt || {};
       urlName = decodeURIComponent(new URL(url).pathname.split('/').pop() || '').trim();
     } catch (_) {}
 
-    if (/\.(?:zip|7z|rar|tar|gz|tgz|bz2|tbz2|xz|txz|lzma|exe|msi|jar|fomod|omod|txt|pdf|json|xml|ini|cfg|esp|esm|esl|dll)$/i.test(urlName)) {
+    const knownExtension = new RegExp(`\\.(?:${NXTK.DOWNLOAD_FILE_EXTENSIONS.join('|')})$`, 'i');
+    if (knownExtension.test(urlName)) {
       return urlName;
     }
     const pageTitle = String(
@@ -1306,8 +1307,8 @@ window.NexusExt = window.NexusExt || {};
     }
     globalThis.NXTK?.bumpTotalDownloads?.();
     if (closeTabAfterStart && cfg.AutoCloseTab && isNMM && attemptId === downloadAttemptSequence) {
-      const configuredDelay = Number(cfg.CloseTabDelay);
-      const closeDelay = Math.min(Math.max(Number.isFinite(configuredDelay) ? configuredDelay : 2000, 0), 60000);
+      const closeDelay = NXTK.normalizeSetting('CloseTabDelay', Number(cfg.CloseTabDelay))
+        ?? NXTK.DEFAULTS.CloseTabDelay;
       const closeNow = () => {
         closeTabTimer = null;
         closeTabToast = null;
@@ -1353,7 +1354,7 @@ window.NexusExt = window.NexusExt || {};
       return null;
     };
 
-    const IGNORE_ANCESTORS = 'nav, .nav, .pagination, .comment-container, .comment-content, .forum-post, .header-nav, .search-results, #nnwpp-btn, .nxtk-deck';
+    const IGNORE_ANCESTORS = 'nav, .nav, .pagination, .comment-container, .comment-content, .forum-post, .header-nav, .search-results, .nxtk-deck';
     const DOWNLOAD_HREF_PATTERNS = ['/Core/Libs/Common/', 'tab=files&file_id=', 'file_id=', 'ModRequirementsPopUp', '/api/files/'];
     const isDownloadHref = (href) => DOWNLOAD_HREF_PATTERNS.some(p => href.includes(p));
 
@@ -1565,8 +1566,10 @@ window.NexusExt = window.NexusExt || {};
       setupSlowDownloadIntercept();
       if (slowDownloadTimer === null) {
         slowDownloadTimer = setInterval(() => {
-          if (isFilePage()) setupSlowDownloadIntercept();
-          else stopSlowDownloadPolling();
+          if (!isFilePage()) stopSlowDownloadPolling();
+          // Nobody can press a button in a hidden tab; the first visible tick binds it. A Cloudflare
+          // fallback keeps going, since it may be waiting to start the native download on its own.
+          else if (!document.hidden || isNativeFallbackActive()) setupSlowDownloadIntercept();
         }, SLOW_DOWNLOAD_POLL_MS);
       }
       return;

@@ -60,23 +60,25 @@
     });
   }
 
-  async function saveSetting(key, value) {
-    return new Promise(resolve => {
-      const fail = (detail) => {
-        showStatus(NXTK.t('popupCantSaveSettings', [String(detail)], `Settings were not saved: ${detail}`), 'error', { diagnostic: `Settings write failed: ${detail}` });
-        resolve(false);
-      };
+  function sendRuntimeMessage(message) {
+    return new Promise((resolve) => {
       try {
-        chrome.runtime.sendMessage({ type: 'SETTINGS_PATCH', payload: { patch: { [key]: value } } }, (reply) => {
-          const writeError = getRuntimeError();
-          if (writeError) return fail(writeError);
-          if (!reply?.ok) return fail(reply?.error || 'extension error');
-          resolve(true);
+        chrome.runtime.sendMessage(message, (reply) => {
+          const error = getRuntimeError();
+          resolve(error ? { ok: false, error } : (reply || { ok: false, error: 'extension error' }));
         });
       } catch (error) {
-        fail(error?.message || 'extension error');
+        resolve({ ok: false, error: error?.message || 'extension error' });
       }
     });
+  }
+
+  async function saveSetting(key, value) {
+    const reply = await sendRuntimeMessage({ type: 'SETTINGS_PATCH', payload: { patch: { [key]: value } } });
+    if (reply.ok) return true;
+    const detail = reply.error || 'extension error';
+    showStatus(NXTK.t('popupCantSaveSettings', [String(detail)], `Settings were not saved: ${detail}`), 'error', { diagnostic: `Settings write failed: ${detail}` });
+    return false;
   }
 
   function applyI18n() {
@@ -140,58 +142,89 @@
 
 
   function maybeShowRatingPrompt() {
-    try {
-      chrome.storage.local.get([NXTK.TOTAL_DOWNLOADS_KEY], (result) => {
-        if (getRuntimeError()) return;
-        const count = Number(result?.[NXTK.TOTAL_DOWNLOADS_KEY]) || 0;
+    NXTK.prepareRatingPrompt().then((prompt) => {
+      const box = document.getElementById('popupRating');
+      if (!prompt || !box) return;
+      NXTK.markRatingAsked(prompt.milestone);
 
-        NXTK.dueRatingMilestone(count).then((milestone) => {
-          if (!milestone) return;
-          const box = document.getElementById('popupRating');
-          if (!box) return;
-          NXTK.markRatingAsked(milestone);
+      const link = document.getElementById('ratingLink');
+      if (link) {
+        link.href = prompt.listing.reviewUrl;
+        link.textContent = prompt.reviewText;
+      }
+      // Decoration: the rating is left on the store page, so the stars are hidden from assistive
+      // tech in the markup and the link's own text says where it leads.
+      const stars = document.getElementById('ratingStars');
+      if (stars) stars.innerHTML = NXTK.ratingStarsMarkup(13);
+      const copy = document.getElementById('ratingCopy');
+      if (copy) copy.textContent = prompt.copy;
+      const starLink = document.getElementById('ratingStarLink');
+      if (starLink) {
+        starLink.href = prompt.starUrl;
+        starLink.textContent = prompt.starText;
+      }
 
-          const listing = NXTK.getStoreListing?.()
-            || { name: 'Chrome Web Store', reviewUrl: NXTK.getStoreReviewUrl() };
-          const link = document.getElementById('ratingLink');
-          if (link) {
-            link.href = listing.reviewUrl;
-            link.textContent = NXTK.t('ratingCta', [listing.name], `Rate on ${listing.name}`);
-          }
-          const stars = document.getElementById('ratingStars');
-          if (stars) {
-            // Decoration: the rating is left on the store page, so this is hidden from
-            // assistive tech and the link's own text says where it leads.
-            stars.innerHTML = Array.from({ length: 5 }, () =>
-              '<svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 2.6l2.94 5.96 6.58.96'
-              + '-4.76 4.64 1.12 6.55L12 17.7l-5.88 3.01 1.12-6.55L2.48 9.52l6.58-.96z"/></svg>').join('');
-          }
-          const copy = document.getElementById('ratingCopy');
-          if (copy) {
-            copy.textContent = NXTK.t('ratingPromptCount', [String(milestone)],
-              `${milestone} files downloaded. A short review helps other modders find this.`);
-          }
-          const starLink = document.getElementById('ratingStarLink');
-          if (starLink) {
-            starLink.href = NXTK.GITHUB_REPO_URL;
-            starLink.textContent = NXTK.t('ratingStarCta', null, 'Star on GitHub');
-          }
-
-          box.hidden = false;
-          // Following either link is an answer; dismissing clears this milestone only.
-          const settle = () => {
-            box.hidden = true;
-            NXTK.markRatingSettled();
-          };
-          document.getElementById('ratingDismiss')?.addEventListener('click', () => {
-            box.hidden = true;
-          });
-          link?.addEventListener('click', settle);
-          starLink?.addEventListener('click', settle);
-        }).catch(() => undefined);
+      box.hidden = false;
+      // Following either link is an answer; dismissing clears this milestone only.
+      const settle = () => {
+        box.hidden = true;
+        NXTK.markRatingSettled();
+      };
+      document.getElementById('ratingDismiss')?.addEventListener('click', () => {
+        box.hidden = true;
       });
-    } catch (_) {
-    }
+      link?.addEventListener('click', settle);
+      starLink?.addEventListener('click', settle);
+    }).catch(() => undefined);
+  }
+
+  const QUEUE_REFRESH_MS = 2000;
+
+  // Runs the worker is still holding, each with a Stop. A modlist run whose deck was lost to a
+  // reload cannot be seen or stopped anywhere else.
+  async function refreshQueues() {
+    const box = document.getElementById('popupQueues');
+    const list = document.getElementById('popupQueueList');
+    if (!box || !list) return;
+    const reply = await sendRuntimeMessage({ type: 'NDC_QUEUE_LIST', payload: {} });
+    const jobs = reply.ok && Array.isArray(reply.value) ? reply.value : [];
+    box.hidden = !jobs.length;
+    list.replaceChildren(...jobs.map(renderQueueRow));
+  }
+
+  function renderQueueRow(job) {
+    const row = document.createElement('li');
+    row.className = 'popup-queue-row';
+
+    const copy = document.createElement('span');
+    copy.className = 'popup-queue-copy';
+    const name = document.createElement('span');
+    name.className = 'popup-queue-name';
+    name.textContent = job.label || job.jobId;
+    name.title = name.textContent;
+    const progress = document.createElement('span');
+    progress.className = 'popup-queue-progress';
+    const counted = NXTK.tPlural('progressOfTotal', job.total,
+      `${job.index} of ${job.total} mods`, [String(job.index), String(job.total)]);
+    progress.textContent = job.status === 'paused'
+      ? `${counted} · ${NXTK.t('statusPaused', null, 'Paused')}`
+      : counted;
+    copy.append(name, progress);
+
+    const stop = document.createElement('button');
+    stop.type = 'button';
+    stop.textContent = NXTK.t('tipStop', null, 'Stop');
+    stop.addEventListener('click', async () => {
+      stop.disabled = true;
+      const reply = await sendRuntimeMessage({ type: 'NDC_QUEUE_STOP', payload: { jobId: job.jobId } });
+      if (!reply.ok && reply.error !== 'job-not-found') {
+        showStatus(String(reply.error || 'extension error'), 'error', { record: false });
+      }
+      refreshQueues();
+    });
+
+    row.append(copy, stop);
+    return row;
   }
 
   function switchTab(tabId, { focus = false } = {}) {
@@ -350,6 +383,8 @@
     document.getElementById('supportRevolut')?.addEventListener('click', () => createTab(REVOLUT_URL));
 
     maybeShowRatingPrompt();
+    refreshQueues();
+    setInterval(refreshQueues, QUEUE_REFRESH_MS);
   }
 
   init().catch((error) => {

@@ -703,6 +703,9 @@
   "alertSelectionInvalid": {
     "message": "이 파일은 유효한 NexusMods Bypass 선택 파일이 아닙니다."
   },
+  "popupQueuesTitle": {
+    "message": "백그라운드 다운로드"
+  },
   "popupReloadFirst": {
     "message": "페이지 설정을 열기 전에 Nexus Mods 페이지를 새로고침하세요."
   },

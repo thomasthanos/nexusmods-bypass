@@ -789,6 +789,9 @@
   "alertSelectionInvalid": {
     "message": "O arquivo não é uma seleção válida do NexusMods Bypass."
   },
+  "popupQueuesTitle": {
+    "message": "Downloads em segundo plano"
+  },
   "popupReloadFirst": {
     "message": "Recarregue a página do Nexus Mods antes de abrir as configurações."
   },

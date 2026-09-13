@@ -703,6 +703,9 @@
   "alertSelectionInvalid": {
     "message": "Plik nie jest prawidłowym zaznaczeniem NexusMods Bypass."
   },
+  "popupQueuesTitle": {
+    "message": "Pobieranie w tle"
+  },
   "popupReloadFirst": {
     "message": "Odśwież stronę Nexus Mods przed otwarciem ustawień strony."
   },

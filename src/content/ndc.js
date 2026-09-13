@@ -116,11 +116,22 @@ window.NexusExt = window.NexusExt || {};
   const DEFAULT_DOWNLOAD_SPEED = 3.2;
   const MAX_PAUSE_SECONDS = 10 * 60;
 
-  const RATE_LIMIT_BASE_SECONDS = 30;
-  const RATE_LIMIT_MAX_SECONDS = 10 * 60;
-  const RATE_LIMIT_MAX_STRIKES = 6;
-
   const MAX_QUEUE_POLL_FAILURES = 5;
+
+  // The worker reports a failure as a code with its measurements attached. A code that has a
+  // sentence of its own is shown as that sentence; anything else is left as it came, so nothing
+  // is lost. Either way the numbers are in the report.
+  function queueErrorText(value) {
+    const raw = String(value || '');
+    const code = raw.split(' ')[0].trim();
+    const known = code && Errors.normalize({ code }).code === code;
+    return known
+      ? Errors.toLogMessage({ code })
+      : (raw || Errors.displayText({ code: 'request_failed' }).message);
+  }
+
+  // How a background run can end, in the terms the deck has wording for.
+  const DECK_OUTCOMES = new Set(['finished', 'partial', 'stopped', 'requires_login', 'blocked', 'error']);
 
   const nameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
@@ -208,6 +219,7 @@ window.NexusExt = window.NexusExt || {};
     }
 
     dispose() {
+      if (this.disposed) return;
       this.disposed = true;
       this.running = false;
       this.runStatus = STATUS_STOPPED;
@@ -268,15 +280,21 @@ window.NexusExt = window.NexusExt || {};
         : { speed: DEFAULT_DOWNLOAD_SPEED, source: T('speedSourceDefault', 'default') };
     }
 
-    async init() {
-      const settings = await NexusExt.Storage.getSettings();
+    // The settings a run reads. The download method is left to the caller: a collection uses the
+    // saved one, and a modlist always downloads through the browser.
+    loadRunSettings(settings) {
       this.pauseBetweenDownload = settings.NDC_pauseBetweenDownload;
       this.downloadSpeed = settings.NDC_downloadSpeed;
-      this.downloadMethod = settings.NDC_downloadMethod;
       this.requestTimeout = settings.RequestTimeout || Errors.DEFAULT_TIMEOUT_MS;
       this.showAlertsOnError = settings.ShowAlertsOnError !== false;
       this.downloadFolder = settings.DownloadFolder ?? '';
       this.wabbajackImport = settings.WabbajackImport === true;
+    }
+
+    async init() {
+      const settings = await NexusExt.Storage.getSettings();
+      this.loadRunSettings(settings);
+      this.downloadMethod = settings.NDC_downloadMethod;
 
       this.watchSettings();
 
@@ -309,25 +327,15 @@ window.NexusExt = window.NexusExt || {};
     applySettings(settings) {
       if (!settings || typeof settings !== 'object') return;
       const next = { ...(NexusExt.Storage?.DEFAULTS || {}), ...settings };
-      this.pauseBetweenDownload = next.NDC_pauseBetweenDownload;
-      this.downloadSpeed = next.NDC_downloadSpeed;
-      this.requestTimeout = next.RequestTimeout || Errors.DEFAULT_TIMEOUT_MS;
-      this.showAlertsOnError = next.ShowAlertsOnError !== false;
-      this.downloadFolder = next.DownloadFolder ?? '';
-      this.wabbajackImport = next.WabbajackImport === true;
+      this.loadRunSettings(next);
       NXTK.setForceEnglish(next.ForceEnglish);
     }
 
     async initFromMods(mods) {
       const settings = await NexusExt.Storage.getSettings();
-      this.pauseBetweenDownload = settings.NDC_pauseBetweenDownload;
-      this.downloadSpeed = settings.NDC_downloadSpeed;
+      this.loadRunSettings(settings);
       // An imported modlist must reach the disk, so the saved collection method is not used.
       this.downloadMethod = DOWNLOAD_METHOD_BROWSER;
-      this.requestTimeout = settings.RequestTimeout || Errors.DEFAULT_TIMEOUT_MS;
-      this.showAlertsOnError = settings.ShowAlertsOnError !== false;
-      this.downloadFolder = settings.DownloadFolder ?? '';
-      this.wabbajackImport = settings.WabbajackImport === true;
 
       this.watchSettings();
 
@@ -394,104 +402,57 @@ window.NexusExt = window.NexusExt || {};
       return json.data.collectionRevision;
     }
 
+    // Only a Vortex run resolves links in the page; a browser run hands its whole queue to the worker.
     async fetchDownloadLink(mod) {
-      let pageResponse;
-      if (this.downloadMethod === DOWNLOAD_METHOD_VORTEX) {
-        pageResponse = await Errors.request(`${mod.file.url}&nmm=1`, {
-          credentials: 'include',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        }, {
-          timeoutMs: this.requestTimeout,
-          context: 'Loading Vortex download link',
-          signal: this.downloadSignal
-        });
-      } else {
-        pageResponse = await Errors.request(mod.file.url, {
-          credentials: 'include'
-        }, {
-          timeoutMs: this.requestTimeout,
-          context: 'Loading browser download link',
-          signal: this.downloadSignal
-        });
-      }
+      const pageResponse = await Errors.request(this.fileLinkFor(mod), {
+        credentials: 'include',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }, {
+        timeoutMs: this.requestTimeout,
+        context: 'Loading Vortex download link',
+        signal: this.downloadSignal
+      });
       const text = pageResponse.text;
       const pageLoginError = Auth?.getResponseLoginError?.(pageResponse, 'Loading collection download link');
       if (pageLoginError) return { downloadUrl: '', text, rateLimit: pageResponse.rateLimit, error: pageLoginError };
       if (!pageResponse.ok) return { downloadUrl: '', text, rateLimit: pageResponse.rateLimit, error: pageResponse.error };
 
-      let downloadUrl = '';
-      if (this.downloadMethod === DOWNLOAD_METHOD_VORTEX) {
-        const extracted = NexusExt.NNW?.parseDownloadURLFromResponse?.(text, {
-          mode: 'vortex',
-          fileId: mod.fileId || mod.file.fileId
-        });
-        downloadUrl = NexusExt.NNW?.parseNxmDownloadLink?.(extracted?.url)
-          || NexusExt.NNW?.parseNxmDownloadLink?.(text)
-          || '';
+      const fileId = mod.fileId || mod.file.fileId;
+      const extracted = NexusExt.NNW?.parseDownloadURLFromResponse?.(text, { mode: 'vortex', fileId });
+      let downloadUrl = NexusExt.NNW?.parseNxmDownloadLink?.(extracted?.url)
+        || NexusExt.NNW?.parseNxmDownloadLink?.(text)
+        || '';
 
-        if (!downloadUrl && NexusExt.NNW?.getDownloadUrl) {
-          const resolved = await NexusExt.NNW.getDownloadUrl({
-            fileId: mod.fileId || mod.file.fileId,
-            gameId: mod.file.mod.game.id,
-            isNMM: true,
-            href: `${mod.file.url}&nmm=1`,
-            prefetchedText: text,
-            prefetchedFinalUrl: pageResponse.finalUrl,
-            prefetchedStatus: pageResponse.status,
-            signal: this.downloadSignal
-          });
-          downloadUrl = resolved?.url || '';
-          if (!downloadUrl && resolved?.error) {
-            return { downloadUrl: '', text, error: resolved.error };
-          }
-        }
-      } else {
-        NexusExt.NNW?.refreshAdTimerCookie?.();
-        const generatedResponse = await Errors.request(
-          'https://www.nexusmods.com/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl',
-          {
-            headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-            body: `fid=${encodeURIComponent(mod.fileId || mod.file.fileId)}&game_id=${encodeURIComponent(mod.file.mod.game.id)}`,
-            method: 'POST',
-            credentials: 'include'
-          }, {
-            timeoutMs: this.requestTimeout,
-            context: 'Generating collection download link',
-            signal: this.downloadSignal
-          }
-        );
-        const generatedLoginError = Auth?.getResponseLoginError?.(generatedResponse, 'Generating collection download link');
-        if (generatedLoginError) {
-          return { downloadUrl: '', text: generatedResponse.text, rateLimit: generatedResponse.rateLimit, error: generatedLoginError };
-        }
-        if (!generatedResponse.ok) {
-          return { downloadUrl: '', text: generatedResponse.text, rateLimit: generatedResponse.rateLimit, error: generatedResponse.error };
-        }
-        const extracted = NexusExt.NNW?.parseDownloadURLFromResponse?.(generatedResponse.text, {
-          mode: 'browser',
-          fileId: mod.fileId || mod.file.fileId
+      if (!downloadUrl && NexusExt.NNW?.getDownloadUrl) {
+        const resolved = await NexusExt.NNW.getDownloadUrl({
+          fileId,
+          gameId: mod.file.mod.game.id,
+          isNMM: true,
+          href: this.fileLinkFor(mod),
+          prefetchedText: text,
+          prefetchedFinalUrl: pageResponse.finalUrl,
+          prefetchedStatus: pageResponse.status,
+          signal: this.downloadSignal
         });
-        if (extracted?.url) {
-          downloadUrl = extracted.url;
+        downloadUrl = resolved?.url || '';
+        if (!downloadUrl && resolved?.error) {
+          return { downloadUrl: '', text, error: resolved.error };
         }
       }
       return {
         downloadUrl,
         text,
-        error: downloadUrl ? null : Errors.create(
-          this.downloadMethod === DOWNLOAD_METHOD_VORTEX ? 'no_nmm_link' : 'no_download_url',
-          { context: 'Reading collection download link' }
-        )
+        error: downloadUrl ? null : Errors.create('no_nmm_link', { context: 'Reading collection download link' })
       };
     }
 
     noteRateLimited(retryAfterSeconds) {
       const explicit = Number(retryAfterSeconds);
-      this.rateLimitStrikes = Math.min((this.rateLimitStrikes || 0) + 1, RATE_LIMIT_MAX_STRIKES);
+      this.rateLimitStrikes = Math.min((this.rateLimitStrikes || 0) + 1, NXTK.RATE_LIMIT_MAX_STRIKES);
       const backoff = Number.isFinite(explicit) && explicit > 0
         ? explicit
-        : Math.min(RATE_LIMIT_BASE_SECONDS * Math.pow(2, this.rateLimitStrikes - 1), RATE_LIMIT_MAX_SECONDS);
-      const until = Date.now() + Math.min(backoff, RATE_LIMIT_MAX_SECONDS) * 1000;
+        : NXTK.rateLimitBackoffSeconds(this.rateLimitStrikes);
+      const until = Date.now() + Math.min(backoff, NXTK.RATE_LIMIT_MAX_SECONDS) * 1000;
       this.rateLimitedUntil = Math.max(this.rateLimitedUntil || 0, until);
       NexusExt.Storage.saveRateLimit?.({ until: this.rateLimitedUntil });
       return Math.round((this.rateLimitedUntil - Date.now()) / 1000);
@@ -566,10 +527,7 @@ window.NexusExt = window.NexusExt || {};
     }
 
     resolveLinkError(result) {
-      return Errors.normalize(
-        result?.error
-        || Errors.create(this.downloadMethod === DOWNLOAD_METHOD_VORTEX ? 'no_nmm_link' : 'no_download_url')
-      );
+      return Errors.normalize(result?.error || Errors.create('no_nmm_link'));
     }
 
     async fetchDownloadLinkWithRetry(mod, { attempts = 2, delayMs = 500, onAttemptFailed = null } = {}) {
@@ -614,8 +572,7 @@ window.NexusExt = window.NexusExt || {};
     }
 
     fileLinkFor(mod) {
-      const url = mod.file.url;
-      return this.downloadMethod === DOWNLOAD_METHOD_VORTEX ? `${url}&nmm=1` : url;
+      return `${mod.file.url}&nmm=1`;
     }
 
     handOffDownload(mod, downloadUrl, prefix) {
@@ -666,7 +623,7 @@ window.NexusExt = window.NexusExt || {};
       const link = `<a href="${escapeHtml(this.fileLinkFor(mod))}" target="_blank" rel="noopener noreferrer">${escapeHtml(mod.file.name)}</a>`;
       this.ui.log(`${TS('logRetryFailed', [escapeHtml(Errors.toLogMessage(error))], `Retry failed: ${escapeHtml(Errors.toLogMessage(error))}`)} ${link}`, 'error');
       if (this.showAlertsOnError && error.retryable) {
-        NexusExt.UI.showError(error, { title: NXTK.t('dlgDownloadIssue', null, 'Download issue'), onRetry: () => this.retryMod(mod, { type, onSucceeded }) });
+        NexusExt.UI.showError(error, { onRetry: () => this.retryMod(mod, { type, onSucceeded }) });
       }
     }
 
@@ -725,6 +682,7 @@ window.NexusExt = window.NexusExt || {};
           gameId: this.gameId,
           collectionId: this.collectionId,
           startId,
+          label: this.displayName || this.collectionId,
           type,
           restart,
           folder: this.downloadFolder,
@@ -806,20 +764,25 @@ window.NexusExt = window.NexusExt || {};
           settled = true;
           cleanup();
           this.ui.setTimeLeft?.(0);
-          if (error) this.ui.logText(TS('logBackgroundError', [error], `Background collection error: ${error}`), 'error');
-          this.ui.endDownload(outcome);
+          // A blocking verdict reaches here as the outcome of a DONE event, or as the lastError of a
+          // job a status poll found in 'error'. Either way it is named and handled as blocking,
+          // instead of ending on a bare "Download ended with an error".
+          const known = DECK_OUTCOMES.has(outcome);
+          const reason = String(error || (known ? '' : outcome || ''));
+          const code = String(reason || outcome || '').split(' ')[0].trim();
+          const blocking = outcome !== 'stopped' && Errors.isBlocking({ code });
+          if (reason) {
+            const text = queueErrorText(reason);
+            this.ui.logText(TS('logBackgroundError', [text], `Background collection error: ${text}`), 'error');
+          }
+          if (blocking && this.showAlertsOnError) NexusExt.UI?.showError?.(Errors.normalize({ code }));
+          let deckOutcome = known ? outcome : 'error';
+          if (blocking) deckOutcome = code === 'requires_login' ? 'requires_login' : 'blocked';
+          this.ui.endDownload(deckOutcome);
           resolve();
         };
 
         this.settleBrowserQueue = (outcome = 'stopped') => finish(outcome);
-
-        const TERMINAL_STATUS = {
-          finished: 'finished',
-          partial: 'partial',
-          stopped: 'stopped',
-          error: 'error',
-          requires_login: 'requires_login'
-        };
 
         const pollQueueStatus = async () => {
           if (settled || !this.backgroundJobId) return;
@@ -851,8 +814,7 @@ window.NexusExt = window.NexusExt || {};
             this.ui.setDownloadStatus?.(snapshot.status);
             return;
           }
-          const outcome = TERMINAL_STATUS[snapshot.status];
-          if (outcome) finish(outcome, snapshot.lastError || '');
+          if (DECK_OUTCOMES.has(snapshot.status)) finish(snapshot.status, snapshot.lastError || '');
         };
 
         // The queue resolves its links in the service worker, which has no document and
@@ -893,15 +855,7 @@ window.NexusExt = window.NexusExt || {};
               this.ui.logText(TS('logRetryingInterrupted', [name], `Retrying interrupted download: ${name}`), 'info');
             } else if (message.itemState === 'failed') {
               eta?.spoil();
-              // The worker reports a code with its measurements attached. A code that has a
-              // sentence of its own is shown as that sentence; anything else is left as it
-              // came, so nothing is lost. Either way the numbers are in the report.
-              const raw = String(message.error || '');
-              const code = raw.split(' ')[0].trim();
-              const known = code && Errors.normalize({ code }).code === code;
-              const reason = known
-                ? Errors.toLogMessage({ code })
-                : (raw || Errors.displayText({ code: 'request_failed' }).message);
+              const reason = queueErrorText(message.error);
               this.ui.logText(TS('logFailedItem', [name, reason], `Failed: ${name} (${reason})`), 'error');
             }
             return;
@@ -925,7 +879,10 @@ window.NexusExt = window.NexusExt || {};
           if (this.backgroundJobId) {
             if (message.jobId !== this.backgroundJobId) return false;
           } else {
-            if (message.gameId !== this.gameId || message.collectionId !== this.collectionId) return false;
+            // Until START answers, only the job this start created may be adopted. A job it just
+            // replaced for the same collection can still be reporting, and binding to that one
+            // would leave the new run showing no progress at all.
+            if (!message.startId || message.startId !== this.backgroundStartId) return false;
             this.backgroundJobId = message.jobId;
           }
           applyEvent(message);
@@ -1201,7 +1158,6 @@ window.NexusExt = window.NexusExt || {};
             failedDownload.push({ mod, error: downloadError });
             if (this.showAlertsOnError && downloadError.retryable) {
               NexusExt.UI.showError(downloadError, {
-                title: T('dlgDownloadIssue', 'Download issue'),
                 onRetry: () => this.retryMod(mod, {
                   type,
                   onSucceeded: () => {

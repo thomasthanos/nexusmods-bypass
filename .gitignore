@@ -14,4 +14,4 @@ nexus.mods.bypass/.claude/settings.local.json
 you need to add this (gitgnore this folder)/
 nexusmods
 
-tools/
+/tools

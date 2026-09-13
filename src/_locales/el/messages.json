@@ -789,6 +789,9 @@
   "alertSelectionInvalid": {
     "message": "Το αρχείο δεν είναι έγκυρη επιλογή του NexusMods Bypass."
   },
+  "popupQueuesTitle": {
+    "message": "Λήψεις στο παρασκήνιο"
+  },
   "popupReloadFirst": {
     "message": "Ανανεώστε τη σελίδα Nexus Mods πριν ανοίξετε τις ρυθμίσεις σελίδας."
   },

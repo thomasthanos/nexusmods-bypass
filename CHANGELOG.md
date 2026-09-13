@@ -7,6 +7,61 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [Unreleased]
+
+### Fixed
+
+- **A chosen download speed of 1.5 MB/s is no longer reset on every update.** The migration away from
+  the old default ran on every `onInstalled`, which also fires for every extension update and every
+  browser update. It now runs only for a copy updating from before 2.4.2, the last version that could
+  still hold that default.
+- **Enter on a focused Cancel no longer confirms.** The confirmation dialog took any Enter as yes, so
+  tabbing to Cancel on "Restore defaults" and pressing Enter restored them and reloaded the page.
+- **A Cloudflare check or a suspended account ends a background run with an explanation.** The worker
+  reported those verdicts as the outcome itself, which the deck had no wording for, so the run ended on
+  a bare "Download ended with an error". It now ends as "Action required", logs the reason, and shows
+  the same dialog a Vortex run shows; a status poll that finds the job already in error does the same.
+- **Importing a Wabbajack modlist no longer orphans a running collection.** The import replaced the
+  deck without stopping the run behind it, leaving a Vortex queue sending links with no Stop button. It
+  is now refused while a run is going, and removing any deck ends the run it was showing.
+- **Update Collection shows the diff for the revisions on screen.** Changing a revision quickly let a
+  slower, earlier comparison render last, so "Download updates" fetched the wrong files. Only the newest
+  comparison renders now, each revision is fetched once per dialog, and Escape closes the dialog.
+- **Uncaught extension errors are recorded on Firefox.** The page listener only recognised
+  `chrome-extension://` script URLs.
+- **"Sign in required" titles the dialog in every language.** The override compared the title against
+  the English "Download issue", so a translated title from the caller hid it.
+
+### Changed
+
+- **Background downloads are listed in the popup.** Every collection or modlist run the worker still
+  holds is shown with its progress and a Stop button. A modlist deck cannot be reattached after a
+  reload, so this is where such a run can still be seen and ended.
+- **Settings are stored within bounds.** Pause, timeouts, speed, method and folder length go through
+  one rule in `shared.js`, applied by the worker, the page fallback and the settings dialog, which also
+  writes the stored value back into its field. The request timeout is at least 5 seconds everywhere.
+- **Escape closes only the dialog on top.** An alert opened over the settings no longer closes both.
+
+### Internal
+
+- The worker imports `shared.js` instead of carrying its own copies of the defaults, redaction rules
+  and download-target checks. The build refuses a copy creeping back in, and the Firefox background
+  scripts now follow the worker's imports.
+- A page-side fallback write only happens when a message never reached the worker, so a rejected
+  setting or history change can no longer bypass the worker's validation and write queue.
+- Before START answers, the deck adopts only events carrying its own start id, so a replaced job still
+  reporting for the same collection cannot capture the new run.
+- Route updates are debounced with a maximum wait, so a page that never stops changing cannot postpone
+  them indefinitely, and the slow-download poll rests in a hidden tab.
+- Worker start-up reconciles once; the sweep for orphaned queue items runs on browser start and install.
+- Duplicates consolidated: one dialog builder in `ui.js`, one report builder, and shared rate-limit
+  backoff, Retry-After parsing, file-extension lists and rating prompt; one download-control helper, one
+  halt path and one reconcile path in the worker; one settings loader in the collection runner. The
+  browser branch of the in-page collection link resolver, unused since browser runs moved to the worker,
+  is removed.
+- The build script and regression suites are tracked again, and a GitHub Actions workflow runs
+  `tools/build-zip.mjs` on every push and pull request.
+
 ## [2.6.4] - 2026-09-11
 
 ### Fixed
