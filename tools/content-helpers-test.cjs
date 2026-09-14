@@ -1118,6 +1118,31 @@ async function hiddenTabStartTests() {
   assert.equal(await visible.wait(visible.key), true, 'a tab already shown does not wait');
 }
 
+// Importing a modlist on a collection page put its deck above the page's content, on the black strip over it,
+// and removed the collection's deck before the modlist had loaded, so content/main.js put that deck back in
+// the gap and the page showed two.
+function modlistDeckTests() {
+  const wabbajack = fs.readFileSync('src/content/ui-wabbajack.js', 'utf8');
+  const mount = extractFunction(wabbajack, 'mountWabbajackDeck');
+  const built = mount.indexOf('await ndc.initFromMods(mods)');
+  assert.ok(built !== -1 && built < mount.indexOf("querySelectorAll('.nxtk-deck')"),
+    'the page is only changed once the modlist deck is built');
+  assert.match(mount, /current\.replaceWith\(deck\)/, 'an existing deck is replaced where it stands');
+  assert.doesNotMatch(mount, /\.remove\(\);\s*\}\s*const gameDomain/, 'nothing is removed before the modlist loads');
+  assert.match(extractFunction(wabbajack, 'findDeckHost'), /#mainContent \.next-container/,
+    'a page with no deck gets it inside its content column');
+  assert.match(extractFunction(wabbajack, 'importWabbajackModlist'),
+    /\[\.\.\.document\.querySelectorAll\('\.nxtk-deck'\)\]\.some\(deckRunIsActive\)/,
+    'every deck on the page is asked whether its run is going');
+  assert.match(extractFunction(wabbajack, 'addCloseButton'), /if \(deckRunIsActive\(deck\)\)/,
+    'a modlist deck cannot be closed under a running download');
+
+  const main = fs.readFileSync('src/content/main.js', 'utf8');
+  assert.match(extractFunction(main, 'handleRouteChangeInner'),
+    /!!activeNdc\?\.disposed && !document\.getElementById\('nxtk-control-deck'\)/,
+    'a collection whose deck a closed modlist had replaced starts over');
+}
+
 archivedFilesUrlTests();
 slowDownloadButtonTests();
 dominantGameDomainTests();
@@ -1138,6 +1163,7 @@ dialogRegressionTests();
 blockingQueueOutcomeTests();
 extensionErrorFilterTests();
 bundleBoundaryTests();
+modlistDeckTests();
 requestClassifierForwardingTests()
   .then(hiddenTabStartTests)
   .then(() => console.log('content-script helper behavior OK'))

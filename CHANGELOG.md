@@ -7,10 +7,16 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
-## [Unreleased]
+## [2.7.0] - 2026-09-14
 
 ### Fixed
 
+- **An imported Wabbajack modlist opens where the collection deck was.** Its deck was put at the very top
+  of the page, above Nexus's content and on the bare black strip over it, and on a collection page the
+  collection's own deck was removed before the modlist had loaded, so it was put back and the page showed
+  two. The modlist deck now takes an existing deck's place in one step, or goes inside the page's content
+  column when there is none, and it has a close button; closing it on a collection page brings the
+  collection's deck back.
 - **A chosen download speed of 1.5 MB/s is no longer reset on every update.** The migration away from
   the old default ran on every `onInstalled`, which also fires for every extension update and every
   browser update. It now runs only for a copy updating from before 2.4.2, the last version that could
@@ -72,6 +78,8 @@ they are simply not listed.
 
 ### Internal
 
+- `responseLooksChallenged` and `responseLooksSuspended` are gone from the worker, which never called them;
+  their cases now test `classifyNexusResponse`, which it does.
 - The build checks the permissions against the documented list, that every on-demand bundle is packaged,
   is not also a manifest content script and lists its files after the ones they build on, and that the
   page and the worker agree on which bundles exist. `content-helpers-test.cjs` pins what the core UI may

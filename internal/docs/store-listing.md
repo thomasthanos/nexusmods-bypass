@@ -41,7 +41,7 @@ The whole interface — not just the popup — in English, German, Greek, Spanis
 Skip requirement popups, restore download buttons on archived files, and hide premium upsell panels — every feature is a toggle.
 
 🔒 PRIVATE BY DESIGN
-No analytics, no accounts, no external servers. One host permission (www.nexusmods.com), plus the download permissions needed to run the queue. Everything is stored locally, and the full source is public on GitHub so anyone can audit exactly what it does.
+No analytics, no accounts, no external servers. One host permission (www.nexusmods.com), plus the permissions needed to run the download queue and to load each feature only on the pages that use it. Everything is stored locally, and the full source is public on GitHub so anyone can audit exactly what it does.
 
 🐛 EASY BUG REPORTS
 One click copies a full diagnostic report and opens a prefilled GitHub issue.
@@ -49,16 +49,18 @@ One click copies a full diagnostic report and opens a prefilled GitHub issue.
 Note: you must be signed in to your own Nexus Mods account. This extension automates the standard free-user download flow — it does not unlock premium content and is not affiliated with Nexus Mods. If you love modding, consider Nexus Premium to support the platform.
 ```
 
-## What's new — 2.4.3
+## What's new — 2.7.0
 
 Dashboard-only field, not covered by `_locales`. Paste as-is:
 
 ```
-Removed the "hide the browser download button" setting.
+Lighter on every Nexus Mods page.
 
-It was a mistake: Chrome applies it to your whole browser profile, so it hid the download button for every site, not just Nexus Mods — and nothing on screen connected the missing button back to this extension.
+The collection downloader, the settings, the bug reporter and the Wabbajack importer now load only on the pages that use them, so every other Nexus page carries about half as much of the extension. This uses the "scripting" permission, which shows no warning and gives the extension no access beyond nexusmods.com.
 
-If you had it switched on, the button comes back on its own as soon as this update installs. No restart, nothing to click. Your downloads were never affected and are always in Ctrl+J.
+A file page opened in a background tab starts its download straight away; a Vortex handoff still waits until you look at the tab. An imported Wabbajack modlist now opens where the collection downloader was, instead of at the top of the page, and can be closed again.
+
+The "downloads.ui" permission is gone. The "downloads" permission, which runs your downloads, stays.
 ```
 
 Keep this honest and specific. The setting caused support confusion precisely because the

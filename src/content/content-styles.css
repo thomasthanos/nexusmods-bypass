@@ -323,6 +323,17 @@
   font-size: 11px;
   letter-spacing: 0;
 }
+.nxtk-deck-title-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.nxtk-deck .nxtk-deck-close {
+  width: 30px;
+  height: 30px;
+  font-size: 20px;
+}
 .nxtk-deck-subtitle {
   font-size: 13px;
   color: var(--nxtk-text-muted);

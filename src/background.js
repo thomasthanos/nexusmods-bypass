@@ -702,14 +702,6 @@ function classifyNexusResponse(response, text) {
   });
 }
 
-function responseLooksChallenged(response, text) {
-  return classifyNexusResponse(response, text)?.code === 'cloudflare';
-}
-
-function responseLooksSuspended(text) {
-  return classifyNexusResponse(null, text)?.code === 'account_suspended';
-}
-
 async function fetchNdcResponse(url, options, timeoutMs) {
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
   const timeout = NXTK.normalizeSetting('RequestTimeout', Number(timeoutMs) || NXTK.DEFAULTS.RequestTimeout);

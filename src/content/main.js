@@ -212,7 +212,10 @@
     const parsedRevision = revisionNumber ? parseInt(revisionNumber, 10) : NaN;
     const rev = Number.isFinite(parsedRevision) ? parsedRevision : null;
 
-    if (previousRoute !== routeKey || activeNdc?.revision !== rev) {
+    // A modlist deck that took this collection's place disposed its downloader. Once that deck is closed the
+    // collection starts over, or its page would be left with no deck at all.
+    const replacedAndClosed = !!activeNdc?.disposed && !document.getElementById('nxtk-control-deck');
+    if (previousRoute !== routeKey || activeNdc?.revision !== rev || replacedAndClosed) {
       previousRoute = routeKey;
       deckMountRun++;
 

@@ -52,7 +52,7 @@ vm.runInContext(source, context, { filename: 'src/background.js' });
 const { retryAfterMilliseconds, buildDownloadPath, downloadFolderOf, __NXTK: NXTK } = context;
 const { __DOWNLOAD_CONFLICT_ACTION: DOWNLOAD_CONFLICT_ACTION, __MAX_TRACKED_FAILURES: MAX_TRACKED_FAILURES,
   __recordJobFailure: recordJobFailure, __jobFailureCount: jobFailureCount } = context;
-const { classifyNexusResponse, responseLooksChallenged, responseLooksSuspended } = context;
+const { classifyNexusResponse } = context;
 const { isValidFileId, isValidHistoryId, ndcScopeKey, sanitizeNdcJobItem } = context;
 const { mutateNdcJob, readNdcJob, saveNdcJob, storageSetLocal, storageGetLocal, enqueueStorageTask,
   advanceNdcJob, processNdcJob, appendErrorLogEntry, applyNdcDownloadTerminal, __verifyTransferSize: verifyTransferSize, __NDC_JOBS_KEY: NDC_JOBS_KEY, __writeQueues: writeQueues,
@@ -106,20 +106,21 @@ assert.match(redact('authorization: Bearer abcdef'), /authorization: \[redacted\
 assert.equal(redact('code: no_download_url'), 'code: no_download_url', 'an error code survives redaction');
 assert.equal(redact('state: interrupted'), 'state: interrupted', 'a download state survives redaction');
 
-assert.equal(responseLooksChallenged({}, '<title>Just a moment...</title>'), true);
-assert.equal(responseLooksChallenged({}, '<div id="cf-browser-verification">'), true);
-assert.equal(responseLooksChallenged({}, '<script src="/cdn-cgi/challenge-platform/x.js">'), true);
-assert.equal(responseLooksChallenged({ cfMitigated: 'challenge' }, ''), true,
+// The worker reads every Nexus answer through classifyNexusResponse, so its verdicts are what is pinned here.
+const verdict = (response, text) => classifyNexusResponse(response, text)?.code || null;
+assert.equal(verdict({}, '<title>Just a moment...</title>'), 'cloudflare');
+assert.equal(verdict({}, '<div id="cf-browser-verification">'), 'cloudflare');
+assert.equal(verdict({}, '<script src="/cdn-cgi/challenge-platform/x.js">'), 'cloudflare');
+assert.equal(verdict({ cfMitigated: 'challenge' }, ''), 'cloudflare',
   'the Cf-Mitigated header alone is enough');
-assert.equal(responseLooksChallenged({}, '<html><body>Skyrim Special Edition</body></html>'), false,
+assert.notEqual(verdict({}, '<html><body>Skyrim Special Edition</body></html>'), 'cloudflare',
   'an ordinary mod page is not a challenge');
-assert.equal(responseLooksChallenged({}, ''), false);
+assert.notEqual(verdict({}, ''), 'cloudflare');
 
-assert.equal(responseLooksSuspended('Your account has been temporarily suspended'), true);
-assert.equal(responseLooksSuspended('too many requests from your account'), false,
+assert.equal(verdict(null, 'Your account has been temporarily suspended'), 'account_suspended');
+assert.equal(verdict({}, 'too many requests from your account'), 'rate_limited',
   'a rate limit is not mislabeled as an account suspension');
-assert.equal(classifyNexusResponse({}, 'too many requests from your account')?.code, 'rate_limited');
-assert.equal(responseLooksSuspended('<html>a normal page</html>'), false);
+assert.notEqual(verdict(null, '<html>a normal page</html>'), 'account_suspended');
 
 assert.equal(isValidFileId('42'), true);
 assert.equal(isValidFileId('0'), false);
