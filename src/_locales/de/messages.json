@@ -3,7 +3,7 @@
     "message": "NexusMods Bypass"
   },
   "appDesc": {
-    "message": "Vereinfacht Nexus-Mods-Downloads, verwaltet Download-Warteschlangen für Kollektionen und speichert einen lokalen Verlauf."
+    "message": "Startet Nexus-Mods-Downloads automatisch, lädt ganze Collections über Vortex oder den Browser und überspringt vorhandene Dateien."
   },
   "toggleAutoStart": {
     "message": "Downloads automatisch starten"

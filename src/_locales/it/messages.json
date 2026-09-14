@@ -3,7 +3,7 @@
     "message": "NexusMods Bypass"
   },
   "appDesc": {
-    "message": "Semplifica i download da Nexus Mods, gestisce le code di download delle collection e mantiene una cronologia locale dei file completati."
+    "message": "Avvia da solo i download di Nexus Mods, mette in coda intere collezioni su Vortex o nel browser e salta i file che hai già."
   },
   "toggleAutoStart": {
     "message": "Avvia i download automaticamente"

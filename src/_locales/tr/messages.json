@@ -3,7 +3,7 @@
     "message": "NexusMods Bypass"
   },
   "appDesc": {
-    "message": "Nexus Mods indirmelerini kolaylaştırır, koleksiyon indirme kuyruklarını yönetir ve tamamlanan dosyaların yerel geçmişini tutar."
+    "message": "Nexus Mods indirmelerini kendiliğinden başlatır, koleksiyonları Vortex'e veya tarayıcıya sıralar ve zaten olan dosyaları atlar."
   },
   "toggleAutoStart": {
     "message": "İndirmeleri otomatik başlat"

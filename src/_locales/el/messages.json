@@ -3,7 +3,7 @@
     "message": "NexusMods Bypass"
   },
   "appDesc": {
-    "message": "Απλοποιεί τις λήψεις από το Nexus Mods, διαχειρίζεται ουρές λήψης collections και κρατά τοπικό ιστορικό."
+    "message": "Αυτόματη έναρξη λήψεων από το Nexus Mods, ολόκληρα collections σε ουρά προς το Vortex ή τον περιηγητή, χωρίς όσα αρχεία έχετε ήδη."
   },
   "toggleAutoStart": {
     "message": "Αυτόματη έναρξη λήψεων"

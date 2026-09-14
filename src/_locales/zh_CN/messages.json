@@ -3,7 +3,7 @@
     "message": "NexusMods Bypass"
   },
   "appDesc": {
-    "message": "简化 Nexus Mods 下载，管理合集下载队列，并保存本地历史记录。"
+    "message": "自动开始 Nexus Mods 下载，将整个合集排入 Vortex 或浏览器队列，并跳过你已有的文件。"
   },
   "toggleAutoStart": {
     "message": "自动开始下载"

@@ -3,7 +3,7 @@
     "message": "NexusMods Bypass"
   },
   "appDesc": {
-    "message": "Nexus Mods 다운로드를 간편하게 하고, 컬렉션 다운로드 대기열을 관리하며, 완료된 파일의 기록을 로컬에 보관합니다."
+    "message": "Nexus Mods 다운로드를 자동으로 시작하고, 컬렉션 전체를 Vortex나 브라우저 대기열에 넣으며, 이미 있는 파일은 건너뜁니다."
   },
   "toggleAutoStart": {
     "message": "다운로드 자동 시작"

@@ -3,7 +3,7 @@
     "message": "NexusMods Bypass"
   },
   "appDesc": {
-    "message": "Nexus Mods のダウンロードを簡単にし、コレクションのダウンロードキューを管理し、完了したファイルの履歴をローカルに保存します。"
+    "message": "Nexus Mods のダウンロードを自動で開始し、コレクション全体を Vortex またはブラウザーでキューに入れ、手元にあるファイルはスキップします。"
   },
   "toggleAutoStart": {
     "message": "ダウンロードを自動的に開始"

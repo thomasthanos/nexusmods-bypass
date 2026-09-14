@@ -3,7 +3,7 @@
     "message": "NexusMods Bypass"
   },
   "appDesc": {
-    "message": "Upraszcza pobieranie z Nexus Mods, zarządza kolejkami pobierania kolekcji i prowadzi lokalną historię ukończonych plików."
+    "message": "Sam uruchamia pobieranie z Nexus Mods, kolejkuje całe kolekcje do Vortex lub przeglądarki i pomija pliki, które już masz."
   },
   "toggleAutoStart": {
     "message": "Automatycznie rozpoczynaj pobieranie"
