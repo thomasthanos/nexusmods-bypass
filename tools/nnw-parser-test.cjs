@@ -45,7 +45,9 @@ function createHarness({
   sectionGameId = '',
   dataGameIds = [],
   scripts = [],
-  responses = []
+  responses = [],
+  // With pages, requests go through the real errors.js and response classifier and are answered from this list.
+  pages = null
 } = {}) {
   const parsedLocation = new URL(href);
   const calls = [];
@@ -53,7 +55,8 @@ function createHarness({
     sectionGameId,
     dataGameIds: [...dataGameIds],
     scripts: [...scripts],
-    responses: [...responses]
+    responses: [...responses],
+    pages: [...(pages || [])]
   };
 
   const document = {
@@ -91,10 +94,22 @@ function createHarness({
   };
 
   const NexusExt = {
-    Errors,
+    ...(pages ? {} : { Errors }),
     Auth: {},
     Storage: { DEFAULTS: {} },
     UI: {}
+  };
+  const fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (!state.pages.length) throw new Error(`Unexpected request: ${url}`);
+    const { status = 200, body = '' } = state.pages.shift();
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      url: String(url),
+      text: async () => body,
+      headers: { get: () => '' }
+    };
   };
   const context = {
     AbortController,
@@ -121,6 +136,8 @@ function createHarness({
     clearTimeout,
     console,
     document,
+    fetch,
+    navigator: { onLine: true },
     location: {
       href: parsedLocation.href,
       origin: parsedLocation.origin,
@@ -138,7 +155,10 @@ function createHarness({
   context.window = context;
 
   // In the order the manifest loads them: the shared rules and the link parser come before nnw.js.
-  for (const file of ['src/shared.js', 'src/download-url-parser.js', SOURCE_FILE]) {
+  const files = pages
+    ? ['src/shared.js', 'src/response-classifier.js', 'src/download-url-parser.js', 'src/content/errors.js', SOURCE_FILE]
+    : ['src/shared.js', 'src/download-url-parser.js', SOURCE_FILE];
+  for (const file of files) {
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
   return { api: context.NexusExt.NNW, calls, state };
@@ -247,6 +267,33 @@ async function downloadFlowTests() {
   }
 }
 
+// Bug report #7: residentevilrequiem/mods/972?file_id=2576 belonged to a mod its author had removed. Nexus
+// answered the file page with a notice, the flow reported "no usable link", and every Retry asked the
+// generator twice more. The page's answer now names the reason and ends the attempt.
+async function removedModFlowTests() {
+  const href = 'https://www.nexusmods.com/residentevilrequiem/mods/972?file_id=2576';
+  const removedPage = '<html><body><form action="https://users.nexusmods.com/auth/sign_out"></form>'
+    + '<div class="wrapper" id="mainContent"><div id="Notice3354" class="info warning clearfix site-notice " style="">'
+    + ' <div class="info-content"> <h3 id="Notice3354-title">Removed by author</h3>'
+    + ' <p id="Notice3354-paragraph"> The mod you were looking for was removed by its author </p> </div> </div>'
+    + '</div></body></html>';
+  const harness = createHarness({
+    href,
+    // What the generator says without a link is not known for this case; any linkless answer will do.
+    pages: [{ body: JSON.stringify({ url: '' }) }, { body: removedPage }]
+  });
+
+  const result = await harness.api.getDownloadUrl({ fileId: '2576', isNMM: false, href });
+  assert.equal(result.url, null);
+  assert.equal(result.error?.code, 'mod_unavailable', 'the removed mod is named as such');
+  assert.equal(result.error?.retryable, false, 'so the dialog offers Done rather than Retry');
+  assert.match(result.error?.technicalMessage || '', /"Removed by author" notice/, 'and the report says which notice');
+  assert.deepEqual(harness.calls.map((call) => call.url), [
+    'https://www.nexusmods.com/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl',
+    href
+  ], 'nothing is asked a second time');
+}
+
 function modPageDetectionTests() {
   const cases = [
     ['https://www.nexusmods.com/newvegas/mods/100', true, 'a mod page is handled'],
@@ -264,6 +311,7 @@ Promise.resolve()
   .then(parserTests)
   .then(modPageDetectionTests)
   .then(downloadFlowTests)
+  .then(removedModFlowTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {
     console.error(error);

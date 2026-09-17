@@ -168,7 +168,7 @@
     "message": "Attendi che Nexus Mods approvi il file prima di scaricarlo."
   },
   "errModUnavailableMsg": {
-    "message": "Questa mod è stata nascosta o rimossa dal suo autore."
+    "message": "Questa mod è stata nascosta o rimossa."
   },
   "errModUnavailableFix": {
     "message": "La mod non è più disponibile su Nexus Mods. Cerca un'alternativa o contatta l'autore della mod."

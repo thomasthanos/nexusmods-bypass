@@ -7,6 +7,37 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.7.1] - 2026-09-17
+
+### Fixed
+
+- **A mod Nexus no longer shows is reported as gone, not as a sign-in problem.** Nexus answers a removed,
+  hidden, unpublished or missing mod with a single notice where the mod page was — *Removed by author*,
+  *Removed by staff*, *Hidden mod*, *Not published*, *Not found* — and only the hidden-mod wording was
+  recognised. A file page of a mod its author had removed started its download, found no link, and said
+  *Nexus Mods did not return a usable download link* with advice to check the sign-in and a Retry button;
+  every Retry asked Nexus for the same missing link again, nine times in the report that found it. The
+  notice is now read from the page's markup, which a mod description cannot produce, so the dialog says
+  *This mod has been hidden or removed* and offers Done instead of Retry, for a single download, a Vortex
+  collection run and the browser queue alike. A file page that already shows such a notice no longer
+  starts a download at all. *Adult content disabled* is not one of them: that mod is still there.
+- **A mod page that still shows its mod is never taken for a gone one.** Until now only a download control
+  on the page kept a description such as *"the old version of this mod has been removed"* from getting a
+  working mod refused. The mod's own section on the page now settles it too, and it outranks any notice
+  shown above the mod.
+
+### Changed
+
+- **"This mod has been hidden or removed."** The message no longer says *by its author*, in any of the
+  thirteen languages, since removals by Nexus staff and mods that no longer exist end there too.
+
+### Internal
+
+- `response-classifier.js` exports `unavailableNotice`, which the page uses to read a notice before asking
+  Nexus for anything. `nnw-parser-test.cjs` can run a download through the real `errors.js` and classifier
+  with only `fetch` stubbed, and replays the reported page that way; the worker and the classifier parity
+  cases cover the same page.
+
 ## [2.7.0] - 2026-09-14
 
 ### Fixed

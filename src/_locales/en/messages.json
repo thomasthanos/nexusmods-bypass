@@ -197,8 +197,8 @@
     "description": "Recovery advice for errModerationHoldMsg."
   },
   "errModUnavailableMsg": {
-    "message": "This mod has been hidden or removed by its author.",
-    "description": "Error message: mod hidden or removed by author."
+    "message": "This mod has been hidden or removed.",
+    "description": "Error message: Nexus Mods shows the mod as hidden, removed or missing."
   },
   "errModUnavailableFix": {
     "message": "The mod is no longer available on Nexus Mods. Check for an alternative or contact the mod author.",

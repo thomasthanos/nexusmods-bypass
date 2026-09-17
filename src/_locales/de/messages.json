@@ -168,7 +168,7 @@
     "message": "Warten Sie, bis Nexus Mods die Datei freigibt."
   },
   "errModUnavailableMsg": {
-    "message": "Diese Mod wurde vom Autor versteckt oder entfernt."
+    "message": "Diese Mod wurde versteckt oder entfernt."
   },
   "errModUnavailableFix": {
     "message": "Die Mod ist nicht mehr auf Nexus Mods verfügbar. Suchen Sie nach einer Alternative oder kontaktieren Sie den Mod-Autor."

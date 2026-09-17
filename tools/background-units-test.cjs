@@ -1871,6 +1871,25 @@ async function workerResolvesTheRequestedFile() {
     serve(JSON.stringify({ url: wanted }));
     resolved = await context.resolveNdcBrowserUrl(item, 30000);
     assert.equal(resolved.url, wanted, 'the plain generated JSON still resolves');
+
+    // Bug report #7: a removed mod's page is one notice. A queued file of it fails as unavailable.
+    const asked = [];
+    context.fetch = async (url) => {
+      asked.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        url: String(url),
+        text: async () => '<form action="https://users.nexusmods.com/auth/sign_out"></form>'
+          + '<div id="Notice3354" class="info warning clearfix site-notice "><div class="info-content">'
+          + '<h3 id="Notice3354-title">Removed by author</h3>'
+          + '<p id="Notice3354-paragraph"> The mod you were looking for was removed by its author </p></div></div>',
+        headers: { get: () => '' }
+      };
+    };
+    resolved = await context.resolveNdcBrowserUrl(item, 30000);
+    assert.equal(resolved.code, 'mod_unavailable', 'a removed mod is named as such in the worker too');
+    assert.deepEqual(asked, [item.pageUrl], 'without asking the generator for a link');
   } finally {
     context.fetch = previousFetch;
   }

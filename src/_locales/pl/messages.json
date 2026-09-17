@@ -168,7 +168,7 @@
     "message": "Poczekaj, aż Nexus Mods zatwierdzi plik przed pobraniem."
   },
   "errModUnavailableMsg": {
-    "message": "Ten mod został ukryty lub usunięty przez autora."
+    "message": "Ten mod został ukryty lub usunięty."
   },
   "errModUnavailableFix": {
     "message": "Mod nie jest już dostępny na Nexus Mods. Poszukaj alternatywy lub skontaktuj się z autorem."

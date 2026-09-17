@@ -30,18 +30,18 @@ On collection pages you can download the whole collection, or only the files you
 It runs only on nexusmods.com and keeps everything in your browser. You must be signed in to your own Nexus Mods account; it does not unlock Premium content and is not affiliated with Nexus Mods.
 ```
 
-## What's new — 2.7.0
+## What's new — 2.7.1
 
 Dashboard-only field, not covered by `_locales`. Paste as-is:
 
 ```
-Lighter on every Nexus Mods page.
+A clear answer for mods that are gone.
 
-The collection downloader, the settings, the bug reporter and the Wabbajack importer now load only on the pages that use them, so every other Nexus page carries about half as much of the extension. This uses the "scripting" permission, which shows no warning and gives the extension no access beyond nexusmods.com.
+When a mod has been removed by its author or by Nexus staff, hidden, never published, or no longer exists, Nexus Mods shows a notice instead of the mod page. The extension did not recognise most of these notices: opening such a file page started a download, found no link, and suggested checking that you are signed in, with a Retry button that could never work.
 
-A file page opened in a background tab starts its download straight away; a Vortex handoff still waits until you look at the tab. An imported Wabbajack modlist now opens where the collection downloader was, instead of at the top of the page, and can be closed again.
+It now reads the notice. A file page that shows one no longer starts a download, and a download or collection item that points to such a mod ends with "This mod has been hidden or removed", without Retry.
 
-The "downloads.ui" permission is gone. The "downloads" permission, which runs your downloads, stays.
+A working mod whose description mentions a removed mod is no longer mistaken for a removed one.
 ```
 
 Keep this honest and specific. The setting caused support confusion precisely because the

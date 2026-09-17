@@ -666,6 +666,87 @@ function modUnavailableTests() {
     'mod_unavailable', 'shared classifier: refuses a gone mod');
   assert.equal(sharedClassifier({ text: '<p>This mod has been removed</p><a data-download-url="x">d</a>' }),
     null, 'shared classifier: keeps a page that still offers a file');
+
+  // What Nexus serves in place of a mod it will not show, as fetched on 2026-09-17. "Removed by author"
+  // is residentevilrequiem/mods/972?file_id=2576 from bug report #7, which ended as no_download_url.
+  const notice = (title, paragraph) => '<div id="Notice6293" class="info warning clearfix site-notice " style="">'
+    + ' <svg class="icon icon-info info-white"> <use xlink:href="/assets/images/icons/icons.svg#icon-info"></use> </svg>'
+    + ` <div class="info-content"> <h3 id="Notice6293-title">${title}</h3>`
+    + ` <p id="Notice6293-paragraph"> ${paragraph} </p> </div> </div>`;
+  const signOutForm = '<form action="https://users.nexusmods.com/auth/sign_out"><button type="submit" role="link">Sign out</button></form>';
+  const noticePage = (body, head = '') => `<html><head>${head}</head><body>${signOutForm}`
+    + `<div class="wrapper" id="mainContent">${body}</div></body></html>`;
+  const removedByAuthor = notice('Removed by author', 'The mod you were looking for was removed by its author');
+
+  for (const [title, paragraph] of [
+    ['Removed by author', 'The mod you were looking for was removed by its author'],
+    ['Removed by staff', 'The mod you were looking for was removed by a member of staff'],
+    ['Hidden mod', 'This mod has been set to hidden<br><br><p><b>Hidden at 03 Aug 2023, 10:26AM by <a href="/users/1">someone</a></b> for the following reason: unsupported</p>'],
+    ['Not published', 'The author of this mod has not published it yet'],
+    ['Not found', "The mod you were looking for couldn't be found"]
+  ]) {
+    const verdict = run(noticePage(notice(title, paragraph)));
+    assert.equal(verdict?.code, 'mod_unavailable', `a "${title}" page is refused`);
+    assert.match(verdict.technicalMessage, new RegExp(`hidden/removed mod page markup: "${title}" notice`),
+      'and the report names the notice');
+  }
+
+  const longHead = `<script>${'x'.repeat(globalThis.NXTKResponseClassifier.MAX_CLASSIFY_CHARS + 50000)}</script>`;
+  assert.equal(run(noticePage(removedByAuthor, longHead))?.code, 'mod_unavailable',
+    'a notice after a long page head is still read');
+
+  assert.equal(run(noticePage(notice('Adult content disabled',
+    'This page is hidden because adult content is turned off in your preferences<br /><a href="https://next.nexusmods.com/settings/content-blocking" class="btn btn-primary">View adult content preferences</a>'))),
+  null, 'hidden adult content is a preference, not a gone mod');
+
+  // The notice's words written as page text, and anything said above or inside a mod the page still
+  // renders, refuse nothing. A mod page fetched for its link carries none of the file-offer markers.
+  const renderedMod = (description) => '<section id="section" class="modpage" data-game-id="8863"  data-mod-id="55">'
+    + `<div class="mod_description_container">${description}</div></section>`;
+  for (const [label, page] of [
+    ['the notice quoted as text', noticePage('<h3>Removed by author</h3><p>The mod you were looking for was removed by its author</p>')],
+    ['a notice above a rendered mod', noticePage(removedByAuthor + renderedMod('A mod.'))],
+    ['a hidden-mod notice above a rendered mod', noticePage(notice('Hidden mod', 'This mod has been set to hidden') + renderedMod('A mod.'))],
+    ['a description that says a mod was removed', noticePage(renderedMod('The old version of this mod has been removed, so use this one.'))]
+  ]) {
+    assert.equal(run(page), null, `not refused: ${label}`);
+  }
+
+  const { unavailableNotice } = globalThis.NXTKResponseClassifier;
+  assert.equal(unavailableNotice('<h3 id="Notice1-title">Removed by author</h3>'), '"Removed by author" notice');
+  assert.equal(unavailableNotice('<h3 id="Notice1-title">Error</h3>'), '', 'another notice is not a gone mod');
+  assert.equal(unavailableNotice('<h3 class="Notice1-title">Removed by author</h3>'), '', 'nor a heading that only looks like one');
+  assert.equal(unavailableNotice('<h3 id="Notice1-title"><font>Удалено автором</font></h3>'), '',
+    'a title the browser translated is not read');
+}
+
+// Bug report #7: a file page of a mod its author had removed started a download on its own, found no link,
+// and offered Retry under "check that you are signed in", while the page itself said the mod was removed.
+function unavailableModPageTests() {
+  const autoStart = extractFunction(nnw, 'autoStartDownload');
+  const check = autoStart.indexOf('unavailableModNotice()');
+  assert.ok(check !== -1 && check < autoStart.indexOf('runDownload('), 'the page is read before anything is requested');
+  assert.ok(autoStart.indexOf('lastAutoStartHref = autoStartKey') < check, 'once per address, so the trail says it once');
+
+  const title = (text) => ({ outerHTML: `<h3 id="Notice6293-title">${text}</h3>` });
+  const read = ({ section = false, titles = [] } = {}) => {
+    const document = {
+      getElementById: (id) => (id === 'section' && section ? {} : null),
+      querySelectorAll: (selector) => {
+        assert.equal(selector, 'h3[id^="Notice"][id$="-title"]', 'only notice titles are read');
+        return titles;
+      }
+    };
+    return new Function('document', `${extractFunction(nnw, 'unavailableModNotice')}; return unavailableModNotice();`)(document);
+  };
+
+  assert.equal(read({ titles: [title('Removed by author')] }), '"Removed by author" notice', 'the page from the report');
+  assert.equal(read({ titles: [title('Hidden mod')] }), '"Hidden mod" notice');
+  assert.equal(read(), '', 'an ordinary file page has no notice');
+  assert.equal(read({ titles: [title('Adult content disabled')] }), '', 'hidden adult content still gets its try');
+  assert.equal(read({ section: true, titles: [title('Hidden mod')] }), '', 'a notice above a rendered mod stops nothing');
+  assert.equal(read({ titles: [{ outerHTML: '<h3 id="Notice1-title"><font>Удалено автором</font></h3>' }] }), '',
+    "a translated title is left to the request, which reads Nexus's own answer");
 }
 
 // These three verdicts stop the queue and tell the reader their account or their connection is
@@ -769,6 +850,10 @@ function classifierParityTests() {
     ['challenge prose on live page', '<a href="/auth/sign_out">Log out</a><a data-download-url="x">Download</a><p>Just a moment</p>', {}, null],
     ['removed mod', '<p>This mod has been removed</p>', {}, 'mod_unavailable'],
     ['removed prose beside encoded file offer', '<p>This mod has been removed</p><a href="/file?x=1&amp;nmm=1">Download</a>', {}, null],
+    ['removed-by-author notice', '<form action="https://users.nexusmods.com/auth/sign_out"></form><div id="Notice3354" class="info warning clearfix site-notice "><div class="info-content"><h3 id="Notice3354-title">Removed by author</h3><p id="Notice3354-paragraph"> The mod you were looking for was removed by its author </p></div></div>',
+      {}, 'mod_unavailable'],
+    ['adult-content notice', '<div id="Notice1" class="site-notice"><h3 id="Notice1-title">Adult content disabled</h3></div>', {}, null],
+    ['removed prose in a rendered mod', '<section id="section" class="modpage" data-game-id="1"><p>This mod has been removed</p></section>', {}, null],
     ['account suspension', '<h1>Account temporarily suspended</h1>', {}, 'account_suspended'],
     ['account suspension inside signed-in shell', '<a href="/auth/sign_out">Log out</a><h1>Your account has been temporarily suspended</h1>', {}, 'account_suspended'],
     ['rate limit', '<p>Too many requests</p>', {}, 'rate_limited'],
@@ -1155,6 +1240,7 @@ needsExtractingIsNotAFailure();
 queueEtaBehaviour();
 storeListingBehaviour();
 modUnavailableTests();
+unavailableModPageTests();
 blockingVerdictTests();
 classifierParityTests();
 failureTextTests();

@@ -208,6 +208,20 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
+  // A mod Nexus will not show (removed, hidden, unpublished, missing) is served as a notice where the mod
+  // page would be. The page says so already, and no request can return a file for it. On a page the browser
+  // has translated the title no longer matches; the download then stops on the same check of Nexus's answer.
+  function unavailableModNotice() {
+    try {
+      if (document.getElementById('section')) return '';
+      const titles = Array.from(document.querySelectorAll('h3[id^="Notice"][id$="-title"]'), (title) => title.outerHTML);
+      if (!titles.length) return '';
+      return globalThis.NXTKResponseClassifier?.unavailableNotice?.(titles.join('')) || '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   function clearStoredCloudflareFallback() {
     try {
       sessionStorage.removeItem(CLOUDFLARE_FALLBACK_KEY);
@@ -1369,6 +1383,11 @@ window.NexusExt = window.NexusExt || {};
     const autoStartKey = location.origin + location.pathname + location.search;
     if (lastAutoStartHref === autoStartKey) return;
     lastAutoStartHref = autoStartKey;
+    const unavailable = unavailableModNotice();
+    if (unavailable) {
+      Logger.info(`No download started: the page shows only a ${unavailable}.`);
+      return;
+    }
     const isNMM = wantsVortexHandoff(params);
     // Handing a link to Vortex asks the browser to open another program, then counts down to close this tab
     // behind a "Keep open" button. Neither should happen in a tab nobody is looking at, so it waits to be shown.

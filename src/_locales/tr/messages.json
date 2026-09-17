@@ -168,7 +168,7 @@
     "message": "İndirmeden önce Nexus Mods'un dosyayı onaylamasını bekleyin."
   },
   "errModUnavailableMsg": {
-    "message": "Bu mod yazarı tarafından gizlenmiş veya kaldırılmış."
+    "message": "Bu mod gizlenmiş veya kaldırılmış."
   },
   "errModUnavailableFix": {
     "message": "Mod artık Nexus Mods'da mevcut değil. Bir alternatif arayın veya mod yazarıyla iletişime geçin."

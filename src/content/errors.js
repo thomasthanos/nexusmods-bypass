@@ -67,7 +67,7 @@ window.NexusExt = window.NexusExt || {};
       retryable: false
     },
     mod_unavailable: {
-      userMessage: 'This mod has been hidden or removed by its author.',
+      userMessage: 'This mod has been hidden or removed.',
       recovery: 'The mod is no longer available on Nexus Mods. Check for an alternative or contact the mod author.',
       retryable: false
     },

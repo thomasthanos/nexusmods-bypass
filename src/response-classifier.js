@@ -2,6 +2,9 @@
   'use strict';
 
   const MAX_CLASSIFY_CHARS = 200000;
+  // Today's pages carry about 150 KB of head and header before their content, so the markup that says
+  // whether a mod is there is looked for further in than the prose checks go.
+  const MAX_NOTICE_SCAN_CHARS = 1024 * 1024;
 
   const MARKERS = Object.freeze({
     signedIn: /\/auth\/sign_out|data-testid=["']profile-image["']|id=["']profile-menu["']|"(?:is)?_?logged_?in"\s*:\s*true/i,
@@ -43,6 +46,29 @@
       ['"no longer available"', /\bmod\b[^.]{0,40}\bno longer available\b/i.test(content)],
       ['"this mod … hidden/archived/taken down"', /\bthis mod\b[^.]{0,60}\b(?:hidden|archived|taken down)\b/i.test(content)]
     ].find(([, hit]) => hit)?.[0] || '';
+  }
+
+  // Nexus serves a mod it will not show as one site notice where the mod page would be:
+  // <h3 id="Notice1234-title">Removed by author</h3>. It is read by that markup, which a mod description
+  // cannot produce. "Adult content disabled" is left out: that mod is there for anyone who allows it.
+  const UNAVAILABLE_NOTICE_TITLES = Object.freeze([
+    'removed by author', 'removed by staff', 'hidden mod', 'not published', 'not found'
+  ]);
+  const NOTICE_TITLE = /<h3\b[^>]*\bid=["']Notice\d+-title["'][^>]*>([^<]{1,80})<\/h3>/gi;
+  const MOD_PAGE_SECTION = /<section\b[^>]*\bid=["']section["']/i;
+
+  function unavailableNotice(content) {
+    for (const match of String(content || '').slice(0, MAX_NOTICE_SCAN_CHARS).matchAll(NOTICE_TITLE)) {
+      const title = match[1].replace(/\s+/g, ' ').trim();
+      if (UNAVAILABLE_NOTICE_TITLES.includes(title.toLowerCase())) return `"${title}" notice`;
+    }
+    return '';
+  }
+
+  // A page that still renders a mod is not a gone one, whatever a notice above it or its description says.
+  function unavailablePage(rawContent, content) {
+    if (MOD_PAGE_SECTION.test(rawContent.slice(0, MAX_NOTICE_SCAN_CHARS))) return '';
+    return unavailableNotice(rawContent) || unavailablePhrase(content.toLowerCase());
   }
 
   function parseJsonResponse(content, contentType) {
@@ -159,7 +185,7 @@
       }
     }
 
-    const unavailable = unavailablePhrase(content.toLowerCase());
+    const unavailable = unavailablePage(rawContent, content);
     if (unavailable && !offersAFile) {
       return { code: 'mod_unavailable', reason: `hidden/removed mod page markup: ${unavailable}` };
     }
@@ -176,5 +202,5 @@
     return null;
   }
 
-  globalThis.NXTKResponseClassifier = Object.freeze({ classify, MAX_CLASSIFY_CHARS });
+  globalThis.NXTKResponseClassifier = Object.freeze({ classify, unavailableNotice, MAX_CLASSIFY_CHARS });
 })();
