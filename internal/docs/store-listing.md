@@ -30,18 +30,16 @@ On collection pages you can download the whole collection, or only the files you
 It runs only on nexusmods.com and keeps everything in your browser. You must be signed in to your own Nexus Mods account; it does not unlock Premium content and is not affiliated with Nexus Mods.
 ```
 
-## What's new — 2.7.1
+## What's new — 2.7.2
 
 Dashboard-only field, not covered by `_locales`. Paste as-is:
 
 ```
-A clear answer for mods that are gone.
+Vortex downloads work again on older browsers.
 
-When a mod has been removed by its author or by Nexus staff, hidden, never published, or no longer exists, Nexus Mods shows a notice instead of the mod page. The extension did not recognise most of these notices: opening such a file page started a download, found no link, and suggested checking that you are signed in, with a Retry button that could never work.
+On Chrome, Edge and Opera before version 130, every Vortex download ended with "Nexus Mods did not return a valid Vortex link", even though Nexus had sent one. Those browsers read Vortex links differently, and the extension refused them. It now reads them the same way in every browser, so the Vortex button, automatic starts and Vortex collection runs work there too.
 
-It now reads the notice. A file page that shows one no longer starts a download, and a download or collection item that points to such a mod ends with "This mod has been hidden or removed", without Retry.
-
-A working mod whose description mentions a removed mod is no longer mistaken for a removed one.
+When Nexus keeps asking for a browser check, the advice now says what usually causes it: a VPN or proxy. If the check keeps coming back, turn it off and try again.
 ```
 
 Keep this honest and specific. The setting caused support confusion precisely because the

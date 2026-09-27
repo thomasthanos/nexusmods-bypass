@@ -135,7 +135,7 @@
     "message": "Devam etmeden önce Nexus Mods tarayıcı doğrulaması istiyor."
   },
   "errCloudflareFix": {
-    "message": "Doğrulamayı dosya sayfasında tamamlayıp tekrar deneyin."
+    "message": "Doğrulamayı dosya sayfasında tamamlayıp tekrar deneyin. Tekrar tekrar çıkıyorsa VPN'inizi veya proxy'nizi kapatın."
   },
   "errRateLimitedMsg": {
     "message": "Nexus Mods geçici olarak istekleri sınırlıyor."

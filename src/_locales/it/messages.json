@@ -135,7 +135,7 @@
     "message": "Nexus Mods richiede una verifica del browser prima di continuare."
   },
   "errCloudflareFix": {
-    "message": "Completa la verifica sulla pagina del file, poi riprova."
+    "message": "Completa la verifica sulla pagina del file, poi riprova. Se continua a comparire, disattiva la VPN o il proxy."
   },
   "errRateLimitedMsg": {
     "message": "Nexus Mods sta limitando temporaneamente le richieste."

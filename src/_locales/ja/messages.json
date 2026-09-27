@@ -135,7 +135,7 @@
     "message": "続行する前に Nexus Mods のブラウザー認証が必要です。"
   },
   "errCloudflareFix": {
-    "message": "ファイルページで認証を完了してから再試行してください。"
+    "message": "ファイルページで認証を完了してから再試行してください。何度も表示される場合は、VPN またはプロキシをオフにしてください。"
   },
   "errRateLimitedMsg": {
     "message": "Nexus Mods が一時的にリクエストを制限しています。"

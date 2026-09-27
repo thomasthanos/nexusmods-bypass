@@ -135,7 +135,7 @@
     "message": "Nexus Mods 需要先完成浏览器验证。"
   },
   "errCloudflareFix": {
-    "message": "在文件页面完成验证后重试。"
+    "message": "在文件页面完成验证后重试。如果验证反复出现，请关闭 VPN 或代理。"
   },
   "errRateLimitedMsg": {
     "message": "Nexus Mods 正在临时限制请求频率。"

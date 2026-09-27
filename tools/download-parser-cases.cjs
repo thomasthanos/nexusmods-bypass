@@ -4,6 +4,25 @@ const MANUAL_URL = 'https://premium-files.nexus-cdn.com/100/200/manual.zip?key=a
 const SECOND_MANUAL_URL = 'https://premium-files.nexus-cdn.com/100/201/second.zip?key=b&expires=3';
 const VORTEX_URL = 'nxm://newvegas/mods/100/files/200?key=secret&expires=2000000000&user_id=7';
 
+// Chromium before 130 parsed a URL whose scheme it did not know as an opaque path, so
+// nxm://newvegas/mods/100/files/200 had an empty host and the pathname //newvegas/mods/100/files/200.
+// Chrome 119 still did (#9), and every Vortex link was refused as unsigned.
+const SPECIAL_SCHEMES = new Set(['http:', 'https:', 'ws:', 'wss:', 'ftp:', 'file:']);
+class LegacyChromiumURL extends URL {
+  get host() {
+    return SPECIAL_SCHEMES.has(this.protocol) ? super.host : '';
+  }
+
+  get hostname() {
+    return SPECIAL_SCHEMES.has(this.protocol) ? super.hostname : '';
+  }
+
+  get pathname() {
+    if (SPECIAL_SCHEMES.has(this.protocol) || !super.host) return super.pathname;
+    return `//${super.host}${super.pathname}`;
+  }
+}
+
 function embeddedFileAttribute({
   manual = MANUAL_URL,
   vortex = VORTEX_URL,
@@ -218,6 +237,7 @@ function runParserCases({ parse, parseNxmDownloadLink, label }) {
 }
 
 module.exports = {
+  LegacyChromiumURL,
   MANUAL_URL,
   SECOND_MANUAL_URL,
   VORTEX_URL,

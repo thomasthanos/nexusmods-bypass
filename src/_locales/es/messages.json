@@ -135,7 +135,7 @@
     "message": "Nexus Mods requiere una verificación del navegador antes de continuar."
   },
   "errCloudflareFix": {
-    "message": "Completa la verificación en la página del archivo y reinténtalo."
+    "message": "Completa la verificación en la página del archivo y reinténtalo. Si sigue apareciendo, desactiva tu VPN o proxy."
   },
   "errRateLimitedMsg": {
     "message": "Nexus Mods está limitando temporalmente las solicitudes."

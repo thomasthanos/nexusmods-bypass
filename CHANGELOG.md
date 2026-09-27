@@ -7,6 +7,32 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.7.2] - 2026-09-27
+
+### Fixed
+
+- **Vortex downloads work on Chrome, Edge and Opera before version 130.** Those browsers read a link
+  such as `nxm://masseffectlegendaryedition/mods/23/files/12218?key=…` as having no game in it, since
+  their URL parser did not yet handle schemes it did not know. The check every Vortex link goes through
+  looked for the game there, found none, and refused the signed link Nexus had just generated, so every
+  Vortex button, automatic start and Vortex collection run ended with *Nexus Mods did not return a valid
+  Vortex link* (#9). The link is now read by hand, the same way in every browser, and still has to name a
+  game, a mod, a file, a key, an expiry and a user. Bug reports name the link correctly on those browsers
+  too.
+
+### Changed
+
+- **The Cloudflare advice mentions VPNs and proxies.** When Nexus keeps asking for a browser check, the
+  usual cause is a VPN or proxy whose address Cloudflare distrusts, and completing the check does not
+  help for long. The recovery text now says *If it keeps coming back, turn off your VPN or proxy*, in all
+  thirteen languages (#8).
+
+### Internal
+
+- `download-parser-cases.cjs` exports `LegacyChromiumURL`, a stand-in for the URL parser of Chromium
+  before 130. The parser cases run under it in `download-parser-test.cjs`, and `nnw-parser-test.cjs`
+  replays the reported Vortex download with it.
+
 ## [2.7.1] - 2026-09-17
 
 ### Fixed

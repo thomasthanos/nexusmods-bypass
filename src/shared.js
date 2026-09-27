@@ -295,6 +295,15 @@
   const URL_SHAPE = /^[a-z][a-z0-9+.-]*:\/\//i;
   const EXTENSION_ORIGIN_PATTERN = /(?:chrome|moz|safari-web|ms-browser)-extension:\/\/[a-z0-9._-]+\//gi;
 
+  // The game and path of an nxm:// link, without credentials or a port. Read by hand: Chromium before
+  // 130 parsed a URL of a scheme it did not know as an opaque path, with an empty hostname.
+  const NXM_HOST_AND_PATH = /^nxm:\/\/(?:[^/?#]*@)?([^/?#:]*)(?::[^/?#]*)?([^?#]*)/i;
+
+  function nxmHostAndPath(raw) {
+    const parts = NXM_HOST_AND_PATH.exec(raw);
+    return parts ? { hostname: normalizeHostname(parts[1]), pathname: parts[2] } : null;
+  }
+
   function sanitizeUrlForReport(url) {
     const raw = String(url ?? '').trim();
     if (!raw) return '';
@@ -302,7 +311,8 @@
     try {
       const parsed = new URL(raw);
       if (parsed.protocol === 'nxm:') {
-        return 'nxm://' + parsed.hostname + parsed.pathname + ' (query removed)';
+        const nxm = nxmHostAndPath(raw) || parsed;
+        return 'nxm://' + nxm.hostname + nxm.pathname + ' (query removed)';
       }
       const fileId = parsed.searchParams.get('file_id');
       const base = parsed.protocol + '//' + parsed.host + parsed.pathname;
@@ -355,7 +365,7 @@
       if (parsed.protocol !== 'nxm:') return { ok: false, detail: 'bad-protocol:' + parsed.protocol.replace(':', '') };
       const missing = ['key', 'expires', 'user_id'].filter((name) => !parsed.searchParams.get(name));
       if (missing.length) return { ok: false, detail: 'missing-nxm-params:' + missing.join(',') };
-      return { ok: true, url: raw, hostname: normalizeHostname(parsed.hostname) };
+      return { ok: true, url: raw, hostname: normalizeHostname((nxmHostAndPath(raw) || parsed).hostname) };
     }
 
     if (parsed.protocol !== 'https:') return { ok: false, detail: 'bad-protocol:' + parsed.protocol.replace(':', '') };

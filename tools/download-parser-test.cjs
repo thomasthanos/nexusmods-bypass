@@ -1,13 +1,19 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { MANUAL_URL, SECOND_MANUAL_URL, VORTEX_URL, runParserCases } = require('./download-parser-cases.cjs');
+const {
+  LegacyChromiumURL,
+  MANUAL_URL,
+  SECOND_MANUAL_URL,
+  VORTEX_URL,
+  runParserCases
+} = require('./download-parser-cases.cjs');
 
 // The parser as the service worker loads it: through importScripts, with no window, document or location.
-function loadWorkerParser({ withShared = true } = {}) {
+function loadWorkerParser({ withShared = true, url = URL } = {}) {
   const context = vm.createContext({
     console,
-    URL,
+    URL: url,
     URLSearchParams,
     chrome: {
       runtime: { id: 'test-extension-id', lastError: null },
@@ -122,7 +128,35 @@ function failsClosedWithoutShared() {
     'a signed nxm link is still checked by the parser itself');
 }
 
+function readsVortexLinksOnLegacyChromium() {
+  const legacy = new LegacyChromiumURL(VORTEX_URL);
+  assert.equal(legacy.hostname, '', 'the stand-in reproduces the old parser');
+  assert.equal(legacy.pathname, '//newvegas/mods/100/files/200', 'down to the pathname');
+
+  const context = loadWorkerParser({ url: LegacyChromiumURL });
+  const Parser = context.NXTKDownloadParser;
+  runParserCases({
+    parse: (text, options) => Parser.findDownloadLink(text, options),
+    parseNxmDownloadLink: (text) => Parser.findSignedNxmLink(text),
+    label: 'legacy chromium'
+  });
+  assert.equal(Parser.isSignedNxmLink(VORTEX_URL), true, 'a signed handoff link is recognised on Chrome 119');
+  assert.equal(Parser.findSignedNxmLink(JSON.stringify({ url: VORTEX_URL })), VORTEX_URL,
+    'and found in the GenerateDownloadUrl answer');
+  assert.equal(Parser.isSignedNxmLink('nxm://newvegas/mods/x/files/200?key=a&expires=1&user_id=7'), false,
+    'the checks still apply there');
+  assert.equal(Parser.isSignedNxmLink('nxm://user@newvegas/mods/100/files/200?key=a&expires=1&user_id=7'), false,
+    'a link with credentials in it is refused');
+  assert.equal(Parser.isSignedNxmLink('nxm://newvegas:8080/mods/100/files/200?key=a&expires=1&user_id=7'), false,
+    'and so is one with a port');
+  assert.equal(context.NXTK.sanitizeUrlForReport(VORTEX_URL), 'nxm://newvegas/mods/100/files/200 (query removed)',
+    'a report names the link the same way');
+  assert.equal(context.NXTK.validateDownloadTarget(VORTEX_URL, { method: 0 }).hostname, 'newvegas',
+    'and the download check reads its game');
+}
+
 const Parser = workerRunsEveryCase();
 workerEdgeCases(Parser);
 failsClosedWithoutShared();
+readsVortexLinksOnLegacyChromium();
 console.log('download-url parser behavior OK');

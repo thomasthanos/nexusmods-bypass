@@ -1,7 +1,13 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { MANUAL_URL, SECOND_MANUAL_URL, VORTEX_URL, runParserCases } = require('./download-parser-cases.cjs');
+const {
+  LegacyChromiumURL,
+  MANUAL_URL,
+  SECOND_MANUAL_URL,
+  VORTEX_URL,
+  runParserCases
+} = require('./download-parser-cases.cjs');
 
 const SOURCE_FILE = 'src/content/nnw.js';
 
@@ -47,7 +53,9 @@ function createHarness({
   scripts = [],
   responses = [],
   // With pages, requests go through the real errors.js and response classifier and are answered from this list.
-  pages = null
+  pages = null,
+  // The URL class the page sees, for a browser whose parser differs from Node's.
+  url = URL
 } = {}) {
   const parsedLocation = new URL(href);
   const calls = [];
@@ -130,7 +138,7 @@ function createHarness({
     RegExp,
     Set,
     String,
-    URL,
+    URL: url,
     URLSearchParams,
     clearInterval,
     clearTimeout,
@@ -294,6 +302,27 @@ async function removedModFlowTests() {
   ], 'nothing is asked a second time');
 }
 
+// Bug report #9: on Chrome 119 the Vortex button of masseffectlegendaryedition/mods/23 ended in "Nexus Mods
+// did not return a valid Vortex link" every time. Nexus had answered with a signed link; that browser gave
+// nxm:// URLs no host, and the check refused it.
+async function legacyChromiumVortexTests() {
+  const href = 'https://www.nexusmods.com/masseffectlegendaryedition/mods/23?tab=files&file_id=12218&nmm=1';
+  const link = 'nxm://masseffectlegendaryedition/mods/23/files/12218?key=signed&expires=2000000000&user_id=7';
+  const harness = createHarness({
+    href,
+    url: LegacyChromiumURL,
+    responses: [
+      response('<html><body><div id="mainContent">Slow download</div></body></html>', { finalUrl: href }),
+      response(JSON.stringify({ url: link }))
+    ]
+  });
+
+  const result = await harness.api.getDownloadUrl({ fileId: '12218', isNMM: true, href });
+  assert.equal(result.error, undefined, 'no error is reported');
+  assert.equal(result.url, link, 'the signed link Nexus generated is handed to Vortex');
+  assert.equal(new URLSearchParams(harness.calls[1].options.body).get('nmm'), '1');
+}
+
 function modPageDetectionTests() {
   const cases = [
     ['https://www.nexusmods.com/newvegas/mods/100', true, 'a mod page is handled'],
@@ -312,6 +341,7 @@ Promise.resolve()
   .then(modPageDetectionTests)
   .then(downloadFlowTests)
   .then(removedModFlowTests)
+  .then(legacyChromiumVortexTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {
     console.error(error);

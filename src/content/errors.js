@@ -35,7 +35,7 @@ window.NexusExt = window.NexusExt || {};
     },
     cloudflare: {
       userMessage: 'Nexus Mods needs a browser verification before continuing.',
-      recovery: 'Complete the verification on the file page, then retry.',
+      recovery: 'Complete the verification on the file page, then retry. If it keeps coming back, turn off your VPN or proxy.',
       retryable: true,
       blocking: true
     },

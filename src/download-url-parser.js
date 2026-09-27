@@ -44,6 +44,10 @@
   const CDN_TOKEN = /https?:\/\/[a-z0-9-]+\.nexus-cdn\.com[^\s"'<>]*/gi;
   const GAME_DOMAIN = /^[a-z0-9][a-z0-9-]{0,63}$/i;
   const NXM_FILE_PATH = /^\/mods\/\d{1,12}\/files\/\d{1,12}\/?$/i;
+  // nxm://<authority><path>?<query>, with no fragment. Split by hand, not by URL: Chromium before 130
+  // parsed a URL of a scheme it did not know as an opaque path with no host, so every link failed.
+  const NXM_LINK = /^nxm:\/\/([^/?#]*)([^?#]*)(?:\?([^#]*))?$/i;
+  const NXM_FORBIDDEN_CHARS = /[\s\u0000-\u001f\u007f]/;
   const RESOLVER_PATH = /\/api\/files\/\d+|\/Core\/Libs\/Common\/Managers\/Downloads$/i;
 
   function toFileId(value) {
@@ -83,20 +87,16 @@
   }
 
   // nxm://<game>/mods/<mod>/files/<file>?key=…&expires=…&user_id=… — Vortex refuses anything less.
+  // The authority has to be a bare game domain, which leaves no room for credentials or a port.
   function isSignedNxm(candidate) {
-    if (!/^nxm:\/\//i.test(candidate) || candidate.length > MAX_URL_CHARS) return false;
-    let parsed;
-    try {
-      parsed = new URL(candidate);
-    } catch (_) {
-      return false;
-    }
-    if (parsed.protocol !== 'nxm:' || parsed.username || parsed.password || parsed.hash) return false;
-    if (!GAME_DOMAIN.test(parsed.hostname) || !NXM_FILE_PATH.test(parsed.pathname)) return false;
-    const key = parsed.searchParams.get('key') || '';
+    if (candidate.length > MAX_URL_CHARS || NXM_FORBIDDEN_CHARS.test(candidate)) return false;
+    const parts = NXM_LINK.exec(candidate);
+    if (!parts || !GAME_DOMAIN.test(parts[1]) || !NXM_FILE_PATH.test(parts[2])) return false;
+    const params = new URLSearchParams(parts[3] || '');
+    const key = params.get('key') || '';
     return key.length > 0 && key.length <= 512
-      && /^\d+$/.test(parsed.searchParams.get('expires') || '')
-      && /^\d+$/.test(parsed.searchParams.get('user_id') || '');
+      && /^\d+$/.test(params.get('expires') || '')
+      && /^\d+$/.test(params.get('user_id') || '');
   }
 
   // The first signed nxm:// link anywhere in the text, or null.

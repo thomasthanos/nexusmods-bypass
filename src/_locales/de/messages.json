@@ -135,7 +135,7 @@
     "message": "Nexus Mods verlangt vor dem Fortfahren eine Browser-Überprüfung."
   },
   "errCloudflareFix": {
-    "message": "Führen Sie die Überprüfung auf der Dateiseite durch und versuchen Sie es erneut."
+    "message": "Führen Sie die Überprüfung auf der Dateiseite durch und versuchen Sie es erneut. Kommt sie immer wieder, schalten Sie Ihr VPN oder Ihren Proxy aus."
   },
   "errRateLimitedMsg": {
     "message": "Nexus Mods drosselt derzeit die Anzahl der Anfragen."

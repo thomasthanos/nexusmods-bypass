@@ -153,7 +153,7 @@
     "description": "Error message: Cloudflare challenge."
   },
   "errCloudflareFix": {
-    "message": "Complete the verification on the file page, then retry.",
+    "message": "Complete the verification on the file page, then retry. If it keeps coming back, turn off your VPN or proxy.",
     "description": "Recovery advice for errCloudflareMsg."
   },
   "errRateLimitedMsg": {
