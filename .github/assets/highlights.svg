@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="82" viewBox="0 0 660 82" role="img" aria-labelledby="title">
+  <title id="title">Manifest V3, 13 languages, local-first</title>
+  <style>
+    text { font-family: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif; }
+    .signal { animation: pulse 3s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <defs>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#edaa72"/><stop offset=".5" stop-color="#8e9ffd"/><stop offset="1" stop-color="#74dacf"/></linearGradient>
+  </defs>
+  <rect x="1" y="1" width="658" height="80" rx="21" fill="#111c31" stroke="url(#edge)" stroke-opacity=".65"/>
+  <path d="M220 19v44M440 19v44" stroke="#506482" stroke-opacity=".65"/>
+  <g text-anchor="middle" font-size="20" font-weight="760" fill="#e9effa">
+    <text x="110" y="48">Manifest V3</text>
+    <text x="330" y="48">13 languages</text>
+    <text x="550" y="48">Local-first</text>
+  </g>
+  <circle class="signal" cx="110" cy="63" r="3" fill="#f1b57e"/>
+  <circle class="signal" cx="330" cy="63" r="3" fill="#9aaafa" style="animation-delay:-1s"/>
+  <circle class="signal" cx="550" cy="63" r="3" fill="#79dacd" style="animation-delay:-2s"/>
+</svg>

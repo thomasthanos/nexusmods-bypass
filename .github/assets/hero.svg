@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="450" viewBox="0 0 1100 450" role="img" aria-labelledby="title description">
+  <title id="title">NexusMods Bypass</title>
+  <desc id="description">An animated collection card sends files through a calm download queue above the project name.</desc>
+  <style>
+    text { font-family: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif; }
+    .card { animation: hover 4.5s ease-in-out infinite; }
+    .back { animation: hover 5.3s ease-in-out -1.5s infinite; }
+    .route { animation: travel 8s linear infinite; }
+    .packet { animation: packet 4s ease-in-out infinite; }
+    .packet.delay { animation-delay: -2s; }
+    .star { animation: twinkle 5s ease-in-out infinite; }
+    .star.delay { animation-delay: -2.3s; }
+    .cursor { animation: blink 1.2s steps(1) infinite; }
+    .node { animation: node 3s ease-in-out infinite; }
+    @keyframes hover { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+    @keyframes travel { to { stroke-dashoffset: -60; } }
+    @keyframes packet { 0%, 100% { opacity: .35; transform: translateX(0); } 50% { opacity: 1; transform: translateX(20px); } }
+    @keyframes twinkle { 0%, 100% { opacity: .2; } 50% { opacity: .9; } }
+    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes node { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#121c31"/><stop offset=".58" stop-color="#0b1424"/><stop offset="1" stop-color="#08111e"/>
+    </linearGradient>
+    <radialGradient id="amber" cx=".5" cy=".5" r=".5">
+      <stop stop-color="#f4a95f" stop-opacity=".25"/><stop offset="1" stop-color="#f4a95f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="teal" cx=".5" cy=".5" r=".5">
+      <stop stop-color="#65d9cf" stop-opacity=".18"/><stop offset="1" stop-color="#65d9cf" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#f4ab69"/><stop offset=".5" stop-color="#899bff"/><stop offset="1" stop-color="#70dcd0"/>
+    </linearGradient>
+    <linearGradient id="cardFill" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#202e4c"/><stop offset="1" stop-color="#111b31"/>
+    </linearGradient>
+    <linearGradient id="progress" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#efa76d"/><stop offset="1" stop-color="#6fe0d1"/>
+    </linearGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0v44" fill="none" stroke="#a2b6db" stroke-opacity=".06"/>
+    </pattern>
+    <clipPath id="frame"><rect width="1100" height="450" rx="28"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1100" height="450" fill="url(#background)"/>
+    <rect width="1100" height="450" fill="url(#grid)"/>
+    <ellipse cx="430" cy="95" rx="360" ry="210" fill="url(#amber)"/>
+    <ellipse cx="795" cy="260" rx="390" ry="245" fill="url(#teal)"/>
+    <path d="M-20 1h1140" stroke="url(#edge)" stroke-width="3"/>
+    <g fill="#c7d7ef">
+      <circle class="star" cx="106" cy="78" r="2"/><circle class="star delay" cx="963" cy="108" r="2"/>
+      <circle class="star delay" cx="235" cy="300" r="1.5"/><circle class="star" cx="862" cy="52" r="1.5"/>
+      <circle class="star" cx="1025" cy="354" r="1.7"/>
+    </g>
+    <path d="M250 141h173M677 141h173" fill="none" stroke="#47617b" stroke-width="2"/>
+    <path class="route" d="M250 141h173M677 141h173" fill="none" stroke="url(#progress)" stroke-width="2" stroke-dasharray="20 40" stroke-linecap="round"/>
+    <g class="packet"><circle cx="319" cy="141" r="5" fill="#f7b773"/></g>
+    <g class="packet delay"><circle cx="752" cy="141" r="5" fill="#7de2d4"/></g>
+    <g class="back">
+      <rect x="427" y="55" width="218" height="151" rx="24" fill="#17243b" stroke="#7486ac" stroke-opacity=".5" transform="rotate(-7 536 130)"/>
+      <rect x="447" y="58" width="218" height="151" rx="24" fill="#1b2a44" stroke="#7486ac" stroke-opacity=".6" transform="rotate(6 556 133)"/>
+    </g>
+    <g class="card">
+      <rect x="431" y="51" width="238" height="162" rx="25" fill="url(#cardFill)" stroke="#a6b6d4" stroke-opacity=".63" stroke-width="1.5"/>
+      <rect x="449" y="69" width="202" height="126" rx="16" fill="#0b1426" stroke="#3d526e"/>
+      <circle cx="470" cy="89" r="4" fill="#ef9caa"/><circle cx="486" cy="89" r="4" fill="#efbb76"/><circle cx="502" cy="89" r="4" fill="#79d9b7"/>
+      <text x="625" y="94" text-anchor="end" fill="#a8b9d7" font-size="11" font-weight="700" letter-spacing="2">QUEUE / READY</text>
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M476 125h28l17 18h25" stroke="#f5b071" stroke-width="5"/>
+        <path d="M476 160h39l19-17h12" stroke="#85a7ff" stroke-width="5"/>
+        <path d="M546 143h77" stroke="#74d9d0" stroke-width="5"/>
+      </g>
+      <circle class="node" cx="475" cy="125" r="7" fill="#f4ae71"/>
+      <circle class="node" cx="475" cy="160" r="7" fill="#91a4ff" style="animation-delay:-1s"/>
+      <circle class="node" cx="624" cy="143" r="8" fill="#74ded0" style="animation-delay:-2s"/>
+      <rect x="471" y="180" width="155" height="3" rx="1.5" fill="#31415e"/>
+      <rect x="471" y="180" width="112" height="3" rx="1.5" fill="url(#progress)"/>
+    </g>
+    <text x="550" y="280" text-anchor="middle" fill="#f8f9ff" font-size="64" font-weight="800" letter-spacing="-2.2">NexusMods Bypass<tspan fill="#75ddd0">.</tspan></text>
+    <text x="550" y="322" text-anchor="middle" fill="#b7c4da" font-size="27" font-weight="500">Collections in motion. Downloads under control.</text>
+    <g fill="none" stroke="#5c7093" stroke-opacity=".72">
+      <rect x="351" y="352" width="119" height="34" rx="17"/><rect x="482" y="352" width="136" height="34" rx="17"/><rect x="630" y="352" width="119" height="34" rx="17"/>
+    </g>
+    <g fill="#dce6f6" font-size="13" font-weight="750" letter-spacing="1.8" text-anchor="middle">
+      <text x="410" y="374">QUEUE</text><text x="550" y="374">PACE</text><text x="690" y="374">RESUME</text>
+    </g>
+    <circle class="cursor" cx="756" cy="370" r="3" fill="#73dfd1"/>
+  </g>
+  <rect x="1" y="1" width="1098" height="448" rx="27" fill="none" stroke="url(#edge)" stroke-opacity=".7" stroke-width="1.5"/>
+</svg>

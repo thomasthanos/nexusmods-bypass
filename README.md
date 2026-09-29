@@ -1,23 +1,24 @@
 <div align="center">
 
-<img src=".github/assets/banner-nexus-v2.svg?v=2.7.3" alt="NexusMods Bypass">
+<img src=".github/assets/hero.svg" alt="NexusMods Bypass — collections in motion, downloads under control" width="100%">
 
-[![Manifest V3](.github/assets/badge-manifest.svg)](src/manifest.json)
-[![13 languages](.github/assets/badge-lang-13.svg)](src/_locales)
-[![Data stays local](.github/assets/badge-local.svg)](PRIVACY.md)
 <br>
-[![Features](.github/assets/btn-features.svg)](#-features)
-[![Settings](.github/assets/btn-settings.svg)](#-settings)
-[![Permissions](.github/assets/btn-permissions.svg)](#-permissions-explained)
+
+<img src=".github/assets/highlights.svg" alt="Manifest V3 · 13 languages · local-first" width="660">
+
+<br>
+
+<a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj"><img src=".github/assets/btn-chrome.svg" alt="Get it for Chrome"></a>
+<a href="https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/"><img src=".github/assets/btn-firefox.svg" alt="Get it for Firefox"></a>
+<a href="https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa"><img src=".github/assets/btn-edge.svg" alt="Get it for Edge"></a>
+
+<br>
+
+[![Features](.github/assets/btn-features.svg)](#features)
+[![Settings](.github/assets/btn-settings.svg)](#settings)
+[![Permissions](.github/assets/btn-permissions.svg)](#permissions)
 [![Privacy](.github/assets/btn-privacy.svg)](PRIVACY.md)
-[![Troubleshooting](.github/assets/btn-troubleshooting.svg)](#-troubleshooting)
-
-<img src=".github/assets/spec-nexus-v2.svg?v=2.7.3-pos" alt="At a glance">
-
-<br>
-<a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj"><img src=".github/assets/btn-chrome.svg" alt="Chrome"></a>
-<a href="https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/"><img src=".github/assets/btn-firefox.svg" alt="Firefox"></a>
-<a href="https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa"><img src=".github/assets/btn-edge.svg" alt="Edge"></a>
+[![Troubleshooting](.github/assets/btn-troubleshooting.svg)](#troubleshooting)
 
 </div>
 
@@ -34,6 +35,8 @@ list, paces itself so Nexus does not rate-limit you, and keeps a local history s
 can pick up where it stopped instead of starting over.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
+
+<a id="features"></a>
 
 ## <img src=".github/assets/icon-sparkle.svg" width="22" align="middle"> Features
 
@@ -125,6 +128,8 @@ If you want to install manually from the source releases:
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
+<a id="settings"></a>
+
 ## <img src=".github/assets/icon-settings.svg" width="22" align="middle"> Settings
 
 Reachable from the popup → **Page settings**. Changes save instantly.
@@ -139,6 +144,8 @@ Reachable from the popup → **Page settings**. Changes save instantly.
 **Restore Defaults** resets everything and refreshes the Nexus page.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
+
+<a id="permissions"></a>
 
 ## <img src=".github/assets/icon-key.svg" width="22" align="middle"> Permissions explained
 
@@ -167,11 +174,15 @@ account.
 
 ## <img src=".github/assets/icon-code.svg" width="22" align="middle"> How the code is organised
 
-![NexusMods Bypass source layout](.github/assets/tree-nexus.svg)
+<div align="center">
+<img src=".github/assets/tree-nexus.svg" alt="Source map of the extension: manifest, background queue, content scripts, popup, locales and tools" width="760">
+</div>
 
 Contributors: run `node tools/check-locales.mjs` before opening a PR that touches strings.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
+
+<a id="troubleshooting"></a>
 
 ## <img src=".github/assets/icon-help.svg" width="22" align="middle"> Troubleshooting
 
@@ -252,3 +263,9 @@ other original extension code remains under the repository licence, including
 [![Read the main licence](.github/assets/btn-licence-read.svg)](LICENSE)
 
 **Not affiliated with, endorsed by, or connected to Nexus Mods.**
+
+<img src=".github/assets/divider.svg" width="100%" alt="">
+
+<div align="center">
+<img src=".github/assets/footer.svg" alt="Made for the long mod list. NexusMods Bypass by ThomasThanos." width="100%">
+</div>

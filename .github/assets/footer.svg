@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="146" viewBox="0 0 1000 146" role="img" aria-labelledby="title description">
+  <title id="title">Made for the long mod list</title>
+  <desc id="description">NexusMods Bypass, built by ThomasThanos.</desc>
+  <style>
+    text { font-family: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif; }
+    .line { animation: travel 9s linear infinite; }
+    .light { animation: pulse 3s ease-in-out infinite; }
+    @keyframes travel { to { stroke-dashoffset: -56; } }
+    @keyframes pulse { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#18243d"/><stop offset="1" stop-color="#0d1729"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#f1b071"/><stop offset=".55" stop-color="#8c9dfb"/><stop offset="1" stop-color="#79ded1"/></linearGradient>
+  </defs>
+  <rect x="1" y="1" width="998" height="144" rx="24" fill="url(#bg)" stroke="url(#edge)" stroke-opacity=".68" stroke-width="1.5"/>
+  <path d="M55 75h114" fill="none" stroke="#405677" stroke-width="3" stroke-linecap="round"/>
+  <path class="line" d="M55 75h114" fill="none" stroke="url(#edge)" stroke-width="3" stroke-dasharray="18 38" stroke-linecap="round"/>
+  <circle class="light" cx="55" cy="75" r="7" fill="#f2b77c"/>
+  <circle class="light" cx="169" cy="75" r="7" fill="#79ded1" style="animation-delay:-1.5s"/>
+  <text x="500" y="69" text-anchor="middle" fill="#f6f8ff" font-size="31" font-weight="800">Made for the long mod list.</text>
+  <text x="500" y="103" text-anchor="middle" fill="#adbed8" font-size="18">NexusMods Bypass · built by ThomasThanos</text>
+  <path d="M830 75h114" fill="none" stroke="#405677" stroke-width="3" stroke-linecap="round"/>
+  <path class="line" d="M830 75h114" fill="none" stroke="url(#edge)" stroke-width="3" stroke-dasharray="18 38" stroke-linecap="round"/>
+  <circle class="light" cx="830" cy="75" r="7" fill="#8e9ffd" style="animation-delay:-.8s"/>
+  <circle class="light" cx="944" cy="75" r="7" fill="#79ded1" style="animation-delay:-2s"/>
+</svg>
