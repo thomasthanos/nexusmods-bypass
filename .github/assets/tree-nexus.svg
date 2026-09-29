@@ -1,53 +1,60 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="570" viewBox="0 0 760 570" role="img" aria-labelledby="title description">
-  <title id="title">NexusMods Bypass source tree</title>
-  <desc id="description">The manifest, background queue, page controls, popup, translations and build tools.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="460" viewBox="0 0 760 460" role="img" aria-labelledby="title description">
+  <title id="title">NexusMods Bypass source map</title>
+  <desc id="description">A compact view of the manifest, background queue, content scripts, popup, locales and tools.</desc>
   <style>
     text { font-family: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif; }
-    .branch { animation: flow 8s linear infinite; }
+    .rail { animation: flow 8s linear infinite; }
     .dot { animation: pulse 3s ease-in-out infinite; }
-    @keyframes flow { to { stroke-dashoffset: -56; } }
-    @keyframes pulse { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+    @keyframes flow { to { stroke-dashoffset: -52; } }
+    @keyframes pulse { 50% { opacity: .4; } }
     @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
   </style>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#142039"/><stop offset="1" stop-color="#0b1425"/></linearGradient>
-    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f0ae73"/><stop offset=".55" stop-color="#8d9fff"/><stop offset="1" stop-color="#70d8d0"/></linearGradient>
-    <linearGradient id="rail" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#eeab70"/><stop offset=".5" stop-color="#8a9fff"/><stop offset="1" stop-color="#70d9cf"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#efad73"/><stop offset=".55" stop-color="#90a0fa"/><stop offset="1" stop-color="#70d9cf"/></linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#efa96f"/><stop offset=".5" stop-color="#90a0ff"/><stop offset="1" stop-color="#70d9cf"/></linearGradient>
   </defs>
-  <rect x="1" y="1" width="758" height="568" rx="24" fill="url(#bg)" stroke="url(#edge)" stroke-opacity=".7" stroke-width="1.5"/>
-  <rect x="22" y="22" width="716" height="86" rx="18" fill="#202f4d" stroke="#7d91b4" stroke-opacity=".5"/>
-  <rect x="38" y="40" width="50" height="50" rx="13" fill="#edab71" fill-opacity=".15" stroke="#edab71" stroke-opacity=".75"/>
-  <path d="M51 72l12-20 12 20-12 8-12-8Z" fill="none" stroke="#f3bd89" stroke-width="2.6" stroke-linejoin="round"/>
-  <text x="105" y="59" fill="#9fafd0" font-size="13" font-weight="750" letter-spacing="2.1">SOURCE MAP</text>
-  <text x="105" y="86" fill="#f7f8ff" font-size="27" font-weight="800">nexusmods-bypass/</text>
-  <path d="M66 110v407" stroke="#405474" stroke-width="2.5"/>
-  <path class="branch" d="M66 110v407" stroke="url(#rail)" stroke-width="2.5" stroke-dasharray="16 40"/>
-  <g fill="none" stroke="#526582" stroke-width="2"><path d="M66 154h34M66 229h34M66 304h34M66 379h34M66 454h34M66 529h34"/></g>
-  <g fill="#111c31" stroke="#546785" stroke-opacity=".65">
-    <rect x="100" y="123" width="636" height="62" rx="15"/>
-    <rect x="100" y="198" width="636" height="62" rx="15"/>
-    <rect x="100" y="273" width="636" height="62" rx="15"/>
-    <rect x="100" y="348" width="636" height="62" rx="15"/>
-    <rect x="100" y="423" width="636" height="62" rx="15"/>
-    <rect x="100" y="498" width="636" height="62" rx="15"/>
+  <rect x="1" y="1" width="758" height="458" rx="22" fill="url(#bg)" stroke="url(#edge)" stroke-opacity=".75" stroke-width="1.5"/>
+  <rect x="20" y="20" width="720" height="70" rx="17" fill="#202e4b" stroke="#7f92b7" stroke-opacity=".5"/>
+  <rect x="35" y="33" width="43" height="43" rx="12" fill="#efa96f" fill-opacity=".14" stroke="#efa96f" stroke-opacity=".75"/>
+  <path d="M48 62l9-16 9 16-9 7-9-7Z" fill="none" stroke="#f4bd8c" stroke-width="2.4" stroke-linejoin="round"/>
+  <text x="96" y="48" fill="#aebbd7" font-size="11" font-weight="750" letter-spacing="1.8">SOURCE MAP</text>
+  <text x="96" y="72" fill="#f8f9ff" font-size="25" font-weight="800">nexusmods-bypass/</text>
+  <path d="M61 91v325" stroke="#405473" stroke-width="2.4"/>
+  <path class="rail" d="M61 91v325" stroke="url(#line)" stroke-width="2.4" stroke-dasharray="16 36"/>
+  <g fill="none" stroke="#506683" stroke-width="2">
+    <path d="M61 130h32M61 187h32M61 244h32M61 301h32M61 358h32M61 415h32"/>
   </g>
-  <g fill="#f1b77d"><circle class="dot" cx="66" cy="154" r="5"/><circle class="dot" cx="66" cy="229" r="5" style="animation-delay:-.5s"/></g>
-  <g fill="#8fa7ff"><circle class="dot" cx="66" cy="304" r="5" style="animation-delay:-1s"/><circle class="dot" cx="66" cy="379" r="5" style="animation-delay:-1.5s"/></g>
-  <g fill="#79dace"><circle class="dot" cx="66" cy="454" r="5" style="animation-delay:-2s"/><circle class="dot" cx="66" cy="529" r="5" style="animation-delay:-2.5s"/></g>
-  <g font-size="22" font-weight="750">
-    <text x="123" y="153" fill="#f4bc8a">manifest.json</text>
-    <text x="123" y="228" fill="#f4bc8a">background.js</text>
-    <text x="123" y="303" fill="#a7b6ff">content/</text>
-    <text x="123" y="378" fill="#a7b6ff">popup/ + onboarding/</text>
-    <text x="123" y="453" fill="#82e1d3">_locales/</text>
-    <text x="123" y="528" fill="#82e1d3">tools/</text>
+  <g fill="#111c31" stroke="#546884" stroke-opacity=".65">
+    <rect x="93" y="106" width="645" height="49" rx="13"/>
+    <rect x="93" y="163" width="645" height="49" rx="13"/>
+    <rect x="93" y="220" width="645" height="49" rx="13"/>
+    <rect x="93" y="277" width="645" height="49" rx="13"/>
+    <rect x="93" y="334" width="645" height="49" rx="13"/>
+    <rect x="93" y="391" width="645" height="49" rx="13"/>
   </g>
-  <g fill="#a9b8d0" font-size="17" font-weight="500">
-    <text x="123" y="174">Permissions and browser entry points</text>
-    <text x="123" y="249">Download queue, pacing and local history</text>
-    <text x="123" y="324">Nexus page controls, collections and Wabbajack</text>
-    <text x="123" y="399">Quick controls and first-run guide</text>
-    <text x="123" y="474">13 browser languages</text>
-    <text x="123" y="549">Checks and release packaging</text>
+  <g>
+    <circle class="dot" cx="61" cy="130" r="4.5" fill="#f0b778"/>
+    <circle class="dot" cx="61" cy="187" r="4.5" fill="#f0b778" style="animation-delay:-.5s"/>
+    <circle class="dot" cx="61" cy="244" r="4.5" fill="#9caaff" style="animation-delay:-1s"/>
+    <circle class="dot" cx="61" cy="301" r="4.5" fill="#9caaff" style="animation-delay:-1.5s"/>
+    <circle class="dot" cx="61" cy="358" r="4.5" fill="#78dfd2" style="animation-delay:-2s"/>
+    <circle class="dot" cx="61" cy="415" r="4.5" fill="#78dfd2" style="animation-delay:-2.5s"/>
+  </g>
+  <g font-size="20" font-weight="750">
+    <text x="113" y="128" fill="#f4bd8c">manifest.json</text>
+    <text x="113" y="185" fill="#f4bd8c">background.js</text>
+    <text x="113" y="242" fill="#a9b8ff">content/</text>
+    <text x="113" y="299" fill="#a9b8ff">popup/ + onboarding/</text>
+    <text x="113" y="356" fill="#84e1d4">_locales/</text>
+    <text x="113" y="413" fill="#84e1d4">tools/</text>
+  </g>
+  <g fill="#adbbd2" font-size="15" font-weight="500">
+    <text x="113" y="147">Browser entry points</text>
+    <text x="113" y="204">Queue, pacing, history</text>
+    <text x="113" y="261">Page controls, collections, Wabbajack</text>
+    <text x="113" y="318">Quick controls and first-run guide</text>
+    <text x="113" y="375">13 languages</text>
+    <text x="113" y="432">Checks and release packaging</text>
   </g>
 </svg>
