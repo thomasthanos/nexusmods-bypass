@@ -110,7 +110,13 @@ assert.equal(redact('state: interrupted'), 'state: interrupted', 'a download sta
 const verdict = (response, text) => classifyNexusResponse(response, text)?.code || null;
 assert.equal(verdict({}, '<title>Just a moment...</title>'), 'cloudflare');
 assert.equal(verdict({}, '<div id="cf-browser-verification">'), 'cloudflare');
-assert.equal(verdict({}, '<script src="/cdn-cgi/challenge-platform/x.js">'), 'cloudflare');
+assert.equal(verdict({}, '<script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1?ray=1">'), 'cloudflare');
+assert.equal(verdict({}, '<script src="/cdn-cgi/challenge-platform/h/g/orchestrate/managed/v1">'), 'cloudflare');
+assert.equal(
+  verdict({}, '<a href="/auth/sign_out"></a><script>a.src=\'/cdn-cgi/challenge-platform/scripts/jsd/main.js\';</script>'),
+  null,
+  'Cloudflare\'s passive bot-check script on an ordinary page is not a challenge (#10)'
+);
 assert.equal(verdict({ cfMitigated: 'challenge' }, ''), 'cloudflare',
   'the Cf-Mitigated header alone is enough');
 assert.notEqual(verdict({}, '<html><body>Skyrim Special Edition</body></html>'), 'cloudflare',

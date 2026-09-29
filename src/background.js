@@ -2213,6 +2213,10 @@ async function injectContentBundle(name, sender) {
   await chrome.scripting.executeScript({ target, files });
 }
 
+// The page that asked for the bundle was left or reloaded before it arrived. Nobody is waiting for
+// it, so this is not a fault worth a line in the bug report.
+const BUNDLE_TARGET_GONE = /frame with id \d+ was removed|no (?:frame|document) with id|no tab with id|tab was closed/i;
+
 // Reject untrusted senders before any privileged action.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!isTrustedSender(sender)) return false;
@@ -2222,7 +2226,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .then(() => sendResponse({ ok: true }))
       .catch((cause) => {
         const error = String(cause?.message || cause || 'bundle-load-failed');
-        recordBackgroundError('LOAD_BUNDLE', error);
+        if (!BUNDLE_TARGET_GONE.test(error)) recordBackgroundError('LOAD_BUNDLE', error);
         sendResponse({ ok: false, error });
       });
     return true;

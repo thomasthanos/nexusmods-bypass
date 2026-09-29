@@ -7,6 +7,27 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.7.3] - 2026-09-29
+
+### Fixed
+
+- **Collection runs no longer stop on a Cloudflare check that is not there.** Cloudflare adds a passive
+  bot-detection script, `/cdn-cgi/challenge-platform/scripts/jsd/main.js`, to ordinary pages. The
+  response classifier treated any mention of `challenge-platform` as a challenge, so a mod page that
+  carried the script within its first 200 KB was read as one. The background queue stopped on that file
+  with *Cloudflare verification required*, no check ever appeared because there was none, and every
+  restart stopped on the same file again (#10). Only a challenge's own `…/orchestrate/…` path counts
+  now; the header, `_cf_chl_opt` and the other challenge markers are unchanged.
+- **A page left while it loaded no longer files a background error.** When the tab navigated or
+  reloaded before a page feature finished loading, the browser answered *Frame with ID 0 was removed*
+  and the report listed it as a failed background task. Nobody is waiting for that feature any more,
+  so it is no longer logged.
+
+### Internal
+
+- The classifier tests pin the passive bot-check script on a file page and a signed-in page as not a
+  challenge, and the strong-marker cases use a real challenge path.
+
 ## [2.7.2] - 2026-09-27
 
 ### Fixed

@@ -30,16 +30,16 @@ On collection pages you can download the whole collection, or only the files you
 It runs only on nexusmods.com and keeps everything in your browser. You must be signed in to your own Nexus Mods account; it does not unlock Premium content and is not affiliated with Nexus Mods.
 ```
 
-## What's new — 2.7.2
+## What's new — 2.7.3
 
 Dashboard-only field, not covered by `_locales`. Paste as-is:
 
 ```
-Vortex downloads work again on older browsers.
+Collection downloads no longer stop on a Cloudflare check that isn't there.
 
-On Chrome, Edge and Opera before version 130, every Vortex download ended with "Nexus Mods did not return a valid Vortex link", even though Nexus had sent one. Those browsers read Vortex links differently, and the extension refused them. It now reads them the same way in every browser, so the Vortex button, automatic starts and Vortex collection runs work there too.
+Cloudflare adds a small background script to ordinary Nexus Mods pages. The extension took that script for a browser check, so a collection run could stop on a file with "Cloudflare verification required" while no check ever appeared to complete, and starting again stopped it again. Only a real Cloudflare check stops a download now.
 
-When Nexus keeps asking for a browser check, the advice now says what usually causes it: a VPN or proxy. If the check keeps coming back, turn it off and try again.
+Leaving or reloading a page while it was still loading no longer adds an error to your bug report.
 ```
 
 Keep this honest and specific. The setting caused support confusion precisely because the

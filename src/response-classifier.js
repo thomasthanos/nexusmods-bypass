@@ -9,7 +9,9 @@
   const MARKERS = Object.freeze({
     signedIn: /\/auth\/sign_out|data-testid=["']profile-image["']|id=["']profile-menu["']|"(?:is)?_?logged_?in"\s*:\s*true/i,
     fileOffer: /data-download-url\s*=|id=["']dl_link["']|(?:[?&]|&amp;)nmm=1/i,
-    cloudflareStrong: /cf-chl-interstitial|id=["']challenge-form["']|cf-mitigated|cf-browser-verification|challenge-platform|cf_chl_|attention required[^<]{0,80}cloudflare/i,
+    // Only a challenge's own orchestrate path counts: Cloudflare also adds
+    // /cdn-cgi/challenge-platform/scripts/jsd/main.js to ordinary pages as a passive bot check.
+    cloudflareStrong: /cf-chl-interstitial|id=["']challenge-form["']|cf-mitigated|cf-browser-verification|challenge-platform\/h\/[\w-]+\/orchestrate\/|cf_chl_|attention required[^<]{0,80}cloudflare/i,
     cloudflareWeak: /just a moment/i,
     apiUnauthenticated: /"code"\s*:\s*"unauthenticated"/i,
     loginButton: /<button\b[^>]*>\s*(?:<[^>]+>\s*)*(?:log|sign)\s*in\b/i,

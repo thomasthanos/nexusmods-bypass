@@ -790,7 +790,7 @@ function blockingVerdictTests() {
   // on a page that otherwise looks normal — a challenge can be injected into anything.
   for (const marker of [
     '<div id="challenge-form"></div>',
-    '<script src="/cdn-cgi/challenge-platform/x.js"></script>',
+    '<script src="/cdn-cgi/challenge-platform/h/g/orchestrate/chl_page/v1?ray=1"></script>',
     '<div class="cf-chl-interstitial"></div>',
     '<!-- cf-mitigated -->',
     '<div>cf_chl_opt</div>',
@@ -799,6 +799,16 @@ function blockingVerdictTests() {
     const page = `<html><body>${signedIn}${fileControl}${marker}</body></html>`;
     assert.equal(run(page)?.code, 'cloudflare', `strong marker still fires: ${marker.slice(0, 42)}`);
   }
+
+  // Cloudflare's passive bot check rides along on ordinary pages. It is not a challenge, and taking it
+  // for one stopped a collection queue on every such page with no captcha to solve (#10).
+  const botCheck = '<script>(function(){var d=b.createElement(\'script\');'
+    + 'd.innerHTML="window.__CF$cv$params={r:\'8c1\',t:\'MTc=\'};var a=document.createElement(\'script\');'
+    + 'a.src=\'/cdn-cgi/challenge-platform/scripts/jsd/main.js\';";})();</script>';
+  assert.equal(run(`<html><body>${signedIn}${fileControl}${botCheck}</body></html>`), null,
+    'the passive bot-check script on a file page is not a challenge');
+  assert.equal(run(`<html><body>${signedIn}${botCheck}</body></html>`), null,
+    'the passive bot-check script on a signed-in page is not a challenge');
 
   // A page that offers the file cannot simultaneously be a refusal.
   for (const [phrase, code] of [['temporarily suspended', 'account_suspended'], ['too many requests', 'rate_limited']]) {
