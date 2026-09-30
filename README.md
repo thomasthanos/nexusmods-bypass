@@ -23,7 +23,7 @@ Queue a Nexus Mods collection, choose **Vortex** or **browser download**, and le
 ## <img src=".github/assets/icon-sparkle.svg" width="20" align="middle"> Features
 
 - **Fewer clicks:** auto-start downloads, skip requirement screens and restore download buttons on archived files.
-- **Collection queue:** batch downloads, choose the mode per run, pause between mods and resume after rate limits.
+- **Collection queue:** batch downloads, choose the mode per run, smallest files first, pause between mods and resume after rate limits. Removed mods are skipped instead of stopping the run, and listed with the reason at the end.
 - **Pick up where you left off:** local history, revision comparison and a time-left estimate in browser mode after the first file finishes.
 - **Wabbajack (beta):** import a `.wabbajack` file or a `.zip` containing one. Extract `.rar` and `.7z` first.
 - **Safer handoff:** Vortex tab countdown with **Keep open**, plus a browser fallback for Cloudflare verification and clear error messages.
@@ -69,7 +69,7 @@ Open the popup → **Page settings**. Changes save instantly; **Restore Defaults
 <details>
 <summary><b>See all settings</b></summary>
 
-- **Download flow:** auto-start, close Vortex tabs, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, Cloudflare fallback.
+- **Download flow:** auto-start, close Vortex tabs, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first, Cloudflare fallback.
 - **Files & pacing:** browser download folder, Nexus download speed, pause between mods.
 - **Advanced:** request timeout and close-tab delay.
 - **Language:** Always use English.

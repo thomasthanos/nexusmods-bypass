@@ -130,6 +130,13 @@ window.NexusExt = window.NexusExt || {};
       : (raw || Errors.displayText({ code: 'request_failed' }).message);
   }
 
+  // Why a file was skipped, as a sentence of its own. 'cloudflare' reads as the check, not as a fault.
+  function skipReasonText(reason) {
+    return reason === 'cloudflare'
+      ? T('logSkipReasonCloudflare', 'Cloudflare check on this page')
+      : queueErrorText(reason || 'mod_unavailable');
+  }
+
   // How a background run can end, in the terms the deck has wording for.
   const DECK_OUTCOMES = new Set(['finished', 'partial', 'stopped', 'requires_login', 'blocked', 'error']);
 
@@ -289,6 +296,7 @@ window.NexusExt = window.NexusExt || {};
       this.showAlertsOnError = settings.ShowAlertsOnError !== false;
       this.downloadFolder = settings.DownloadFolder ?? '';
       this.wabbajackImport = settings.WabbajackImport === true;
+      this.smallestFirst = settings.NDC_smallestFirst !== false;
     }
 
     async init() {
@@ -627,6 +635,26 @@ window.NexusExt = window.NexusExt || {};
       }
     }
 
+    logSkipped(name, reason) {
+      this.ui.logText(TS('logSkippedItem', [name, skipReasonText(reason)],
+        `Skipped: ${name} (${skipReasonText(reason)})`), 'info');
+    }
+
+    // The files a run moved past without downloading, listed once at the end so none go unnoticed.
+    logSkippedSummary(skipped) {
+      const entries = Array.isArray(skipped) ? skipped.filter((entry) => entry && entry.name) : [];
+      if (!entries.length || !this.ui) return;
+      this.ui.logText(NXTK.tPlural('logSkippedSummary', entries.length,
+        `Skipped ${entries.length} mods that could not be downloaded:`), 'info');
+      for (const { name, pageUrl, reason } of entries) {
+        const label = escapeHtml(name);
+        const target = NXTK.isSafeNexusPageUrl(pageUrl)
+          ? `<a href="${escapeHtml(pageUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+          : label;
+        this.ui.log(`${escapeHtml(skipReasonText(reason))} · ${target}`, 'info');
+      }
+    }
+
     async recordHistoryEntry(type, fileId) {
       return NexusExt.Storage.addHistoryEntry({
         gameId: this.gameId,
@@ -759,11 +787,12 @@ window.NexusExt = window.NexusExt || {};
           this.downloadController = null;
         };
 
-        const finish = (outcome = 'error', error = '') => {
+        const finish = (outcome = 'error', error = '', skipped = []) => {
           if (settled) return;
           settled = true;
           cleanup();
           this.ui.setTimeLeft?.(0);
+          this.logSkippedSummary(skipped);
           // A blocking verdict reaches here as the outcome of a DONE event, or as the lastError of a
           // job a status poll found in 'error'. Either way it is named and handled as blocking,
           // instead of ending on a bare "Download ended with an error".
@@ -814,7 +843,9 @@ window.NexusExt = window.NexusExt || {};
             this.ui.setDownloadStatus?.(snapshot.status);
             return;
           }
-          if (DECK_OUTCOMES.has(snapshot.status)) finish(snapshot.status, snapshot.lastError || '');
+          if (DECK_OUTCOMES.has(snapshot.status)) {
+            finish(snapshot.status, snapshot.lastError || '', snapshot.skipped);
+          }
         };
 
         // The queue resolves its links in the service worker, which has no document and
@@ -853,6 +884,9 @@ window.NexusExt = window.NexusExt || {};
             } else if (message.itemState === 'retrying') {
               eta?.spoil();
               this.ui.logText(TS('logRetryingInterrupted', [name], `Retrying interrupted download: ${name}`), 'info');
+            } else if (message.itemState === 'skipped') {
+              eta?.spoil();
+              this.logSkipped(name, message.error);
             } else if (message.itemState === 'failed') {
               eta?.spoil();
               const reason = queueErrorText(message.error);
@@ -869,7 +903,7 @@ window.NexusExt = window.NexusExt || {};
           if (message.type === 'NXT_NDC_DONE') {
             stopWaitCountdown();
             if (message.folder) this.landedIn = String(message.folder);
-            finish(message.outcome || 'error', message.error || '');
+            finish(message.outcome || 'error', message.error || '', message.skipped);
           }
         };
 
@@ -1086,6 +1120,11 @@ window.NexusExt = window.NexusExt || {};
         }
       }
 
+      if (this.smallestFirst) {
+        mods = NXTK.orderQueueBySize(mods, (mod) => mod.file?.size);
+        this.ui.logText(T('logSmallestFirst', 'Downloading the smallest files first.'), 'info');
+      }
+
       if (this.downloadMethod === DOWNLOAD_METHOD_BROWSER) {
         await this.downloadBrowserQueue(mods, type, history, { restart });
         return;
@@ -1097,6 +1136,8 @@ window.NexusExt = window.NexusExt || {};
       try {
 
         const failedDownload = [];
+        const skipped = [];
+        let cloudflareStrikes = 0;
         let forceStop = false;
 
         for (const [index, mod] of mods.entries()) {
@@ -1137,7 +1178,17 @@ window.NexusExt = window.NexusExt || {};
           break;
         }
 
-        if (!downloadResult.downloadUrl) {
+        const skipReason = downloadResult.downloadUrl
+          ? ''
+          : NXTK.queueSkipReason(this.resolveLinkError(downloadResult).code, cloudflareStrikes);
+        cloudflareStrikes = skipReason === 'cloudflare' ? cloudflareStrikes + 1 : 0;
+
+        if (skipReason) {
+          // Gone, or one Cloudflare answer: noted and passed over, and the run goes on.
+          this.logSkipped(`[${modNumber}] ${mod.file.name}`, skipReason);
+          skipped.push({ name: mod.file.name, pageUrl: mod.file.url, reason: skipReason });
+          this.ui.incrementProgress();
+        } else if (!downloadResult.downloadUrl) {
           const downloadError = this.resolveLinkError(downloadResult);
           this.ui.log(
             `[${modNumber}] ${escapeHtml(Errors.toLogMessage(downloadError))} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`,
@@ -1255,13 +1306,17 @@ window.NexusExt = window.NexusExt || {};
 
       if (outcome === 'finished' && this.isStopped()) outcome = 'stopped';
 
-      if (history && outcome === 'finished' && !failedDownload.length && this.ui.progress === this.ui.modsCount) {
+      if (history && outcome === 'finished' && !failedDownload.length && !skipped.length
+        && this.ui.progress === this.ui.modsCount) {
         await NexusExt.Storage.clearHistoryType({
           gameId: this.gameId,
           collectionId: this.collectionId,
           type
         });
       }
+
+      this.logSkippedSummary(skipped);
+      if (skipped.length && outcome === 'finished') outcome = 'partial';
 
       if (failedDownload.length) {
         if (outcome === 'finished') outcome = 'partial';

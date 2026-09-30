@@ -1338,5 +1338,44 @@
   },
   "wjSkippedHeading": {
     "message": "No se ponen en cola aquí: Wabbajack las obtiene por su cuenta:"
+  },
+  "setSmallestFirstLabel": {
+    "message": "Primero los archivos más pequeños"
+  },
+  "setSmallestFirstDesc": {
+    "message": "Las descargas de colecciones empiezan por los archivos más pequeños, así la mayor parte de la lista termina pronto y un archivo grande no retrasa al resto. Los archivos sin tamaño indicado van al final."
+  },
+  "logSmallestFirst": {
+    "message": "Descargando primero los archivos más pequeños."
+  },
+  "logSkippedItem": {
+    "message": "Omitido: $1 ($2)",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "Verificación de Cloudflare en esta página"
+  },
+  "logSkippedSummary_one": {
+    "message": "Se omitió $1 mod que no se pudo descargar:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_other": {
+    "message": "Se omitieron $1 mods que no se pudieron descargar:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -1262,5 +1262,36 @@
   },
   "wjSkippedHeading": {
     "message": "여기서는 대기열에 넣지 않습니다. Wabbajack이 직접 가져옵니다:"
+  },
+  "setSmallestFirstLabel": {
+    "message": "작은 파일 먼저"
+  },
+  "setSmallestFirstDesc": {
+    "message": "컬렉션 다운로드를 가장 작은 파일부터 시작합니다. 목록 대부분이 일찍 끝나고 큰 파일 하나가 나머지를 막지 않습니다. 크기가 표시되지 않은 파일은 마지막에 받습니다."
+  },
+  "logSmallestFirst": {
+    "message": "가장 작은 파일부터 다운로드합니다."
+  },
+  "logSkippedItem": {
+    "message": "건너뜀: $1 ($2)",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "이 페이지의 Cloudflare 확인"
+  },
+  "logSkippedSummary_other": {
+    "message": "다운로드할 수 없는 모드 $1개를 건너뛰었습니다:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

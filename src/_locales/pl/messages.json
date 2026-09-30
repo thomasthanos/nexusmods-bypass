@@ -1490,5 +1490,60 @@
   },
   "wjSkippedHeading": {
     "message": "Nie trafiają tu do kolejki — Wabbajack pobiera je sam:"
+  },
+  "setSmallestFirstLabel": {
+    "message": "Najpierw najmniejsze pliki"
+  },
+  "setSmallestFirstDesc": {
+    "message": "Pobieranie kolekcji zaczyna się od najmniejszych plików, więc większość listy kończy się wcześnie, a duży plik nie wstrzymuje reszty. Pliki bez podanego rozmiaru trafiają na koniec."
+  },
+  "logSmallestFirst": {
+    "message": "Najpierw pobierane są najmniejsze pliki."
+  },
+  "logSkippedItem": {
+    "message": "Pominięto: $1 ($2)",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "Weryfikacja Cloudflare na tej stronie"
+  },
+  "logSkippedSummary_one": {
+    "message": "Pominięto $1 mod, którego nie udało się pobrać:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_few": {
+    "message": "Pominięto $1 mody, których nie udało się pobrać:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_many": {
+    "message": "Pominięto $1 modów, których nie udało się pobrać:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_other": {
+    "message": "Pominięto $1 modów, których nie udało się pobrać:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

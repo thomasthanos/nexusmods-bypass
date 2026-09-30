@@ -25,6 +25,7 @@
       type: 'bool',
       desc: () => NXTK.t('setWabbajackImportDesc', null, 'Adds a button to this dialog that reads a .wabbajack file and queues the Nexus files it lists. Files hosted outside Nexus, and games this build does not recognise, are reported instead of downloaded.')
     },
+    { key: 'NDC_smallestFirst', label: () => NXTK.t('setSmallestFirstLabel', null, 'Smallest files first'), type: 'bool', desc: () => NXTK.t('setSmallestFirstDesc', null, 'Collection downloads start with the smallest files, so most of the list is done early and one large file does not hold up the rest. Files with no listed size go last.') },
     { key: 'CloudflareFallback', label: () => NXTK.t('setCloudflareFallbackLabel', null, 'Cloudflare fallback'), type: 'bool', desc: () => NXTK.t('setCloudflareFallbackDesc', null, 'When Nexus answers a background download request with a browser verification page, open the file page so you can complete the check, instead of failing. This is why the tab sometimes navigates on its own.') },
     {
       key: 'ForceEnglish',

@@ -1338,5 +1338,44 @@
   },
   "wjSkippedHeading": {
     "message": "Nicht hier eingereiht — Wabbajack holt sich diese selbst:"
+  },
+  "setSmallestFirstLabel": {
+    "message": "Kleinste Dateien zuerst"
+  },
+  "setSmallestFirstDesc": {
+    "message": "Sammlungs-Downloads beginnen mit den kleinsten Dateien, damit der Großteil der Liste früh fertig ist und eine große Datei den Rest nicht aufhält. Dateien ohne angegebene Größe kommen zuletzt."
+  },
+  "logSmallestFirst": {
+    "message": "Die kleinsten Dateien werden zuerst heruntergeladen."
+  },
+  "logSkippedItem": {
+    "message": "Übersprungen: $1 ($2)",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "Cloudflare-Prüfung auf dieser Seite"
+  },
+  "logSkippedSummary_one": {
+    "message": "$1 Mod übersprungen, die nicht heruntergeladen werden konnte:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_other": {
+    "message": "$1 Mods übersprungen, die nicht heruntergeladen werden konnten:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

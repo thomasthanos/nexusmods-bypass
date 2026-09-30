@@ -1262,5 +1262,36 @@
   },
   "wjSkippedHeading": {
     "message": "ここではキューに入りません。Wabbajack が自分で取得します:"
+  },
+  "setSmallestFirstLabel": {
+    "message": "小さいファイルから"
+  },
+  "setSmallestFirstDesc": {
+    "message": "コレクションのダウンロードを小さいファイルから始めます。リストの大半が早く終わり、大きなファイルが残りを待たせません。サイズが表示されていないファイルは最後になります。"
+  },
+  "logSmallestFirst": {
+    "message": "小さいファイルから順にダウンロードします。"
+  },
+  "logSkippedItem": {
+    "message": "スキップ: $1 ($2)",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "このページでの Cloudflare の確認"
+  },
+  "logSkippedSummary_other": {
+    "message": "ダウンロードできなかった $1 件の MOD をスキップしました:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

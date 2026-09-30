@@ -684,6 +684,7 @@ function notifyNdcJob(job, type, extra = {}, alsoTabIds = []) {
     total: ndcJobItemCount(job),
     completed: job.completed,
     failedCount: jobFailureCount(job),
+    skippedCount: jobSkipCount(job),
     ...extra
   };
   for (const tabId of targets) {
@@ -796,6 +797,7 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   }, timeoutMs);
   const pageIssue = classifyNexusResponse(page, page.text);
   if (pageIssue) return { ok: false, code: pageIssue.code };
+  if (page.status === 404 || page.status === 410) return ndcResolveFailure('mod_unavailable', page);
   if (!page.ok) return ndcResolveFailure(page.status === 429 ? 'rate_limited' : 'page_request_failed', page);
 
   const generated = await fetchNdcResponse(
@@ -813,6 +815,7 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   );
   const generatedIssue = classifyNexusResponse(generated, generated.text);
   if (generatedIssue) return { ok: false, code: generatedIssue.code };
+  if (generated.status === 404 || generated.status === 410) return ndcResolveFailure('file_not_found', generated);
   if (!generated.ok) {
     return ndcResolveFailure(generated.status === 429 ? 'rate_limited' : 'generate_failed', generated);
   }
@@ -862,7 +865,7 @@ async function finishNdcJob(job) {
   // Keep the job discoverable as running until its successful-run history cleanup is complete.
   // A concurrent Restart then stops this job and waits for its processing promise before the new
   // run can add history, instead of letting this late clear erase the new run's entries.
-  if (job.type && !jobFailureCount(job)) {
+  if (job.type && !jobFailureCount(job) && !jobSkipCount(job)) {
     await STORAGE_HANDLERS.NDC_HISTORY_CLEAR_TYPE({
       gameId: job.gameId,
       collectionId: job.collectionId,
@@ -876,7 +879,7 @@ async function finishNdcJob(job) {
       && current.activeDownloadId === null
       && Number(current.index || 0) >= ndcJobItemCount(current),
     (current) => {
-      current.status = jobFailureCount(current) ? 'partial' : 'finished';
+      current.status = jobFailureCount(current) || jobSkipCount(current) ? 'partial' : 'finished';
       current.activeDownloadId = null;
       current.finishedAt = Date.now();
       bumpNdcControl(current);
@@ -885,7 +888,11 @@ async function finishNdcJob(job) {
   if (!transition.applied) return transition.job || job;
   job = transition.job;
   clearNdcJobAlarm(job.id);
-  notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: job.status, folder: job.landedIn || '' });
+  notifyNdcJob(job, 'NXT_NDC_DONE', {
+    outcome: job.status,
+    folder: job.landedIn || '',
+    skipped: jobSkippedList(job)
+  });
   dropNdcJobItems(job.id);
   return job;
 }
@@ -1001,6 +1008,35 @@ async function advanceNdcJob(jobId) {
         return null;
       }
 
+      // A gone mod, or one Cloudflare answer, is skipped at once and the queue moves on. Cloudflare on
+      // several files running falls through to the stop below, as a check the user has to complete.
+      const skipReason = NXTK.queueSkipReason(resolved.code, job.cloudflareStrikes);
+      if (skipReason) {
+        const transition = await mutateNdcJobIf(
+          job.id,
+          idleOnItem(startIndex),
+          (current) => {
+            recordJobSkip(current, item, skipReason);
+            current.cloudflareStrikes = skipReason === 'cloudflare'
+              ? Number(current.cloudflareStrikes || 0) + 1
+              : 0;
+            current.resolveAttempts = 0;
+            current.index = Number(current.index || 0) + 1;
+          }
+        );
+        if (!transition.applied) return null;
+        job = transition.job;
+        notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
+          itemName: item.name,
+          itemState: 'skipped',
+          error: skipReason
+        });
+        // A mod that is gone is the mod's state, not a fault, so only a Cloudflare skip is worth a
+        // line in the bug report.
+        if (skipReason === 'cloudflare') await recordQueueItemFailure(job, item, 'cloudflare', 'skipped');
+        continue;
+      }
+
       if (BLOCKING_RESOLVE_CODES.has(resolved.code)) {
         const transition = await mutateNdcJobIf(
           job.id,
@@ -1015,7 +1051,11 @@ async function advanceNdcJob(jobId) {
         if (!transition.applied) return null;
         job = transition.job;
         clearNdcJobAlarm(job.id);
-        notifyNdcJob(job, 'NXT_NDC_DONE', { outcome: resolved.code, itemName: item.name });
+        notifyNdcJob(job, 'NXT_NDC_DONE', {
+          outcome: resolved.code,
+          itemName: item.name,
+          skipped: jobSkippedList(job)
+        });
         dropNdcJobItems(job.id);
         await recordQueueItemFailure(job, item, resolved.code);
         return null;
@@ -1038,6 +1078,7 @@ async function advanceNdcJob(jobId) {
         (current) => {
           recordJobFailure(current, { fileId: item.fileId, code: failureCode });
           current.resolveAttempts = 0;
+          current.cloudflareStrikes = 0;
           current.index = Number(current.index || 0) + 1;
         }
       );
@@ -1086,6 +1127,7 @@ async function advanceNdcJob(jobId) {
       (current) => {
         current.activeDownloadId = started.downloadId;
         current.rateLimitStrikes = 0;
+        current.cloudflareStrikes = 0;
         current.waitingUntil = 0;
         current.resolveAttempts = 0;
         delete current.interruptConfirmations;
@@ -1241,6 +1283,30 @@ function recordJobFailure(current, entry) {
   if (!Array.isArray(current.failed)) current.failed = [];
   current.failedTotal = Number(current.failedTotal || current.failed.length || 0) + 1;
   if (current.failed.length < MAX_TRACKED_FAILURES) current.failed.push(entry);
+}
+
+// What the UI needs to name a skipped file: its name, its page and why. Bounded like failures.
+function recordJobSkip(current, item, reason) {
+  if (!Array.isArray(current.skipped)) current.skipped = [];
+  current.skippedTotal = Number(current.skippedTotal || current.skipped.length || 0) + 1;
+  if (current.skipped.length < NXTK.MAX_TRACKED_SKIPS) {
+    current.skipped.push({
+      fileId: item.fileId,
+      name: String(item.name || '').slice(0, 300),
+      pageUrl: String(item.pageUrl || ''),
+      reason
+    });
+  }
+}
+
+function jobSkipCount(job) {
+  const total = Number(job?.skippedTotal);
+  if (Number.isFinite(total) && total >= 0) return total;
+  return Array.isArray(job?.skipped) ? job.skipped.length : 0;
+}
+
+function jobSkippedList(job) {
+  return Array.isArray(job?.skipped) ? job.skipped.slice(0, NXTK.MAX_TRACKED_SKIPS) : [];
 }
 
 function jobFailureCount(job) {
@@ -1841,6 +1907,7 @@ const NDC_QUEUE_HANDLERS = {
       index: 0,
       completed: 0,
       failed: [],
+      skipped: [],
       status: 'running',
       activeDownloadId: null,
       createdAt: Date.now(),
@@ -1873,6 +1940,8 @@ const NDC_QUEUE_HANDLERS = {
       total: ndcJobItemCount(job),
       completed: job.completed,
       failedCount: jobFailureCount(job),
+      skippedCount: jobSkipCount(job),
+      skipped: jobSkippedList(job),
       waitingUntil: Number(job.waitingUntil) || 0,
       lastError: String(job.lastError || '')
     };

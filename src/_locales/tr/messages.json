@@ -1338,5 +1338,44 @@
   },
   "wjSkippedHeading": {
     "message": "Burada kuyruğa alınmaz — Wabbajack bunları kendisi getirir:"
+  },
+  "setSmallestFirstLabel": {
+    "message": "Önce en küçük dosyalar"
+  },
+  "setSmallestFirstDesc": {
+    "message": "Koleksiyon indirmeleri en küçük dosyalarla başlar; listenin çoğu erken biter ve büyük bir dosya diğerlerini bekletmez. Boyutu belirtilmeyen dosyalar en sona kalır."
+  },
+  "logSmallestFirst": {
+    "message": "Önce en küçük dosyalar indiriliyor."
+  },
+  "logSkippedItem": {
+    "message": "Atlandı: $1 ($2)",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "Bu sayfada Cloudflare doğrulaması"
+  },
+  "logSkippedSummary_one": {
+    "message": "İndirilemeyen $1 mod atlandı:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_other": {
+    "message": "İndirilemeyen $1 mod atlandı:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

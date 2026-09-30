@@ -1639,5 +1639,51 @@
   "wjSkippedHeading": {
     "message": "Not queued here — Wabbajack gets these on its own:",
     "description": "Heading above the list of modlist archives that could not be queued."
+  },
+  "setSmallestFirstLabel": {
+    "message": "Smallest files first",
+    "description": "Setting label."
+  },
+  "setSmallestFirstDesc": {
+    "message": "Collection downloads start with the smallest files, so most of the list is done early and one large file does not hold up the rest. Files with no listed size go last.",
+    "description": "Setting description."
+  },
+  "logSmallestFirst": {
+    "message": "Downloading the smallest files first.",
+    "description": "Log line when a collection run starts in size order."
+  },
+  "logSkippedItem": {
+    "message": "Skipped: $1 ($2)",
+    "description": "Log line. $1 file name, $2 why it was skipped.",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "Cloudflare check on this page",
+    "description": "Why a file was skipped: Cloudflare answered its page with a browser check."
+  },
+  "logSkippedSummary_one": {
+    "message": "Skipped $1 mod that could not be downloaded:",
+    "description": "Plural form \"one\".",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_other": {
+    "message": "Skipped $1 mods that could not be downloaded:",
+    "description": "Plural form \"other\".",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

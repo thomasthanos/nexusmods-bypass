@@ -1490,5 +1490,60 @@
   },
   "wjSkippedHeading": {
     "message": "Не ставятся в очередь здесь — Wabbajack получает их сам:"
+  },
+  "setSmallestFirstLabel": {
+    "message": "Сначала маленькие файлы"
+  },
+  "setSmallestFirstDesc": {
+    "message": "Загрузка коллекции начинается с самых маленьких файлов: большая часть списка готова раньше, и один большой файл не задерживает остальные. Файлы без указанного размера идут в конце."
+  },
+  "logSmallestFirst": {
+    "message": "Сначала скачиваются самые маленькие файлы."
+  },
+  "logSkippedItem": {
+    "message": "Пропущено: $1 ($2)",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "Проверка Cloudflare на этой странице"
+  },
+  "logSkippedSummary_one": {
+    "message": "Пропущен $1 мод, который не удалось скачать:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_few": {
+    "message": "Пропущено $1 мода, которые не удалось скачать:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_many": {
+    "message": "Пропущено $1 модов, которые не удалось скачать:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_other": {
+    "message": "Пропущено $1 мода, которые не удалось скачать:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -180,6 +180,7 @@
     NDC_downloadSpeed: 3.2,
     ForceEnglish: false,
     NDC_downloadMethod: 0,
+    NDC_smallestFirst: true,
     WabbajackImport: false
   };
 
@@ -234,6 +235,39 @@
   function rateLimitBackoffSeconds(strike) {
     const step = Math.max(0, (Number(strike) || 1) - 1);
     return Math.min(RATE_LIMIT_BASE_SECONDS * Math.pow(2, step), RATE_LIMIT_MAX_SECONDS);
+  }
+
+  // How a collection run treats a file it could not get a link for. A mod that is gone is skipped at
+  // once: asking again cannot bring it back. A single Cloudflare answer is skipped too, since it can
+  // be one page Cloudflare is fussy about, but the same answer this many times in a row means the
+  // whole site is behind a check, and the run stops so it can be completed.
+  const QUEUE_UNAVAILABLE_CODES = new Set(['mod_unavailable', 'file_not_found', 'moderation_hold']);
+  const CLOUDFLARE_SKIP_LIMIT = 3;
+  const MAX_TRACKED_SKIPS = 200;
+
+  function queueSkipReason(code, cloudflareStrikes = 0) {
+    const root = String(code || '').split(/[\s(]/, 1)[0];
+    if (QUEUE_UNAVAILABLE_CODES.has(root)) return root;
+    if (root === 'cloudflare' && Number(cloudflareStrikes) < CLOUDFLARE_SKIP_LIMIT) return root;
+    return '';
+  }
+
+  // A size in KB as Nexus lists it, or 0 when there is none worth ordering by.
+  function queueSizeKb(value) {
+    const size = Number(value);
+    return Number.isFinite(size) && size > 0 ? size : 0;
+  }
+
+  // Smallest first. Files with no known size go last, in the order they came, so an unknown size never
+  // lands in front of a small file or scatters through the queue.
+  function orderQueueBySize(items, sizeOf) {
+    return (Array.isArray(items) ? items : [])
+      .map((item, index) => ({ item, index, size: queueSizeKb(sizeOf(item)) }))
+      .sort((a, b) => {
+        if (!a.size !== !b.size) return a.size ? -1 : 1;
+        return (a.size - b.size) || (a.index - b.index);
+      })
+      .map(({ item }) => item);
   }
 
   function escapeHtml(value) {
@@ -651,6 +685,11 @@
     RATE_LIMIT_MAX_STRIKES,
     parseRetryAfterSeconds,
     rateLimitBackoffSeconds,
+    CLOUDFLARE_SKIP_LIMIT,
+    MAX_TRACKED_SKIPS,
+    queueSkipReason,
+    queueSizeKb,
+    orderQueueBySize,
     escapeHtml,
     sanitizeUrlForReport,
     sanitizeDiagnosticText,

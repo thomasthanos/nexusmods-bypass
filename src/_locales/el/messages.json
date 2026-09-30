@@ -1338,5 +1338,44 @@
   },
   "wjSkippedHeading": {
     "message": "Δεν μπαίνουν στην ουρά — το Wabbajack τα φέρνει μόνο του:"
+  },
+  "setSmallestFirstLabel": {
+    "message": "Πρώτα τα μικρότερα αρχεία"
+  },
+  "setSmallestFirstDesc": {
+    "message": "Οι λήψεις συλλογών ξεκινούν από τα μικρότερα αρχεία, ώστε το μεγαλύτερο μέρος της λίστας να τελειώνει νωρίς και ένα μεγάλο αρχείο να μην καθυστερεί τα υπόλοιπα. Τα αρχεία χωρίς δηλωμένο μέγεθος μπαίνουν στο τέλος."
+  },
+  "logSmallestFirst": {
+    "message": "Λήψη των μικρότερων αρχείων πρώτα."
+  },
+  "logSkippedItem": {
+    "message": "Παραλείφθηκε: $1 ($2)",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "Έλεγχος Cloudflare σε αυτή τη σελίδα"
+  },
+  "logSkippedSummary_one": {
+    "message": "Παραλείφθηκε $1 mod που δεν ήταν δυνατό να ληφθεί:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_other": {
+    "message": "Παραλείφθηκαν $1 mods που δεν ήταν δυνατό να ληφθούν:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

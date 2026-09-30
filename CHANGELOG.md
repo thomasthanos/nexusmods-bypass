@@ -7,6 +7,29 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [Unreleased]
+
+### Added
+
+- **Collections download the smallest files first.** Both queues, browser and Vortex, now run in
+  ascending order of the size Nexus lists for each file, so most of a collection is done early and one
+  large file does not hold up the rest. Files with no listed size go last, in their original order. The
+  new *Smallest files first* setting turns it off.
+- **A run lists what it skipped.** When a run ends, finished or stopped, the log lists every file it
+  passed over, with the reason and a link to its page.
+
+### Changed
+
+- **Removed mods are skipped at once.** A mod page that shows a removed, hidden or not-published notice,
+  or answers 404 or 410, and a file the link generator answers 404 or 410 for, is skipped without the
+  second attempt it used to get, since asking again cannot bring it back. It is listed as skipped rather
+  than failed, and is not written into the bug report as a fault. A run with skipped files ends as
+  *Completed with errors* and keeps its history, so a later run only retries what is still missing.
+- **One Cloudflare answer no longer stops a collection.** A single file whose page comes back as a
+  Cloudflare check is skipped and the run carries on. Three in a row still stop the run, since that
+  means the whole site is behind a check that has to be completed; the files skipped before it are
+  listed and are picked up by the next run.
+
 ## [2.7.3] - 2026-09-29
 
 ### Fixed

@@ -1338,5 +1338,44 @@
   },
   "wjSkippedHeading": {
     "message": "Non messi in coda qui: Wabbajack li recupera da solo:"
+  },
+  "setSmallestFirstLabel": {
+    "message": "Prima i file più piccoli"
+  },
+  "setSmallestFirstDesc": {
+    "message": "I download delle collezioni iniziano dai file più piccoli, così la maggior parte dell'elenco finisce presto e un file grande non blocca gli altri. I file senza dimensione indicata vanno in fondo."
+  },
+  "logSmallestFirst": {
+    "message": "Download dei file più piccoli per primi."
+  },
+  "logSkippedItem": {
+    "message": "Saltato: $1 ($2)",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "Verifica Cloudflare su questa pagina"
+  },
+  "logSkippedSummary_one": {
+    "message": "Saltata $1 mod che non è stato possibile scaricare:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkippedSummary_other": {
+    "message": "Saltate $1 mod che non è stato possibile scaricare:",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

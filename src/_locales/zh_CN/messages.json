@@ -1262,5 +1262,36 @@
   },
   "wjSkippedHeading": {
     "message": "不在此处排队 — Wabbajack 会自行获取："
+  },
+  "setSmallestFirstLabel": {
+    "message": "小文件优先"
+  },
+  "setSmallestFirstDesc": {
+    "message": "合集下载从最小的文件开始，大部分列表会更早完成，大文件也不会拖住其余文件。未标明大小的文件排在最后。"
+  },
+  "logSmallestFirst": {
+    "message": "正在优先下载最小的文件。"
+  },
+  "logSkippedItem": {
+    "message": "已跳过：$1（$2）",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      },
+      "b": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSkipReasonCloudflare": {
+    "message": "此页面上的 Cloudflare 验证"
+  },
+  "logSkippedSummary_other": {
+    "message": "已跳过 $1 个无法下载的模组：",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }
