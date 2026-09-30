@@ -1350,13 +1350,18 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function interceptRequirementsTab() {
-    document.body.addEventListener('click', function (event) {
-      const linkElement = event.target.closest("a[href*='tab=requirements']");
-      if (!linkElement) return;
-      if (!cfg.SkipRequirements) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      const linkHref = linkElement.href || linkElement.getAttribute('href') || '';
+  document.body.addEventListener('click', function (event) {
+    if (!event.isTrusted || event.defaultPrevented || !cfg.SkipRequirements) return;
+    const linkElement = event.composedPath
+      ? event.composedPath().find(node =>
+          node?.tagName === 'A' &&
+          node.href?.includes('tab=requirements')
+        )
+      : event.target.closest("a[href*='tab=requirements']");
+    if (!linkElement) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const linkHref = linkElement.href || linkElement.getAttribute('href') || '';
       let target;
       try {
         target = new URL(linkHref.replace('tab=requirements', 'tab=files'), location.href).href;
