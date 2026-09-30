@@ -1176,7 +1176,7 @@ window.NexusExt = window.NexusExt || {};
       if (!fileId) return;
       if (shouldPassThroughToNative(fileId)) return;
       const hasRequirements = linkHref.includes('ModRequirementsPopUp') || linkHref.includes('tab=requirements');
-      const isNMM = linkHref.includes('nmm=1') || linkHref.includes('&nmm') || element.closest('#action-nmm') !== null;
+      const isNMM = linkHref.includes('nmm=1')|| linkHref.includes('&nmm') || element.closest('#action-nmm, #action-vortex') !== null;
       if (hasRequirements && !cfg.SkipRequirements) return;
       event.preventDefault();
       event.stopImmediatePropagation();
