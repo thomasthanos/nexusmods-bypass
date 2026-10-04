@@ -7,7 +7,7 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
-## [Unreleased]
+## [2.7.4] - 2026-10-04
 
 ### Added
 

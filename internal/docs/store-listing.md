@@ -30,16 +30,18 @@ On collection pages you can download the whole collection, or only the files you
 It runs only on nexusmods.com and keeps everything in your browser. You must be signed in to your own Nexus Mods account; it does not unlock Premium content and is not affiliated with Nexus Mods.
 ```
 
-## What's new — 2.7.3
+## What's new — 2.7.4
 
 Dashboard-only field, not covered by `_locales`. Paste as-is:
 
 ```
-Collection downloads no longer stop on a Cloudflare check that isn't there.
+Collections download the smallest files first, and a removed mod no longer stops the run.
 
-Cloudflare adds a small background script to ordinary Nexus Mods pages. The extension took that script for a browser check, so a collection run could stop on a file with "Cloudflare verification required" while no check ever appeared to complete, and starting again stopped it again. Only a real Cloudflare check stops a download now.
+Collection downloads now start with the smallest files, so most of the list is done early and one large file does not hold up the rest. A new setting turns this off.
 
-Leaving or reloading a page while it was still loading no longer adds an error to your bug report.
+A mod that was removed, hidden or not found is skipped straight away and the run carries on. A single Cloudflare check on one page is skipped too. When the run ends, the log lists every skipped file with the reason and a link to its page.
+
+The extension now notices when Nexus Mods changes its pages or its collection API, and says what changed in the bug report, so fixes can follow faster.
 ```
 
 Keep this honest and specific. The setting caused support confusion precisely because the
