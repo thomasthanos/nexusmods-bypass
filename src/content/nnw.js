@@ -119,42 +119,62 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function getGameId(url = location.href) {
-    const requestedDomain = getGameDomainFromUrl(url);
-    const documentDomain = getGameDomainFromUrl(location.href);
-    const domain = requestedDomain || documentDomain;
-    if (requestedDomain && requestedDomain !== documentDomain) {
-      return gameIdCache.get(requestedDomain) || '';
-    }
+  const requestedDomain = getGameDomainFromUrl(url);
+  const documentDomain = getGameDomainFromUrl(location.href);
+  const domain = requestedDomain || documentDomain;
 
-    const sectionId = normalizeGameId(document.getElementById('section')?.dataset?.gameId);
-    if (sectionId) {
-      if (domain) gameIdCache.set(domain, sectionId);
-      return sectionId;
-    }
-    const nodeIds = new Set(Array.from(document.querySelectorAll('[data-game-id]'))
-      .map((node) => normalizeGameId(node.dataset?.gameId))
-      .filter(Boolean));
-    if (nodeIds.size === 1) {
-      const nodeId = nodeIds.values().next().value;
-      if (domain) gameIdCache.set(domain, nodeId);
-      return nodeId;
-    }
-    if (nodeIds.size > 1) return '';
-
-    if (domain && gameIdCache.has(domain)) return gameIdCache.get(domain);
-
-    // Legacy pages may expose the numeric ID only in inline state.
-    const scriptIds = new Set();
-    for (const script of Array.from(document.querySelectorAll('script')).slice(0, 128)) {
-      for (const id of collectGameIdsFromText(script.textContent || '')) scriptIds.add(id);
-      if (scriptIds.size > 1) return '';
-    }
-    const scriptId = scriptIds.values().next().value || '';
-    if (scriptId && domain) gameIdCache.set(domain, scriptId);
-    return scriptId;
+  if (requestedDomain && requestedDomain !== documentDomain) {
+    return gameIdCache.get(requestedDomain) || '';
   }
 
-  function rememberGameId(gameId, url = location.href) {
+  const sectionId = normalizeGameId(
+    document.getElementById('section')?.dataset?.gameId
+  );
+
+  if (sectionId) {
+    if (domain) gameIdCache.set(domain, sectionId);
+    return sectionId;
+  }
+
+  const nodeIds = new Set(
+    Array.from(document.querySelectorAll('[data-game-id], [game-id]'))
+      .map((node) => normalizeGameId(
+        node.dataset?.gameId || node.getAttribute('game-id')
+      ))
+      .filter(Boolean)
+  );
+
+  if (nodeIds.size === 1) {
+    const nodeId = nodeIds.values().next().value;
+    if (domain) gameIdCache.set(domain, nodeId);
+    return nodeId;
+  }
+
+  if (nodeIds.size > 1) return '';
+
+  if (domain && gameIdCache.has(domain)) {
+    return gameIdCache.get(domain);
+  }
+
+  // legacy pages expose the numeric ID in inline state
+  const scriptIds = new Set();
+
+  for (const script of Array.from(document.querySelectorAll('script')).slice(0, 128)) {
+    for (const id of collectGameIdsFromText(script.textContent || '')) {
+      scriptIds.add(id);
+    }
+
+    if (scriptIds.size > 1) return '';
+  }
+
+  const scriptId = scriptIds.values().next().value || '';
+
+  if (scriptId && domain) {
+    gameIdCache.set(domain, scriptId);
+  }
+
+  return scriptId;
+}  function rememberGameId(gameId, url = location.href) {
     const domain = getGameDomainFromUrl(url);
     const id = normalizeGameId(gameId);
     if (domain && id) gameIdCache.set(domain, id);
@@ -1156,7 +1176,7 @@ window.NexusExt = window.NexusExt || {};
       if (!fileId) return;
       if (shouldPassThroughToNative(fileId)) return;
       const hasRequirements = linkHref.includes('ModRequirementsPopUp') || linkHref.includes('tab=requirements');
-      const isNMM = linkHref.includes('nmm=1') || linkHref.includes('&nmm') || element.closest('#action-nmm') !== null;
+      const isNMM = linkHref.includes('nmm=1')|| linkHref.includes('&nmm') || element.closest('#action-nmm, #action-vortex') !== null;
       if (hasRequirements && !cfg.SkipRequirements) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -1330,13 +1350,18 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function interceptRequirementsTab() {
-    document.body.addEventListener('click', function (event) {
-      const linkElement = event.target.closest("a[href*='tab=requirements']");
-      if (!linkElement) return;
-      if (!cfg.SkipRequirements) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      const linkHref = linkElement.href || linkElement.getAttribute('href') || '';
+  document.body.addEventListener('click', function (event) {
+    if (!event.isTrusted || event.defaultPrevented || !cfg.SkipRequirements) return;
+    const linkElement = event.composedPath
+      ? event.composedPath().find(node =>
+          node?.tagName === 'A' &&
+          node.href?.includes('tab=requirements')
+        )
+      : event.target.closest("a[href*='tab=requirements']");
+    if (!linkElement) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const linkHref = linkElement.href || linkElement.getAttribute('href') || '';
       let target;
       try {
         target = new URL(linkHref.replace('tab=requirements', 'tab=files'), location.href).href;
