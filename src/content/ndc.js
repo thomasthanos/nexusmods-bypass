@@ -143,11 +143,12 @@ window.NexusExt = window.NexusExt || {};
     return Errors.create(code, { context, technicalMessage });
   }
 
-  // Why a file was skipped, as a sentence of its own. 'cloudflare' reads as the check, not as a fault.
+  // Why a file was skipped, as a short reason: it sits in brackets after the name, and the advice that
+  // goes with an error is no use for a mod that is simply gone. 'cloudflare' reads as the check.
   function skipReasonText(reason) {
-    return reason === 'cloudflare'
-      ? T('logSkipReasonCloudflare', 'Cloudflare check on this page')
-      : queueErrorText(reason || 'mod_unavailable');
+    if (reason === 'cloudflare') return T('logSkipReasonCloudflare', 'Cloudflare check on this page');
+    const code = String(reason || 'mod_unavailable').split(' ')[0];
+    return Errors.displayText?.({ code }).message || queueErrorText(code);
   }
 
   // How a background run can end, in the terms the deck has wording for.

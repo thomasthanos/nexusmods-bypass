@@ -26,7 +26,8 @@ global.NexusExt = {
     DEFAULT_TIMEOUT_MS: 30000,
     normalize: (error) => ({ ...error, blocking: BLOCKING_CODES.has(error?.code), retryable: false }),
     isBlocking: (error) => BLOCKING_CODES.has(error?.code),
-    toLogMessage: (error) => String(error?.code || ''),
+    toLogMessage: (error) => `${error?.code || ''} — full advice`,
+    displayText: (error) => ({ message: String(error?.code || ''), recovery: 'advice' }),
     create: (code, extra = {}) => ({ code, ...extra }),
     classifyContent: () => null
   },
@@ -229,6 +230,8 @@ function createHarness(choice) {
   assert.equal(sized.outcome, 'partial', 'a run that skipped a file does not read as a clean finish');
   assert.ok(sized.logs.some((line) => /Skipped 1 mods that could not be downloaded/.test(line)),
     'the skipped file is summed up at the end');
+  assert.ok(sized.logs.every((line) => !/full advice/.test(line) || !/Skipped/.test(line)),
+    'a skip names the reason, not the advice that goes with an error');
   assert.ok(sized.logs.some((line) => /^mod_unavailable · <a href="https:\/\/www\.nexusmods\.com\/[^"]+file_id=2" [^>]*>Removed\.7z<\/a>$/.test(line)),
     'and named, with the reason and a link to its file page (not a Vortex hand-off)');
 
