@@ -295,6 +295,16 @@
     }
   }
 
+  // What the page check found on this tab, and which Nexus build it ran against.
+  function describePageCheck() {
+    try {
+      const lines = globalThis.NexusExt?.PageCheck?.describe?.();
+      return Array.isArray(lines) ? lines : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   function readFallbackMarker() {
     try {
       if (typeof sessionStorage === 'undefined') return null;
@@ -374,6 +384,12 @@
     if (pageContext) {
       lines.push('');
       lines.push(...pageContext);
+    }
+
+    const pageCheck = describePageCheck();
+    if (pageCheck.length) {
+      lines.push('');
+      lines.push(...pageCheck);
     }
 
     if (currentError) {

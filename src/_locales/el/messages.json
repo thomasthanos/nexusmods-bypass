@@ -1377,5 +1377,17 @@
         "content": "$1"
       }
     }
+  },
+  "errNexusPageChangedMsg": {
+    "message": "Αυτή η σελίδα του Nexus Mods δεν μοιάζει πια με αυτό που περιμένει η επέκταση."
+  },
+  "errNexusPageChangedFix": {
+    "message": "Το Nexus Mods μπορεί να ενημέρωσε τον ιστότοπό του. Στείλε αναφορά σφάλματος για να ενημερωθεί η επέκταση."
+  },
+  "errNexusApiChangedMsg": {
+    "message": "Το Nexus Mods άλλαξε τον τρόπο που απαντά στα αιτήματα για συλλογές."
+  },
+  "errNexusApiChangedFix": {
+    "message": "Η επέκταση χρειάζεται ενημέρωση γι' αυτό. Στείλε αναφορά σφάλματος για να διορθωθεί."
   }
 }

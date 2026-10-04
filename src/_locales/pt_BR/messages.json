@@ -1377,5 +1377,17 @@
         "content": "$1"
       }
     }
+  },
+  "errNexusPageChangedMsg": {
+    "message": "Esta página do Nexus Mods não está mais como a extensão espera."
+  },
+  "errNexusPageChangedFix": {
+    "message": "O Nexus Mods pode ter atualizado o site. Envie um relatório de bug para que a extensão possa ser atualizada."
+  },
+  "errNexusApiChangedMsg": {
+    "message": "O Nexus Mods mudou a forma como responde às solicitações de coleções."
+  },
+  "errNexusApiChangedFix": {
+    "message": "A extensão precisa de uma atualização para isso. Envie um relatório de bug para que possa ser corrigido."
   }
 }

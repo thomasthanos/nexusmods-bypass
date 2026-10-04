@@ -14,7 +14,8 @@ function loadShared({
   userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/138.0.0.0 Safari/537.36',
   manifestExtra = {},
   extensionId = 'test-extension-id',
-  prompted = false
+  prompted = false,
+  pageCheck = null
 } = {}) {
   const store = {
     [SETTINGS_KEY]: { DownloadFolder: 'NexusMods', NDC_downloadMethod: 0, ...settings },
@@ -57,6 +58,7 @@ function loadShared({
   };
   context.window = context;
   context.globalThis = context;
+  if (pageCheck) context.NexusExt = { PageCheck: pageCheck };
   // In the order the popup loads them: report.js builds on what shared.js defines.
   for (const file of ['src/shared.js', 'src/report.js']) {
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
@@ -403,8 +405,34 @@ async function activityTrailTests() {
   assert.ok(result.url.length <= 7000, `url ${result.url.length} chars`);
 }
 
+// What the page check found is in the report, between the page context and the errors, and the
+// report still fits the issue URL with it. A page check that throws costs the report nothing.
+async function pageCheckSectionTests() {
+  const section = [
+    '──────── Nexus page check ────────',
+    'Page:   file download page · checked 4s ago',
+    'ok   sign-in state — signed in',
+    'FAIL download control for this file — none of mod-file-download[file-id="2"], #slowDownloadButton, [data-download-url]',
+    'Nexus build: build-2 (seen since 2026-10-02; before that build-1 from 2026-09-20)'
+  ];
+  let { NXTK } = loadShared({ errors: [loggedError()], pageCheck: { describe: () => section } });
+  const report = await NXTK.buildBugReport();
+  assert.match(report, /──────── Nexus page check ────────\nPage: {3}file download page/);
+  assert.ok(report.indexOf('Nexus page check') < report.indexOf('Recent errors'), 'it comes before the error list');
+  const result = await NXTK.buildReportIssueUrl({ code: 'no_download_url', userMessage: 'No link.' });
+  assert.match(new URL(result.url).searchParams.get('report') || result.url, /FAIL download control/,
+    'the issue form gets it too');
+  assert.ok(result.url.length <= 7000, `url ${result.url.length} chars`);
+
+  ({ NXTK } = loadShared({ pageCheck: { describe: () => { throw new Error('boom'); } } }));
+  assert.doesNotMatch(await NXTK.buildBugReport(), /Nexus page check/, 'a failing page check is left out');
+  ({ NXTK } = loadShared());
+  assert.doesNotMatch(await NXTK.buildBugReport(), /Nexus page check/, 'and so is a missing one');
+}
+
 Promise.resolve()
   .then(reportContentTests)
+  .then(pageCheckSectionTests)
   .then(issueUrlTests)
   .then(truncationTests)
   .then(emptyLogTests)

@@ -27,7 +27,8 @@ global.NexusExt = {
     normalize: (error) => ({ ...error, blocking: BLOCKING_CODES.has(error?.code), retryable: false }),
     isBlocking: (error) => BLOCKING_CODES.has(error?.code),
     toLogMessage: (error) => String(error?.code || ''),
-    create: (code) => ({ code })
+    create: (code, extra = {}) => ({ code, ...extra }),
+    classifyContent: () => null
   },
   Auth: {
     getDocumentLoginError: () => null
@@ -254,6 +255,26 @@ function createHarness(choice) {
   assert.equal(off.smallestFirst, false, 'the order can be turned off');
   off.loadRunSettings({});
   assert.equal(off.smallestFirst, true, 'and is on for anyone who never touched it');
+
+  // Nexus renaming a GraphQL field shows as a validation error, and is named as an API change.
+  document.location = { href: 'https://www.nexusmods.com/games/game/collections/collection' };
+  const api = new NexusExt.NDC('game', 'collection');
+  const answer = (body) => { NexusExt.Errors.request = async () => ({ ok: true, text: JSON.stringify(body) }); };
+  answer({ errors: [{ message: 'Cannot query field "modFiles" on type "CollectionRevision".' }], data: { collectionRevision: null } });
+  assert.equal(await api.fetchMods(), null);
+  assert.equal(api.lastError.code, 'nexus_api_changed', 'a schema error reads as Nexus changing its API');
+  assert.match(api.lastError.technicalMessage, /GraphQL: Cannot query field "modFiles"/, 'and carries what GraphQL said');
+  answer({ errors: [{ message: 'Collection not found' }], data: { collectionRevision: null } });
+  await api.fetchMods();
+  assert.equal(api.lastError.code, 'invalid_response', 'any other GraphQL error is not called an API change');
+  assert.match(api.lastError.technicalMessage, /Collection not found/);
+  answer({ data: { collection: null } });
+  assert.equal(await api.fetchRevisions(), null);
+  assert.equal(api.lastError.code, 'invalid_response');
+  assert.match(api.lastError.technicalMessage, /no collection\.revisions/, 'a missing field is named');
+  answer({ errors: [{ message: 'Unknown argument "slug" on field "Query.collection".' }] });
+  await api.fetchRevisions();
+  assert.equal(api.lastError.code, 'nexus_api_changed');
 
   console.log('Vortex preflight behavior OK');
 })().catch((error) => {

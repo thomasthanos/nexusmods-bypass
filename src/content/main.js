@@ -295,6 +295,7 @@
     if (!bootstrapDone) return;
     NNW.onNavigate().catch((cause) => logUnhandled(cause, 'Applying page navigation'));
     handleRouteChange();
+    window.NexusExt.PageCheck?.schedule();
   }
 
   window.addEventListener('popstate', syncNavigation);
@@ -323,6 +324,12 @@
     await NNW.init();
     UI.createSettingsFAB();
     bootstrapDone = true;
+
+    window.NexusExt.PageCheck?.configure({
+      findCollectionHost,
+      isCollectionRoute: (pathname) => !!extractRouteDetails(pathname)
+    });
+    window.NexusExt.PageCheck?.schedule();
 
     syncNavigation();
 

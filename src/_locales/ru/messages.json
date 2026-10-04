@@ -1545,5 +1545,17 @@
         "content": "$1"
       }
     }
+  },
+  "errNexusPageChangedMsg": {
+    "message": "Эта страница Nexus Mods больше не выглядит так, как ожидает расширение."
+  },
+  "errNexusPageChangedFix": {
+    "message": "Возможно, Nexus Mods обновил сайт. Отправьте отчёт об ошибке, чтобы расширение можно было обновить."
+  },
+  "errNexusApiChangedMsg": {
+    "message": "Nexus Mods изменил способ ответа на запросы о коллекциях."
+  },
+  "errNexusApiChangedFix": {
+    "message": "Для этого нужно обновление расширения. Отправьте отчёт об ошибке, чтобы это исправили."
   }
 }

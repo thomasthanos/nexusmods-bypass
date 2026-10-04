@@ -1293,5 +1293,17 @@
         "content": "$1"
       }
     }
+  },
+  "errNexusPageChangedMsg": {
+    "message": "이 Nexus Mods 페이지가 더 이상 확장 프로그램이 예상하는 모습이 아닙니다."
+  },
+  "errNexusPageChangedFix": {
+    "message": "Nexus Mods가 사이트를 업데이트했을 수 있습니다. 확장 프로그램을 업데이트할 수 있도록 버그 보고서를 보내 주세요."
+  },
+  "errNexusApiChangedMsg": {
+    "message": "Nexus Mods가 컬렉션 요청에 응답하는 방식을 바꿨습니다."
+  },
+  "errNexusApiChangedFix": {
+    "message": "이 문제는 확장 프로그램 업데이트가 필요합니다. 고칠 수 있도록 버그 보고서를 보내 주세요."
   }
 }

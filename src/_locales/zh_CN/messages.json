@@ -1293,5 +1293,17 @@
         "content": "$1"
       }
     }
+  },
+  "errNexusPageChangedMsg": {
+    "message": "此 Nexus Mods 页面已不再是扩展预期的样子。"
+  },
+  "errNexusPageChangedFix": {
+    "message": "Nexus Mods 可能更新了网站。请发送错误报告，以便更新扩展。"
+  },
+  "errNexusApiChangedMsg": {
+    "message": "Nexus Mods 更改了对合集请求的响应方式。"
+  },
+  "errNexusApiChangedFix": {
+    "message": "这需要更新扩展。请发送错误报告以便修复。"
   }
 }

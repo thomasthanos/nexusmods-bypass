@@ -1293,5 +1293,17 @@
         "content": "$1"
       }
     }
+  },
+  "errNexusPageChangedMsg": {
+    "message": "この Nexus Mods のページは、拡張機能が想定している形ではなくなっています。"
+  },
+  "errNexusPageChangedFix": {
+    "message": "Nexus Mods がサイトを更新した可能性があります。拡張機能を更新できるよう、バグ報告を送ってください。"
+  },
+  "errNexusApiChangedMsg": {
+    "message": "Nexus Mods がコレクションのリクエストへの応答方法を変更しました。"
+  },
+  "errNexusApiChangedFix": {
+    "message": "これには拡張機能の更新が必要です。修正できるよう、バグ報告を送ってください。"
   }
 }

@@ -1377,5 +1377,17 @@
         "content": "$1"
       }
     }
+  },
+  "errNexusPageChangedMsg": {
+    "message": "Bu Nexus Mods sayfası artık eklentinin beklediği gibi görünmüyor."
+  },
+  "errNexusPageChangedFix": {
+    "message": "Nexus Mods sitesini güncellemiş olabilir. Eklentinin güncellenebilmesi için bir hata raporu gönderin."
+  },
+  "errNexusApiChangedMsg": {
+    "message": "Nexus Mods koleksiyon isteklerine yanıt verme biçimini değiştirdi."
+  },
+  "errNexusApiChangedFix": {
+    "message": "Bunun için eklentinin güncellenmesi gerekiyor. Düzeltilebilmesi için bir hata raporu gönderin."
   }
 }

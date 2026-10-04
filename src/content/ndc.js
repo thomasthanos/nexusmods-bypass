@@ -130,6 +130,19 @@ window.NexusExt = window.NexusExt || {};
       : (raw || Errors.displayText({ code: 'request_failed' }).message);
   }
 
+  // GraphQL answers a query that names a field it no longer has with a validation error, not a
+  // missing field. That is Nexus changing its API, and it is named as such so a report points at it.
+  const GRAPHQL_SCHEMA_ERROR = /cannot query field|unknown argument|unknown type|must have a selection|is not defined by type|cannot return null for non-nullable/i;
+
+  function graphqlFault(json, context) {
+    const errors = Array.isArray(json?.errors) ? json.errors : [];
+    const messages = errors.map((entry) => String(entry?.message || '').trim()).filter(Boolean);
+    if (!messages.length) return null;
+    const technicalMessage = `GraphQL: ${messages.slice(0, 3).join(' | ')}`.slice(0, 500);
+    const code = messages.some((message) => GRAPHQL_SCHEMA_ERROR.test(message)) ? 'nexus_api_changed' : 'invalid_response';
+    return Errors.create(code, { context, technicalMessage });
+  }
+
   // Why a file was skipped, as a sentence of its own. 'cloudflare' reads as the check, not as a fault.
   function skipReasonText(reason) {
     return reason === 'cloudflare'
@@ -390,8 +403,12 @@ window.NexusExt = window.NexusExt || {};
       }
 
       if (!json?.data?.collectionRevision || !Array.isArray(json.data.collectionRevision.modFiles)) {
-        this.lastError = Errors.classifyContent(response.text, { context: 'Loading collection details' })
-          || Errors.create('invalid_response', { context: 'Loading collection details' });
+        this.lastError = graphqlFault(json, 'Loading collection details')
+          || Errors.classifyContent(response.text, { context: 'Loading collection details' })
+          || Errors.create('invalid_response', {
+            context: 'Loading collection details',
+            technicalMessage: 'no collectionRevision.modFiles in the answer'
+          });
         return null;
       }
 
@@ -1364,10 +1381,15 @@ window.NexusExt = window.NexusExt || {};
       }
 
       try {
-        const revisions = JSON.parse(response.text)?.data?.collection?.revisions || null;
+        const json = JSON.parse(response.text);
+        const revisions = json?.data?.collection?.revisions || null;
         if (!revisions) {
-          this.lastError = Errors.classifyContent(response.text, { context: 'Loading collection revisions' })
-            || Errors.create('invalid_response', { context: 'Loading collection revisions' });
+          this.lastError = graphqlFault(json, 'Loading collection revisions')
+            || Errors.classifyContent(response.text, { context: 'Loading collection revisions' })
+            || Errors.create('invalid_response', {
+              context: 'Loading collection revisions',
+              technicalMessage: 'no collection.revisions in the answer'
+            });
         }
         return revisions;
       } catch (cause) {

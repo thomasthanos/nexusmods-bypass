@@ -15,6 +15,18 @@ they are simply not listed.
   ascending order of the size Nexus lists for each file, so most of a collection is done early and one
   large file does not hold up the rest. Files with no listed size go last, in their original order. The
   new *Smallest files first* setting turns it off.
+- **A check that notices when Nexus changes its pages.** On mod pages, file download pages and collection
+  pages, the extension now checks, a few seconds after the page settles and again before calling anything
+  missing, that it can still find what it finds its way by: the game id, the mod section, the download
+  control for the file, the spot for the collection panel, and a way to tell whether you are signed in.
+  Until now a Nexus redesign showed only as a feature quietly doing nothing. A check that keeps failing is
+  named in the console every time, logged once per tab as *nexus_page_changed*, and the bug report gains a
+  *Nexus page check* section listing every check for the page, together with the Nexus build it ran
+  against and the build before it, so a report shows when Nexus deployed and what broke with it.
+- **Collection requests name a Nexus API change.** When Nexus answers the collection query with a GraphQL
+  validation error, such as a field that no longer exists, the error is *nexus_api_changed* with what
+  GraphQL said, instead of a bare *unexpected response*. Other GraphQL errors and missing fields are named
+  in the report too.
 - **A run lists what it skipped.** When a run ends, finished or stopped, the log lists every file it
   passed over, with the reason and a link to its page.
 

@@ -42,7 +42,8 @@ for (const check of [
   'background-units-test.cjs',
   'wabbajack-importer-test.cjs',
   'content-helpers-test.cjs',
-  'report-builder-test.cjs'
+  'report-builder-test.cjs',
+  'page-check-test.cjs'
 ]) {
   const run = spawnSync(process.execPath, [join(root, 'tools', check)], { cwd: root, stdio: 'inherit' });
   if (run.status !== 0) fail(`${check} did not pass — package not built.`);

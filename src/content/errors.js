@@ -71,6 +71,16 @@ window.NexusExt = window.NexusExt || {};
       recovery: 'The mod is no longer available on Nexus Mods. Check for an alternative or contact the mod author.',
       retryable: false
     },
+    nexus_page_changed: {
+      userMessage: 'This Nexus Mods page no longer looks the way the extension expects.',
+      recovery: 'Nexus Mods may have updated its site. Send a bug report so the extension can be updated.',
+      retryable: false
+    },
+    nexus_api_changed: {
+      userMessage: 'Nexus Mods changed how it answers collection requests.',
+      recovery: 'The extension needs an update for this. Send a bug report so it can be fixed.',
+      retryable: false
+    },
     server_error: {
       userMessage: 'Nexus Mods is having a server-side problem.',
       recovery: 'Wait a moment and retry.',

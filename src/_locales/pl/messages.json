@@ -1545,5 +1545,17 @@
         "content": "$1"
       }
     }
+  },
+  "errNexusPageChangedMsg": {
+    "message": "Ta strona Nexus Mods nie wygląda już tak, jak oczekuje rozszerzenie."
+  },
+  "errNexusPageChangedFix": {
+    "message": "Nexus Mods mogło zaktualizować swoją stronę. Wyślij zgłoszenie błędu, aby można było zaktualizować rozszerzenie."
+  },
+  "errNexusApiChangedMsg": {
+    "message": "Nexus Mods zmieniło sposób odpowiadania na zapytania o kolekcje."
+  },
+  "errNexusApiChangedFix": {
+    "message": "Rozszerzenie wymaga do tego aktualizacji. Wyślij zgłoszenie błędu, aby można było to naprawić."
   }
 }

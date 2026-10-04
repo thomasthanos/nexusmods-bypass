@@ -1887,6 +1887,8 @@ window.NexusExt = window.NexusExt || {};
     updateConfig,
     getDownloadUrl,
     isActionablePage,
+    getGameId,
+    getSearchRoots,
     Logger,
     waitForDomSettled,
     parseDownloadURLFromResponse,

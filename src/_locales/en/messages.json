@@ -1685,5 +1685,21 @@
         "content": "$1"
       }
     }
+  },
+  "errNexusPageChangedMsg": {
+    "message": "This Nexus Mods page no longer looks the way the extension expects.",
+    "description": "Error message: a Nexus page lacks something the extension finds its way by."
+  },
+  "errNexusPageChangedFix": {
+    "message": "Nexus Mods may have updated its site. Send a bug report so the extension can be updated.",
+    "description": "Recovery advice for errNexusPageChangedMsg."
+  },
+  "errNexusApiChangedMsg": {
+    "message": "Nexus Mods changed how it answers collection requests.",
+    "description": "Error message: the Nexus GraphQL API rejected a field the extension asks for."
+  },
+  "errNexusApiChangedFix": {
+    "message": "The extension needs an update for this. Send a bug report so it can be fixed.",
+    "description": "Recovery advice for errNexusApiChangedMsg."
   }
 }

@@ -48,6 +48,7 @@
         "content/errors.js",
         "content/auth.js",
         "content/nnw.js",
+        "content/page-check.js",
         "content/ui.js",
         "content/main.js"
       ],
