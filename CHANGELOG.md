@@ -7,6 +7,11 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## Unreleased
+
+- Debug log page (Help & Bugs → Debug log): live view of the opt-in debug ring buffer, minimum-level filter, search, follow mode, clear, and .txt/.json export of the filtered view; responsive from 720p to 4K; translated into all 13 locales.
+- PRIVACY: correct relay host and describe the 10-minute auto-error fingerprint the relay keeps.
+
 ## [Unreleased]
 
 ### Changed

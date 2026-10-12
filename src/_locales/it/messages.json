@@ -1674,5 +1674,55 @@
   },
   "rpSettingFailed": {
     "message": "Impossibile salvare la preferenza. Riprova."
+  },
+  "btnDebugLog": {
+    "message": "Log di debug"
+  },
+  "dbTitle": {
+    "message": "Log di debug"
+  },
+  "dbLive": {
+    "message": "Live"
+  },
+  "dbOff": {
+    "message": "I log di debug sono disattivati. Attiva \"Debug logs\" nelle impostazioni della pagina."
+  },
+  "dbLevel": {
+    "message": "Livello"
+  },
+  "dbLevelAll": {
+    "message": "Tutti"
+  },
+  "dbSearch": {
+    "message": "Cerca"
+  },
+  "dbFollow": {
+    "message": "Segui le nuove voci"
+  },
+  "dbExportText": {
+    "message": "Esporta .txt"
+  },
+  "dbExportJson": {
+    "message": "Esporta .json"
+  },
+  "dbClear": {
+    "message": "Cancella"
+  },
+  "dbClearConfirm": {
+    "message": "Cancellare il log di debug?"
+  },
+  "dbEmpty": {
+    "message": "Nessuna voce."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ di $TOTAL$ voci",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

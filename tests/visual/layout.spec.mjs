@@ -334,3 +334,41 @@ test('report workspace: responsive layout and Greek text fit without overflow', 
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await page.close();
 });
+
+test('debug log page: live view, level filter, safe text, clear and no overflow', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto(`chrome-extension://${id}/debug-page/debug.html`);
+  await page.evaluate(() => new Promise((r) => globalThis.chrome.storage.local.set({ nxtk_debug_log: [
+    { at: Date.now(), level: 'info', page: 'mod', text: 'hello <img src=x onerror=alert(1)>' },
+    { at: Date.now(), level: 'error', page: 'worker', text: 'request_failed 503' }
+  ] }, r)));
+  await expect(page.locator('.db-row')).toHaveCount(2);
+  await expect(page.locator('.db-log img')).toHaveCount(0);
+  await page.selectOption('#dbLevelFilter', 'error');
+  await expect(page.locator('.db-row')).toHaveCount(1);
+  await page.selectOption('#dbLevelFilter', 'all');
+  // Live: a new entry written by the background appears without reloading.
+  await page.evaluate(() => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_debug_log', (o) => globalThis.chrome.storage.local.set({ nxtk_debug_log: [...o.nxtk_debug_log, { at: Date.now(), level: 'warn', page: 'mod', text: 'later' }] }, r))));
+  await expect(page.locator('.db-row')).toHaveCount(3);
+  await page.fill('#dbSearch', 'later');
+  await expect(page.locator('.db-row')).toHaveCount(1);
+  await page.fill('#dbSearch', '');
+  const download = page.waitForEvent('download');
+  await page.click('#dbExportJson');
+  expect((await download).suggestedFilename()).toMatch(/^nexusmods-bypass-debug-.*\.json$/);
+  for (const [w, h] of [[720, 1280], [1280, 720], [1920, 1080], [2560, 1440], [3840, 2160]]) {
+    await page.setViewportSize({ width: w, height: h });
+    const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflowX, `debug page ${w}x${h} scrolls horizontally`).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: path.join(shotDir, `debug-${w}x${h}.png`) });
+  }
+  page.once('dialog', (d) => d.accept());
+  await page.click('#dbClear');
+  await expect(page.locator('.db-row')).toHaveCount(0);
+  await expect(page.locator('#dbEmpty')).toBeVisible();
+  await page.close();
+});

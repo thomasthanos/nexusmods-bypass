@@ -1674,5 +1674,55 @@
   },
   "rpSettingFailed": {
     "message": "Não foi possível salvar a preferência. Tente novamente."
+  },
+  "btnDebugLog": {
+    "message": "Log de depuração"
+  },
+  "dbTitle": {
+    "message": "Log de depuração"
+  },
+  "dbLive": {
+    "message": "Ao vivo"
+  },
+  "dbOff": {
+    "message": "Os logs de depuração estão desativados. Ative \"Debug logs\" nas configurações da página."
+  },
+  "dbLevel": {
+    "message": "Nível"
+  },
+  "dbLevelAll": {
+    "message": "Todos"
+  },
+  "dbSearch": {
+    "message": "Pesquisar"
+  },
+  "dbFollow": {
+    "message": "Acompanhar novas entradas"
+  },
+  "dbExportText": {
+    "message": "Exportar .txt"
+  },
+  "dbExportJson": {
+    "message": "Exportar .json"
+  },
+  "dbClear": {
+    "message": "Limpar"
+  },
+  "dbClearConfirm": {
+    "message": "Limpar o log de depuração?"
+  },
+  "dbEmpty": {
+    "message": "Nenhuma entrada ainda."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ de $TOTAL$ entradas",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

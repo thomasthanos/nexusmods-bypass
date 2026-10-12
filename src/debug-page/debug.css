@@ -1,0 +1,37 @@
+:root { color-scheme: dark; --bg: #161a20; --sf: #20252d; --line: #353d47; --tx: #f1f0ec; --mu: #aab1ba; --ac: #f0a24d; font: 14px/1.5 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--tx); min-height: 100vh; display: flex; flex-direction: column; }
+:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.db-top { display: flex; align-items: center; gap: 14px; padding: 14px max(16px, calc((100vw - 1400px) / 2)); border-bottom: 1px solid var(--line); background: #1b2027; }
+.db-top h1 { margin: 0; font-size: clamp(18px, 2vw, 24px); font-weight: 600; }
+.db-live { font-size: 11px; color: #91ceb0; border: 1px solid #3c5b4c; border-radius: 999px; padding: 1px 9px; }
+.db-version { margin-left: auto; color: var(--mu); font-size: 12px; }
+.db { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 1400px; margin: 0 auto; padding: 16px; min-height: 0; }
+.db-off { margin: 0 0 12px; padding: 10px 14px; border: 1px solid #65503a; border-radius: 10px; background: #2d2924; }
+.db-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.db-field { display: inline-flex; align-items: center; gap: 8px; color: var(--mu); }
+select, .db-search, .db-btn { font: inherit; color: var(--tx); background: var(--sf); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.db-search { flex: 1 1 220px; min-width: 0; }
+.db-check { display: inline-flex; gap: 6px; align-items: center; color: var(--mu); }
+.db-spacer { flex: 1 1 0; }
+.db-btn { cursor: pointer; }
+.db-btn:hover { border-color: var(--ac); }
+.db-btn-danger:hover { border-color: #fba9a4; color: #fba9a4; }
+.db-count { color: var(--mu); font-size: 12px; margin: 10px 0 6px; }
+.db-log { flex: 1; min-height: 240px; height: calc(100vh - 230px); overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: #12161b; font: 12.5px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace; scrollbar-color: #4a5360 transparent; }
+.db-row { display: grid; grid-template-columns: 92px 52px 90px 1fr; gap: 10px; padding: 2px 12px; border-bottom: 1px solid #1d232a; }
+.db-row time, .db-page { color: var(--mu); }
+.db-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.db-level { text-transform: uppercase; font-weight: 600; font-size: 11px; }
+.db-debug .db-level { color: #8b95a1; } .db-info .db-level { color: #8fb8ff; }
+.db-warn .db-level { color: #f0c36d; } .db-error .db-level { color: #fba9a4; } .db-error { background: #2a1a1a; }
+.db-empty { color: var(--mu); text-align: center; }
+@media (max-width: 720px) {
+  .db-row { grid-template-columns: 78px 46px 1fr; }
+  .db-page { display: none; }
+  .db-spacer { display: none; }
+  .db-btn { flex: 1 1 auto; }
+}
+@media (min-width: 2400px) { :root { font-size: 16px; } .db-log { font-size: 14px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

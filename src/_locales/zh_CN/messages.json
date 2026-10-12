@@ -1590,5 +1590,55 @@
   },
   "rpSettingFailed": {
     "message": "无法保存设置，请重试。"
+  },
+  "btnDebugLog": {
+    "message": "调试日志"
+  },
+  "dbTitle": {
+    "message": "调试日志"
+  },
+  "dbLive": {
+    "message": "实时"
+  },
+  "dbOff": {
+    "message": "调试日志已关闭。请在页面设置中开启“Debug logs”。"
+  },
+  "dbLevel": {
+    "message": "级别"
+  },
+  "dbLevelAll": {
+    "message": "全部"
+  },
+  "dbSearch": {
+    "message": "搜索"
+  },
+  "dbFollow": {
+    "message": "跟随新条目"
+  },
+  "dbExportText": {
+    "message": "导出 .txt"
+  },
+  "dbExportJson": {
+    "message": "导出 .json"
+  },
+  "dbClear": {
+    "message": "清除"
+  },
+  "dbClearConfirm": {
+    "message": "清除调试日志？"
+  },
+  "dbEmpty": {
+    "message": "暂无条目。"
+  },
+  "dbCount": {
+    "message": "$SHOWN$ / $TOTAL$ 条",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

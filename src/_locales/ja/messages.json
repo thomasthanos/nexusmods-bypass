@@ -1590,5 +1590,55 @@
   },
   "rpSettingFailed": {
     "message": "設定を保存できませんでした。もう一度お試しください。"
+  },
+  "btnDebugLog": {
+    "message": "デバッグログ"
+  },
+  "dbTitle": {
+    "message": "デバッグログ"
+  },
+  "dbLive": {
+    "message": "ライブ"
+  },
+  "dbOff": {
+    "message": "デバッグログはオフです。ページ設定で「Debug logs」をオンにしてください。"
+  },
+  "dbLevel": {
+    "message": "レベル"
+  },
+  "dbLevelAll": {
+    "message": "すべて"
+  },
+  "dbSearch": {
+    "message": "検索"
+  },
+  "dbFollow": {
+    "message": "新しい項目を追う"
+  },
+  "dbExportText": {
+    "message": ".txt で書き出す"
+  },
+  "dbExportJson": {
+    "message": ".json で書き出す"
+  },
+  "dbClear": {
+    "message": "消去"
+  },
+  "dbClearConfirm": {
+    "message": "デバッグログを消去しますか？"
+  },
+  "dbEmpty": {
+    "message": "まだ項目がありません。"
+  },
+  "dbCount": {
+    "message": "$TOTAL$ 件中 $SHOWN$ 件",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

@@ -1842,5 +1842,55 @@
   },
   "rpSettingFailed": {
     "message": "Не удалось сохранить настройку. Попробуйте ещё раз."
+  },
+  "btnDebugLog": {
+    "message": "Журнал отладки"
+  },
+  "dbTitle": {
+    "message": "Журнал отладки"
+  },
+  "dbLive": {
+    "message": "В реальном времени"
+  },
+  "dbOff": {
+    "message": "Журналы отладки выключены. Включите «Debug logs» в настройках страницы."
+  },
+  "dbLevel": {
+    "message": "Уровень"
+  },
+  "dbLevelAll": {
+    "message": "Все"
+  },
+  "dbSearch": {
+    "message": "Поиск"
+  },
+  "dbFollow": {
+    "message": "Следить за новыми записями"
+  },
+  "dbExportText": {
+    "message": "Экспорт .txt"
+  },
+  "dbExportJson": {
+    "message": "Экспорт .json"
+  },
+  "dbClear": {
+    "message": "Очистить"
+  },
+  "dbClearConfirm": {
+    "message": "Очистить журнал отладки?"
+  },
+  "dbEmpty": {
+    "message": "Записей пока нет."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ из $TOTAL$ записей",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

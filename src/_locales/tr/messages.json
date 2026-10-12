@@ -1674,5 +1674,55 @@
   },
   "rpSettingFailed": {
     "message": "Ayar kaydedilemedi. Tekrar deneyin."
+  },
+  "btnDebugLog": {
+    "message": "Hata ayıklama günlüğü"
+  },
+  "dbTitle": {
+    "message": "Hata ayıklama günlüğü"
+  },
+  "dbLive": {
+    "message": "Canlı"
+  },
+  "dbOff": {
+    "message": "Hata ayıklama günlükleri kapalı. Sayfa ayarlarında \"Debug logs\" seçeneğini açın."
+  },
+  "dbLevel": {
+    "message": "Seviye"
+  },
+  "dbLevelAll": {
+    "message": "Tümü"
+  },
+  "dbSearch": {
+    "message": "Ara"
+  },
+  "dbFollow": {
+    "message": "Yeni kayıtları takip et"
+  },
+  "dbExportText": {
+    "message": ".txt olarak dışa aktar"
+  },
+  "dbExportJson": {
+    "message": ".json olarak dışa aktar"
+  },
+  "dbClear": {
+    "message": "Temizle"
+  },
+  "dbClearConfirm": {
+    "message": "Hata ayıklama günlüğü temizlensin mi?"
+  },
+  "dbEmpty": {
+    "message": "Henüz kayıt yok."
+  },
+  "dbCount": {
+    "message": "$TOTAL$ kayıttan $SHOWN$",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

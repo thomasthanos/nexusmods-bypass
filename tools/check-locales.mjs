@@ -97,7 +97,7 @@ for (const locale of locales) {
 }
 
 const referenced = new Set();
-const SCAN = ['popup', 'onboarding', 'report-page', 'content', 'shared.js', 'report.js', 'manifest.json'];
+const SCAN = ['popup', 'onboarding', 'report-page', 'debug-page', 'content', 'shared.js', 'report.js', 'manifest.json'];
 function walk(p) {
   const full = join(pkg, p);
   if (!existsSync(full)) return;

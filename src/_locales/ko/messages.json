@@ -1590,5 +1590,55 @@
   },
   "rpSettingFailed": {
     "message": "설정을 저장하지 못했습니다. 다시 시도하세요."
+  },
+  "btnDebugLog": {
+    "message": "디버그 로그"
+  },
+  "dbTitle": {
+    "message": "디버그 로그"
+  },
+  "dbLive": {
+    "message": "실시간"
+  },
+  "dbOff": {
+    "message": "디버그 로그가 꺼져 있습니다. 페이지 설정에서 \"Debug logs\"를 켜세요."
+  },
+  "dbLevel": {
+    "message": "수준"
+  },
+  "dbLevelAll": {
+    "message": "전체"
+  },
+  "dbSearch": {
+    "message": "검색"
+  },
+  "dbFollow": {
+    "message": "새 항목 따라가기"
+  },
+  "dbExportText": {
+    "message": ".txt 내보내기"
+  },
+  "dbExportJson": {
+    "message": ".json 내보내기"
+  },
+  "dbClear": {
+    "message": "지우기"
+  },
+  "dbClearConfirm": {
+    "message": "디버그 로그를 지울까요?"
+  },
+  "dbEmpty": {
+    "message": "아직 항목이 없습니다."
+  },
+  "dbCount": {
+    "message": "$TOTAL$개 중 $SHOWN$개",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }
