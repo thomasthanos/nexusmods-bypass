@@ -7,8 +7,11 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
-## Unreleased
+## 2.10.3
 
+- Report page: the relay permission is now requested synchronously inside the Send click (no await before `permissions.request`), so the prompt appears in Chrome and Firefox; skipped once granted; the same fix for the automatic-reports toggle. Failed or refused requests are written to the debug log with the browser error.
+- Debug log page: "Turn on debug logs" button when logging is off.
+- Tests: permission request runs in the click task with the exact manifest origin, prompts once then sends; every page shows the manifest version.
 - Debug log page (Help & Bugs → Debug log): live view of the opt-in debug ring buffer, minimum-level filter, search, follow mode, clear, and .txt/.json export of the filtered view; responsive from 720p to 4K; translated into all 13 locales.
 - PRIVACY: correct relay host and describe the 10-minute auto-error fingerprint the relay keeps.
 

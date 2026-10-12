@@ -65,6 +65,16 @@
     document.documentElement.lang = chrome.i18n?.getUILanguage?.() || 'en';
     const version = chrome.runtime.getManifest().version;
     $('dbVersion').textContent = `v${version}`;
+    $('dbEnable').addEventListener('click', async () => {
+      $('dbEnable').disabled = true;
+      try {
+        const reply = await chrome.runtime.sendMessage({ type: 'SETTINGS_PATCH', payload: { patch: { DebugLogs: true } } });
+        if (!reply?.ok) throw new Error('settings-write-failed');
+      } catch (_) {
+        $('dbEnable').disabled = false;
+      }
+      load();
+    });
     $('dbLevelFilter').addEventListener('change', render);
     $('dbSearch').addEventListener('input', render);
     const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');

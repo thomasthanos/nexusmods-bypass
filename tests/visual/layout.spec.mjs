@@ -237,6 +237,7 @@ test('report page: connection failures keep the description and show a retry and
     globalThis.NXTK.RELAY_CONFIGURED = true;
     globalThis.NXTK.checkRelayHealth = async () => ({ ok: false, reason: 'unreachable' });
     globalThis.chrome.permissions.contains = async () => true;
+    globalThis.chrome.permissions.request = async () => true;
     document.getElementById('rpSend').disabled = false;
   });
   await page.locator('#rpSummary').fill('Download never starts');
@@ -286,6 +287,7 @@ test('report workspace: preview, validation, redaction, one send and JSON export
     window.reportTestCalls = [];
     globalThis.NXTK.checkRelayHealth = async () => ({ ok: true });
     globalThis.chrome.permissions.contains = async () => true;
+    globalThis.chrome.permissions.request = async () => true;
     globalThis.NXTK.sendReportPayload = async (payload) => {
       window.reportTestCalls.push(payload);
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -370,5 +372,69 @@ test('debug log page: live view, level filter, safe text, clear and no overflow'
   await page.click('#dbClear');
   await expect(page.locator('.db-row')).toHaveCount(0);
   await expect(page.locator('#dbEmpty')).toBeVisible();
+  await page.close();
+});
+
+test('report send requests the relay permission synchronously inside the click, once', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${id}/report-page/report.html`);
+  await page.waitForFunction(() => document.getElementById('rpPreview').textContent.includes('schema'));
+  const expected = await page.evaluate(async () => {
+    const manifest = globalThis.chrome.runtime.getManifest();
+    window.permCalls = [];
+    window.sends = 0;
+    let grant = false;
+    // True only for the rest of the click's task: an await on a browser API before request() ends it,
+    // and that is exactly what loses the extension user-gesture token in Chrome.
+    document.addEventListener('click', () => { window.inClick = true; setTimeout(() => { window.inClick = false; }, 0); }, true);
+    globalThis.chrome.permissions.request = (perm) => {
+      // userActivation.isActive is only true while the click's gesture is still usable.
+      window.permCalls.push({ origins: perm.origins, active: navigator.userActivation.isActive, sameTask: window.inClick === true, frozen: Object.isFrozen(perm.origins) });
+      grant = window.permCalls.length > 1;
+      return Promise.resolve(grant);
+    };
+    globalThis.NXTK.checkRelayHealth = async () => ({ ok: true });
+    globalThis.NXTK.sendReportPayload = async () => { window.sends += 1; return { ok: false, reason: 'server_error' }; };
+    return manifest.optional_host_permissions;
+  });
+  await page.locator('#rpSummary').fill('Permission test');
+  await page.click('#rpSend');
+  await expect(page.locator('#rpStatus, #rpFailure').first()).toBeVisible();
+  let calls = await page.evaluate(() => window.permCalls);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].active, 'request() ran while the user gesture was active').toBe(true);
+  expect(calls[0].sameTask, 'request() ran in the same task as the click (no await before it)').toBe(true);
+  expect(calls[0].origins).toEqual(expected);
+  expect(calls[0].frozen).toBe(false);
+  expect(await page.evaluate(() => window.sends)).toBe(0);
+  // Granted on the second try: it sends; a third click after the grant skips the prompt.
+  await page.click('#rpSend');
+  await expect.poll(() => page.evaluate(() => window.sends)).toBe(1);
+  await page.click('#rpSend');
+  await expect.poll(() => page.evaluate(() => window.sends)).toBe(2);
+  calls = await page.evaluate(() => window.permCalls);
+  expect(calls).toHaveLength(2);
+  await page.close();
+});
+
+test('every page shows the manifest version, and the debug page can turn logging on', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  const page = await context.newPage();
+  for (const [file, sel] of [['popup/popup.html', '.popup-version'], ['report-page/report.html', '#rpVersion'], ['debug-page/debug.html', '#dbVersion']]) {
+    await page.goto(`chrome-extension://${id}/${file}`);
+    const version = await page.evaluate(() => globalThis.chrome.runtime.getManifest().version);
+    await expect(page.locator(sel)).toHaveText(`v${version}`);
+  }
+  await page.evaluate(() => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_settings', (o) => globalThis.chrome.storage.local.set({ nxtk_settings: { ...(o.nxtk_settings || {}), DebugLogs: false } }, r))));
+  await page.reload();
+  await expect(page.locator('#dbOff')).toBeVisible();
+  await page.click('#dbEnable');
+  await expect(page.locator('#dbOff')).toBeHidden();
+  expect(await page.evaluate(() => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_settings', (o) => r(o.nxtk_settings.DebugLogs))))).toBe(true);
   await page.close();
 });

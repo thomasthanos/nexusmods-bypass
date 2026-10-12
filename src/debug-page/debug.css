@@ -8,7 +8,7 @@ body { margin: 0; background: var(--bg); color: var(--tx); min-height: 100vh; di
 .db-live { font-size: 11px; color: #91ceb0; border: 1px solid #3c5b4c; border-radius: 999px; padding: 1px 9px; }
 .db-version { margin-left: auto; color: var(--mu); font-size: 12px; }
 .db { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 1400px; margin: 0 auto; padding: 16px; min-height: 0; }
-.db-off { margin: 0 0 12px; padding: 10px 14px; border: 1px solid #65503a; border-radius: 10px; background: #2d2924; }
+.db-off { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid #65503a; border-radius: 10px; background: #2d2924; }
 .db-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .db-field { display: inline-flex; align-items: center; gap: 8px; color: var(--mu); }
 select, .db-search, .db-btn { font: inherit; color: var(--tx); background: var(--sf); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
