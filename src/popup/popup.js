@@ -360,6 +360,10 @@
       createTab(chrome.runtime.getURL('report-page/report.html'));
     });
 
+    document.getElementById('openDebugLog')?.addEventListener('click', () => {
+      createTab(chrome.runtime.getURL('debug-page/debug.html'));
+    });
+
     document.getElementById('reportBug').addEventListener('click', async () => {
       NXTK.setActivity({ trigger: 'popup' });
       let issueUrl = NXTK.REPORT_ISSUE_URL;

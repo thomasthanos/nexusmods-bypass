@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Κουμπιά αρχειοθετημένων αρχείων"
-  },
+  },
   "btnPageSettings": {
     "message": "Ρυθμίσεις σελίδας"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Κάθε κουμπί «Αναφορά σφάλματος» αντιγράφει πλήρες διαγνωστικό report και ανοίγει προσυμπληρωμένο GitHub issue."
-  },
+  },
   "openNexusBtn": {
     "message": "Άνοιγμα Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Καμία σχέση με το Nexus Mods. Χρειάζεσαι δικό σου λογαριασμό Nexus Mods· το premium περιεχόμενο παραμένει premium."
   },
@@ -592,7 +592,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Προσθέτει κουμπιά λήψης Vortex και περιηγητή σε αρχειοθετημένα αρχεία όταν το Nexus τα κρύβει."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Φάκελος λήψεων περιηγητή"
   },
@@ -1674,5 +1674,55 @@
   },
   "rpSettingFailed": {
     "message": "Η ρύθμιση δεν αποθηκεύτηκε. Δοκίμασε ξανά."
+  },
+  "btnDebugLog": {
+    "message": "Αρχείο αποσφαλμάτωσης"
+  },
+  "dbTitle": {
+    "message": "Αρχείο αποσφαλμάτωσης"
+  },
+  "dbLive": {
+    "message": "Ζωντανά"
+  },
+  "dbOff": {
+    "message": "Τα αρχεία αποσφαλμάτωσης είναι απενεργοποιημένα. Ενεργοποίησε το \"Debug logs\" στις Ρυθμίσεις σελίδας."
+  },
+  "dbLevel": {
+    "message": "Επίπεδο"
+  },
+  "dbLevelAll": {
+    "message": "Όλα"
+  },
+  "dbSearch": {
+    "message": "Αναζήτηση"
+  },
+  "dbFollow": {
+    "message": "Ακολούθησε νέες εγγραφές"
+  },
+  "dbExportText": {
+    "message": "Εξαγωγή .txt"
+  },
+  "dbExportJson": {
+    "message": "Εξαγωγή .json"
+  },
+  "dbClear": {
+    "message": "Καθαρισμός"
+  },
+  "dbClearConfirm": {
+    "message": "Καθαρισμός του αρχείου αποσφαλμάτωσης;"
+  },
+  "dbEmpty": {
+    "message": "Δεν υπάρχουν εγγραφές ακόμα."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ από $TOTAL$ εγγραφές",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

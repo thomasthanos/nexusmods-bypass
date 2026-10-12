@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "已归档文件按钮"
-  },
+  },
   "btnPageSettings": {
     "message": "页面设置"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "每个\"报告问题\"按钮都会复制完整诊断报告并打开预填好的 GitHub issue。"
-  },
+  },
   "openNexusBtn": {
     "message": "打开 Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "与 Nexus Mods 无关联。您需要自己的 Nexus Mods 账户；高级版专属内容仍需高级版。"
   },
@@ -557,7 +557,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "当 Nexus 隐藏归档文件时，为其添加 Vortex 与浏览器下载按钮。"
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "浏览器下载文件夹"
   },
@@ -1590,5 +1590,55 @@
   },
   "rpSettingFailed": {
     "message": "无法保存设置，请重试。"
+  },
+  "btnDebugLog": {
+    "message": "调试日志"
+  },
+  "dbTitle": {
+    "message": "调试日志"
+  },
+  "dbLive": {
+    "message": "实时"
+  },
+  "dbOff": {
+    "message": "调试日志已关闭。请在页面设置中开启“Debug logs”。"
+  },
+  "dbLevel": {
+    "message": "级别"
+  },
+  "dbLevelAll": {
+    "message": "全部"
+  },
+  "dbSearch": {
+    "message": "搜索"
+  },
+  "dbFollow": {
+    "message": "跟随新条目"
+  },
+  "dbExportText": {
+    "message": "导出 .txt"
+  },
+  "dbExportJson": {
+    "message": "导出 .json"
+  },
+  "dbClear": {
+    "message": "清除"
+  },
+  "dbClearConfirm": {
+    "message": "清除调试日志？"
+  },
+  "dbEmpty": {
+    "message": "暂无条目。"
+  },
+  "dbCount": {
+    "message": "$SHOWN$ / $TOTAL$ 条",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

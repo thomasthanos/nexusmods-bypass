@@ -21,6 +21,7 @@ const ALLOWLIST = [
   { path: 'popup', ext: ['.js', '.css', '.html'] },
   { path: 'onboarding', ext: ['.js', '.css', '.html'] },
   { path: 'report-page', ext: ['.js', '.css', '.html'] },
+  { path: 'debug-page', ext: ['.js', '.css', '.html'] },
   { path: 'icons', ext: ['.png'] },
   { path: '_locales', ext: ['.json'] }
 ];
@@ -49,7 +50,8 @@ for (const check of [
   'dom-fixtures-test.cjs',
   'relay-test.mjs',
   'manifest-diff-test.mjs',
-  'nexus-api-test.cjs'
+  'nexus-api-test.cjs',
+  'debug-view-test.cjs'
 ]) {
   const run = spawnSync(process.execPath, [join(root, 'tools', check)], { cwd: root, stdio: 'inherit' });
   if (run.status !== 0) fail(`${check} did not pass — package not built.`);

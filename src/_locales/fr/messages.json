@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Boutons des fichiers archivés"
-  },
+  },
   "btnPageSettings": {
     "message": "Réglages de la page"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Chaque bouton « Signaler un bug » copie un rapport complet et ouvre une issue GitHub préremplie."
-  },
+  },
   "openNexusBtn": {
     "message": "Ouvrir Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Non affilié à Nexus Mods. Il vous faut votre propre compte Nexus Mods ; le contenu premium reste premium."
   },
@@ -592,7 +592,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Ajoute des boutons de téléchargement Vortex et navigateur aux fichiers archivés masqués par Nexus."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Dossier de téléchargement du navigateur"
   },
@@ -1674,5 +1674,55 @@
   },
   "rpSettingFailed": {
     "message": "Le réglage n'a pas pu être enregistré. Réessaie."
+  },
+  "btnDebugLog": {
+    "message": "Journal de débogage"
+  },
+  "dbTitle": {
+    "message": "Journal de débogage"
+  },
+  "dbLive": {
+    "message": "En direct"
+  },
+  "dbOff": {
+    "message": "Les journaux de débogage sont désactivés. Active « Debug logs » dans les paramètres de page."
+  },
+  "dbLevel": {
+    "message": "Niveau"
+  },
+  "dbLevelAll": {
+    "message": "Tous"
+  },
+  "dbSearch": {
+    "message": "Rechercher"
+  },
+  "dbFollow": {
+    "message": "Suivre les nouvelles entrées"
+  },
+  "dbExportText": {
+    "message": "Exporter .txt"
+  },
+  "dbExportJson": {
+    "message": "Exporter .json"
+  },
+  "dbClear": {
+    "message": "Effacer"
+  },
+  "dbClearConfirm": {
+    "message": "Effacer le journal de débogage ?"
+  },
+  "dbEmpty": {
+    "message": "Aucune entrée pour l’instant."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ sur $TOTAL$ entrées",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

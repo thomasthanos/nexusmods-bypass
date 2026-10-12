@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "アーカイブ済みファイルのボタン"
-  },
+  },
   "btnPageSettings": {
     "message": "ページ設定"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "「バグを報告」ボタンは診断レポート全体をコピーし、内容が入力済みの GitHub Issue を開きます。"
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods を開く"
-  },
+  },
   "disclaimer": {
     "message": "Nexus Mods とは無関係です。ご自身の Nexus Mods アカウントが必要で、Premium 限定コンテンツは Premium 限定のままです。"
   },
@@ -522,7 +522,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus が非表示にしているアーカイブ済みファイルに、Vortex とブラウザーのダウンロードボタンを追加します。"
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "ブラウザーのダウンロードフォルダー"
   },
@@ -1590,5 +1590,55 @@
   },
   "rpSettingFailed": {
     "message": "設定を保存できませんでした。もう一度お試しください。"
+  },
+  "btnDebugLog": {
+    "message": "デバッグログ"
+  },
+  "dbTitle": {
+    "message": "デバッグログ"
+  },
+  "dbLive": {
+    "message": "ライブ"
+  },
+  "dbOff": {
+    "message": "デバッグログはオフです。ページ設定で「Debug logs」をオンにしてください。"
+  },
+  "dbLevel": {
+    "message": "レベル"
+  },
+  "dbLevelAll": {
+    "message": "すべて"
+  },
+  "dbSearch": {
+    "message": "検索"
+  },
+  "dbFollow": {
+    "message": "新しい項目を追う"
+  },
+  "dbExportText": {
+    "message": ".txt で書き出す"
+  },
+  "dbExportJson": {
+    "message": ".json で書き出す"
+  },
+  "dbClear": {
+    "message": "消去"
+  },
+  "dbClearConfirm": {
+    "message": "デバッグログを消去しますか？"
+  },
+  "dbEmpty": {
+    "message": "まだ項目がありません。"
+  },
+  "dbCount": {
+    "message": "$TOTAL$ 件中 $SHOWN$ 件",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

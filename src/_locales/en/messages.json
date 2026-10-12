@@ -1986,5 +1986,69 @@
   },
   "rpSettingFailed": {
     "message": "The setting could not be saved. Try again."
+  },
+  "btnDebugLog": {
+    "message": "Debug log",
+    "description": "Debug log page."
+  },
+  "dbTitle": {
+    "message": "Debug log",
+    "description": "Debug log page."
+  },
+  "dbLive": {
+    "message": "Live",
+    "description": "Debug log page."
+  },
+  "dbOff": {
+    "message": "Debug logs are off. Turn on \"Debug logs\" in Page settings to record what the extension does.",
+    "description": "Debug log page."
+  },
+  "dbLevel": {
+    "message": "Level",
+    "description": "Debug log page."
+  },
+  "dbLevelAll": {
+    "message": "All",
+    "description": "Debug log page."
+  },
+  "dbSearch": {
+    "message": "Search",
+    "description": "Debug log page."
+  },
+  "dbFollow": {
+    "message": "Follow new entries",
+    "description": "Debug log page."
+  },
+  "dbExportText": {
+    "message": "Export .txt",
+    "description": "Debug log page."
+  },
+  "dbExportJson": {
+    "message": "Export .json",
+    "description": "Debug log page."
+  },
+  "dbClear": {
+    "message": "Clear",
+    "description": "Debug log page."
+  },
+  "dbClearConfirm": {
+    "message": "Clear the debug log?",
+    "description": "Debug log page."
+  },
+  "dbEmpty": {
+    "message": "No entries yet.",
+    "description": "Debug log page."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ of $TOTAL$ entries",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    },
+    "description": "Debug log page."
   }
 }

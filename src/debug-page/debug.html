@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="dbTitle">Debug log</title>
+  <link rel="stylesheet" href="debug.css">
+</head>
+<body>
+  <header class="db-top">
+    <h1 data-i18n="dbTitle">Debug log</h1>
+    <span class="db-live" id="dbLive" data-i18n="dbLive">Live</span>
+    <span class="db-version" id="dbVersion">v—</span>
+  </header>
+  <main class="db">
+    <p class="db-off" id="dbOff" hidden data-i18n="dbOff">Debug logs are off. Turn on "Debug logs" in Page settings to record what the extension does.</p>
+    <div class="db-toolbar" role="toolbar" aria-label="Debug log" data-i18n-aria-label="dbTitle">
+      <label class="db-field"><span data-i18n="dbLevel">Level</span>
+        <select id="dbLevelFilter">
+          <option value="all" data-i18n="dbLevelAll">All</option>
+          <option value="info">info+</option>
+          <option value="warn">warn+</option>
+          <option value="error">error</option>
+        </select>
+      </label>
+      <input class="db-search" id="dbSearch" type="search" placeholder="Search" data-i18n-placeholder="dbSearch" aria-label="Search" data-i18n-aria-label="dbSearch">
+      <label class="db-check"><input type="checkbox" id="dbFollow" checked> <span data-i18n="dbFollow">Follow new entries</span></label>
+      <span class="db-spacer"></span>
+      <button type="button" id="dbExportTxt" class="db-btn" data-i18n="dbExportText">Export .txt</button>
+      <button type="button" id="dbExportJson" class="db-btn" data-i18n="dbExportJson">Export .json</button>
+      <button type="button" id="dbClear" class="db-btn db-btn-danger" data-i18n="dbClear">Clear</button>
+    </div>
+    <p class="db-count" id="dbCount" aria-live="polite"></p>
+    <div class="db-log" id="dbLog" role="log" tabindex="0"></div>
+    <p class="db-empty" id="dbEmpty" hidden data-i18n="dbEmpty">No entries yet.</p>
+  </main>
+  <script src="../shared.js"></script>
+  <script src="debug-view.js"></script>
+  <script src="debug.js"></script>
+</body>
+</html>

@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Кнопки для архивных файлов"
-  },
+  },
   "btnPageSettings": {
     "message": "Настройки страницы"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Каждая кнопка «Сообщить об ошибке» копирует полный отчёт и открывает предзаполненный GitHub issue."
-  },
+  },
   "openNexusBtn": {
     "message": "Открыть Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Не связано с Nexus Mods. Нужен собственный аккаунт Nexus Mods; премиум-контент остаётся премиум."
   },
@@ -662,7 +662,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Добавляет кнопки загрузки Vortex и браузера к архивным файлам, скрытым Nexus."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Папка загрузок браузера"
   },
@@ -1842,5 +1842,55 @@
   },
   "rpSettingFailed": {
     "message": "Не удалось сохранить настройку. Попробуйте ещё раз."
+  },
+  "btnDebugLog": {
+    "message": "Журнал отладки"
+  },
+  "dbTitle": {
+    "message": "Журнал отладки"
+  },
+  "dbLive": {
+    "message": "В реальном времени"
+  },
+  "dbOff": {
+    "message": "Журналы отладки выключены. Включите «Debug logs» в настройках страницы."
+  },
+  "dbLevel": {
+    "message": "Уровень"
+  },
+  "dbLevelAll": {
+    "message": "Все"
+  },
+  "dbSearch": {
+    "message": "Поиск"
+  },
+  "dbFollow": {
+    "message": "Следить за новыми записями"
+  },
+  "dbExportText": {
+    "message": "Экспорт .txt"
+  },
+  "dbExportJson": {
+    "message": "Экспорт .json"
+  },
+  "dbClear": {
+    "message": "Очистить"
+  },
+  "dbClearConfirm": {
+    "message": "Очистить журнал отладки?"
+  },
+  "dbEmpty": {
+    "message": "Записей пока нет."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ из $TOTAL$ записей",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

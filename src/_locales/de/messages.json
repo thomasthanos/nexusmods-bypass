@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Buttons für archivierte Dateien"
-  },
+  },
   "btnPageSettings": {
     "message": "Seiteneinstellungen"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Jeder „Fehler melden\"-Button kopiert einen vollständigen Bericht und öffnet ein vorausgefülltes GitHub-Issue."
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods öffnen"
-  },
+  },
   "disclaimer": {
     "message": "Nicht mit Nexus Mods verbunden. Du brauchst ein eigenes Nexus-Mods-Konto; Premium-Inhalte bleiben Premium."
   },
@@ -592,7 +592,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Vortex- und Browser-Download-Buttons zu archivierten Dateien hinzufügen, wenn Nexus sie ausblendet."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Browser-Download-Ordner"
   },
@@ -1674,5 +1674,55 @@
   },
   "rpSettingFailed": {
     "message": "Die Einstellung konnte nicht gespeichert werden. Erneut versuchen."
+  },
+  "btnDebugLog": {
+    "message": "Debug-Protokoll"
+  },
+  "dbTitle": {
+    "message": "Debug-Protokoll"
+  },
+  "dbLive": {
+    "message": "Live"
+  },
+  "dbOff": {
+    "message": "Debug-Protokolle sind aus. Aktiviere \"Debug logs\" in den Seiteneinstellungen."
+  },
+  "dbLevel": {
+    "message": "Stufe"
+  },
+  "dbLevelAll": {
+    "message": "Alle"
+  },
+  "dbSearch": {
+    "message": "Suchen"
+  },
+  "dbFollow": {
+    "message": "Neuen Einträgen folgen"
+  },
+  "dbExportText": {
+    "message": "Als .txt exportieren"
+  },
+  "dbExportJson": {
+    "message": "Als .json exportieren"
+  },
+  "dbClear": {
+    "message": "Leeren"
+  },
+  "dbClearConfirm": {
+    "message": "Debug-Protokoll leeren?"
+  },
+  "dbEmpty": {
+    "message": "Noch keine Einträge."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ von $TOTAL$ Einträgen",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

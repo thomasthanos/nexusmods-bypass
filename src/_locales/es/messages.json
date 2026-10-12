@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Botones de archivos archivados"
-  },
+  },
   "btnPageSettings": {
     "message": "Ajustes de página"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Cada botón «Reportar un error» copia un informe completo y abre una issue de GitHub prellenada."
-  },
+  },
   "openNexusBtn": {
     "message": "Abrir Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Sin afiliación con Nexus Mods. Necesitas tu propia cuenta; el contenido premium sigue siendo premium."
   },
@@ -592,7 +592,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Añade botones de descarga de Vortex y navegador a los archivos archivados cuando Nexus los oculta."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Carpeta de descargas del navegador"
   },
@@ -1674,5 +1674,55 @@
   },
   "rpSettingFailed": {
     "message": "No se pudo guardar el ajuste. Inténtalo de nuevo."
+  },
+  "btnDebugLog": {
+    "message": "Registro de depuración"
+  },
+  "dbTitle": {
+    "message": "Registro de depuración"
+  },
+  "dbLive": {
+    "message": "En vivo"
+  },
+  "dbOff": {
+    "message": "Los registros de depuración están desactivados. Activa \"Debug logs\" en los ajustes de página."
+  },
+  "dbLevel": {
+    "message": "Nivel"
+  },
+  "dbLevelAll": {
+    "message": "Todos"
+  },
+  "dbSearch": {
+    "message": "Buscar"
+  },
+  "dbFollow": {
+    "message": "Seguir nuevas entradas"
+  },
+  "dbExportText": {
+    "message": "Exportar .txt"
+  },
+  "dbExportJson": {
+    "message": "Exportar .json"
+  },
+  "dbClear": {
+    "message": "Borrar"
+  },
+  "dbClearConfirm": {
+    "message": "¿Borrar el registro de depuración?"
+  },
+  "dbEmpty": {
+    "message": "Aún no hay entradas."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ de $TOTAL$ entradas",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Przyciski plików archiwalnych"
-  },
+  },
   "btnPageSettings": {
     "message": "Ustawienia strony"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Każdy przycisk „Zgłoś błąd” kopiuje pełny raport diagnostyczny i otwiera wypełnione zgłoszenie na GitHubie."
-  },
+  },
   "openNexusBtn": {
     "message": "Otwórz Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Niepowiązane z Nexus Mods. Potrzebujesz własnego konta Nexus Mods; treści tylko dla Premium pozostają zastrzeżone."
   },
@@ -522,7 +522,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Dodaje przyciski pobierania Vortex i przeglądarki do wpisów plików archiwalnych, gdy Nexus je ukrywa."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Folder pobierania przeglądarki"
   },
@@ -1842,5 +1842,55 @@
   },
   "rpSettingFailed": {
     "message": "Nie udało się zapisać ustawienia. Spróbuj ponownie."
+  },
+  "btnDebugLog": {
+    "message": "Dziennik debugowania"
+  },
+  "dbTitle": {
+    "message": "Dziennik debugowania"
+  },
+  "dbLive": {
+    "message": "Na żywo"
+  },
+  "dbOff": {
+    "message": "Dzienniki debugowania są wyłączone. Włącz \"Debug logs\" w ustawieniach strony."
+  },
+  "dbLevel": {
+    "message": "Poziom"
+  },
+  "dbLevelAll": {
+    "message": "Wszystkie"
+  },
+  "dbSearch": {
+    "message": "Szukaj"
+  },
+  "dbFollow": {
+    "message": "Śledź nowe wpisy"
+  },
+  "dbExportText": {
+    "message": "Eksportuj .txt"
+  },
+  "dbExportJson": {
+    "message": "Eksportuj .json"
+  },
+  "dbClear": {
+    "message": "Wyczyść"
+  },
+  "dbClearConfirm": {
+    "message": "Wyczyścić dziennik debugowania?"
+  },
+  "dbEmpty": {
+    "message": "Brak wpisów."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ z $TOTAL$ wpisów",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

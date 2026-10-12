@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Pulsanti per i file archiviati"
-  },
+  },
   "btnPageSettings": {
     "message": "Impostazioni pagina"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Ogni pulsante \"Segnala un bug\" copia un report diagnostico completo e apre una issue GitHub precompilata."
-  },
+  },
   "openNexusBtn": {
     "message": "Apri Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Non affiliato a Nexus Mods. Serve un tuo account Nexus Mods; i contenuti riservati ai Premium restano tali."
   },
@@ -522,7 +522,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Aggiunge i pulsanti di download Vortex e browser alle voci dei file archiviati quando Nexus li nasconde."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Cartella di download del browser"
   },
@@ -1674,5 +1674,55 @@
   },
   "rpSettingFailed": {
     "message": "Impossibile salvare la preferenza. Riprova."
+  },
+  "btnDebugLog": {
+    "message": "Log di debug"
+  },
+  "dbTitle": {
+    "message": "Log di debug"
+  },
+  "dbLive": {
+    "message": "Live"
+  },
+  "dbOff": {
+    "message": "I log di debug sono disattivati. Attiva \"Debug logs\" nelle impostazioni della pagina."
+  },
+  "dbLevel": {
+    "message": "Livello"
+  },
+  "dbLevelAll": {
+    "message": "Tutti"
+  },
+  "dbSearch": {
+    "message": "Cerca"
+  },
+  "dbFollow": {
+    "message": "Segui le nuove voci"
+  },
+  "dbExportText": {
+    "message": "Esporta .txt"
+  },
+  "dbExportJson": {
+    "message": "Esporta .json"
+  },
+  "dbClear": {
+    "message": "Cancella"
+  },
+  "dbClearConfirm": {
+    "message": "Cancellare il log di debug?"
+  },
+  "dbEmpty": {
+    "message": "Nessuna voce."
+  },
+  "dbCount": {
+    "message": "$SHOWN$ di $TOTAL$ voci",
+    "placeholders": {
+      "shown": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }
