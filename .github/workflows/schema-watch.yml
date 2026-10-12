@@ -1,0 +1,50 @@
+name: Nexus schema watch
+
+# Weekly check that every GraphQL operation the extension sends is still valid against the public
+# Nexus Mods v2 schema. Posts to Discord when it is not (skipped when DISCORD_WEBHOOK_URL is unset).
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths: ['src/content/nexus-api.js', 'tools/schema-watch.mjs']
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate operations against the live schema
+        id: watch
+        env:
+          SCHEMA_WATCH_SUMMARY: /tmp/schema-watch.md
+        run: |
+          set +e
+          node tools/schema-watch.mjs
+          code=$?
+          cat /tmp/schema-watch.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
+          echo "failed=$([ $code -ne 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Notify Discord
+        if: steps.watch.outputs.failed == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set; skipping."; exit 0; fi
+          [ -f /tmp/schema-watch.md ] || echo "Schema watch could not run (see the log)." > /tmp/schema-watch.md
+          body=$(jq -n --rawfile d /tmp/schema-watch.md --arg u "$RUN_URL" \
+            '{username:"NexusMods Bypass CI", allowed_mentions:{parse:[]}, embeds:[{title:"Nexus API schema changed", url:$u, description:($d|.[0:3900]), color:15158332}]}')
+          curl -fsS -X POST -H 'content-type: application/json' -d "$body" "$DISCORD_WEBHOOK_URL" > /dev/null || echo "Discord post failed (ignored)."
+      - name: Fail the run
+        if: steps.watch.outputs.failed == 'true'
+        run: exit 1
