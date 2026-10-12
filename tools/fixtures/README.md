@@ -2,13 +2,7 @@
   <img src="../../docs/assets/header-fixtures.svg" alt="Page fixtures" width="100%" />
 </p>
 
-<p align="center">
-  <a href="../../README.md"><img src="../../docs/assets/link-readme.svg" alt="Back to the README" height="42" /></a>
-  <a href="../../PRIVACY.md"><img src="../../docs/assets/link-privacy.svg" alt="Privacy" height="42" /></a>
-  <a href="../../CONTRIBUTING.md"><img src="../../docs/assets/link-contributing.svg" alt="Contributing" height="42" /></a>
-  <a href="../../CHANGELOG.md"><img src="../../docs/assets/link-changelog.svg" alt="Changelog" height="42" /></a>
-  <a href="../../LICENSE"><img src="../../docs/assets/link-license.svg" alt="Licence" height="42" /></a>
-</p>
+<p align="center"><sub><a href="../../README.md">← README</a> · <a href="../../PRIVACY.md">Privacy</a> · <a href="../../CONTRIBUTING.md">Contributing</a> · <a href="../../CHANGELOG.md">Changelog</a></sub></p>
 
 <img src="../../docs/assets/divider.svg" alt="" width="100%" />
 
