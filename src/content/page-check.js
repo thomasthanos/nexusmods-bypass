@@ -213,6 +213,22 @@ window.NexusExt = window.NexusExt || {};
     return false;
   }
 
+  // Checks whose loss turns a feature off. These are told to the user once per tab, so a Nexus site
+  // update shows up as a clear notice instead of a button that quietly does nothing.
+  const USER_VISIBLE_CHECKS = new Set(['download-control', 'deck-spot']);
+
+  function notifyDegraded(result, failed) {
+    if (!failed.some((entry) => USER_VISIBLE_CHECKS.has(entry.id))) return;
+    try {
+      window.NexusExt.UI?.showNotice?.({
+        title: globalThis.NXTK?.t?.('noticePageChangedTitle', null, 'Nexus Mods changed this page') || 'Nexus Mods changed this page',
+        detail: globalThis.NXTK?.t?.('noticePageChangedDetail', null,
+          'Some NexusMods Bypass features may not work here until the extension is updated. Nexus\'s own buttons still work. You can send details with "Report a bug" in the extension popup.')
+          || ''
+      });
+    } catch (_) { }
+  }
+
   function reportFailures(result, build) {
     const failed = failuresOf(result);
     if (!failed.length) return;
@@ -220,6 +236,7 @@ window.NexusExt = window.NexusExt || {};
     const missing = failed.map((entry) => `${entry.label} (${entry.detail})`).join('; ');
     window.NexusExt.NNW?.Logger?.warn?.(`Nexus page check failed on the ${result.label}: ${missing}`);
     if (alreadyReported(signature)) return;
+    notifyDegraded(result, failed);
     globalThis.NXTK?.recordError?.({
       code: 'nexus_page_changed',
       context: `Nexus page check (${result.label})`,

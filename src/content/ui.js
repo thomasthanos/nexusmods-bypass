@@ -509,6 +509,39 @@ window.NexusExt = window.NexusExt || {};
     syncOverlayState();
   }
 
+  // A small dismissible notice in the close-toast style, for things the user should know about but
+  // that need no decision (for example: Nexus changed a page and a feature may be degraded).
+  function showNotice({ title = '', detail = '', ms = 12000 } = {}) {
+    const toast = document.createElement('div');
+    toast.className = 'nxtk-close-toast nxtk-notice-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    const copy = document.createElement('div');
+    copy.className = 'nxtk-close-toast-copy';
+    const heading = document.createElement('strong');
+    heading.textContent = String(title);
+    const body = document.createElement('span');
+    body.textContent = String(detail);
+    copy.append(heading, body);
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'nxtk-btn nxtk-btn-secondary nxtk-close-toast-keep';
+    close.textContent = NXTK.t('btnDismiss', null, 'Dismiss');
+    toast.append(copy, close);
+    let gone = false;
+    const remove = () => {
+      if (gone) return;
+      gone = true;
+      toast.classList.add('is-leaving');
+      setTimeout(() => toast.remove(), 300);
+    };
+    close.addEventListener('click', remove);
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('is-visible'));
+    if (ms > 0) setTimeout(remove, ms);
+    return { dismiss: remove };
+  }
+
   function showCloseCountdown({ ms = 3000, onDone = null, onCancel = null } = {}) {
     const total = Math.max(1000, Number(ms) || 3000);
     let remaining = Math.ceil(total / 1000);
@@ -611,6 +644,7 @@ window.NexusExt = window.NexusExt || {};
     showSettingsModal,
     showError,
     showCloseCountdown,
+    showNotice,
     nxtkAlert,
     loadBundle
   };
