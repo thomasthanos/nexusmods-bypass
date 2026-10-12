@@ -1368,5 +1368,68 @@
   },
   "ratingLater": {
     "message": "나중에"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "공식 Nexus API 사용"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "캐시와 요청 제한 처리를 갖춘 공식 문서화된 Nexus Mods API에서 컬렉션, 모드, 파일 정보를 읽습니다. 끄면 이전의 페이지 기반 조회를 사용합니다."
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "큐레이터 업데이트 정책 따르기"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "컬렉션이 모드의 새 버전을 허용하면 목록의 파일 대신 해당 다운로드의 최신 파일을 받습니다. 정확한 버전으로 고정된 모드는 바뀌지 않습니다."
+  },
+  "setShowModActionsLabel": {
+    "message": "추천 및 추적 버튼"
+  },
+  "setShowModActionsDesc": {
+    "message": "컬렉션 모드 목록에 추천 및 추적 버튼을 표시합니다. 버튼을 누르기 전에는 아무것도 전송되지 않습니다."
+  },
+  "logUpdatePolicyApplied": {
+    "message": "컬렉션이 업데이트를 허용한 모드 $1개에 최신 파일을 사용합니다."
+  },
+  "tipUpdateAvailable": {
+    "message": "Nexus에 버전 $1이(가) 있습니다. 이 컬렉션은 업데이트를 허용합니다."
+  },
+  "badgeUpdateAvailable": {
+    "message": "업데이트 있음"
+  },
+  "btnEndorse": {
+    "message": "추천"
+  },
+  "btnEndorsed": {
+    "message": "추천함"
+  },
+  "btnTrack": {
+    "message": "추적"
+  },
+  "btnTracked": {
+    "message": "추적 중"
+  },
+  "modActionFailed": {
+    "message": "Nexus가 받아들이지 않았습니다: $1"
+  },
+  "badgeNewRevision": {
+    "message": "리비전 $1 사용 가능"
+  },
+  "wjHashTitle": {
+    "message": "해시로 압축 파일 식별"
+  },
+  "wjHashHelp": {
+    "message": "이미 가진 압축 파일을 선택하세요. 해시는 이 컴퓨터에서 계산되며, 모드 페이지를 찾기 위해 MD5만 Nexus에서 조회합니다."
+  },
+  "wjHashPick": {
+    "message": "압축 파일 선택…"
+  },
+  "wjHashNeedsApi": {
+    "message": "압축 파일을 조회하려면 설정에서 \"공식 Nexus API 사용\"을 켜세요."
+  },
+  "wjHashHashing": {
+    "message": "$1 해시 계산 중… $2%"
+  },
+  "wjHashNoMatch": {
+    "message": "Nexus에서 찾을 수 없음"
   }
 }

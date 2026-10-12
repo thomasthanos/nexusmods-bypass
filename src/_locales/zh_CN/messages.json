@@ -1368,5 +1368,68 @@
   },
   "ratingLater": {
     "message": "稍后"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "使用官方 Nexus API"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "通过有文档的 Nexus Mods API 读取合集、模组和文件信息，并带缓存和速率限制处理。关闭后使用旧的基于页面的读取方式。"
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "遵循策展人的更新策略"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "当合集允许某个模组使用更新版本时，下载该下载项的最新文件而非列出的文件。固定到确切版本的模组不会改变。"
+  },
+  "setShowModActionsLabel": {
+    "message": "认可和追踪按钮"
+  },
+  "setShowModActionsDesc": {
+    "message": "在合集模组列表中显示认可和追踪按钮。在你点击之前不会发送任何内容。"
+  },
+  "logUpdatePolicyApplied": {
+    "message": "对合集允许更新的 $1 个模组使用更新的文件。"
+  },
+  "tipUpdateAvailable": {
+    "message": "Nexus 上已有版本 $1；此合集允许更新。"
+  },
+  "badgeUpdateAvailable": {
+    "message": "有可用更新"
+  },
+  "btnEndorse": {
+    "message": "认可"
+  },
+  "btnEndorsed": {
+    "message": "已认可"
+  },
+  "btnTrack": {
+    "message": "追踪"
+  },
+  "btnTracked": {
+    "message": "已追踪"
+  },
+  "modActionFailed": {
+    "message": "Nexus 未接受此操作：$1"
+  },
+  "badgeNewRevision": {
+    "message": "修订版 $1 可用"
+  },
+  "wjHashTitle": {
+    "message": "按哈希识别压缩包"
+  },
+  "wjHashHelp": {
+    "message": "选择你已有的压缩包。哈希在你的电脑上计算，只会用 MD5 在 Nexus 上查找对应的模组页面。"
+  },
+  "wjHashPick": {
+    "message": "选择压缩包…"
+  },
+  "wjHashNeedsApi": {
+    "message": "请在设置中开启“使用官方 Nexus API”以查找压缩包。"
+  },
+  "wjHashHashing": {
+    "message": "正在计算 $1 的哈希… $2%"
+  },
+  "wjHashNoMatch": {
+    "message": "在 Nexus 上未找到"
   }
 }

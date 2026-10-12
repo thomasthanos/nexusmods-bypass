@@ -1620,5 +1620,68 @@
   },
   "ratingLater": {
     "message": "Później"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "Używaj oficjalnego API Nexus"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "Odczytuj dane kolekcji, modów i plików z udokumentowanego API Nexus Mods, z pamięcią podręczną i obsługą limitów. Wyłącz, aby używać starszych odczytów ze strony."
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "Stosuj zasady aktualizacji kuratora"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "Gdy kolekcja dopuszcza nowsze wersje moda, pobierany jest najnowszy plik tego pobrania zamiast wymienionego. Mody przypięte do konkretnej wersji nigdy się nie zmieniają."
+  },
+  "setShowModActionsLabel": {
+    "message": "Przyciski polecania i śledzenia"
+  },
+  "setShowModActionsDesc": {
+    "message": "Pokazuje przyciski polecania i śledzenia na liście modów kolekcji. Nic nie jest wysyłane, dopóki nie klikniesz."
+  },
+  "logUpdatePolicyApplied": {
+    "message": "Używam nowszych plików dla $1 modów, które kolekcja pozwala aktualizować."
+  },
+  "tipUpdateAvailable": {
+    "message": "Wersja $1 jest na Nexus; ta kolekcja pozwala na aktualizację."
+  },
+  "badgeUpdateAvailable": {
+    "message": "Dostępna aktualizacja"
+  },
+  "btnEndorse": {
+    "message": "Poleć"
+  },
+  "btnEndorsed": {
+    "message": "Polecono"
+  },
+  "btnTrack": {
+    "message": "Śledź"
+  },
+  "btnTracked": {
+    "message": "Śledzony"
+  },
+  "modActionFailed": {
+    "message": "Nexus tego nie przyjął: $1"
+  },
+  "badgeNewRevision": {
+    "message": "Dostępna rewizja $1"
+  },
+  "wjHashTitle": {
+    "message": "Rozpoznaj archiwa po skrócie"
+  },
+  "wjHashHelp": {
+    "message": "Wybierz posiadane archiwa. Każde jest haszowane na twoim komputerze, a w Nexus sprawdzany jest tylko MD5, aby znaleźć stronę moda."
+  },
+  "wjHashPick": {
+    "message": "Wybierz archiwa…"
+  },
+  "wjHashNeedsApi": {
+    "message": "Włącz „Używaj oficjalnego API Nexus” w ustawieniach, aby wyszukiwać archiwa."
+  },
+  "wjHashHashing": {
+    "message": "Haszowanie $1… $2%"
+  },
+  "wjHashNoMatch": {
+    "message": "Nie znaleziono na Nexus"
   }
 }

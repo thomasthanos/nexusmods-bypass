@@ -26,9 +26,29 @@ function collectionAnswer() {
       fileId: 1000 + i, name: `Example file with a fairly long name number ${i + 1}.7z`, uri: `f${i}.7z`,
       size: 1024 * (i + 1) * 37, version: '1.0', date: 1700000000,
       mod: { adult: false, modId: 500 + i, name: `Example Mod ${i + 1} — Extended Edition`, version: '1.0', game: { domainName: 'skyrimspecialedition', id: 1704 } }
-    }
+    },
+    updatePolicy: i % 3 === 0 ? 'latest' : 'exact',
+    version: '1.0'
   }));
-  return { data: { collectionRevision: { externalResources: [], modFiles } } };
+  return { data: { collectionRevision: { revisionNumber: 3, revisionStatus: 'published', latest: false, externalResources: [], modFiles } } };
+}
+
+// The official v2 API (src/content/nexus-api.js), answered per operation.
+function officialAnswer(body) {
+  const op = body?.operationName;
+  if (op === 'CollectionRevisionMods') return collectionAnswer();
+  if (op === 'CollectionRevisions') {
+    return { data: { collection: { revisions: [3, 4].map((n) => ({ revisionNumber: n, revisionStatus: 'published', latest: n === 4, totalSize: 1, modCount: 40, createdAt: '2026-01-01T00:00:00Z' })) } } };
+  }
+  if (op === 'ModsByDomain') {
+    return { data: { legacyModsByDomain: { nodes: (body.variables.ids || []).map(({ modId }) => ({
+      uid: String(7000000 + modId), modId, name: 'x', version: '2.0', viewerEndorsed: modId % 2 === 0, viewerTracked: false,
+      game: { domainName: 'skyrimspecialedition', id: 1704 }
+    })) } } };
+  }
+  if (op === 'GameId') return { data: { game: { id: 1704, domainName: 'skyrimspecialedition' } } };
+  if (op === 'ModFiles') return { data: { modFiles: [] } };
+  return { data: null, errors: [{ message: `unexpected ${op}` }] };
 }
 
 let context;
@@ -49,7 +69,14 @@ test.beforeAll(async () => {
     status: 200, contentType: 'application/json', body: JSON.stringify(collectionAnswer()),
     headers: { 'access-control-allow-origin': 'https://www.nexusmods.com', 'access-control-allow-credentials': 'true' }
   }));
-  await context.route(/^(?!https:\/\/(www|api-router)\.nexusmods\.com)https?:\/\//, (route) => route.abort());
+  await context.route('https://api.nexusmods.com/v2/graphql', (route) => {
+    const cors = { 'access-control-allow-origin': 'https://www.nexusmods.com', 'access-control-allow-credentials': 'true', 'access-control-allow-headers': 'content-type' };
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors, body: '' });
+    let body = null;
+    try { body = JSON.parse(route.request().postData() || '{}'); } catch (_) { body = null; }
+    return route.fulfill({ status: 200, contentType: 'application/json', headers: cors, body: JSON.stringify(officialAnswer(body)) });
+  });
+  await context.route(/^(?!https:\/\/(www|api-router|api)\.nexusmods\.com)https?:\/\//, (route) => route.abort());
   // Skip the onboarding tab opened on install.
   await new Promise((r) => setTimeout(r, 1000));
   for (const page of context.pages()) if (page.url().includes('onboarding')) await page.close();
@@ -120,6 +147,9 @@ for (const [w, h] of SCREENS) {
       await expect(deck).toBeVisible({ timeout: 30000 });
       await page.waitForTimeout(800);
       await assertFits(page, '.nxtk-deck', `${tag} deck`);
+      // Official API: newer published revision badge.
+      await expect(deck.locator('.nxtk-badge-new')).toBeVisible({ timeout: 10000 });
+      await assertFits(page, '.nxtk-badge-new', `${tag} new-revision badge`);
       await page.screenshot({ path: path.join(shotDir, `deck-${tag}.png`), fullPage: true });
       // The mod picker: split-button menu → "Select mods".
       await deck.locator('#nxtk-menu-toggle').click();
@@ -128,6 +158,28 @@ for (const [w, h] of SCREENS) {
       await expect(modal).toBeVisible({ timeout: 10000 });
       await page.waitForTimeout(600);
       await assertFits(page, '.nxtk-modal', `${tag} mod picker`);
+      // Update badges and endorse/track buttons from the batched details, inside each row.
+      await expect(modal.locator('.nxtk-tag-update').first()).toBeVisible({ timeout: 10000 });
+      await expect(modal.locator('[data-mod-action="endorse"]').first()).toBeVisible();
+      const rowsFit = await modal.evaluate((el) => Array.from(el.querySelectorAll('.nxtk-mod-item')).slice(0, 10).every((row) => {
+        const r = row.getBoundingClientRect();
+        return Array.from(row.querySelectorAll('.nxtk-mini-btn, .nxtk-tag-update')).every((b) => {
+          const q = b.getBoundingClientRect();
+          return q.left >= r.left - 1 && q.right <= r.right + 1;
+        });
+      }));
+      expect(rowsFit, `${tag}: row extras overflow their row`).toBe(true);
+      // A click on a row button must not toggle the row's selection.
+      const firstRow = modal.locator('.nxtk-mod-item').filter({ has: page.locator('[data-mod-action]') }).first();
+      const selectedBefore = await firstRow.evaluate((row) => row.classList.contains('nxtk-selected'));
+      await page.route('https://api.nexusmods.com/v2/graphql', (route) => route.fulfill({
+        status: 200, contentType: 'application/json',
+        headers: { 'access-control-allow-origin': 'https://www.nexusmods.com', 'access-control-allow-credentials': 'true' },
+        body: JSON.stringify({ data: { createModEndorsement: { success: true }, abstainFromModEndorsement: { success: true }, trackMod: { success: true } } })
+      }));
+      await firstRow.locator('[data-mod-action^="track"]').click();
+      await expect(firstRow.locator('[data-mod-action="untrack"]')).toBeVisible({ timeout: 5000 });
+      expect(await firstRow.evaluate((row) => row.classList.contains('nxtk-selected'))).toBe(selectedBefore);
       await page.screenshot({ path: path.join(shotDir, `picker-${tag}.png`) });
       await page.close();
     });

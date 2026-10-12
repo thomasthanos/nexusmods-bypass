@@ -873,6 +873,7 @@
 
     $('#nxtk-total-mods').textContent =
       NXTK.tPlural('deckModCount', ndc.mods.all.length, `${ndc.mods.all.length} mods`);
+    showNewerRevisionBadge(ndc, deck);
     $('#nxtk-all-count').textContent = `${ndc.mods.all.length}`;
     $('#nxtk-mand-count').textContent = `${ndc.mods.mandatory.length}`;
     $('#nxtk-opt-count').textContent = `${ndc.mods.optional.length}`;
@@ -1217,6 +1218,80 @@
     return deck;
   }
 
+  // Update badge plus, when enabled, Endorse/Track buttons for one row of the mod list, built as DOM.
+  function modExtrasNodes(ndc, mod) {
+    const nodes = [];
+    if (ndc.useOfficialApi && NexusExt.NDC?.updateAvailable?.(mod)) {
+      const latest = String(mod.api?.version || mod.file?.mod?.version || '');
+      const tag = document.createElement('span');
+      tag.className = 'nxtk-tag nxtk-tag-update';
+      tag.title = NXTK.t('tipUpdateAvailable', [latest], `Version ${latest} is on Nexus; this collection allows updating.`);
+      tag.textContent = NXTK.t('badgeUpdateAvailable', null, 'Update available');
+      nodes.push(tag);
+    }
+    const uid = String(mod.api?.uid || '');
+    if (ndc.useOfficialApi && ndc.showModActions && !ndc.external && /^\d{1,20}$/.test(uid)) {
+      const button = (on, onAction, offAction, onLabel, offLabel) => {
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.className = `nxtk-mini-btn${on ? ' nxtk-on' : ''}`;
+        el.dataset.modAction = on ? onAction : offAction;
+        el.dataset.modUid = uid;
+        el.setAttribute('aria-pressed', String(on));
+        el.textContent = on ? onLabel : offLabel;
+        return el;
+      };
+      nodes.push(button(mod.api.viewerEndorsed === true, 'abstain', 'endorse',
+        NXTK.t('btnEndorsed', null, 'Endorsed'), NXTK.t('btnEndorse', null, 'Endorse')));
+      nodes.push(button(mod.api.viewerTracked === true, 'untrack', 'track',
+        NXTK.t('btnTracked', null, 'Tracked'), NXTK.t('btnTrack', null, 'Track')));
+    }
+    return nodes;
+  }
+
+  function fillModExtras(ndc, item, mod) {
+    const extra = item?.querySelector('.nxtk-ml-extra');
+    if (extra && mod) extra.replaceChildren(...modExtrasNodes(ndc, mod));
+  }
+
+  // Runs only from a click on one of those buttons. One request, no retries, state from the answer.
+  async function runModAction(ndc, button, modsByEntryId) {
+    const api = ndc.api?.();
+    const action = button.dataset.modAction;
+    const uid = button.dataset.modUid;
+    if (!api || !action || !uid || button.disabled) return;
+    button.disabled = true;
+    const result = await api.modAction(action, uid);
+    button.disabled = false;
+    const item = button.closest('.nxtk-mod-item');
+    const mod = item && modsByEntryId.get(item.dataset.fileId);
+    if (!result.ok) {
+      const reason = result.message || NexusExt.Errors?.toLogMessage?.(result.error) || '';
+      nxtkAlert(NXTK.t('modActionFailed', [reason], `Nexus did not accept that: ${reason}`));
+      return;
+    }
+    if (mod?.api) {
+      if (action === 'endorse' || action === 'abstain') mod.api.viewerEndorsed = action === 'endorse';
+      if (action === 'track' || action === 'untrack') mod.api.viewerTracked = action === 'track';
+      fillModExtras(ndc, item, mod);
+    }
+  }
+
+  // A link to the newest published revision when the page shows an older one.
+  function showNewerRevisionBadge(ndc, deck) {
+    if (!ndc.useOfficialApi || ndc.external || typeof ndc.newerRevision !== 'function') return;
+    ndc.newerRevision().then((rev) => {
+      const title = deck.querySelector('.nxtk-deck-title');
+      if (!rev || !title || title.querySelector('.nxtk-badge-new')) return;
+      const number = String(rev.revisionNumber);
+      const link = document.createElement('a');
+      link.className = 'nxtk-badge nxtk-badge-new';
+      link.href = `https://www.nexusmods.com/${encodeURIComponent(ndc.gameId)}/collections/${encodeURIComponent(ndc.collectionId)}/revisions/${encodeURIComponent(number)}`;
+      link.textContent = NXTK.t('badgeNewRevision', [number], `Revision ${number} available`);
+      title.appendChild(link);
+    }).catch(() => {});
+  }
+
   function showSelectModsModal(ndc) {
     const { modal, close } = openModal({
       id: 'nxtk-select-modal',
@@ -1299,17 +1374,25 @@
           .replace(/\s+/g, ' ').trim().toLowerCase();
         return `<div class="nxtk-mod-item" data-file-id="${escapeHtml(modEntryId(mod))}" data-nexus-file-id="${escapeHtml(mod.file.fileId)}" data-search="${escapeHtml(search)}">`
           + `<span class="nxtk-ml-idx">#${i + 1}</span>`
-          + `<span class="nxtk-ml-name">${escapeHtml(modName)}</span>`
+          + `<span class="nxtk-ml-name"><span class="nxtk-ml-name-text">${escapeHtml(modName)}</span><span class="nxtk-ml-extra"></span></span>`
           + `<span class="nxtk-ml-file">${escapeHtml(fileName)}</span>`
           + `<span class="nxtk-ml-size">${escapeHtml(size)}</span>`
           + `<span class="nxtk-ml-req"><span class="nxtk-tag ${mod.optional ? 'nxtk-tag-optional' : 'nxtk-tag-mandatory'}">${escapeHtml(tag)}</span></span>`
           + '</div>';
       });
       listEl.innerHTML = rows.join('');
+      listEl.querySelectorAll('.nxtk-mod-item').forEach((item) => fillModExtras(ndc, item, modsByEntryId.get(item.dataset.fileId)));
       lastChecked = null;
     }
 
     listEl.addEventListener('click', (event) => {
+      const actionButton = event.target.closest('[data-mod-action]');
+      if (actionButton && listEl.contains(actionButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        runModAction(ndc, actionButton, modsByEntryId);
+        return;
+      }
       const item = event.target.closest('.nxtk-mod-item');
       if (!item || !listEl.contains(item)) return;
       item.classList.toggle('nxtk-selected');
@@ -1329,6 +1412,12 @@
     });
 
     renderList(ndc.mods.all);
+    // Versions and endorse/track state arrive from the API after the list is on screen; patch them in
+    // place so selection is kept.
+    ndc.ensureApiDetails?.().then((described) => {
+      if (!described || !modal.isConnected) return;
+      listEl.querySelectorAll('.nxtk-mod-item').forEach((item) => fillModExtras(ndc, item, modsByEntryId.get(item.dataset.fileId)));
+    });
 
     const optsMenu = $('#nxtk-sel-opts-menu');
     bindDropdownToggle($('#nxtk-sel-opts-toggle'), optsMenu);

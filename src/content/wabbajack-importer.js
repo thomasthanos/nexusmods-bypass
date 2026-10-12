@@ -372,12 +372,126 @@
     }));
   }
 
+
+  // Incremental MD5 (RFC 1321) so a local archive of any size can be hashed in chunks. Used only to
+  // look a file up with the official API's fileHash query; Wabbajack's own hashes are xxHash64 and
+  // cannot be looked up there.
+  const MD5_S = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+    4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21];
+  const MD5_K = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 2 ** 32) >>> 0);
+
+  function createMd5() {
+    const state = new Uint32Array([0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476]);
+    const buffer = new Uint8Array(64);
+    const words = new Uint32Array(16);
+    let buffered = 0;
+    let length = 0;
+
+    function block(bytes, offset) {
+      for (let i = 0; i < 16; i++) {
+        const j = offset + i * 4;
+        words[i] = bytes[j] | (bytes[j + 1] << 8) | (bytes[j + 2] << 16) | (bytes[j + 3] << 24);
+      }
+      let [a, b, c, d] = state;
+      for (let i = 0; i < 64; i++) {
+        let f;
+        let g;
+        if (i < 16) { f = (b & c) | (~b & d); g = i; } else if (i < 32) { f = (d & b) | (~d & c); g = (5 * i + 1) % 16; } else if (i < 48) { f = b ^ c ^ d; g = (3 * i + 5) % 16; } else { f = c ^ (b | ~d); g = (7 * i) % 16; }
+        const temp = d;
+        d = c;
+        c = b;
+        const sum = (a + f + MD5_K[i] + words[g]) >>> 0;
+        b = (b + ((sum << MD5_S[i]) | (sum >>> (32 - MD5_S[i])))) >>> 0;
+        a = temp;
+      }
+      state[0] += a; state[1] += b; state[2] += c; state[3] += d;
+    }
+
+    function update(bytes) {
+      let i = 0;
+      length += bytes.length;
+      if (buffered) {
+        while (buffered < 64 && i < bytes.length) buffer[buffered++] = bytes[i++];
+        if (buffered < 64) return;
+        block(buffer, 0);
+        buffered = 0;
+      }
+      for (; i + 64 <= bytes.length; i += 64) block(bytes, i);
+      while (i < bytes.length) buffer[buffered++] = bytes[i++];
+    }
+
+    function digest() {
+      const bits = length * 8;
+      const pad = new Uint8Array(((buffered < 56 ? 56 : 120) - buffered) + 8);
+      pad[0] = 0x80;
+      const lo = bits >>> 0;
+      const hi = Math.floor(bits / 2 ** 32) >>> 0;
+      for (let i = 0; i < 4; i++) {
+        pad[pad.length - 8 + i] = (lo >>> (8 * i)) & 0xff;
+        pad[pad.length - 4 + i] = (hi >>> (8 * i)) & 0xff;
+      }
+      const saved = length;
+      update(pad);
+      length = saved;
+      return Array.from(new Uint8Array(state.buffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    return { update, digest };
+  }
+
+  function md5Bytes(bytes) {
+    const hash = createMd5();
+    hash.update(bytes);
+    return hash.digest();
+  }
+
+  const MD5_CHUNK = 4 * 1024 * 1024;
+  async function md5File(file, { onProgress, signal } = {}) {
+    const hash = createMd5();
+    for (let offset = 0; offset < file.size; offset += MD5_CHUNK) {
+      if (signal?.aborted) throw new Error('aborted');
+      const chunk = new Uint8Array(await file.slice(offset, offset + MD5_CHUNK).arrayBuffer());
+      hash.update(chunk);
+      onProgress?.(Math.min(1, (offset + chunk.length) / file.size));
+    }
+    return hash.digest();
+  }
+
+  // Looks local archives up by MD5 through the official API. Resolves one entry per file.
+  async function identifyArchives(files, { api = NexusExt.NexusApi?.shared?.(), onProgress, signal } = {}) {
+    const results = [];
+    for (const file of Array.from(files || [])) {
+      if (signal?.aborted) break;
+      try {
+        const md5 = await md5File(file, { signal, onProgress: (share) => onProgress?.(file, share) });
+        const matches = api ? await api.fileByMd5(md5, { signal }) : [];
+        const match = matches.find((entry) => entry?.modFile?.mod?.game?.domainName) || null;
+        results.push({
+          name: file.name,
+          md5,
+          match: match && {
+            modName: cleanText(match.modFile.mod.name),
+            fileName: cleanText(match.modFile.name || match.fileName),
+            version: cleanText(match.modFile.version),
+            url: `https://www.nexusmods.com/${match.modFile.mod.game.domainName}/mods/${match.modFile.mod.modId}?tab=files&file_id=${match.modFile.fileId}`
+          }
+        });
+      } catch (cause) {
+        results.push({ name: file.name, md5: '', match: null, error: String(cause?.message || cause) });
+      }
+    }
+    return results;
+  }
+
   NexusExt.WabbajackImporter = Object.freeze({
     GAMES,
     GAME_IDS,
     WabbajackImportError,
     analyzeManifest,
     importFile,
-    toQueueMods
+    toQueueMods,
+    md5Bytes,
+    md5File,
+    identifyArchives
   });
 })();
