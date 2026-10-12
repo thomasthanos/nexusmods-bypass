@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="65" height="28" viewBox="0 0 65 28" role="img" aria-labelledby="t"><title id="t">Edge</title>
+  <rect x=".75" y=".75" width="63.5" height="26.5" rx="13.25" fill="#151c31" stroke="#2fc4b2" stroke-opacity=".55" stroke-width="1.2"/>
+  <g transform="translate(9 6) scale(0.5)" fill="none" stroke="#2fc4b2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10h20l-2 16H8zM11 10V8a5 5 0 0 1 10 0v2"/></g>
+  <text x="29" y="18.2" font-family="Segoe UI,Arial,sans-serif" font-size="11.5" font-weight="600" fill="#e6e9ff">Edge</text>
+</svg>

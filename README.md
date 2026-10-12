@@ -11,8 +11,8 @@
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><img src="docs/assets/download.svg" alt="Download the latest release" width="380" /></a>
-  <br />
-  <sub>or from the store: <a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj">Chrome</a> · <a href="https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/">Firefox</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa">Edge</a> &nbsp;|&nbsp; <a href="CHANGELOG.md">Changelog</a> · <a href="PRIVACY.md">Privacy</a> · <a href="#bugs">Report a bug</a></sub>
+  <br /><br />
+  <a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj"><img src="docs/assets/pill-chrome.svg" alt="Chrome Web Store" height="28" /></a> <a href="https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/"><img src="docs/assets/pill-firefox.svg" alt="Firefox Add-ons" height="28" /></a> <a href="https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa"><img src="docs/assets/pill-edge.svg" alt="Edge Add-ons" height="28" /></a> &nbsp;&nbsp; <a href="CHANGELOG.md"><img src="docs/assets/pill-changelog.svg" alt="Changelog" height="28" /></a> <a href="PRIVACY.md"><img src="docs/assets/pill-privacy.svg" alt="Privacy" height="28" /></a> <a href="#bugs"><img src="docs/assets/pill-bug.svg" alt="Report a bug" height="28" /></a>
 </p>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
@@ -26,7 +26,7 @@
 </p>
 
 <details>
-<summary><b>Manual install</b></summary>
+<summary><b>📥 Manual install</b> — <sub>load a release ZIP in Chrome, Edge or Firefox</sub></summary>
 
 **Chrome, Edge, Brave, Opera**
 1. Download the latest `nexus.mods.bypass-<version>.zip` from the [Releases page](https://github.com/thomasthanos/nexusmods-bypass/releases/latest).
@@ -49,8 +49,12 @@
 
 Sign in to Nexus Mods. On a mod's **Files** tab, download as usual. On a **collection**, pick Vortex or browser download in the collection panel and start the queue (keep the tab open). The toolbar popup has quick switches, **Page settings** and **Help & Bugs**.
 
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
+<h3 align="center">Reference</h3>
+
 <details>
-<summary><b>Settings</b></summary>
+<summary><b>⚙️ Settings</b> — <sub>what each Page settings group controls</sub></summary>
 
 - **Download flow:** auto-start, close Vortex tabs, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first, Cloudflare fallback.
 - **Files & pacing:** browser download folder, Nexus download speed, pause between mods.
@@ -60,7 +64,7 @@ Sign in to Nexus Mods. On a mod's **Files** tab, download as usual. On a **colle
 </details>
 
 <details>
-<summary><b>Privacy & permissions</b></summary>
+<summary><b>🛡️ Privacy &amp; permissions</b> — <sub>what stays local and why each permission is needed</sub></summary>
 
 Settings, history and logs stay in local extension storage; no analytics or accounts. Reports are opt-in and show the exact redacted JSON first. Details: [PRIVACY.md](PRIVACY.md).
 
@@ -76,7 +80,7 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 
 <a id="bugs"></a>
 <details>
-<summary><b>Bug reports & debug log</b></summary>
+<summary><b>🐞 Bug reports &amp; debug log</b> — <sub>send a redacted report or record a live log</sub></summary>
 
 - **Send bug report** (popup → Help & Bugs): describe it, review the redacted JSON, then send through the [relay](relay/README.md), save/copy it, or open a prefilled [GitHub issue](https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose).
 - **Debug log** (Help & Bugs → Debug log): opt-in live log with filters, search and export.
@@ -84,7 +88,7 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 </details>
 
 <details>
-<summary><b>Quick fixes</b></summary>
+<summary><b>🧭 Quick fixes</b> — <sub>common problems and what to try</sub></summary>
 
 <details>
 <summary><b>Downloads do not start</b></summary>
@@ -112,7 +116,7 @@ Choose **Skip Downloaded** when the history dialog appears. Cleared history cann
 </details>
 
 <details>
-<summary><b>For developers</b></summary>
+<summary><b>🛠️ For developers</b> — <sub>build, lint and test commands</sub></summary>
 
 ```sh
 npm ci && npm run lint
@@ -122,6 +126,8 @@ npm run test:visual    # Playwright tests
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/nexus-site-map.md](docs/nexus-site-map.md) and [SECURITY.md](SECURITY.md).
 </details>
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
 
 ## Licence
 
