@@ -1,0 +1,95 @@
+name: Manifest watch
+
+# Flags any change to what the extension may access: permissions, host permissions, optional
+# permissions, content-script matches and CSP, for the Chrome/Edge manifest and the Firefox variant
+# that tools/build-zip.mjs generates. Posts a summary to Discord when DISCORD_WEBHOOK_URL is set
+# (skipped otherwise), comments on the PR, and fails the check when access is expanded unless the
+# PR carries the "permissions-approved" label.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths: ['src/manifest.json', 'tools/build-zip.mjs']
+  push:
+    branches: [main]
+    paths: ['src/manifest.json', 'tools/build-zip.mjs']
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve base commit
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "sha=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build both Firefox manifests
+        run: |
+          mkdir -p /tmp/mw
+          git show "${{ steps.base.outputs.sha }}:src/manifest.json" > /tmp/mw/base.json 2>/dev/null || echo '{}' > /tmp/mw/base.json
+          cp src/manifest.json /tmp/mw/head.json
+          # Firefox variants come from the packager; build each side without its test gate if possible.
+          node tools/build-zip.mjs >/dev/null 2>&1 && unzip -p dist/*-firefox.zip manifest.json > /tmp/mw/head-firefox.json || echo '{}' > /tmp/mw/head-firefox.json
+          git worktree add -q /tmp/mw/base-tree "${{ steps.base.outputs.sha }}" 2>/dev/null \
+            && (cd /tmp/mw/base-tree && node tools/build-zip.mjs >/dev/null 2>&1 && unzip -p dist/*-firefox.zip manifest.json > /tmp/mw/base-firefox.json) \
+            || echo '{}' > /tmp/mw/base-firefox.json
+
+      - name: Diff
+        id: diff
+        run: |
+          chrome=$(node tools/manifest-diff.mjs /tmp/mw/base.json /tmp/mw/head.json /tmp/mw/chrome.md)
+          firefox=$(node tools/manifest-diff.mjs /tmp/mw/base-firefox.json /tmp/mw/head-firefox.json /tmp/mw/firefox.md)
+          { echo "## Chrome / Edge"; cat /tmp/mw/chrome.md; echo; echo "## Firefox"; cat /tmp/mw/firefox.md; } > /tmp/mw/summary.md
+          cat /tmp/mw/summary.md >> "$GITHUB_STEP_SUMMARY"
+          expanded=false
+          echo "$chrome$firefox" | grep -q '"expanded":true' && expanded=true
+          changed=false
+          echo "$chrome$firefox" | grep -q '"changed":true' && changed=true
+          echo "expanded=$expanded" >> "$GITHUB_OUTPUT"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Discord
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TITLE: ${{ github.event.pull_request.title || github.event.head_commit.message }}
+          LINK: ${{ github.event.pull_request.html_url || github.event.compare }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set; skipping."; exit 0; fi
+          body=$(jq -n --rawfile d /tmp/mw/summary.md --arg t "$TITLE" --arg u "$LINK" --arg e "${{ steps.diff.outputs.expanded }}" \
+            '{username:"NexusMods Bypass CI", allowed_mentions:{parse:[]}, embeds:[{title:("Manifest change: " + ($t|.[0:200])), url:$u, description:($d|.[0:3900]), color:(if $e=="true" then 15158332 else 3447003 end)}]}')
+          curl -fsS -X POST -H 'content-type: application/json' -d "$body" "$DISCORD_WEBHOOK_URL" > /dev/null || echo "Discord post failed (ignored)."
+
+      - name: Comment on the PR
+        if: github.event_name == 'pull_request' && steps.diff.outputs.changed == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo "<!-- manifest-watch -->"; cat /tmp/mw/summary.md; } > /tmp/mw/comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/mw/comment.md --edit-last \
+            || gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/mw/comment.md
+
+      - name: Fail on expanded access without approval
+        if: github.event_name == 'pull_request' && steps.diff.outputs.expanded == 'true' && !contains(github.event.pull_request.labels.*.name, 'permissions-approved')
+        run: |
+          echo "::error::This PR expands extension permissions. Review the summary, then add the 'permissions-approved' label to pass."
+          exit 1
+
+      - name: Warn on expanded access (push)
+        if: github.event_name == 'push' && steps.diff.outputs.expanded == 'true'
+        run: echo "::warning::Pushed manifest change expands extension permissions."
