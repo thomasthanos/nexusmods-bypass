@@ -42,6 +42,7 @@ export function validateReport(p) {
   if (!['manual', 'auto'].includes(p.kind)) return 'bad kind';
   if (!isStr(p.version, 20) || !/^\d+\.\d+\.\d+$/.test(p.version)) return 'bad version';
   if (p.browser !== undefined && !isStr(p.browser, 200)) return 'bad browser';
+  if (p.page !== undefined && (!isStr(p.page, 200) || /[?#]/.test(p.page))) return 'bad page';
   if (p.kind === 'auto') {
     const e = p.error;
     if (!e || typeof e !== 'object' || !isStr(e.code, 80)) return 'bad error';
@@ -83,12 +84,57 @@ const clip = (s, n) => (String(s ?? '').length > n ? `${String(s).slice(0, n - 1
 // Discord would otherwise turn @everyone or <@id> in user text into pings.
 const quiet = (s) => String(s ?? '').replace(/@/g, '@\u200b');
 
+// Embed colour by severity: red for crashes/server errors, amber for other auto errors, and a
+// per-area colour for manual reports so a channel skims at a glance.
+export const SEVERITY_COLORS = { critical: 0xd9433b, error: 0xe8b339, report: 0x5b8def };
+export function severityOf(p) {
+  if (p.kind !== 'auto') return 'report';
+  const status = Number(p.error?.status) || 0;
+  if (status >= 500 || /crash|uncaught|fatal|unhandled/i.test(p.error?.code || '')) return 'critical';
+  return 'error';
+}
+
+// Discord limits: title 256, description 4096, field value 1024, 25 fields, 6000 total.
+export function fitEmbed(embed) {
+  embed.title = clip(embed.title, 256);
+  embed.description = clip(embed.description, 4096);
+  embed.fields = (embed.fields || []).slice(0, 25).map((f) => ({ ...f, name: clip(f.name, 256), value: clip(f.value || '—', 1024) }));
+  const total = () => embed.title.length + embed.description.length + (embed.footer?.text?.length || 0)
+    + embed.fields.reduce((n, f) => n + f.name.length + f.value.length, 0);
+  while (total() > 6000 && embed.description.length > 200) embed.description = clip(embed.description, Math.max(200, embed.description.length - (total() - 6000) - 10));
+  while (total() > 6000 && embed.fields.length) embed.fields.pop();
+  return embed;
+}
+
+// Auto errors from many users hit the same bug; forward one per fingerprint per window.
+export const DEDUPE_WINDOW_MS = 10 * 60 * 1000;
+const recentFingerprints = new Map();
+export function fingerprintOf(p) {
+  if (p.kind !== 'auto') return '';
+  return [p.version, p.error?.code, p.error?.status || '', String(p.error?.context || '').slice(0, 80)].join('|');
+}
+export async function isDuplicate(env, fp, now = Date.now()) {
+  if (!fp) return false;
+  const key = `fp:${fp}`;
+  if (env.RATE_LIMIT) return !!await env.RATE_LIMIT.get(key);
+  for (const [k, at] of recentFingerprints) if (now - at > DEDUPE_WINDOW_MS) recentFingerprints.delete(k);
+  return recentFingerprints.has(key);
+}
+// Marked only after Discord accepted the report, so a failed delivery can be retried.
+export async function markSeen(env, fp, now = Date.now()) {
+  if (!fp) return;
+  const key = `fp:${fp}`;
+  if (env.RATE_LIMIT) await env.RATE_LIMIT.put(key, '1', { expirationTtl: Math.ceil(DEDUPE_WINDOW_MS / 1000) });
+  else recentFingerprints.set(key, now);
+}
+
 export function discordMessage(p, id) {
   const fields = [
     { name: 'Version', value: clip(p.version, 40), inline: true },
     { name: 'Kind', value: p.kind, inline: true },
     { name: 'Browser', value: clip(quiet(p.browser) || '—', 200), inline: true }
   ];
+  if (p.page) fields.push({ name: 'Page', value: clip(quiet(p.page), 200), inline: true });
   if (p.kind === 'auto') {
     fields.push({ name: 'Error', value: clip(quiet(`${p.error.code}${p.error.status ? ` (${p.error.status})` : ''}`), 200) });
     if (p.error.context) fields.push({ name: 'Context', value: clip(quiet(p.error.context), 900) });
@@ -103,15 +149,15 @@ export function discordMessage(p, id) {
   return {
     username: 'NexusMods Bypass reports',
     allowed_mentions: { parse: [] },
-    embeds: [{
+    embeds: [fitEmbed({
       title: p.kind === 'auto' ? `Auto error: ${clip(quiet(p.error.code), 80)}` : clip(quiet(p.summary || 'Bug report'), 160),
       // Discord rejects an embed over 6000 characters in total; fields take at most ~2600 here.
       description: clip(quiet(p.note || (p.report ? `\`\`\`\n${clip(p.report, 1500)}\n\`\`\`` : '')), 3000),
-      color: p.kind === 'auto' ? 0xe8b339 : 0xd98f40,
+      color: SEVERITY_COLORS[severityOf(p)],
       fields,
       footer: { text: `id ${id}` },
       timestamp: new Date().toISOString()
-    }]
+    })]
   };
 }
 
@@ -159,6 +205,8 @@ export default {
     if (problem) return json({ error: problem }, 422, headers);
 
     if (!env.DISCORD_WEBHOOK_URL) return json({ error: 'relay not configured' }, 503, headers);
+    const fp = fingerprintOf(payload);
+    if (await isDuplicate(env, fp)) return json({ ok: true, duplicate: true }, 200, headers);
     const id = crypto.randomUUID().slice(0, 8);
     let discord;
     try {
@@ -181,6 +229,7 @@ export default {
     const email = sendEmail(env, payload, id).catch(() => undefined);
     if (ctx?.waitUntil) ctx.waitUntil(email);
     if (!discord.ok) return json({ error: 'upstream failed' }, 502, headers);
+    await markSeen(env, fp);
     return json({ ok: true, id }, 200, headers);
   }
 };

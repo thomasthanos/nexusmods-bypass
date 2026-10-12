@@ -1,9 +1,12 @@
 // Offline tests for relay/worker.js: validation, size limit, rate limit, Discord formatting.
 import assert from 'node:assert/strict';
-import worker, { validateReport, discordMessage, LIMIT_PER_HOUR } from '../relay/worker.js';
+import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf } from '../relay/worker.js';
 
 const auto = { schema: 1, kind: 'auto', version: '2.9.0', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
 assert.equal(validateReport(auto), '');
+let seq = 0;
+// Each call gets its own fingerprint so the dedupe window does not collapse them.
+const fresh = () => ({ ...auto, error: { ...auto.error, context: `x${seq++}` } });
 assert.equal(validateReport({ ...auto, schema: 2 }), 'unsupported schema');
 assert.equal(validateReport({ ...auto, version: 'x' }), 'bad version');
 assert.equal(validateReport({ ...auto, error: {} }), 'bad error');
@@ -53,19 +56,19 @@ assert.equal((await post('x'.repeat(70 * 1024), '2.2.2.4')).status, 413, 'oversi
 assert.equal((await worker.fetch(new Request('https://relay.test/v1/report'), env)).status, 405);
 assert.equal((await worker.fetch(new Request('https://relay.test/other'), env)).status, 404);
 
-for (let i = 1; i < LIMIT_PER_HOUR; i += 1) await post(auto, '9.9.9.9');
-assert.equal((await post(auto, '9.9.9.9')).status, 200, `request ${LIMIT_PER_HOUR} still allowed`);
-res = await post(auto, '9.9.9.9');
+for (let i = 1; i < LIMIT_PER_HOUR; i += 1) await post(fresh(), '9.9.9.9');
+assert.equal((await post(fresh(), '9.9.9.9')).status, 200, `request ${LIMIT_PER_HOUR} still allowed`);
+res = await post(fresh(), '9.9.9.9');
 assert.equal(res.status, 429, 'the next one is rate limited');
 
 // KV-backed limiter.
 const kv = new Map();
 const kvEnv = { ...env, RATE_LIMIT: { get: async (k) => kv.get(k) ?? null, put: async (k, v) => { kv.set(k, v); } } };
 for (let i = 0; i < LIMIT_PER_HOUR; i += 1) {
-  const r = await worker.fetch(new Request('https://relay.test/v1/report', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '7.7.7.7' }, body: JSON.stringify(auto) }), kvEnv, {});
+  const r = await worker.fetch(new Request('https://relay.test/v1/report', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '7.7.7.7' }, body: JSON.stringify(fresh()) }), kvEnv, {});
   assert.equal(r.status, 200);
 }
-const limited = await worker.fetch(new Request('https://relay.test/v1/report', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '7.7.7.7' }, body: JSON.stringify(auto) }), kvEnv, {});
+const limited = await worker.fetch(new Request('https://relay.test/v1/report', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '7.7.7.7' }, body: JSON.stringify(fresh()) }), kvEnv, {});
 assert.equal(limited.status, 429, 'KV limiter enforces the same limit');
 
 assert.equal((await worker.fetch(new Request('https://relay.test/v1/report', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '5.5.5.5' }, body: JSON.stringify(auto) }), {}, {})).status, 503, 'unconfigured relay says so');
@@ -84,12 +87,12 @@ const health = await worker.fetch(new Request('https://relay.test/v1/health', { 
 assert.deepEqual({ ...(await health.json()), maxBytes: 0 }, { ok: true, configured: true, maxBytes: 0 });
 assert.equal((await (await worker.fetch(new Request('https://relay.test/v1/health'), {})).json()).configured, false);
 // Content type with a charset is fine; a wrong one is refused.
-assert.equal((await post(auto, '3.3.3.1', { 'content-type': 'application/json; charset=utf-8' })).status, 200);
-assert.equal((await post(auto, '3.3.3.2', { 'content-type': 'text/plain' })).status, 415);
+assert.equal((await post(fresh(), '3.3.3.1', { 'content-type': 'application/json; charset=utf-8' })).status, 200);
+assert.equal((await post(fresh(), '3.3.3.2', { 'content-type': 'text/plain' })).status, 415);
 // Discord unreachable: a 502 that still carries CORS headers.
 const realFetch = globalThis.fetch;
 globalThis.fetch = async () => { throw new TypeError('network'); };
-res = await post(auto, '3.3.3.3');
+res = await post(fresh(), '3.3.3.3');
 assert.equal(res.status, 502);
 assert.equal(res.headers.get('access-control-allow-origin'), 'chrome-extension://abc');
 globalThis.fetch = realFetch;
@@ -97,5 +100,37 @@ globalThis.fetch = realFetch;
 const big = discordMessage({ ...auto, kind: 'manual', note: 'n'.repeat(2000), contact: 'c'.repeat(120), browser: 'b'.repeat(200), currentError: { code: 'x'.repeat(80) } }, 'id');
 const e = big.embeds[0];
 assert.ok(e.title.length + e.description.length + e.footer.text.length + e.fields.reduce((n, f) => n + f.name.length + f.value.length, 0) < 6000);
+
+// Severity colours.
+assert.equal(severityOf(auto), 'error');
+assert.equal(severityOf({ ...auto, error: { code: 'x', status: 503 } }), 'critical');
+assert.equal(severityOf({ ...auto, error: { code: 'uncaught_exception' } }), 'critical');
+assert.equal(severityOf(manual), 'report');
+assert.equal(discordMessage({ ...auto, error: { code: 'x', status: 500 } }, 'i').embeds[0].color, SEVERITY_COLORS.critical);
+// Page field: validated as a path without query or fragment, shown in the embed.
+assert.equal(validateReport({ ...auto, page: '/skyrimspecialedition/mods/1?tab=files' }), 'bad page');
+assert.equal(validateReport({ ...auto, page: '/skyrimspecialedition/mods/1' }), '');
+assert.ok(discordMessage({ ...auto, page: '/games/x' }, 'i').embeds[0].fields.some((f) => f.name === 'Page' && f.value === '/games/x'));
+// fitEmbed clamps every Discord limit.
+const fat = fitEmbed({ title: 't'.repeat(400), description: 'd'.repeat(5000), footer: { text: 'f' }, fields: Array.from({ length: 30 }, () => ({ name: 'n', value: 'v'.repeat(1500) })) });
+assert.ok(fat.title.length <= 256 && fat.description.length <= 4096 && fat.fields.length <= 25 && fat.fields.every((f) => f.value.length <= 1024));
+assert.ok(fat.title.length + fat.description.length + 1 + fat.fields.reduce((n, f) => n + f.name.length + f.value.length, 0) <= 6000);
+// Dedupe: the same auto error within the window is forwarded once; manual reports never collapse.
+assert.equal(fingerprintOf(manual), '');
+const before = sent.length;
+const dup = { ...auto, error: { code: 'dup_test', context: 'same' } };
+assert.equal((await post(dup, '4.4.4.1')).status, 200);
+const second = await post(dup, '4.4.4.2');
+assert.equal(second.status, 200);
+assert.equal((await second.json()).duplicate, true);
+assert.equal(sent.length, before + 1, 'duplicate not forwarded');
+await post(manual, '4.4.4.3'); await post(manual, '4.4.4.4');
+assert.equal(sent.length, before + 3, 'manual reports are always forwarded');
+// A failed delivery does not mark the fingerprint, so a retry goes through.
+const dup2 = { ...auto, error: { code: 'dup_fail', context: 'z' } };
+globalThis.fetch = async () => new Response(null, { status: 500 });
+assert.equal((await post(dup2, '4.4.4.5')).status, 502);
+globalThis.fetch = realFetch;
+assert.equal((await (await post(dup2, '4.4.4.6')).json()).duplicate, undefined, 'retry after failure is not a duplicate');
 
 console.log('relay worker behavior OK');

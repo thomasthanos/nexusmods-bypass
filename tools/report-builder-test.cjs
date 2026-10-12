@@ -107,7 +107,12 @@ async function reportPayloadTests() {
   assert.doesNotMatch(detailed.steps, /secret/);
   assert.doesNotMatch(detailed.expected, /jane@example/);
   const issue = new URL(NXTK.buildPayloadIssueUrl(detailed).url);
-  assert.equal(issue.searchParams.get('title'), '[Bug] Cannot start Vortex');
+  assert.equal(issue.searchParams.get('title'), '[Bug] [vortex] Cannot start Vortex');
+  assert.equal(issue.searchParams.get('labels'), 'bug,area: vortex', 'issue is labelled by area');
+  assert.equal(new URL(NXTK.buildPayloadIssueUrl({ ...detailed, category: 'other' }).url).searchParams.get('labels'), 'bug');
+  assert.equal(NXTK.reportPagePath('https://www.nexusmods.com/skyrimspecialedition/mods/266?tab=files&key=abc#x'), '/skyrimspecialedition/mods/266');
+  assert.equal(NXTK.reportPagePath('https://evil.example/a'), '', 'only Nexus pages are reported');
+  assert.equal(NXTK.reportPagePath('not a url'), '');
   assert.match(issue.searchParams.get('what-happened'), /Nothing happened/);
   assert.match(issue.searchParams.get('what-happened'), /Steps to reproduce/);
   assert.match(issue.searchParams.get('what-happened'), /Expected result/);

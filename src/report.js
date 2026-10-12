@@ -559,6 +559,8 @@
         })),
         report: ''
       };
+      const page = reportPagePath(selectedError?.url);
+      if (page) payload.page = page;
       payload.report = clean(await buildReport(selectedError, { compact: true, maxEntries: 3, stackChars: 300 }), 12000);
       const size = () => new TextEncoder().encode(JSON.stringify(payload)).length;
       while (size() > NXTK.MAX_REPORT_BYTES && payload.logs.length) payload.logs.splice(0, Math.ceil(payload.logs.length / 2));
@@ -570,11 +572,25 @@
     }
   }
 
+  // Path only (no query or fragment) of the Nexus page an error happened on, for the relay's Page field.
+  function reportPagePath(url) {
+    try {
+      const parsed = new URL(String(url || ''));
+      if (!/(^|\.)nexusmods\.com$/i.test(parsed.hostname)) return '';
+      return sanitizeDiagnosticText(parsed.pathname, 200).replace(/[?#].*$/, '');
+    } catch (_) {
+      return '';
+    }
+  }
+
+  const ISSUE_AREA_LABELS = { download: 'area: download', collection: 'area: collection', vortex: 'area: vortex', interface: 'area: ui' };
+
   // The public GitHub fallback carries the same description as the private report, without the reply
   // e-mail. Keep the complete public JSON on the clipboard when GitHub's URL cannot fit everything.
   function buildPayloadIssueUrl(payload) {
     const clean = (value, max) => sanitizeDiagnosticText(value, max);
-    const title = `[Bug] ${clean(payload.summary || payload.currentError?.code || '', 160)}`;
+    const area = payload.category && payload.category !== 'other' ? `[${payload.category}] ` : '';
+    const title = `[Bug] ${area}${clean(payload.summary || payload.currentError?.code || '', 160)}`;
     const narrative = [
       clean(payload.note, 2000),
       payload.steps ? `Steps to reproduce:\n${clean(payload.steps, 1000)}` : '',
@@ -587,6 +603,8 @@
       url.searchParams.set('what-happened', description);
       url.searchParams.set('report', report);
       url.searchParams.set('browser', clean(payload.browser, 200));
+      // Labels only apply for users with triage rights; the template's own labels cover everyone else.
+      url.searchParams.set('labels', ['bug', ISSUE_AREA_LABELS[payload.category]].filter(Boolean).join(','));
       return url.href;
     };
     const report = clean(payload.report, 12000);
@@ -669,5 +687,5 @@
     };
   }
 
-  Object.assign(NXTK, { buildBugReport, buildReportIssueUrl, buildReportPayload, buildPayloadIssueUrl, sendReportPayload, checkRelayHealth, relayFailure });
+  Object.assign(NXTK, { buildBugReport, buildReportIssueUrl, buildReportPayload, buildPayloadIssueUrl, sendReportPayload, checkRelayHealth, relayFailure, reportPagePath });
 })();
