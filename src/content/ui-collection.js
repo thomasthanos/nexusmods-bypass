@@ -500,17 +500,56 @@
     const label = trigger.querySelector('[data-select-label]');
     const controller = bindDropdownToggle(trigger, menu);
 
+    // Listbox semantics and keyboard: arrows/Home/End move, Enter/Space choose, Escape closes and
+    // returns focus to the trigger; ArrowDown/ArrowUp on the closed trigger opens it.
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    menu.setAttribute('role', 'listbox');
+    if (!menu.id) menu.id = `${select.id || 'nxtk-select'}-menu`;
+    trigger.setAttribute('aria-controls', menu.id);
+    const items = () => Array.from(menu.querySelectorAll('[data-select-value]'));
+    const focusItem = (index) => {
+      const list = items();
+      if (!list.length) return;
+      list[Math.max(0, Math.min(list.length - 1, index))].focus();
+    };
+    const selectedIndex = () => Math.max(0, items().findIndex((item) => item.dataset.selectValue === select.value));
+    const openAndFocus = (index) => {
+      if (!controller?.isOpen?.()) trigger.click();
+      requestAnimationFrame(() => focusItem(index ?? selectedIndex()));
+    };
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        openAndFocus(e.key === 'ArrowUp' ? items().length - 1 : undefined);
+      }
+    });
+    menu.addEventListener('keydown', (e) => {
+      const list = items();
+      const at = list.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); focusItem(at + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); focusItem(at - 1); }
+      else if (e.key === 'Home') { e.preventDefault(); focusItem(0); }
+      else if (e.key === 'End') { e.preventDefault(); focusItem(list.length - 1); }
+      else if (e.key === 'Escape' || e.key === 'Tab') {
+        if (e.key === 'Escape') e.preventDefault();
+        controller?.close();
+        trigger.focus();
+      }
+    });
+
     const syncLabel = () => {
       const selectedOption = select.options[select.selectedIndex];
       if (label) label.textContent = selectedOption?.textContent || placeholder;
       menu.querySelectorAll('[data-select-value]').forEach((item) => {
-        item.classList.toggle('nxtk-selected', item.dataset.selectValue === select.value);
+        const on = item.dataset.selectValue === select.value;
+        item.classList.toggle('nxtk-selected', on);
+        item.setAttribute('aria-selected', String(on));
       });
     };
 
     const renderOptions = () => {
       menu.innerHTML = Array.from(select.options).map((option) => `
-        <button type="button" class="nxtk-dropdown-item nxtk-custom-select-item" data-select-value="${escapeHtml(option.value)}">
+        <button type="button" role="option" class="nxtk-dropdown-item nxtk-custom-select-item" data-select-value="${escapeHtml(option.value)}">
           <span>${escapeHtml(option.textContent)}</span>
           <span class="nxtk-custom-select-check">${svgIcon('check')}</span>
         </button>
@@ -522,6 +561,7 @@
           select.dispatchEvent(new Event('change', { bubbles: true }));
           controller?.close();
           syncLabel();
+          trigger.focus();
         });
       });
       syncLabel();
