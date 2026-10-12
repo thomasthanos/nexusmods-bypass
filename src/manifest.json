@@ -42,6 +42,7 @@
       ],
       "js": [
         "shared.js",
+        "selectors.js",
         "response-classifier.js",
         "download-url-parser.js",
         "content/storage.js",

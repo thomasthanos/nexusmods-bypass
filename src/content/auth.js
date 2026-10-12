@@ -48,10 +48,17 @@ window.NexusExt = window.NexusExt || {};
 
   function isSignedIn(root = document) {
     try {
+      const Sel = globalThis.NexusSelectors;
+      if (Sel) {
+        // A sign-out link or profile menu proves a session even inside a closed dropdown; weaker
+        // hints such as an avatar image count only when they are on screen.
+        if (Sel.find(root, 'signedInStrong')) return true;
+        return !!Sel.find(root, 'signedInWeak', isVisibleControl);
+      }
       const marker = root.querySelector?.(
         '#profile-menu, [data-testid="profile-image"], a[href*="/auth/sign_out"]'
       );
-      return !!marker && isVisibleControl(marker);
+      return !!marker;
     } catch (_) {
       return false;
     }

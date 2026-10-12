@@ -21,7 +21,8 @@ window.NexusExt = window.NexusExt || {};
     'mod-notice': 'mod notice page (removed, hidden or not found)'
   };
 
-  const DOWNLOAD_CONTROL_SELECTORS = ['#slowDownloadButton', '[data-download-url]'];
+  const DOWNLOAD_CONTROL_SELECTORS = (globalThis.NexusSelectors?.SELECTORS?.downloadControl
+    || ['#slowDownloadButton', '[data-download-url]']).filter((selector) => selector !== 'mod-file-download');
 
   let deps = {};
   let runToken = 0;
@@ -66,6 +67,14 @@ window.NexusExt = window.NexusExt || {};
       if (auth?.isSignedIn?.(doc)) return { result: check('sign-in', 'sign-in state', true, 'signed in'), signedOut: false };
       if (auth?.getDocumentLoginError?.(doc)) {
         return { result: check('sign-in', 'sign-in state', true, 'signed out'), signedOut: true };
+      }
+      // Some Nexus layouts (the file page among them) render the account menu late or only on demand.
+      // A visible log-in link would have been caught above, so a page with no log-in control at all
+      // is read as signed in, noted as inferred, rather than reported as a site change.
+      const Sel = globalThis.NexusSelectors;
+      if (Sel && !Sel.find(doc, 'loginLink') && !Sel.find(doc, 'loginForm')
+        && (doc.querySelector?.('header, nav, #head') || doc.getElementById?.('section'))) {
+        return { result: check('sign-in', 'sign-in state', true, 'signed in (inferred: no log-in control)'), signedOut: false };
       }
     } catch (_) { }
     return {
