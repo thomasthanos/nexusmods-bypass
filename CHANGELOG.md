@@ -7,6 +7,42 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.8.0] - 2026-10-12
+
+### Fixed
+
+- **A manual download on a file page no longer starts twice.** A re-rendered download card could lose
+  the marker that said its *Slow download* button was already handled and get a second listener, and an
+  automatic start could race a click; both produced `file.zip` and `file (1).zip`. Every start is now
+  claimed per file and method, in memory and on the page itself, so even a content script left behind by
+  an extension reload cannot start the same file again within 15 seconds. Buttons are bound once.
+- **No more false *sign-in state* warning on file pages while signed in.** A sign-out link or profile
+  menu now proves a session even inside a closed dropdown, more account markers are recognised, and a
+  page with no log-in control at all is read as signed in (noted as inferred) instead of as a site change.
+- **The collection panel mounts without a reload.** When Nexus hydrated the page after it first went
+  quiet, the panel gave up until the next reload. It now retries on a short, growing timer, heals itself
+  if a re-render removes it, and picks up in-app navigation from the Navigation API where available.
+
+### Changed
+
+- **Nexus page hooks live in one place.** `src/selectors.js` lists every selector with ordered
+  fallbacks, and the *Slow download* label is recognised in the languages Nexus serves, not only English.
+- **The download card is watched, not polled.** A DOM observer replaces the one-second poll on file pages
+  (a slow five-second safety tick remains).
+- **Retries back off.** Link resolution gets three attempts with exponential backoff and jitter instead
+  of one fixed 1.5-second retry; computed rate-limit waits get up to 20% jitter (an explicit
+  *Retry-After* is never shortened). Vortex hand-offs keep a 2-second minimum gap even with *Pause
+  between mods* at 0.
+- **When Nexus changes a page and a feature stops working, you are told once**, with a short notice,
+  instead of the feature quietly doing nothing.
+- **Hardening.** Log lines are rendered through an allowlist instead of raw `innerHTML`, and a message
+  sender attached to a tab must name its page.
+
+### Development
+
+- `package.json` with ESLint, jsdom fixture tests for the content scripts (`tools/fixtures`), and
+  `web-ext lint` on the Firefox package in CI.
+
 ## [2.7.4] - 2026-10-04
 
 ### Added
