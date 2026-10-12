@@ -15,6 +15,7 @@ const ALLOWLIST = [
   { path: 'response-classifier.js' },
   { path: 'download-url-parser.js' },
   { path: 'shared.js' },
+  { path: 'selectors.js' },
   { path: 'report.js' },
   { path: 'content', ext: ['.js', '.css'] },
   { path: 'popup', ext: ['.js', '.css', '.html'] },
@@ -43,7 +44,8 @@ for (const check of [
   'wabbajack-importer-test.cjs',
   'content-helpers-test.cjs',
   'report-builder-test.cjs',
-  'page-check-test.cjs'
+  'page-check-test.cjs',
+  'dom-fixtures-test.cjs'
 ]) {
   const run = spawnSync(process.execPath, [join(root, 'tools', check)], { cwd: root, stdio: 'inherit' });
   if (run.status !== 0) fail(`${check} did not pass — package not built.`);

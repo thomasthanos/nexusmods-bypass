@@ -12,5 +12,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # The locale check, every regression suite, and the Chrome and Firefox package checks.
-      - run: node tools/build-zip.mjs
+          cache: npm
+      - run: npm ci
+      - name: ESLint
+        run: npm run lint
+      # The locale check, every regression suite (DOM fixtures required here), and the Chrome and Firefox package checks.
+      - name: Tests and packages
+        run: node tools/build-zip.mjs
+        env:
+          NXTK_REQUIRE_DOM: '1'
+      # AMO's own linter on the Firefox package exactly as it would be uploaded. Errors fail the gate;
+      # warnings (mostly innerHTML on escaped templates) are reported only.
+      - name: web-ext lint (Firefox package)
+        run: |
+          mkdir -p /tmp/firefox-pkg
+          unzip -q dist/*-firefox.zip -d /tmp/firefox-pkg
+          npx web-ext lint --source-dir /tmp/firefox-pkg
