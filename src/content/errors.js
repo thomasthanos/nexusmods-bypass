@@ -159,9 +159,16 @@ window.NexusExt = window.NexusExt || {};
     };
   }
 
+  // `record: false` builds the error without writing it to the error log: used for an attempt whose
+  // outcome is not final yet (a request that has a fallback), so only real failures are logged.
   function create(code, overrides = {}) {
     const error = buildError(code, overrides);
-    NXTK.recordError(error);
+    if (overrides.record !== false) NXTK.recordError(error);
+    return error;
+  }
+
+  function record(error) {
+    if (error && typeof error === 'object' && error.code) NXTK.recordError(error);
     return error;
   }
 
@@ -203,9 +210,10 @@ window.NexusExt = window.NexusExt || {};
     extra = '',
     finalUrl = '',
     cfMitigated = '',
-    contentType = ''
+    contentType = '',
+    record = true
   } = {}) {
-    const detail = (reason) => ({ status, context, technicalMessage: [reason, extra].filter(Boolean).join(' | ') });
+    const detail = (reason) => ({ status, context, record, technicalMessage: [reason, extra].filter(Boolean).join(' | ') });
     const verdict = globalThis.NXTKResponseClassifier?.classify({
       text,
       finalUrl,
@@ -216,10 +224,10 @@ window.NexusExt = window.NexusExt || {};
     return verdict ? create(verdict.code, detail(verdict.reason)) : null;
   }
 
-  function fromResponse({ status = 0, text = '', context = '', extra = '', classified = false } = {}) {
-    const contentError = classified ? null : classifyContent(text, { status, context, extra });
+  function fromResponse({ status = 0, text = '', context = '', extra = '', classified = false, record = true } = {}) {
+    const contentError = classified ? null : classifyContent(text, { status, context, extra, record });
     if (contentError) return contentError;
-    const detail = (reason) => ({ status, context, technicalMessage: [reason, extra].filter(Boolean).join(' | ') });
+    const detail = (reason) => ({ status, context, record, technicalMessage: [reason, extra].filter(Boolean).join(' | ') });
     if (status === 401) return create('requires_login', detail('HTTP 401'));
     if (status === 404) return create('file_not_found', detail('HTTP 404'));
     if (status === 403) {
@@ -233,20 +241,20 @@ window.NexusExt = window.NexusExt || {};
     return create('invalid_response', detail(`HTTP ${status}`));
   }
 
-  function fromException(cause, { context = '' } = {}) {
+  function fromException(cause, { context = '', record = true } = {}) {
     const technicalMessage = String(cause?.message || cause || '');
     const stack = String(cause?.stack || '');
     const name = String(cause?.name || '');
     if (name === 'AbortError' || /timed?\s*out/i.test(technicalMessage)) {
-      return create('timeout', { context, technicalMessage, stack });
+      return create('timeout', { context, technicalMessage, stack, record });
     }
     if (/extension context invalidated|message port closed/i.test(technicalMessage)) {
-      return create('context_invalid', { context, technicalMessage, stack });
+      return create('context_invalid', { context, technicalMessage, stack, record });
     }
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      return create('offline', { context, technicalMessage, stack });
+      return create('offline', { context, technicalMessage, stack, record });
     }
-    return create('network_error', { context, technicalMessage, stack });
+    return create('network_error', { context, technicalMessage, stack, record });
   }
 
   function normalizeTimeout(value) {
@@ -264,7 +272,7 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
-  async function request(url, options = {}, { timeoutMs = DEFAULT_TIMEOUT_MS, context = 'Nexus request', signal = null } = {}) {
+  async function request(url, options = {}, { timeoutMs = DEFAULT_TIMEOUT_MS, context = 'Nexus request', signal = null, record = true } = {}) {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     let timedOut = false;
     const timer = controller
@@ -294,7 +302,7 @@ window.NexusExt = window.NexusExt || {};
           status: response.status || 0,
           text: '',
           finalUrl: response.url || String(url),
-          error: fromException(cause, { context })
+          error: fromException(cause, { context, record })
         };
       }
 
@@ -309,7 +317,8 @@ window.NexusExt = window.NexusExt || {};
         extra: respInfo,
         finalUrl,
         cfMitigated: cloudflareMitigation,
-        contentType
+        contentType,
+        record
       });
       if (semanticError) {
         return {
@@ -329,7 +338,7 @@ window.NexusExt = window.NexusExt || {};
           text,
           finalUrl,
           rateLimit,
-          error: fromResponse({ status: response.status, text, context, extra: respInfo, classified: true })
+          error: fromResponse({ status: response.status, text, context, extra: respInfo, classified: true, record })
         };
       }
 
@@ -357,8 +366,8 @@ window.NexusExt = window.NexusExt || {};
         text: '',
         finalUrl: String(url),
         error: timedOut
-          ? create('timeout', { context, technicalMessage: String(cause?.message || '') })
-          : fromException(cause, { context })
+          ? create('timeout', { context, technicalMessage: String(cause?.message || ''), record })
+          : fromException(cause, { context, record })
       };
     } finally {
       if (timer) clearTimeout(timer);
@@ -423,6 +432,7 @@ window.NexusExt = window.NexusExt || {};
   window.NexusExt.Errors = {
     DEFAULT_TIMEOUT_MS,
     create,
+    record,
     normalize,
     classifyContent,
     fromException,

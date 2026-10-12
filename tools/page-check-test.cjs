@@ -161,6 +161,21 @@ assert.equal(PageCheck.detectBuild(fakeDoc({ scripts: ['https://ads.example/x.js
   PageCheck.reportFailures(passing, record);
   assert.equal(recorded.length, 1, 'a page that passes logs nothing');
 
+  // A modal open or the adult-content gate is a legitimate variant, not a site change.
+  const before = recorded.length;
+  const variantFailing = PageCheck.runChecks({
+    doc: fakeDoc({ ids: { section: {} } }), loc: at('/skyrimspecialedition/mods/267', '?tab=files&file_id=98'),
+    auth: signedIn, nnw: nnwWith('1704')
+  });
+  const withModal = { querySelector: (sel) => (sel.includes('download-modal') ? {} : null) };
+  const withGate = { querySelector: (sel) => (sel === 'main' ? { innerText: 'This collection contains adult content. Show adult content?' } : null) };
+  PageCheck.reportFailures(variantFailing, record, withModal);
+  PageCheck.reportFailures(variantFailing, record, withGate);
+  assert.equal(recorded.length, before, 'no nexus_page_changed with a modal open or behind the adult gate');
+  assert.equal(PageCheck.pageVariant(withModal), 'modal open');
+  assert.equal(PageCheck.pageVariant(withGate), 'adult content gate');
+  assert.equal(PageCheck.pageVariant({ querySelector: () => null }), '');
+
   // The report section.
   const lines = PageCheck.describe({ ...failing, at: 10000 }, record, 15000).join('\n');
   assert.match(lines, /Nexus page check/);
