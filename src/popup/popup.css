@@ -1054,3 +1054,10 @@ html, body {
   margin-top: 1px;
   fill: var(--nxtk-accent);
 }
+
+/* Responsive (2.8.1): the popup is fixed-width by the browser, but at 150% zoom or on small screens it
+   must not clip; text wraps and targets stay touch-sized. */
+html, body { max-width: 100vw; }
+body { overflow-x: hidden; }
+button, a.btn, .btn { min-height: 32px; }
+* { overflow-wrap: break-word; }

@@ -2044,3 +2044,81 @@
     animation: none;
   }
 }
+
+/* ───────────────────────── Responsive layer (2.8.1) ─────────────────────────
+   Fluid sizing for 1280×720 up to 3840×2160 and browser zoom 100–150%. Zoom shrinks the CSS viewport
+   (1280 px at 150% is ~853 px wide, 720 px tall is ~480 px), so everything here is bounded by the
+   viewport rather than by fixed pixels. Placed last so it overrides the base rules above. */
+#nxtk-extension-root, .nxtk-deck, .nxtk-modal-backdrop, .nxtk-close-toast {
+  --nxtk-gutter: clamp(10px, 1.6vw, 32px);
+  --nxtk-touch: 40px;
+}
+.nxtk-deck, .nxtk-modal, .nxtk-close-toast, .nxtk-settings-fab {
+  box-sizing: border-box;
+  font-size: clamp(13px, 0.42vw + 8px, 16px);
+}
+.nxtk-deck *, .nxtk-modal *, .nxtk-close-toast * { box-sizing: border-box; }
+
+/* Settings button: never wider than the viewport, label hides on very narrow viewports. */
+.nxtk-settings-fab {
+  right: var(--nxtk-gutter);
+  bottom: var(--nxtk-gutter);
+  min-height: var(--nxtk-touch);
+  max-width: calc(100vw - 2 * var(--nxtk-gutter));
+  padding: clamp(10px, 0.7vw, 16px) clamp(14px, 1.1vw, 24px);
+  white-space: nowrap;
+}
+.nxtk-settings-fab svg { width: 1.15em; height: 1.15em; flex: none; }
+@media (max-width: 520px) {
+  .nxtk-settings-fab { font-size: 0; gap: 0; padding: 10px; }
+  .nxtk-settings-fab svg { width: 20px; height: 20px; }
+}
+
+/* Collection deck: fluid width, grows on 1440p/4K instead of sitting in a narrow column. */
+.nxtk-deck {
+  width: auto;
+  max-width: min(clamp(1180px, 62vw, 1760px), calc(100% - 2 * var(--nxtk-gutter)));
+  margin: clamp(12px, 1.4vw, 28px) auto;
+  padding: clamp(14px, 1.6vw, 36px) clamp(14px, 1.8vw, 40px);
+  overflow-wrap: break-word;
+}
+.nxtk-deck-panels { min-width: 0; }
+.nxtk-deck-panels > * { min-width: 0; }
+.nxtk-btn-row { flex-wrap: wrap; }
+.nxtk-btn { min-height: var(--nxtk-touch); }
+.nxtk-modal-close { min-width: var(--nxtk-touch); min-height: var(--nxtk-touch); }
+
+/* Modals: always fit the viewport (dvh covers mobile/zoom toolbars); the content scrolls inside. */
+.nxtk-modal-backdrop { padding: clamp(8px, 2vw, 40px); }
+.nxtk-modal {
+  width: min(clamp(880px, 50vw, 1280px), 100%);
+  max-width: 100%;
+  max-height: calc(100vh - 2 * clamp(8px, 2vw, 40px));
+  max-height: calc(100dvh - 2 * clamp(8px, 2vw, 40px));
+  padding: clamp(14px, 1.5vw, 32px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.nxtk-modal-sm { width: min(clamp(620px, 34vw, 860px), 100%); }
+.nxtk-modal.nxtk-dropdown-active { overflow: visible; }
+.nxtk-modal-header { flex-wrap: wrap; }
+.nxtk-modal-footer { flex-wrap: wrap; gap: 10px; }
+
+/* Mod picker and lists: heights follow the viewport so a 720p/150% screen keeps the footer visible. */
+.nxtk-mod-list { max-height: clamp(160px, 45vh, 900px); }
+.nxtk-log-container { max-height: clamp(140px, 26vh, 520px); }
+.nxtk-update-scroll { max-height: clamp(140px, 40vh, 800px); }
+.nxtk-search-input { min-width: min(200px, 100%); }
+.nxtk-sort-select { min-width: min(180px, 100%); }
+.nxtk-selector-dropdown,
+.nxtk-btn-split .nxtk-dropdown-menu,
+.nxtk-dropdown-menu { min-width: min(280px, calc(100vw - 32px)); max-width: calc(100vw - 32px); }
+
+/* Notices and the Vortex countdown. */
+.nxtk-close-toast {
+  right: var(--nxtk-gutter);
+  bottom: calc(var(--nxtk-gutter) + 64px);
+  max-width: min(clamp(320px, 22vw, 520px), calc(100vw - 2 * var(--nxtk-gutter)));
+  flex-wrap: wrap;
+}
+.nxtk-close-toast-copy { min-width: 0; flex: 1 1 180px; }

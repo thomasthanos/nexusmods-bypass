@@ -387,3 +387,9 @@ body {
     transition: none !important;
   }
 }
+
+/* Responsive (2.8.1): no horizontal overflow from 720p at 150% zoom up to 4K. */
+html, body { overflow-x: hidden; }
+img { max-width: 100%; height: auto; }
+.btn { min-height: 40px; }
+* { overflow-wrap: break-word; }
