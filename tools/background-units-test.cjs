@@ -70,6 +70,9 @@ async function debugLogAndAutoReports() {
   await context.storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, AutoErrorReports: true });
   assert.equal(await context.maybeAutoReport(entry, { fetchImpl }), false, 'on but no permission: nothing is sent');
   granted = true;
+  N.RELAY_CONFIGURED = false;
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl }), false, 'relay not deployed: nothing is sent');
+  N.RELAY_CONFIGURED = true;
   const t0 = Date.UTC(2026, 9, 12, 10);
   assert.equal(await context.maybeAutoReport(entry, { fetchImpl, now: t0 }), true);
   assert.equal(sent[0].url, N.RELAY_REPORT_URL);

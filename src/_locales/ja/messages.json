@@ -1354,9 +1354,6 @@
   "rpSent": {
     "message": "レポートを送信しました。ありがとうございます！ 参照番号: $1"
   },
-  "rpSendFailed": {
-    "message": "レポートを送信できませんでした。コピーするか、代わりに GitHub Issue を開いてください。"
-  },
   "rpPermissionDenied": {
     "message": "レポートサーバーへのアクセス許可が得られませんでした。レポートをコピーするか、GitHub Issue を開いてください。"
   },
@@ -1443,5 +1440,50 @@
   },
   "dlgLargeRunStart": {
     "message": "$1 件の MOD をダウンロード"
+  },
+  "rpErrNotConfigured": {
+    "message": "レポートサーバーはまだ設定されていないため、ここからレポートを送信できません。"
+  },
+  "rpErrUnreachable": {
+    "message": "レポートサーバーに接続できませんでした。接続を確認して再試行してください。"
+  },
+  "rpErrRateLimited": {
+    "message": "このネットワークからのレポートが多すぎます。約$1分後に再試行してください。"
+  },
+  "rpErrTooLarge": {
+    "message": "レポートがサーバーには大きすぎます。デバッグログをオフにして再試行してください。"
+  },
+  "rpErrRejected": {
+    "message": "レポートサーバーがこのレポートを受け付けませんでした。"
+  },
+  "rpErrServer": {
+    "message": "レポートサーバーで問題が発生しました。しばらくして再試行してください。"
+  },
+  "rpChecking": {
+    "message": "レポートサーバーを確認中…"
+  },
+  "rpSending": {
+    "message": "送信中…"
+  },
+  "rpRetry": {
+    "message": "再試行"
+  },
+  "rpFallbackLead": {
+    "message": "GitHub issue を作成して報告することもできます。リンクが短縮された場合に備えて、完全な JSON もクリップボードにコピーされます。"
+  },
+  "rpFallbackGithub": {
+    "message": "入力済みの GitHub issue を開く"
+  },
+  "rpCopyJson": {
+    "message": "完全な JSON をコピー"
+  },
+  "rpGithubCopied": {
+    "message": "GitHub を新しいタブで開きました。完全な JSON はクリップボードにあります。issue に貼り付けてください。"
+  },
+  "rpSendUnavailable": {
+    "message": "送信はまだ利用できません"
+  },
+  "rpCopyFailed": {
+    "message": "クリップボードにコピーできませんでした。上のレポートを選択して手動でコピーしてください。"
   }
 }

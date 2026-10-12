@@ -13,6 +13,8 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 - CORS only for extension origins (`ALLOWED_ORIGINS`).
 
 ## Deploy
+The relay is **not deployed by CI**: `wrangler` needs an interactive `wrangler login` (or a
+Cloudflare API token, which this repository deliberately does not hold). Deploy from your machine:
 ```sh
 cd relay
 npx wrangler login
@@ -31,6 +33,19 @@ extension, update **both**:
 - `RELAY_ORIGIN` in `src/shared.js`
 - `optional_host_permissions` in `src/manifest.json`
 
+Then check it and build the extension with the relay switched on:
+```sh
+curl "$RELAY/v1/health"                     # {"ok":true,"configured":true,...}
+NXTK_RELAY_CONFIGURED=1 NXTK_REQUIRE_DOM=1 node tools/build-zip.mjs
+```
+Until the relay is deployed, leave `RELAY_CONFIGURED = false` in `src/shared.js` (or build with
+`NXTK_RELAY_CONFIGURED=0`): the report page then shows **Send** as unavailable and offers a prefilled
+GitHub issue (with the full JSON on the clipboard) instead of failing on click, and automatic error
+reports stay off.
+
+`GET /v1/health` answers `{ ok, configured }`; the report page calls it before every send so a failure
+names its cause (not configured, unreachable, rate limited, permission denied, too large, server error).
+
 The relay origin is an *optional* host permission: users are asked for it the first time they press
 **Send report**, so updating the extension never shows a new permission warning.
 
@@ -39,4 +54,4 @@ The relay origin is an *optional* host permission: users are asked for it the fi
 curl -X POST "$RELAY/v1/report" -H 'content-type: application/json' \
   -d '{"schema":1,"kind":"auto","version":"2.9.0","error":{"code":"test"}}'
 ```
-`node tools/relay-test.cjs` runs the validation, rate-limit and Discord-formatting tests offline.
+`node tools/relay-test.mjs` runs the validation, rate-limit and Discord-formatting tests offline.

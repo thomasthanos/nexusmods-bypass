@@ -1438,9 +1438,6 @@
   "rpSent": {
     "message": "Bericht gesendet. Danke! Referenz: $1"
   },
-  "rpSendFailed": {
-    "message": "Der Bericht konnte nicht gesendet werden. Kopiere ihn oder öffne stattdessen ein GitHub-Issue."
-  },
   "rpPermissionDenied": {
     "message": "Die Berechtigung für den Berichtsserver wurde nicht erteilt. Kopiere den Bericht oder öffne stattdessen ein GitHub-Issue."
   },
@@ -1527,5 +1524,50 @@
   },
   "dlgLargeRunStart": {
     "message": "$1 Mods herunterladen"
+  },
+  "rpErrNotConfigured": {
+    "message": "Der Berichtsserver ist noch nicht eingerichtet, daher können Berichte von hier nicht gesendet werden."
+  },
+  "rpErrUnreachable": {
+    "message": "Der Berichtsserver ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut."
+  },
+  "rpErrRateLimited": {
+    "message": "Zu viele Berichte aus diesem Netzwerk. Versuche es in etwa $1 Minuten erneut."
+  },
+  "rpErrTooLarge": {
+    "message": "Der Bericht ist zu groß für den Server. Schalte Debug-Logs aus und versuche es erneut."
+  },
+  "rpErrRejected": {
+    "message": "Der Berichtsserver hat diesen Bericht nicht angenommen."
+  },
+  "rpErrServer": {
+    "message": "Der Berichtsserver hatte ein Problem. Versuche es gleich noch einmal."
+  },
+  "rpChecking": {
+    "message": "Berichtsserver wird geprüft…"
+  },
+  "rpSending": {
+    "message": "Wird gesendet…"
+  },
+  "rpRetry": {
+    "message": "Erneut versuchen"
+  },
+  "rpFallbackLead": {
+    "message": "Du kannst es trotzdem melden: Öffne ein GitHub-Issue mit ausgefülltem Bericht. Das vollständige JSON wird auch in die Zwischenablage kopiert, falls der Link gekürzt werden musste."
+  },
+  "rpFallbackGithub": {
+    "message": "Vorausgefülltes GitHub-Issue öffnen"
+  },
+  "rpCopyJson": {
+    "message": "Vollständiges JSON kopieren"
+  },
+  "rpGithubCopied": {
+    "message": "GitHub wurde in einem neuen Tab geöffnet. Das vollständige JSON ist in der Zwischenablage: Füge es in das Issue ein."
+  },
+  "rpSendUnavailable": {
+    "message": "Senden ist noch nicht verfügbar"
+  },
+  "rpCopyFailed": {
+    "message": "Kopieren fehlgeschlagen. Markiere den Bericht oben und kopiere ihn von Hand."
   }
 }

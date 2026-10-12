@@ -492,6 +492,20 @@ function emit(fileName, archive) {
   written.push(`${shown}  (${(archive.length / 1024).toFixed(1)} KB)`);
 }
 
+// Relay flag: the report page shows "Send" as available only when the relay is deployed. Set
+// NXTK_RELAY_CONFIGURED=1 for a build made after `wrangler deploy` (relay/README.md); otherwise the
+// flag in src/shared.js is packaged as written.
+const RELAY_FLAG = /const RELAY_CONFIGURED = (true|false);/;
+{
+  const shared = readFileSync(join(pkg, 'shared.js'), 'utf8');
+  if (!RELAY_FLAG.test(shared)) fail('shared.js must declare `const RELAY_CONFIGURED = true|false;`');
+  const wanted = process.env.NXTK_RELAY_CONFIGURED;
+  if (wanted === '1' || wanted === '0') {
+    localeReplacements.set('shared.js', Buffer.from(shared.replace(RELAY_FLAG, `const RELAY_CONFIGURED = ${wanted === '1'};`), 'utf8'));
+  }
+  console.log(`Relay: ${(wanted ? wanted === '1' : shared.match(RELAY_FLAG)[1] === 'true') ? 'configured' : 'not configured (Send shows as unavailable)'}`);
+}
+
 emit(`nexus.mods.bypass-${version}.zip`, buildArchive(entryNames, localeReplacements, { verbose: true }));
 
 const firefoxOverride = new Map([

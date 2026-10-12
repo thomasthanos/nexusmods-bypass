@@ -119,7 +119,7 @@ const AUTO_REPORT_DAILY_MAX = 10;
 
 async function maybeAutoReport(entry, { now = Date.now(), fetchImpl = globalThis.fetch } = {}) {
   const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-  if (!settings?.AutoErrorReports) return false;
+  if (!settings?.AutoErrorReports || !NXTK.RELAY_CONFIGURED) return false;
   let granted = false;
   try {
     granted = await chrome.permissions.contains(NXTK.RELAY_PERMISSION);

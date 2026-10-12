@@ -1438,9 +1438,6 @@
   "rpSent": {
     "message": "Relatório enviado. Obrigado! Referência: $1"
   },
-  "rpSendFailed": {
-    "message": "Não foi possível enviar o relatório. Copie-o ou abra uma issue no GitHub."
-  },
   "rpPermissionDenied": {
     "message": "A permissão para acessar o servidor de relatórios não foi concedida. Copie o relatório ou abra uma issue no GitHub."
   },
@@ -1527,5 +1524,50 @@
   },
   "dlgLargeRunStart": {
     "message": "Baixar $1 mods"
+  },
+  "rpErrNotConfigured": {
+    "message": "O servidor de relatórios ainda não está configurado, então os relatórios não podem ser enviados daqui."
+  },
+  "rpErrUnreachable": {
+    "message": "Não foi possível acessar o servidor de relatórios. Verifique sua conexão e tente novamente."
+  },
+  "rpErrRateLimited": {
+    "message": "Muitos relatórios desta rede. Tente novamente em cerca de $1 minutos."
+  },
+  "rpErrTooLarge": {
+    "message": "O relatório é grande demais para o servidor. Desative os logs de depuração e tente novamente."
+  },
+  "rpErrRejected": {
+    "message": "O servidor de relatórios não aceitou este relatório."
+  },
+  "rpErrServer": {
+    "message": "O servidor de relatórios teve um problema. Tente novamente em instantes."
+  },
+  "rpChecking": {
+    "message": "Verificando o servidor de relatórios…"
+  },
+  "rpSending": {
+    "message": "Enviando…"
+  },
+  "rpRetry": {
+    "message": "Tentar novamente"
+  },
+  "rpFallbackLead": {
+    "message": "Você ainda pode relatar: abra uma issue no GitHub com o relatório preenchido. O JSON completo também é copiado para a área de transferência, caso o link precise ser encurtado."
+  },
+  "rpFallbackGithub": {
+    "message": "Abrir issue do GitHub preenchida"
+  },
+  "rpCopyJson": {
+    "message": "Copiar JSON completo"
+  },
+  "rpGithubCopied": {
+    "message": "O GitHub abriu em uma nova aba. O JSON completo está na área de transferência: cole-o na issue."
+  },
+  "rpSendUnavailable": {
+    "message": "O envio ainda não está disponível"
+  },
+  "rpCopyFailed": {
+    "message": "Não foi possível copiar. Selecione o relatório acima e copie manualmente."
   }
 }
