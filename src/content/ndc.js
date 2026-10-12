@@ -311,6 +311,13 @@ window.NexusExt = window.NexusExt || {};
       this.downloadFolder = settings.DownloadFolder ?? '';
       this.wabbajackImport = settings.WabbajackImport === true;
       this.smallestFirst = settings.NDC_smallestFirst !== false;
+      this.useOfficialApi = settings.UseOfficialApi !== false && !!NexusExt.NexusApi;
+      this.followUpdatePolicy = settings.FollowUpdatePolicy === true;
+      this.showModActions = settings.ShowModActions !== false;
+    }
+
+    api() {
+      return this.useOfficialApi ? NexusExt.NexusApi?.shared?.() || null : null;
     }
 
     async init() {
@@ -323,6 +330,10 @@ window.NexusExt = window.NexusExt || {};
       const response = await this.fetchMods();
       if (!response) return false;
 
+      this.loadedRevision = {
+        number: Number(response.revisionNumber) || Number(this.revision) || null,
+        latest: response.latest ?? null
+      };
       const mods = response.modFiles.sort((a, b) => nameCollator.compare(a.file.mod.name, b.file.mod.name));
       this.mods = {
         all: mods,
@@ -369,12 +380,25 @@ window.NexusExt = window.NexusExt || {};
     }
 
     async fetchMods(collectionId = this.collectionId, revision = this.revision) {
-      const response = await Errors.request('https://api-router.nexusmods.com/graphql', {
+      const api = this.api();
+      const response = api
+        ? await api.collectionRevisionMods({
+          slug: collectionId,
+          revision: Number.isInteger(revision) ? revision : (parseInt(revision, 10) || null),
+          signal: this.lifecycleSignal,
+          timeoutMs: this.requestTimeout
+        })
+        : await this.fetchModsLegacy(collectionId, revision);
+      return this.readRevisionMods(response);
+    }
+
+    fetchModsLegacy(collectionId, revision) {
+      return Errors.request(NexusExt.NexusApi?.ROUTER_URL || 'https://api-router.nexusmods.com/graphql', {
         headers: { 'content-type': 'application/json' },
         referrer: document.location.href,
         referrerPolicy: 'strict-origin-when-cross-origin',
         body: JSON.stringify({
-          query: 'query CollectionRevisionMods ($revision: Int, $slug: String!, $viewAdultContent: Boolean) { collectionRevision (revision: $revision, slug: $slug, viewAdultContent: $viewAdultContent) { externalResources { id, name, resourceType, resourceUrl }, modFiles { fileId, optional, file { fileId, name, uri, size, version, date, mod { adult, modId, name, version, game { domainName, id } } } } } }',
+          query: NexusExt.NexusApi?.QUERIES?.CollectionRevisionModsLegacy || 'query CollectionRevisionMods ($revision: Int, $slug: String!, $viewAdultContent: Boolean) { collectionRevision (revision: $revision, slug: $slug, viewAdultContent: $viewAdultContent) { externalResources { id, name, resourceType, resourceUrl }, modFiles { fileId, optional, file { fileId, name, uri, size, version, date, mod { adult, modId, name, version, game { domainName, id } } } } } }',
           variables: { slug: collectionId, viewAdultContent: true, revision: revision },
           operationName: 'CollectionRevisionMods'
         }),
@@ -386,9 +410,11 @@ window.NexusExt = window.NexusExt || {};
         context: 'Loading collection details',
         signal: this.lifecycleSignal
       });
+    }
 
-      if (!response.ok) {
-        this.lastError = response.error;
+    readRevisionMods(response) {
+      if (!response?.ok) {
+        this.lastError = response?.error || Errors.create('request_failed', { context: 'Loading collection details' });
         return null;
       }
 
@@ -1106,6 +1132,8 @@ window.NexusExt = window.NexusExt || {};
         }
       }
 
+      mods = await this.applyUpdatePolicy(mods);
+
       let history = null;
       let restart = false;
       if (type !== null) {
@@ -1361,7 +1389,20 @@ window.NexusExt = window.NexusExt || {};
     }
 
     async fetchRevisions() {
-      const response = await Errors.request('https://api-router.nexusmods.com/graphql', {
+      const api = this.api();
+      const response = api
+        ? await api.collectionRevisions({
+          slug: this.collectionId,
+          domainName: this.gameId,
+          signal: this.lifecycleSignal,
+          timeoutMs: this.requestTimeout
+        })
+        : await this.fetchRevisionsLegacy();
+      return this.readRevisions(response);
+    }
+
+    fetchRevisionsLegacy() {
+      return Errors.request(NexusExt.NexusApi?.ROUTER_URL || 'https://api-router.nexusmods.com/graphql', {
         headers: { 'content-type': 'application/json' },
         referrer: document.location.href,
         referrerPolicy: 'strict-origin-when-cross-origin',
@@ -1378,7 +1419,10 @@ window.NexusExt = window.NexusExt || {};
         context: 'Loading collection revisions',
         signal: this.lifecycleSignal
       });
-      if (!response.ok) {
+    }
+
+    readRevisions(response) {
+      if (!response?.ok) {
         this.lastError = response.error;
         return null;
       }
@@ -1402,6 +1446,97 @@ window.NexusExt = window.NexusExt || {};
         });
         return null;
       }
+    }
+
+    // The newest published revision when it is newer than the one on screen, else null.
+    async newerRevision() {
+      if (this.external || !this.api()) return null;
+      const current = Number(this.loadedRevision?.number);
+      if (!current) return null;
+      const revisions = await this.fetchRevisions();
+      if (!Array.isArray(revisions)) return null;
+      const newest = revisions
+        .filter((rev) => String(rev?.revisionStatus || '').toLowerCase() === 'published' && !rev.discardedAt)
+        .reduce((best, rev) => (Number(rev.revisionNumber) > Number(best?.revisionNumber || 0) ? rev : best), null);
+      return newest && Number(newest.revisionNumber) > current ? newest : null;
+    }
+
+    // Mod details (version, endorse/track state) for every mod in the list, batched 50 per request.
+    // Stored on each entry as `mod.api`. Resolves to the number of mods described.
+    ensureApiDetails() {
+      const api = this.api();
+      if (!api || !this.mods?.all?.length) return Promise.resolve(0);
+      if (this.apiDetailsPromise) return this.apiDetailsPromise;
+      const pairs = this.mods.all.map((mod) => ({
+        gameDomain: mod.file?.mod?.game?.domainName,
+        modId: mod.file?.mod?.modId
+      }));
+      this.apiDetailsPromise = api.modsByDomain(pairs, { signal: this.lifecycleSignal }).then((details) => {
+        let described = 0;
+        for (const mod of this.mods.all) {
+          const key = `${String(mod.file?.mod?.game?.domainName || '').toLowerCase()}:${mod.file?.mod?.modId}`;
+          const detail = details.get(key);
+          if (!detail) continue;
+          mod.api = detail;
+          described++;
+        }
+        return described;
+      }).catch(() => 0);
+      return this.apiDetailsPromise;
+    }
+
+    // True when the collection allows a newer file than the listed one and Nexus has a newer version.
+    static updateAvailable(mod) {
+      const policy = String(mod?.updatePolicy || 'exact').toLowerCase();
+      if (policy === 'exact') return false;
+      const latest = String(mod?.api?.version || mod?.file?.mod?.version || '').trim();
+      const listed = String(mod?.version || mod?.file?.version || '').trim();
+      return !!latest && !!listed && latest !== listed;
+    }
+
+    // Swaps files the curator lets float (updatePolicy latest/prefer) for the newest file in the same
+    // download group, when the setting is on. Exact pins are never touched. Returns a new array.
+    async applyUpdatePolicy(mods) {
+      const api = this.api();
+      const NexusApi = NexusExt.NexusApi;
+      if (!api || !this.followUpdatePolicy || this.external || !NexusApi) return mods;
+      const out = [];
+      let changed = 0;
+      for (const mod of mods) {
+        const policy = String(mod?.updatePolicy || 'exact').toLowerCase();
+        const gameNumericId = mod?.file?.mod?.game?.id;
+        if (!['latest', 'prefer'].includes(policy) || !gameNumericId || this.isStopped()) {
+          out.push(mod);
+          continue;
+        }
+        const files = await api.modFiles({ modId: mod.file.mod.modId, gameId: gameNumericId, signal: this.lifecycleSignal });
+        const next = NexusApi.resolveByPolicy(policy, files, mod.file.fileId);
+        if (!next) {
+          out.push(mod);
+          continue;
+        }
+        changed++;
+        const domain = mod.file.mod.game.domainName;
+        out.push({
+          ...mod,
+          fileId: next.fileId,
+          historyId: mod.historyId,
+          file: {
+            ...mod.file,
+            fileId: next.fileId,
+            name: next.name || mod.file.name,
+            version: next.version || mod.file.version,
+            size: Number(next.size) || mod.file.size,
+            uri: next.uri || mod.file.uri,
+            url: `https://www.nexusmods.com/${domain}/mods/${mod.file.mod.modId}?tab=files&file_id=${next.fileId}`
+          }
+        });
+      }
+      if (changed) {
+        this.ui?.logText?.(NXTK.t('logUpdatePolicyApplied', [String(changed)],
+          `Using newer files for ${changed} mods the collection allows to update.`), 'info');
+      }
+      return out;
     }
   }
 

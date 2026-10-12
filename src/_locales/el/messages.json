@@ -1452,5 +1452,68 @@
   },
   "ratingLater": {
     "message": "Αργότερα"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "Χρήση του επίσημου Nexus API"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "Ανάγνωση στοιχείων συλλογών, mod και αρχείων από το τεκμηριωμένο API του Nexus Mods, με προσωρινή αποθήκευση και διαχείριση ορίων αιτημάτων. Απενεργοποιήστε για τις παλαιότερες αναζητήσεις μέσω σελίδας."
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "Τήρηση πολιτικής ενημερώσεων του επιμελητή"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "Όταν μια συλλογή επιτρέπει νεότερες εκδόσεις ενός mod, κατεβαίνει το νεότερο αρχείο αυτής της λήψης αντί του καταχωρημένου. Τα mod κλειδωμένα σε συγκεκριμένη έκδοση δεν αλλάζουν ποτέ."
+  },
+  "setShowModActionsLabel": {
+    "message": "Κουμπιά επιδοκιμασίας και παρακολούθησης"
+  },
+  "setShowModActionsDesc": {
+    "message": "Εμφάνιση κουμπιών επιδοκιμασίας και παρακολούθησης στη λίστα mod της συλλογής. Τίποτα δεν αποστέλλεται μέχρι να πατήσετε ένα."
+  },
+  "logUpdatePolicyApplied": {
+    "message": "Χρησιμοποιούνται νεότερα αρχεία για $1 mod που η συλλογή επιτρέπει να ενημερωθούν."
+  },
+  "tipUpdateAvailable": {
+    "message": "Η έκδοση $1 υπάρχει στο Nexus· η συλλογή επιτρέπει ενημέρωση."
+  },
+  "badgeUpdateAvailable": {
+    "message": "Διαθέσιμη ενημέρωση"
+  },
+  "btnEndorse": {
+    "message": "Επιδοκιμασία"
+  },
+  "btnEndorsed": {
+    "message": "Επιδοκιμάστηκε"
+  },
+  "btnTrack": {
+    "message": "Παρακολούθηση"
+  },
+  "btnTracked": {
+    "message": "Παρακολουθείται"
+  },
+  "modActionFailed": {
+    "message": "Το Nexus δεν το δέχτηκε: $1"
+  },
+  "badgeNewRevision": {
+    "message": "Διαθέσιμη αναθεώρηση $1"
+  },
+  "wjHashTitle": {
+    "message": "Αναγνώριση αρχείων μέσω hash"
+  },
+  "wjHashHelp": {
+    "message": "Επιλέξτε αρχεία που ήδη έχετε. Το καθένα κατακερματίζεται στον υπολογιστή σας και μόνο το MD5 αναζητείται στο Nexus για να βρεθεί η σελίδα του mod."
+  },
+  "wjHashPick": {
+    "message": "Επιλογή αρχείων…"
+  },
+  "wjHashNeedsApi": {
+    "message": "Ενεργοποιήστε το «Χρήση του επίσημου Nexus API» στις ρυθμίσεις για αναζήτηση αρχείων."
+  },
+  "wjHashHashing": {
+    "message": "Υπολογισμός hash $1… $2%"
+  },
+  "wjHashNoMatch": {
+    "message": "Δεν βρέθηκε στο Nexus"
   }
 }

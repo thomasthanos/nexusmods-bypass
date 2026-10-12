@@ -1368,5 +1368,68 @@
   },
   "ratingLater": {
     "message": "後で"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "公式 Nexus API を使う"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "コレクション・MOD・ファイルの情報を、キャッシュとレート制限処理付きで公式ドキュメントの Nexus Mods API から取得します。オフにすると従来のページ読み取りを使います。"
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "キュレーターの更新ポリシーに従う"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "コレクションが MOD の新しいバージョンを許可している場合、記載のファイルではなく同じダウンロードの最新ファイルを取得します。特定バージョンに固定された MOD は変更しません。"
+  },
+  "setShowModActionsLabel": {
+    "message": "推薦・トラッキングボタン"
+  },
+  "setShowModActionsDesc": {
+    "message": "コレクションの MOD 一覧に推薦・トラッキングボタンを表示します。クリックするまで何も送信されません。"
+  },
+  "logUpdatePolicyApplied": {
+    "message": "コレクションが更新を許可している $1 件の MOD に新しいファイルを使用します。"
+  },
+  "tipUpdateAvailable": {
+    "message": "Nexus にバージョン $1 があります。このコレクションは更新を許可しています。"
+  },
+  "badgeUpdateAvailable": {
+    "message": "更新あり"
+  },
+  "btnEndorse": {
+    "message": "推薦"
+  },
+  "btnEndorsed": {
+    "message": "推薦済み"
+  },
+  "btnTrack": {
+    "message": "トラッキング"
+  },
+  "btnTracked": {
+    "message": "トラッキング中"
+  },
+  "modActionFailed": {
+    "message": "Nexus に受け付けられませんでした: $1"
+  },
+  "badgeNewRevision": {
+    "message": "リビジョン $1 があります"
+  },
+  "wjHashTitle": {
+    "message": "ハッシュでアーカイブを特定"
+  },
+  "wjHashHelp": {
+    "message": "手元のアーカイブを選んでください。ハッシュはこのコンピューター上で計算され、MOD ページを探すために MD5 だけを Nexus で照会します。"
+  },
+  "wjHashPick": {
+    "message": "アーカイブを選択…"
+  },
+  "wjHashNeedsApi": {
+    "message": "アーカイブを照会するには、設定で「公式 Nexus API を使う」をオンにしてください。"
+  },
+  "wjHashHashing": {
+    "message": "$1 のハッシュを計算中… $2%"
+  },
+  "wjHashNoMatch": {
+    "message": "Nexus で見つかりません"
   }
 }

@@ -1,0 +1,82 @@
+name: Publish release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # Publication is deliberate: ordinary merges never create a release.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       startsWith(github.event.head_commit.message, 'chore(release): publish '))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Read and validate release version
+        id: version
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+          const version = read('src/manifest.json').version;
+          const lock = read('package-lock.json');
+          if (!/^\d+\.\d+\.\d+$/.test(version) || read('package.json').version !== version ||
+              lock.version !== version || lock.packages[''].version !== version) {
+            throw new Error('Manifest and tooling versions must match.');
+          }
+          if (!fs.existsSync(`internal/docs/releases/${version}.md`)) {
+            throw new Error(`Missing release notes for ${version}.`);
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          NODE
+      - run: npm ci
+      - run: npm run lint
+      - name: Regression tests and browser packages
+        run: node tools/build-zip.mjs
+        env:
+          NXTK_REQUIRE_DOM: '1'
+      - name: Firefox package lint
+        run: node tools/lint-webext.mjs
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:visual
+      - name: Validate live Nexus schema
+        run: node tools/schema-watch.mjs
+      - name: Publish both validated packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          notes="internal/docs/releases/${VERSION}.md"
+          if gh release view "$VERSION" --json isDraft --jq '.isDraft' > /tmp/release-is-draft; then
+            if [ "$(cat /tmp/release-is-draft)" = "false" ]; then
+              echo "Release ${VERSION} is already published; leaving it unchanged."
+              exit 0
+            fi
+          else
+            gh release create "$VERSION" --draft --target "$GITHUB_SHA" \
+              --title "v${VERSION} — API reliability and collection fixes" --notes-file "$notes"
+          fi
+          gh release upload "$VERSION" \
+            "dist/nexus.mods.bypass-${VERSION}.zip" \
+            "dist/nexus.mods.bypass-${VERSION}-firefox.zip" --clobber
+          gh release edit "$VERSION" --draft=false --latest

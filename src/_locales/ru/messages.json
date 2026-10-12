@@ -1620,5 +1620,68 @@
   },
   "ratingLater": {
     "message": "Позже"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "Использовать официальный API Nexus"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "Получать данные коллекций, модов и файлов через документированный API Nexus Mods с кэшированием и учётом лимитов. Отключите, чтобы использовать прежнее чтение со страницы."
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "Следовать правилу обновления куратора"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "Если коллекция разрешает более новые версии мода, скачивается самый новый файл этой загрузки вместо указанного. Моды, закреплённые на точной версии, не меняются."
+  },
+  "setShowModActionsLabel": {
+    "message": "Кнопки одобрения и отслеживания"
+  },
+  "setShowModActionsDesc": {
+    "message": "Показывает кнопки одобрения и отслеживания в списке модов коллекции. Ничего не отправляется, пока вы не нажмёте."
+  },
+  "logUpdatePolicyApplied": {
+    "message": "Для $1 модов, которые коллекция разрешает обновлять, используются более новые файлы."
+  },
+  "tipUpdateAvailable": {
+    "message": "Версия $1 есть на Nexus; эта коллекция разрешает обновление."
+  },
+  "badgeUpdateAvailable": {
+    "message": "Есть обновление"
+  },
+  "btnEndorse": {
+    "message": "Одобрить"
+  },
+  "btnEndorsed": {
+    "message": "Одобрено"
+  },
+  "btnTrack": {
+    "message": "Отслеживать"
+  },
+  "btnTracked": {
+    "message": "Отслеживается"
+  },
+  "modActionFailed": {
+    "message": "Nexus не принял запрос: $1"
+  },
+  "badgeNewRevision": {
+    "message": "Доступна ревизия $1"
+  },
+  "wjHashTitle": {
+    "message": "Определить архивы по хешу"
+  },
+  "wjHashHelp": {
+    "message": "Выберите имеющиеся архивы. Хеш считается на вашем компьютере, и на Nexus проверяется только MD5, чтобы найти страницу мода."
+  },
+  "wjHashPick": {
+    "message": "Выбрать архивы…"
+  },
+  "wjHashNeedsApi": {
+    "message": "Включите «Использовать официальный API Nexus» в настройках, чтобы искать архивы."
+  },
+  "wjHashHashing": {
+    "message": "Хеширование $1… $2%"
+  },
+  "wjHashNoMatch": {
+    "message": "Не найдено на Nexus"
   }
 }

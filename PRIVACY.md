@@ -19,7 +19,7 @@ All of this data is stored in local browser extension storage.
 
 ## Network activity
 
-The extension makes only the Nexus Mods requests needed to resolve and start downloads - the same requests the browser would make when the corresponding buttons are clicked manually. It does not transmit extension data to the publisher or to an analytics service, except a bug report you choose to send (below).
+The extension makes only the Nexus Mods requests needed to resolve and start downloads - the same requests the browser would make when the corresponding buttons are clicked manually. Collection, mod and file details are read from Nexus Mods' documented API (`api.nexusmods.com`) with your existing Nexus session, the same way the site does; no API key is stored. Endorse and Track are sent only when you click those buttons. "Identify archives by hash" hashes your files locally and sends only the MD5 to Nexus. It does not transmit extension data to the publisher or to an analytics service, except a bug report you choose to send (below).
 
 ## Cookies
 

@@ -246,13 +246,73 @@
           <div class="nxtk-import-path-label">${L('setWabbajackImportLabel', 'Wabbajack modlist import (beta)')}</div>
           <div class="nxtk-history-text">${L('dlgWabbajackNote', 'Files hosted outside Nexus, and games this version does not recognise, cannot be fetched. They are counted and named in the summary so you can get them yourself.')}</div>
         </div>
+        <div class="nxtk-import-path-card">
+          <div class="nxtk-import-path-label">${L('wjHashTitle', 'Identify archives by hash')}</div>
+          <div class="nxtk-history-text">${L('wjHashHelp', 'Pick archives you already have. Each is hashed on your computer and only the MD5 is looked up on Nexus, to find the mod page it came from.')}</div>
+          <button type="button" class="nxtk-btn nxtk-btn-secondary" id="nxtk-wj-hash">${L('wjHashPick', 'Choose archives…')}</button>
+          <div class="nxtk-wj-hash-results" id="nxtk-wj-hash-results" aria-live="polite"></div>
+        </div>
       </div>
       <div class="nxtk-modal-footer">
         <button type="button" class="nxtk-btn nxtk-btn-primary" data-close>${L('btnGotIt', 'Got it')}</button>
       </div>
     `
     });
+    modal.querySelector('#nxtk-wj-hash')?.addEventListener('click', () => identifyLocalArchives(modal));
     modal.querySelector('[data-close]')?.focus?.({ preventScroll: true });
+  }
+
+  // Runs only after the user picks files. The files never leave the computer; only their MD5 does.
+  async function identifyLocalArchives(modal) {
+    const importer = NexusExt.WabbajackImporter;
+    const settings = await NexusExt.Storage?.getSettings?.();
+    if (!importer?.identifyArchives || settings?.UseOfficialApi === false || !NexusExt.NexusApi) {
+      await nxtkAlert(NXTK.t('wjHashNeedsApi', null, 'Turn on "Use the official Nexus API" in settings to look archives up.'));
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.addEventListener('change', async () => {
+      const files = Array.from(input.files || []).slice(0, 50);
+      if (!files.length) return;
+      const button = modal.querySelector('#nxtk-wj-hash');
+      const out = modal.querySelector('#nxtk-wj-hash-results');
+      if (button) button.disabled = true;
+      try {
+        const results = await importer.identifyArchives(files, {
+          onProgress: (file, share) => {
+            if (out) out.textContent = NXTK.t('wjHashHashing', [file.name, String(Math.round(share * 100))], `Hashing ${file.name}… ${Math.round(share * 100)}%`);
+          }
+        });
+        if (!out) return;
+        out.replaceChildren(...results.map((entry) => {
+          const row = document.createElement('div');
+          row.className = 'nxtk-wj-hash-row';
+          const name = document.createElement('span');
+          name.className = 'nxtk-wj-hash-name';
+          name.textContent = entry.name;
+          row.appendChild(name);
+          if (entry.match) {
+            const link = document.createElement('a');
+            link.href = entry.match.url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = `${entry.match.modName} — ${entry.match.fileName}${entry.match.version ? ` ${entry.match.version}` : ''}`;
+            row.appendChild(link);
+          } else {
+            const miss = document.createElement('span');
+            miss.className = 'nxtk-wj-hash-miss';
+            miss.textContent = NXTK.t('wjHashNoMatch', null, 'Not found on Nexus');
+            row.appendChild(miss);
+          }
+          return row;
+        }));
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }, { once: true });
+    input.click();
   }
 
   kit.wabbajack = { importModlist: importWabbajackModlist, showInfo: showWabbajackInfoModal };

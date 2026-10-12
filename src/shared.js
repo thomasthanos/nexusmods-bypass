@@ -248,7 +248,11 @@
     ForceEnglish: false,
     NDC_downloadMethod: 0,
     NDC_smallestFirst: true,
-    WabbajackImport: false
+    WabbajackImport: false,
+    // Official-API migration flags (docs/nexus-site-map.md). Off restores the pre-2.10 behaviour.
+    UseOfficialApi: true,
+    FollowUpdatePolicy: false,
+    ShowModActions: true
   };
 
   // Bounds every writer applies, so a value typed into a field never reaches storage out of range.

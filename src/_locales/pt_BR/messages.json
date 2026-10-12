@@ -1452,5 +1452,68 @@
   },
   "ratingLater": {
     "message": "Mais tarde"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "Usar a API oficial do Nexus"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "Ler detalhes de coleções, mods e arquivos pela API documentada do Nexus Mods, com cache e controle de limites. Desative para usar as consultas antigas pela página."
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "Seguir a política de atualização do curador"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "Quando uma coleção permite versões mais novas de um mod, baixa o arquivo mais recente daquele download em vez do listado. Mods fixados em uma versão exata nunca mudam."
+  },
+  "setShowModActionsLabel": {
+    "message": "Botões de endossar e acompanhar"
+  },
+  "setShowModActionsDesc": {
+    "message": "Mostra botões de endossar e acompanhar na lista de mods da coleção. Nada é enviado até você clicar em um."
+  },
+  "logUpdatePolicyApplied": {
+    "message": "Usando arquivos mais novos para $1 mods que a coleção permite atualizar."
+  },
+  "tipUpdateAvailable": {
+    "message": "A versão $1 está no Nexus; esta coleção permite atualizar."
+  },
+  "badgeUpdateAvailable": {
+    "message": "Atualização disponível"
+  },
+  "btnEndorse": {
+    "message": "Endossar"
+  },
+  "btnEndorsed": {
+    "message": "Endossado"
+  },
+  "btnTrack": {
+    "message": "Acompanhar"
+  },
+  "btnTracked": {
+    "message": "Acompanhando"
+  },
+  "modActionFailed": {
+    "message": "O Nexus não aceitou: $1"
+  },
+  "badgeNewRevision": {
+    "message": "Revisão $1 disponível"
+  },
+  "wjHashTitle": {
+    "message": "Identificar arquivos por hash"
+  },
+  "wjHashHelp": {
+    "message": "Escolha arquivos que você já tem. Cada um é processado no seu computador e só o MD5 é consultado no Nexus para achar a página do mod."
+  },
+  "wjHashPick": {
+    "message": "Escolher arquivos…"
+  },
+  "wjHashNeedsApi": {
+    "message": "Ative \"Usar a API oficial do Nexus\" nas configurações para consultar arquivos."
+  },
+  "wjHashHashing": {
+    "message": "Calculando hash de $1… $2%"
+  },
+  "wjHashNoMatch": {
+    "message": "Não encontrado no Nexus"
   }
 }

@@ -1,13 +1,13 @@
 {
   "name": "nexusmods-bypass",
-  "version": "2.9.0",
+  "version": "2.10.1",
   "private": true,
   "description": "Development tooling for the NexusMods Bypass browser extension. The extension itself has no runtime dependencies.",
   "scripts": {
     "test": "node tools/build-zip.mjs",
     "test:dom": "node tools/dom-fixtures-test.cjs",
     "lint": "eslint src tools tests relay eslint.config.mjs playwright.config.mjs",
-    "lint:webext": "node tools/build-zip.mjs && rm -rf .webext-lint && mkdir .webext-lint && unzip -q dist/*-firefox.zip -d .webext-lint && web-ext lint --source-dir .webext-lint",
+    "lint:webext": "node tools/build-zip.mjs && node tools/lint-webext.mjs",
     "build": "node tools/build-zip.mjs",
     "test:visual": "playwright test"
   },
@@ -19,6 +19,7 @@
     "@playwright/test": "^1.64.0",
     "eslint": "^9.39.5",
     "globals": "^15.15.0",
+    "graphql": "^16.14.2",
     "jsdom": "^25.0.1",
     "web-ext": "^8.10.0"
   }

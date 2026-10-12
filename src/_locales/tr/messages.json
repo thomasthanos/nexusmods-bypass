@@ -1452,5 +1452,68 @@
   },
   "ratingLater": {
     "message": "Sonra"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "Resmî Nexus API'sini kullan"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "Koleksiyon, mod ve dosya bilgilerini önbellek ve istek sınırı yönetimiyle belgelenmiş Nexus Mods API'sinden oku. Eski sayfa tabanlı sorgular için kapat."
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "Küratörün güncelleme kuralını izle"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "Bir koleksiyon bir modun daha yeni sürümlerine izin veriyorsa, listelenen yerine o indirmenin en yeni dosyası indirilir. Belirli bir sürüme sabitlenmiş modlar asla değişmez."
+  },
+  "setShowModActionsLabel": {
+    "message": "Onayla ve takip et düğmeleri"
+  },
+  "setShowModActionsDesc": {
+    "message": "Koleksiyon mod listesinde onayla ve takip et düğmelerini gösterir. Birine tıklayana kadar hiçbir şey gönderilmez."
+  },
+  "logUpdatePolicyApplied": {
+    "message": "Koleksiyonun güncellenmesine izin verdiği $1 mod için daha yeni dosyalar kullanılıyor."
+  },
+  "tipUpdateAvailable": {
+    "message": "Nexus'ta $1 sürümü var; bu koleksiyon güncellemeye izin veriyor."
+  },
+  "badgeUpdateAvailable": {
+    "message": "Güncelleme var"
+  },
+  "btnEndorse": {
+    "message": "Onayla"
+  },
+  "btnEndorsed": {
+    "message": "Onaylandı"
+  },
+  "btnTrack": {
+    "message": "Takip et"
+  },
+  "btnTracked": {
+    "message": "Takipte"
+  },
+  "modActionFailed": {
+    "message": "Nexus bunu kabul etmedi: $1"
+  },
+  "badgeNewRevision": {
+    "message": "Revizyon $1 mevcut"
+  },
+  "wjHashTitle": {
+    "message": "Arşivleri hash ile tanımla"
+  },
+  "wjHashHelp": {
+    "message": "Elinizdeki arşivleri seçin. Her biri bilgisayarınızda hash'lenir ve mod sayfasını bulmak için Nexus'ta yalnızca MD5 aranır."
+  },
+  "wjHashPick": {
+    "message": "Arşiv seç…"
+  },
+  "wjHashNeedsApi": {
+    "message": "Arşivleri aramak için ayarlarda \"Resmî Nexus API'sini kullan\" seçeneğini açın."
+  },
+  "wjHashHashing": {
+    "message": "$1 hash'leniyor… %$2"
+  },
+  "wjHashNoMatch": {
+    "message": "Nexus'ta bulunamadı"
   }
 }

@@ -1764,5 +1764,68 @@
   },
   "ratingLater": {
     "message": "Later"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "Use the official Nexus API"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "Read collection, mod and file details from the documented Nexus Mods API, with caching and rate-limit handling. Turn off to use the older page-based lookups."
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "Follow curator update policy"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "When a collection allows newer versions of a mod, download the newest file of that download instead of the one listed. Mods pinned to an exact version are never changed."
+  },
+  "setShowModActionsLabel": {
+    "message": "Endorse and track buttons"
+  },
+  "setShowModActionsDesc": {
+    "message": "Show Endorse and Track buttons in the collection mod list. Nothing is sent until you click one."
+  },
+  "logUpdatePolicyApplied": {
+    "message": "Using newer files for $1 mods the collection allows to update."
+  },
+  "tipUpdateAvailable": {
+    "message": "Version $1 is on Nexus; this collection allows updating."
+  },
+  "badgeUpdateAvailable": {
+    "message": "Update available"
+  },
+  "btnEndorse": {
+    "message": "Endorse"
+  },
+  "btnEndorsed": {
+    "message": "Endorsed"
+  },
+  "btnTrack": {
+    "message": "Track"
+  },
+  "btnTracked": {
+    "message": "Tracked"
+  },
+  "modActionFailed": {
+    "message": "Nexus did not accept that: $1"
+  },
+  "badgeNewRevision": {
+    "message": "Revision $1 available"
+  },
+  "wjHashTitle": {
+    "message": "Identify archives by hash"
+  },
+  "wjHashHelp": {
+    "message": "Pick archives you already have. Each is hashed on your computer and only the MD5 is looked up on Nexus, to find the mod page it came from."
+  },
+  "wjHashPick": {
+    "message": "Choose archives…"
+  },
+  "wjHashNeedsApi": {
+    "message": "Turn on \"Use the official Nexus API\" in settings to look archives up."
+  },
+  "wjHashHashing": {
+    "message": "Hashing $1… $2%"
+  },
+  "wjHashNoMatch": {
+    "message": "Not found on Nexus"
   }
 }

@@ -1452,5 +1452,68 @@
   },
   "ratingLater": {
     "message": "Plus tard"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "Utiliser l'API officielle de Nexus"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "Lire les détails des collections, mods et fichiers via l'API documentée de Nexus Mods, avec cache et gestion des limites. Désactivez pour revenir aux anciennes lectures depuis la page."
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "Suivre la règle de mise à jour du curateur"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "Quand une collection autorise des versions plus récentes d'un mod, télécharge le fichier le plus récent de ce téléchargement au lieu de celui listé. Les mods figés sur une version exacte ne changent jamais."
+  },
+  "setShowModActionsLabel": {
+    "message": "Boutons Recommander et Suivre"
+  },
+  "setShowModActionsDesc": {
+    "message": "Affiche les boutons Recommander et Suivre dans la liste des mods de la collection. Rien n'est envoyé tant que vous n'en cliquez pas un."
+  },
+  "logUpdatePolicyApplied": {
+    "message": "Fichiers plus récents utilisés pour $1 mods que la collection autorise à mettre à jour."
+  },
+  "tipUpdateAvailable": {
+    "message": "La version $1 est sur Nexus ; cette collection autorise la mise à jour."
+  },
+  "badgeUpdateAvailable": {
+    "message": "Mise à jour disponible"
+  },
+  "btnEndorse": {
+    "message": "Recommander"
+  },
+  "btnEndorsed": {
+    "message": "Recommandé"
+  },
+  "btnTrack": {
+    "message": "Suivre"
+  },
+  "btnTracked": {
+    "message": "Suivi"
+  },
+  "modActionFailed": {
+    "message": "Nexus a refusé : $1"
+  },
+  "badgeNewRevision": {
+    "message": "Révision $1 disponible"
+  },
+  "wjHashTitle": {
+    "message": "Identifier des archives par empreinte"
+  },
+  "wjHashHelp": {
+    "message": "Choisissez des archives que vous avez déjà. Chacune est hachée sur votre ordinateur et seul le MD5 est recherché sur Nexus pour trouver la page du mod."
+  },
+  "wjHashPick": {
+    "message": "Choisir des archives…"
+  },
+  "wjHashNeedsApi": {
+    "message": "Activez « Utiliser l'API officielle de Nexus » dans les paramètres pour rechercher des archives."
+  },
+  "wjHashHashing": {
+    "message": "Hachage de $1… $2%"
+  },
+  "wjHashNoMatch": {
+    "message": "Introuvable sur Nexus"
   }
 }

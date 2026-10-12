@@ -7,6 +7,33 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.10.1] - 2026-10-12
+
+### Fixed
+- Fallback API requests now consume the shared token bucket and honour router HTTP 429 responses and `Retry-After`.
+- Successful Endorse/Track actions invalidate cached viewer flags, including older in-flight reads, so reopening a collection cannot restore stale account state.
+- Concurrent API calls share cache initialization instead of issuing duplicate storage reads and replacing each other's cache entries.
+- Unknown curator update policies preserve pinned files without requesting file lists.
+- GraphQL errors and missing file data return a failed lookup instead of a valid empty file list.
+- Firefox package lint selects the current version explicitly, so older ZIPs left in `dist/` do not break validation.
+
+### Development
+- Regression coverage for the API fixes above.
+- A deliberate release workflow publishes Chrome/Edge and Firefox ZIPs only after regression, lint, browser-layout and live-schema checks. It runs on a `chore(release): publish ...` commit to main or manual dispatch, and keeps an already published release unchanged.
+
+## [2.10.0] - 2026-10-12
+
+### Added
+- Official Nexus API layer (`src/content/nexus-api.js`): documented v2 GraphQL endpoint, client throttle (60 burst, then 1/s), 429 backoff honouring `Retry-After`, caching (published collection revisions kept permanently), router fallback for outages only.
+- Collection deck: "Revision N available" badge when a newer published revision exists.
+- Mod picker: "Update available" tag where the collection's update policy allows newer versions, plus Endorse/Track buttons that act only when clicked.
+- Optional **Follow curator update policy** setting (off by default): mods marked latest/prefer download the newest file of the same download; exact pins never change.
+- Wabbajack dialog: identify local archives by MD5 through the official `fileHash` lookup (the file itself never leaves the computer).
+- CI: weekly `schema-watch` workflow validates every query against the live schema and alerts Discord.
+
+### Changed
+- Collection details, revisions, game ids and the mod file list now come from the official API, with the previous page-based lookups as fallback. **Use the official Nexus API** (on by default) switches all of it off.
+
 ## [2.9.0] - 2026-10-12
 
 ### Added

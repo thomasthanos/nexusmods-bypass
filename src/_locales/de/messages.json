@@ -1452,5 +1452,68 @@
   },
   "ratingLater": {
     "message": "Später"
+  },
+  "setUseOfficialApiLabel": {
+    "message": "Offizielle Nexus-API verwenden"
+  },
+  "setUseOfficialApiDesc": {
+    "message": "Sammlungs-, Mod- und Dateidetails über die dokumentierte Nexus-Mods-API lesen, mit Zwischenspeicher und Ratenbegrenzung. Ausschalten, um die älteren seitenbasierten Abfragen zu nutzen."
+  },
+  "setFollowUpdatePolicyLabel": {
+    "message": "Update-Regel des Kurators befolgen"
+  },
+  "setFollowUpdatePolicyDesc": {
+    "message": "Erlaubt eine Sammlung neuere Versionen eines Mods, wird die neueste Datei dieses Downloads statt der gelisteten geladen. Auf eine exakte Version festgelegte Mods bleiben unverändert."
+  },
+  "setShowModActionsLabel": {
+    "message": "Schaltflächen für Empfehlen und Verfolgen"
+  },
+  "setShowModActionsDesc": {
+    "message": "Zeigt Empfehlen- und Verfolgen-Schaltflächen in der Modliste der Sammlung. Es wird nichts gesendet, bevor du eine anklickst."
+  },
+  "logUpdatePolicyApplied": {
+    "message": "Für $1 Mods, die die Sammlung aktualisieren lässt, werden neuere Dateien verwendet."
+  },
+  "tipUpdateAvailable": {
+    "message": "Version $1 ist auf Nexus; diese Sammlung erlaubt Updates."
+  },
+  "badgeUpdateAvailable": {
+    "message": "Update verfügbar"
+  },
+  "btnEndorse": {
+    "message": "Empfehlen"
+  },
+  "btnEndorsed": {
+    "message": "Empfohlen"
+  },
+  "btnTrack": {
+    "message": "Verfolgen"
+  },
+  "btnTracked": {
+    "message": "Verfolgt"
+  },
+  "modActionFailed": {
+    "message": "Nexus hat das nicht angenommen: $1"
+  },
+  "badgeNewRevision": {
+    "message": "Revision $1 verfügbar"
+  },
+  "wjHashTitle": {
+    "message": "Archive per Hash erkennen"
+  },
+  "wjHashHelp": {
+    "message": "Wähle vorhandene Archive. Jedes wird auf deinem Computer gehasht, und nur die MD5 wird bei Nexus nachgeschlagen, um die zugehörige Modseite zu finden."
+  },
+  "wjHashPick": {
+    "message": "Archive wählen…"
+  },
+  "wjHashNeedsApi": {
+    "message": "Schalte in den Einstellungen „Offizielle Nexus-API verwenden“ ein, um Archive nachzuschlagen."
+  },
+  "wjHashHashing": {
+    "message": "Hashe $1… $2%"
+  },
+  "wjHashNoMatch": {
+    "message": "Nicht auf Nexus gefunden"
   }
 }

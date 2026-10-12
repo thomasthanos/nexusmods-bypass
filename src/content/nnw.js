@@ -84,6 +84,29 @@ window.NexusExt = window.NexusExt || {};
     return NUMERIC_GAME_ID_PATTERN.test(id) && Number(id) > 0 ? id : '';
   }
 
+  // Numeric game ids from the official API (game(domainName)), cached for the page's lifetime. The
+  // DOM and response sniffing below stay as the fallback, and as the only source when the API is off.
+  const apiGameIds = new Map();
+
+  function officialApi() {
+    return cfg.UseOfficialApi !== false ? NexusExt.NexusApi?.shared?.() || null : null;
+  }
+
+  function prefetchGameIdFromApi(url = location.href) {
+    const api = officialApi();
+    const domain = getGameDomainFromUrl(url);
+    if (!api || !domain) return Promise.resolve('');
+    if (apiGameIds.has(domain)) return Promise.resolve(apiGameIds.get(domain));
+    return api.gameId(domain).then((id) => {
+      const normalized = normalizeGameId(id);
+      if (normalized) {
+        apiGameIds.set(domain, normalized);
+        gameIdCache.set(domain, normalized);
+      }
+      return normalized;
+    }).catch(() => '');
+  }
+
   function getGameDomainFromUrl(url = location.href) {
     try {
       const parsed = new URL(url, location.href);
@@ -122,6 +145,10 @@ window.NexusExt = window.NexusExt || {};
   const requestedDomain = getGameDomainFromUrl(url);
   const documentDomain = getGameDomainFromUrl(location.href);
   const domain = requestedDomain || documentDomain;
+
+  if (cfg.UseOfficialApi !== false && domain && apiGameIds.has(domain)) {
+    return apiGameIds.get(domain);
+  }
 
   if (requestedDomain && requestedDomain !== documentDomain) {
     return gameIdCache.get(requestedDomain) || '';
@@ -451,6 +478,7 @@ window.NexusExt = window.NexusExt || {};
       if (runId !== domEnhancementRun) return;
       upsellBlocker();
       archivedFileHandler();
+      loadApiFileList();
     }).catch((cause) => Logger.warn('Could not apply page enhancements:', cause));
   }
 
@@ -1832,6 +1860,41 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
+  // The mod's file list from the official API (modFiles). The page is still where buttons go; the API
+  // supplies the data, so a header Nexus renders without its data-id can still be matched by name.
+  let apiFileList = { key: '', files: [] };
+
+  function currentModId() {
+    return normalizeModPathname(location.pathname).match(/\/mods\/(\d+)$/)?.[1] || '';
+  }
+
+  async function loadApiFileList() {
+    const api = officialApi();
+    if (!api || !isModPage()) return;
+    const modId = currentModId();
+    const gameId = (await prefetchGameIdFromApi()) || getGameId();
+    if (!modId || !gameId) return;
+    const key = `${gameId}:${modId}`;
+    if (apiFileList.key === key) return;
+    const files = await api.modFiles({ modId, gameId });
+    if (!Array.isArray(files) || currentModId() !== modId) return;
+    apiFileList = { key, files };
+    // A second pass can now match archived headers that had no id.
+    archivedFileHandler();
+  }
+
+  function apiFileIdForHeader(header) {
+    const modId = currentModId();
+    if (!header || !apiFileList.key.endsWith(`:${modId}`)) return '';
+    const text = String(header.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!text) return '';
+    const matches = apiFileList.files.filter((file) => {
+      const name = String(file?.name || '').trim().toLowerCase();
+      return name && text.includes(name) && (!file.version || text.includes(String(file.version).toLowerCase()));
+    });
+    return matches.length === 1 ? String(matches[0].fileId) : '';
+  }
+
   function archivedFileHandler() {
     if (!cfg.HandleArchivedFiles) return;
     if (!isModPage()) return;
@@ -1870,7 +1933,7 @@ window.NexusExt = window.NexusExt || {};
     const base = getModPagePath() || `${location.origin}${normalizeModPathname(location.pathname)}`;
     const claimed = new Set();
     for (const header of headers) {
-      const fileId = String(header?.dataset?.id ?? '');
+      const fileId = String(header?.dataset?.id ?? '') || apiFileIdForHeader(header);
       const box = findArchivedDownloadBox(header);
       if (!ARCHIVED_FILE_ID_PATTERN.test(fileId) || !box || box.dataset.nxtkDone) continue;
 
@@ -1937,6 +2000,7 @@ window.NexusExt = window.NexusExt || {};
       return;
     }
     syncSlowDownloadIntercept();
+    prefetchGameIdFromApi();
     scheduleDomEnhancements();
     startAutoDownload();
     Logger.debug('NNW module initialized');
@@ -1954,6 +2018,7 @@ window.NexusExt = window.NexusExt || {};
       return;
     }
     syncSlowDownloadIntercept();
+    prefetchGameIdFromApi();
     scheduleDomEnhancements();
     startAutoDownload();
   }
