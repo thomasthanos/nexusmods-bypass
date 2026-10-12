@@ -1389,5 +1389,14 @@
   },
   "errNexusApiChangedFix": {
     "message": "Dafür braucht die Erweiterung ein Update. Sende einen Fehlerbericht, damit es behoben werden kann."
+  },
+  "btnDismiss": {
+    "message": "Schließen"
+  },
+  "noticePageChangedTitle": {
+    "message": "Nexus Mods hat diese Seite geändert"
+  },
+  "noticePageChangedDetail": {
+    "message": "Einige Funktionen von NexusMods Bypass funktionieren hier möglicherweise erst nach einem Update der Erweiterung. Die eigenen Schaltflächen von Nexus funktionieren weiterhin. Details kannst du über „Fehler melden“ im Popup der Erweiterung senden."
   }
 }

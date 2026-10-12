@@ -1701,5 +1701,14 @@
   "errNexusApiChangedFix": {
     "message": "The extension needs an update for this. Send a bug report so it can be fixed.",
     "description": "Recovery advice for errNexusApiChangedMsg."
+  },
+  "btnDismiss": {
+    "message": "Dismiss"
+  },
+  "noticePageChangedTitle": {
+    "message": "Nexus Mods changed this page"
+  },
+  "noticePageChangedDetail": {
+    "message": "Some NexusMods Bypass features may not work here until the extension is updated. Nexus's own buttons still work. You can send details with \"Report a bug\" in the extension popup."
   }
 }

@@ -1305,5 +1305,14 @@
   },
   "errNexusApiChangedFix": {
     "message": "这需要更新扩展。请发送错误报告以便修复。"
+  },
+  "btnDismiss": {
+    "message": "关闭"
+  },
+  "noticePageChangedTitle": {
+    "message": "Nexus Mods 更改了此页面"
+  },
+  "noticePageChangedDetail": {
+    "message": "在扩展更新之前，NexusMods Bypass 的部分功能可能无法在此使用。Nexus 自带的按钮仍可正常使用。你可以通过扩展弹窗中的“报告问题”发送详情。"
   }
 }

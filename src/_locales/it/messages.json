@@ -1389,5 +1389,14 @@
   },
   "errNexusApiChangedFix": {
     "message": "L'estensione ha bisogno di un aggiornamento per questo. Invia una segnalazione di bug così può essere corretto."
+  },
+  "btnDismiss": {
+    "message": "Chiudi"
+  },
+  "noticePageChangedTitle": {
+    "message": "Nexus Mods ha modificato questa pagina"
+  },
+  "noticePageChangedDetail": {
+    "message": "Alcune funzioni di NexusMods Bypass potrebbero non funzionare qui finché l'estensione non viene aggiornata. I pulsanti di Nexus funzionano comunque. Puoi inviare i dettagli con «Segnala un bug» nel popup dell'estensione."
   }
 }

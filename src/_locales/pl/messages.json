@@ -1557,5 +1557,14 @@
   },
   "errNexusApiChangedFix": {
     "message": "Rozszerzenie wymaga do tego aktualizacji. Wyślij zgłoszenie błędu, aby można było to naprawić."
+  },
+  "btnDismiss": {
+    "message": "Zamknij"
+  },
+  "noticePageChangedTitle": {
+    "message": "Nexus Mods zmienił tę stronę"
+  },
+  "noticePageChangedDetail": {
+    "message": "Niektóre funkcje NexusMods Bypass mogą tu nie działać do czasu aktualizacji rozszerzenia. Własne przyciski Nexus nadal działają. Szczegóły możesz wysłać przez „Zgłoś błąd” w oknie rozszerzenia."
   }
 }

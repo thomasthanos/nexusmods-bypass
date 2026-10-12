@@ -1389,5 +1389,14 @@
   },
   "errNexusApiChangedFix": {
     "message": "Bunun için eklentinin güncellenmesi gerekiyor. Düzeltilebilmesi için bir hata raporu gönderin."
+  },
+  "btnDismiss": {
+    "message": "Kapat"
+  },
+  "noticePageChangedTitle": {
+    "message": "Nexus Mods bu sayfayı değiştirdi"
+  },
+  "noticePageChangedDetail": {
+    "message": "Uzantı güncellenene kadar bazı NexusMods Bypass özellikleri burada çalışmayabilir. Nexus'un kendi düğmeleri çalışmaya devam eder. Ayrıntıları uzantı açılır penceresindeki \"Hata bildir\" ile gönderebilirsin."
   }
 }

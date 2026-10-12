@@ -1389,5 +1389,14 @@
   },
   "errNexusApiChangedFix": {
     "message": "La extensión necesita una actualización para esto. Envía un informe de error para que se pueda corregir."
+  },
+  "btnDismiss": {
+    "message": "Cerrar"
+  },
+  "noticePageChangedTitle": {
+    "message": "Nexus Mods ha cambiado esta página"
+  },
+  "noticePageChangedDetail": {
+    "message": "Algunas funciones de NexusMods Bypass pueden no funcionar aquí hasta que se actualice la extensión. Los botones propios de Nexus siguen funcionando. Puedes enviar detalles con «Informar de un error» en la ventana de la extensión."
   }
 }
