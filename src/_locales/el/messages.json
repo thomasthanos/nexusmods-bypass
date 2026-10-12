@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Κουμπιά αρχειοθετημένων αρχείων"
-  },
+  },
   "btnPageSettings": {
     "message": "Ρυθμίσεις σελίδας"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Κάθε κουμπί «Αναφορά σφάλματος» αντιγράφει πλήρες διαγνωστικό report και ανοίγει προσυμπληρωμένο GitHub issue."
-  },
+  },
   "openNexusBtn": {
     "message": "Άνοιγμα Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Καμία σχέση με το Nexus Mods. Χρειάζεσαι δικό σου λογαριασμό Nexus Mods· το premium περιεχόμενο παραμένει premium."
   },
@@ -592,7 +592,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Προσθέτει κουμπιά λήψης Vortex και περιηγητή σε αρχειοθετημένα αρχεία όταν το Nexus τα κρύβει."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Φάκελος λήψεων περιηγητή"
   },

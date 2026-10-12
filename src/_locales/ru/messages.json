@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Кнопки для архивных файлов"
-  },
+  },
   "btnPageSettings": {
     "message": "Настройки страницы"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Каждая кнопка «Сообщить об ошибке» копирует полный отчёт и открывает предзаполненный GitHub issue."
-  },
+  },
   "openNexusBtn": {
     "message": "Открыть Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Не связано с Nexus Mods. Нужен собственный аккаунт Nexus Mods; премиум-контент остаётся премиум."
   },
@@ -662,7 +662,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Добавляет кнопки загрузки Vortex и браузера к архивным файлам, скрытым Nexus."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Папка загрузок браузера"
   },

@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Przyciski plików archiwalnych"
-  },
+  },
   "btnPageSettings": {
     "message": "Ustawienia strony"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Każdy przycisk „Zgłoś błąd” kopiuje pełny raport diagnostyczny i otwiera wypełnione zgłoszenie na GitHubie."
-  },
+  },
   "openNexusBtn": {
     "message": "Otwórz Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Niepowiązane z Nexus Mods. Potrzebujesz własnego konta Nexus Mods; treści tylko dla Premium pozostają zastrzeżone."
   },
@@ -522,7 +522,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Dodaje przyciski pobierania Vortex i przeglądarki do wpisów plików archiwalnych, gdy Nexus je ukrywa."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Folder pobierania przeglądarki"
   },

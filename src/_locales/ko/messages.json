@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "보관된 파일 버튼"
-  },
+  },
   "btnPageSettings": {
     "message": "페이지 설정"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "모든 \"버그 신고\" 버튼은 전체 진단 보고서를 복사하고 내용이 채워진 GitHub 이슈를 엽니다."
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods 열기"
-  },
+  },
   "disclaimer": {
     "message": "Nexus Mods와 제휴 관계가 없습니다. 본인의 Nexus Mods 계정이 필요하며, Premium 전용 콘텐츠는 그대로 Premium 전용입니다."
   },
@@ -522,7 +522,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus가 숨기는 보관된 파일 항목에 Vortex 및 브라우저 다운로드 버튼을 추가합니다."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "브라우저 다운로드 폴더"
   },

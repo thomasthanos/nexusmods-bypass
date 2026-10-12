@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Buttons für archivierte Dateien"
-  },
+  },
   "btnPageSettings": {
     "message": "Seiteneinstellungen"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Jeder „Fehler melden\"-Button kopiert einen vollständigen Bericht und öffnet ein vorausgefülltes GitHub-Issue."
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods öffnen"
-  },
+  },
   "disclaimer": {
     "message": "Nicht mit Nexus Mods verbunden. Du brauchst ein eigenes Nexus-Mods-Konto; Premium-Inhalte bleiben Premium."
   },
@@ -592,7 +592,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Vortex- und Browser-Download-Buttons zu archivierten Dateien hinzufügen, wenn Nexus sie ausblendet."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Browser-Download-Ordner"
   },

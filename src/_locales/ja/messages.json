@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "アーカイブ済みファイルのボタン"
-  },
+  },
   "btnPageSettings": {
     "message": "ページ設定"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "「バグを報告」ボタンは診断レポート全体をコピーし、内容が入力済みの GitHub Issue を開きます。"
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods を開く"
-  },
+  },
   "disclaimer": {
     "message": "Nexus Mods とは無関係です。ご自身の Nexus Mods アカウントが必要で、Premium 限定コンテンツは Premium 限定のままです。"
   },
@@ -522,7 +522,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus が非表示にしているアーカイブ済みファイルに、Vortex とブラウザーのダウンロードボタンを追加します。"
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "ブラウザーのダウンロードフォルダー"
   },

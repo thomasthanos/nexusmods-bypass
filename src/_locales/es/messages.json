@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Botones de archivos archivados"
-  },
+  },
   "btnPageSettings": {
     "message": "Ajustes de página"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Cada botón «Reportar un error» copia un informe completo y abre una issue de GitHub prellenada."
-  },
+  },
   "openNexusBtn": {
     "message": "Abrir Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Sin afiliación con Nexus Mods. Necesitas tu propia cuenta; el contenido premium sigue siendo premium."
   },
@@ -592,7 +592,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Añade botones de descarga de Vortex y navegador a los archivos archivados cuando Nexus los oculta."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Carpeta de descargas del navegador"
   },

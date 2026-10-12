@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Arşivlenmiş dosya düğmeleri"
-  },
+  },
   "btnPageSettings": {
     "message": "Sayfa ayarları"
   },
@@ -94,10 +94,10 @@
   },
   "bugCardText": {
     "message": "Her \"Hata bildir\" düğmesi tam bir tanılama raporu kopyalar ve önceden doldurulmuş bir GitHub konusu açar."
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods'u aç"
-  },
+  },
   "disclaimer": {
     "message": "Nexus Mods ile bağlantılı değildir. Kendi Nexus Mods hesabınız gerekir; yalnızca Premium içerikler Premium olarak kalır."
   },
@@ -522,7 +522,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus gizlediğinde, arşivlenmiş dosya girişlerine Vortex ve tarayıcı indirme düğmeleri ekler."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Tarayıcı indirme klasörü"
   },
