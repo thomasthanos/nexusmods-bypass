@@ -30,18 +30,18 @@ On collection pages you can download the whole collection, or only the files you
 It runs only on nexusmods.com and keeps everything in your browser. You must be signed in to your own Nexus Mods account; it does not unlock Premium content and is not affiliated with Nexus Mods.
 ```
 
-## What's new — 2.7.4
+## What's new — 3.0.0
 
 Dashboard-only field, not covered by `_locales`. Paste as-is:
 
 ```
-Collections download the smallest files first, and a removed mod no longer stops the run.
+Major update: more reliable downloads, official Nexus API integration, responsive panels and redesigned diagnostics.
 
-Collection downloads now start with the smallest files, so most of the list is done early and one large file does not hold up the rest. A new setting turns this off.
+Collection queues download the smallest files first, avoid duplicate starts, retry recoverable interruptions and keep downloads tied to the selected file. Removed mods are skipped with a clear reason. Large runs ask for confirmation.
 
-A mod that was removed, hidden or not found is skipped straight away and the run carries on. A single Cloudflare check on one page is skipped too. When the run ends, the log lists every skipped file with the reason and a link to its page.
+The official Nexus API supplies collection and file details, with revision/update badges, optional curator update policies and click-only Endorse/Track controls. Wabbajack imports can identify local archives by MD5.
 
-The extension now notices when Nexus Mods changes its pages or its collection API, and says what changed in the bug report, so fixes can follow faster.
+Panels fit smaller screens through 4K, with keyboard-friendly controls and themed scrollbars. The redesigned report page includes reproduction steps and an exact redacted diagnostic preview, plus copy/save and GitHub fallbacks. An opt-in live debug-log page adds search, filters and export. All 13 interface languages are supported.
 ```
 
 Keep this honest and specific. The setting caused support confusion precisely because the

@@ -7,29 +7,49 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
-## 2.10.3
+## [Unreleased]
+
+## [3.0.0] - 2026-10-12
+
+Major cumulative update covering all 47 commits from `95e5351` through `4af0278`, including the starting commit.
+Earlier 2.x entries remain below as historical records; this milestone also includes all previously unreleased
+reporting and relay improvements. [Full release notes and commit history](internal/docs/releases/3.0.0.md).
+
+### Added
+
+- Official Nexus v2 API integration with throttling, caching, HTTP 429 handling and an outage fallback.
+- Collection revision/update badges, optional curator update policies, click-only Endorse/Track actions,
+  and local MD5 identification for Wabbajack archives.
+- A custom report workspace with categories, summary, reproduction steps, expected results and exact
+  redacted JSON preview; matching snapshots for send, copy and save, plus a GitHub fallback.
+- A live opt-in debug-log page with levels, search, follow mode, clear and text/JSON export.
+- Nexus page/API-change diagnostics, permission-diff monitoring and schema-watch tooling.
+
+### Changed
+
+- Responsive extension panels, popup and onboarding for 720p through 4K and 100–150% zoom; themed
+  scrollbars, keyboard-accessible dropdowns, consistent focus states and reduced-motion support.
+- Smallest-files-first collection queues, cause-specific interrupted-download retries, backoff/jitter,
+  and confirmation before runs containing more than 50 mods.
+- Report relay: health checks, specific failure messages, full JSON attachments, severity-coloured
+  Discord embeds, redacted page context, shared KV rate limiting and ten-minute automatic-error dedupe.
+- Report permission prompts run synchronously in the user click; automatic reporting remains off by default.
+- All manifest/tooling versions are aligned at 3.0.0; Chrome/Edge and Firefox packages retain their identities.
+
+### Fixed
+
+- Duplicate download starts, wrong-file downloads from requirements modals, and late-mounted collection panels.
+- False sign-in warnings, adult-content access classification, stale viewer-cache responses and recovered-error noise.
+- Removed/missing mods and isolated Cloudflare answers no longer stop an entire collection unnecessarily.
+- Narrow popup rendering, inaccessible custom controls and page-change false positives around download modals.
+
+## [2.10.3] - 2026-10-12
 
 - Report page: the relay permission is now requested synchronously inside the Send click (no await before `permissions.request`), so the prompt appears in Chrome and Firefox; skipped once granted; the same fix for the automatic-reports toggle. Failed or refused requests are written to the debug log with the browser error.
 - Debug log page: "Turn on debug logs" button when logging is off.
 - Tests: permission request runs in the click task with the exact manifest origin, prompts once then sends; every page shows the manifest version.
 - Debug log page (Help & Bugs → Debug log): live view of the opt-in debug ring buffer, minimum-level filter, search, follow mode, clear, and .txt/.json export of the filtered view; responsive from 720p to 4K; translated into all 13 locales.
 - PRIVACY: correct relay host and describe the 10-minute auto-error fingerprint the relay keeps.
-
-## [Unreleased]
-
-### Changed
-
-- Relay: Discord embed colour by severity (critical/error/report), Page field, strict clamping to every Discord embed limit, 10-minute dedupe of identical auto errors (marked only after delivery succeeds).
-- GitHub fallback: area tag in the issue title and `labels` prefill (bug + area).
-- Manual and automatic reports share the redacted Nexus page path (no query/fragment).
-- The deployed relay uses KV-backed rate limiting and auto-report dedupe across Worker instances.
-- The report page is now a custom, responsive workspace with problem categories, a short summary,
-  reproduction steps, expected results, a readable diagnostic overview and an exact JSON view.
-  Send, copy and save use the same reviewed snapshot. Replies use an optional e-mail address.
-  Empty descriptions and invalid e-mail addresses get inline guidance; sending is guarded against
-  duplicate clicks, and success shows a reference. The interface is translated in all 13 languages.
-- Discord reports include the complete JSON as an attachment alongside the summary. The GitHub
-  fallback preserves the description and reproduction details while excluding the reply e-mail.
 
 ## [2.10.2] - 2026-10-12
 

@@ -18,6 +18,10 @@
 
 Queue a Nexus Mods collection, choose **Vortex** or **browser download**, and let the extension handle the pages, pacing and resume history.
 
+**Version 3.0.0 — major update:** official Nexus API integration, more reliable queues and download clicks,
+responsive panels, a redesigned bug-report workspace, and a live debug-log page.
+See the [release notes](internal/docs/releases/3.0.0.md) for the complete 47-commit update history.
+
 <a id="features"></a>
 
 ## <img src=".github/assets/icon-sparkle.svg" width="20" align="middle"> Features
@@ -134,7 +138,7 @@ Choose **Skip Downloaded** when the history dialog appears. Cleared history cann
 <details>
 <summary><b>Report a bug</b></summary>
 
-The popup's **Report a bug** button opens an editable GitHub draft with recent errors and activity. Review it before submitting.
+Open **Help & Bugs → Send bug report** to describe the problem, add reproduction steps and review the exact redacted diagnostic snapshot. Send it through the optional relay, copy/save it, or open a prefilled GitHub issue. **Debug log** provides a separate opt-in live log with search, level filters and export.
 </details>
 
 ## <img src=".github/assets/icon-license.svg" width="20" align="middle"> Licence
