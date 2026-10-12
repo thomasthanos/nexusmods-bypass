@@ -1,16 +1,17 @@
 <div align="center">
 
-<picture><source media="(prefers-reduced-motion: reduce) and (max-width: 600px)" srcset=".github/assets/readme/hero-mobile-static.svg"><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme/hero-static.svg"><source media="(max-width: 600px)" srcset=".github/assets/readme/hero-mobile.svg"><img src=".github/assets/readme/hero.svg" alt="NexusMods Bypass 3.0.0 — collection queue with browser and Vortex handoffs" width="100%"></picture>
+<picture><source media="(prefers-reduced-motion: reduce) and (max-width: 600px)" srcset=".github/assets/readme-glass/hero-mobile-static.svg"><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/hero-static.svg"><source media="(max-width: 600px)" srcset=".github/assets/readme-glass/hero-mobile.svg"><img src=".github/assets/readme-glass/hero.svg" alt="NexusMods Bypass 3.0.0 — glass collection queue" width="100%"></picture>
 
 <p>Download Nexus Mods collections to your browser or Vortex.<br>Choose your files, control the pace and pick up where you left off.</p>
 
-<p><a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj"><img src=".github/assets/btn-chrome.svg" alt="Install from the Chrome Web Store" height="38"></a> <a href="https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/"><img src=".github/assets/btn-firefox.svg" alt="Install from Firefox Add-ons" height="38"></a> <a href="https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa"><img src=".github/assets/btn-edge.svg" alt="Install from Edge Add-ons" height="38"></a></p>
+<p><a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/chrome-static.svg"><img src=".github/assets/readme-glass/chrome.svg" alt="Install from Chrome Web Store" height="64"></picture></a> <a href="https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/firefox-static.svg"><img src=".github/assets/readme-glass/firefox.svg" alt="Install from Firefox Add-ons" height="64"></picture></a> <a href="https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/edge-static.svg"><img src=".github/assets/readme-glass/edge.svg" alt="Install from Edge Add-ons" height="64"></picture></a></p>
 
-<p><a href="#install"><img src=".github/assets/readme/install.svg" alt="Install" height="52"></a> <a href="#features"><img src=".github/assets/readme/features.svg" alt="Features" height="52"></a> <a href="#help"><img src=".github/assets/readme/help.svg" alt="Help and bugs" height="52"></a> <a href="#privacy"><img src=".github/assets/readme/privacy.svg" alt="Privacy" height="52"></a> <a href="#source"><img src=".github/assets/readme/source.svg" alt="For contributors" height="52"></a></p>
+<p><a href="#install"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/install-static.svg"><img src=".github/assets/readme-glass/install.svg" alt="Install" height="64"></picture></a> <a href="#features"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/features-static.svg"><img src=".github/assets/readme-glass/features.svg" alt="Features" height="64"></picture></a> <a href="#settings"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/settings-static.svg"><img src=".github/assets/readme-glass/settings.svg" alt="Settings" height="64"></picture></a> <a href="#help"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/help-static.svg"><img src=".github/assets/readme-glass/help.svg" alt="Help and bugs" height="64"></picture></a></p>
+<p><a href="#privacy"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/privacy-static.svg"><img src=".github/assets/readme-glass/privacy.svg" alt="Privacy" height="64"></picture></a> <a href="#source"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/source-static.svg"><img src=".github/assets/readme-glass/source.svg" alt="For contributors" height="64"></picture></a> <a href="#support"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/support-static.svg"><img src=".github/assets/readme-glass/support.svg" alt="Support the project" height="64"></picture></a></p>
 
 </div>
 
-<p><a href="https://github.com/thomasthanos/nexusmods-bypass/releases/tag/3.0.0"><picture><source media="(max-width: 600px)" srcset=".github/assets/readme/release-card-mobile.svg"><img src=".github/assets/readme/release-card.svg" alt="3.0.0 is available on GitHub — explore release notes and downloads. Store versions may differ." width="100%"></picture></a></p>
+<p><a href="https://github.com/thomasthanos/nexusmods-bypass/releases/tag/3.0.0"><picture><source media="(prefers-reduced-motion: reduce) and (max-width: 600px)" srcset=".github/assets/readme-glass/release-card-mobile-static.svg"><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/release-card-static.svg"><source media="(max-width: 600px)" srcset=".github/assets/readme-glass/release-card-mobile.svg"><img src=".github/assets/readme-glass/release-card.svg" alt="Explore release 3.0.0 — GitHub packages; store versions may differ" width="100%"></picture></a></p>
 
 > [!WARNING]
 > Use at your own risk. Skipping the download countdown through the ad-timer cookie
@@ -219,29 +220,65 @@ The release gate also runs lint and browser-layout checks.
 
 </details>
 
-<a id="licence"></a>
+<a id="support"></a>
 
-<picture><source media="(max-width: 600px)" srcset=".github/assets/readme/licence-card-mobile.svg"><img src=".github/assets/readme/licence-card.svg" alt="Licence and attribution — source-available project; NNW is separately GPL-3.0-or-later" width="100%"></picture>
+## Support the project
+
+If the extension saves you time, you can support maintenance through the same links
+available in the popup. Support is **optional** and never unlocks or restricts features.
+
+<p align="center"><a href="https://github.com/sponsors/thomasthanos"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/sponsors-static.svg"><img src=".github/assets/readme-glass/sponsors.svg" alt="GitHub Sponsors — thomasthanos" height="64"></picture></a> <a href="https://paypal.me/Thomasthanos"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/paypal-static.svg"><img src=".github/assets/readme-glass/paypal.svg" alt="PayPal — Thomasthanos" height="64"></picture></a> <a href="https://revolut.me/thomas2873"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/revolut-static.svg"><img src=".github/assets/readme-glass/revolut.svg" alt="Revolut — thomas2873" height="64"></picture></a></p>
+
+<p align="center"><a href="https://github.com/thomasthanos/nexusmods-bypass"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/star-static.svg"><img src=".github/assets/readme-glass/star.svg" alt="Star the project on GitHub" height="64"></picture></a> <a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj/reviews"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/review-static.svg"><img src=".github/assets/readme-glass/review.svg" alt="Write a Chrome Web Store review" height="64"></picture></a></p>
 
 <details>
-<summary><strong>Read the licence scope and third-party attribution</strong></summary>
+<summary><strong>Other browser reviews and project links</strong></summary>
 
-Most code is **source-available**, not open source, under the repository [licence](LICENSE).
-The *NexusMods Bypass* name, `src/icons/` and `internal/` are excluded from its permissions.
+- [Firefox reviews](https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/reviews/)
+- [Edge Add-ons listing](https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa)
+- [Nexus Mods](https://www.nexusmods.com)
+- [Nexus API integration notes](docs/nexus-site-map.md)
+- [Optional report relay setup](relay/README.md)
 
-[src/content/nnw.js](src/content/nnw.js) is separately licensed
-[GPL-3.0-or-later](src/LICENSE-GPL-3.0-or-later.txt), based on
-[Nexus No Wait ++](https://github.com/torkelicious/nexus-no-wait-pp).
-Other original code, including the download URL parser, remains under the main licence.
-See the [third-party notices](THIRD-PARTY-NOTICES.md).
+</details>
+
+<a id="licence"></a>
+
+## Two licences, separate scopes
+
+These documents cover **different parts of the repository**.
+They are not interchangeable licence options for the entire extension.
+
+<p><a href="LICENSE"><picture><source media="(prefers-reduced-motion: reduce) and (max-width: 600px)" srcset=".github/assets/readme-glass/main-licence-mobile-static.svg"><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/main-licence-static.svg"><source media="(max-width: 600px)" srcset=".github/assets/readme-glass/main-licence-mobile.svg"><img src=".github/assets/readme-glass/main-licence.svg" alt="Main LICENSE — custom source-available licence for the original extension code" width="100%"></picture></a></p>
+
+<p><a href="src/LICENSE-GPL-3.0-or-later.txt"><picture><source media="(prefers-reduced-motion: reduce) and (max-width: 600px)" srcset=".github/assets/readme-glass/gpl-licence-mobile-static.svg"><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/gpl-licence-static.svg"><source media="(max-width: 600px)" srcset=".github/assets/readme-glass/gpl-licence-mobile.svg"><img src=".github/assets/readme-glass/gpl-licence.svg" alt="GNU GPL-3.0-or-later — applies separately to src/content/nnw.js" width="100%"></picture></a></p>
+
+<p align="center"><a href="THIRD-PARTY-NOTICES.md"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/notices-static.svg"><img src=".github/assets/readme-glass/notices.svg" alt="Read third-party notices" height="64"></picture></a> <a href="https://github.com/torkelicious/nexus-no-wait-pp"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/upstream-static.svg"><img src=".github/assets/readme-glass/upstream.svg" alt="Nexus No Wait ++ upstream" height="64"></picture></a> <a href="https://greasyfork.org/scripts/519037-nexus-no-wait"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/greasyfork-static.svg"><img src=".github/assets/readme-glass/greasyfork.svg" alt="Nexus No Wait ++ on Greasy Fork" height="64"></picture></a></p>
+
+<details>
+<summary><strong>Exact module scope, reserved assets and attribution</strong></summary>
+
+- **Original extension code:** the repository's [main LICENSE](LICENSE) is custom and
+  source-available, **not open source**. Original code such as
+  [src/download-url-parser.js](src/download-url-parser.js) remains under that licence.
+- **NNW adaptation:** [src/content/nnw.js](src/content/nnw.js) is separately licensed
+  [GPL-3.0-or-later](src/LICENSE-GPL-3.0-or-later.txt), based on **Nexus No Wait ++**
+  by Torkelicious and upstream contributors. Thomas Thanos maintains the extension adaptation.
+- **Reserved assets:** the main LICENSE excludes the *NexusMods Bypass* name,
+  `src/icons/` and `internal/store-assets/` from its permissions.
+- **Third-party material:** see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for
+  upstream attribution, the published userscript and platform notices.
+
+Read the linked licence documents for their complete terms. This README summary does
+not replace or change either licence.
 
 </details>
 
 <div align="center">
 
-<picture><source media="(prefers-reduced-motion: reduce) and (max-width: 600px)" srcset=".github/assets/readme/footer-mobile-static.svg"><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme/footer-static.svg"><source media="(max-width: 600px)" srcset=".github/assets/readme/footer-mobile.svg"><img src=".github/assets/footer.svg" alt="Made for the long mod list — NexusMods Bypass by ThomasThanos" width="100%"></picture>
+<picture><source media="(prefers-reduced-motion: reduce) and (max-width: 600px)" srcset=".github/assets/readme-glass/footer-mobile-static.svg"><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/footer-static.svg"><source media="(max-width: 600px)" srcset=".github/assets/readme-glass/footer-mobile.svg"><img src=".github/assets/readme-glass/footer.svg" alt="Made for the long mod list — NexusMods Bypass by ThomasThanos" width="100%"></picture>
 
-<p><a href="https://github.com/thomasthanos/nexusmods-bypass/releases"><img src=".github/assets/readme/releases.svg" alt="Releases" height="52"></a> <a href="CHANGELOG.md"><img src=".github/assets/readme/changelog.svg" alt="Changelog" height="52"></a> <a href="PRIVACY.md"><img src=".github/assets/readme/privacy.svg" alt="Privacy policy" height="52"></a> <a href="https://github.com/thomasthanos/nexusmods-bypass/issues"><img src=".github/assets/readme/issues.svg" alt="GitHub issues" height="52"></a></p>
+<p><a href="https://github.com/thomasthanos/nexusmods-bypass/releases"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/releases-static.svg"><img src=".github/assets/readme-glass/releases.svg" alt="All releases" height="64"></picture></a> <a href="CHANGELOG.md"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/changelog-static.svg"><img src=".github/assets/readme-glass/changelog.svg" alt="Changelog" height="64"></picture></a> <a href="PRIVACY.md"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/privacy-static.svg"><img src=".github/assets/readme-glass/privacy.svg" alt="Privacy policy" height="64"></picture></a> <a href="https://github.com/thomasthanos/nexusmods-bypass/issues"><picture><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme-glass/issues-static.svg"><img src=".github/assets/readme-glass/issues.svg" alt="GitHub issues" height="64"></picture></a></p>
 
 <sub>Not affiliated with, endorsed by or connected to Nexus Mods.</sub>
 

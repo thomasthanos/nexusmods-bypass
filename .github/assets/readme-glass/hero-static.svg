@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="358" viewBox="0 0 1100 358" role="img" aria-labelledby="title description">
+<title id="title">NexusMods Bypass 3.0.0</title><desc id="description">Static glass collection queue with browser and Vortex handoffs</desc>
+<defs>
+<linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#254362"/><stop offset=".55" stop-color="#122b48"/><stop offset="1" stop-color="#24334f"/></linearGradient>
+<linearGradient id="frost" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff" stop-opacity=".23"/><stop offset=".45" stop-color="#cceaff" stop-opacity=".035"/><stop offset="1" stop-color="#c1d7ff" stop-opacity=".11"/></linearGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f5fcff" stop-opacity=".85"/><stop offset=".35" stop-color="#aedcff" stop-opacity=".16"/><stop offset="1" stop-color="#8ce5dc" stop-opacity=".48"/></linearGradient>
+<linearGradient id="sheen"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".48" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<radialGradient id="halo"><stop stop-color="#8ce5dc" stop-opacity=".42"/><stop offset="1" stop-color="#8ce5dc" stop-opacity="0"/></radialGradient>
+<filter id="shadow" x="-15%" y="-30%" width="130%" height="180%"><feDropShadow dx="0" dy="5" stdDeviation="3.5" flood-color="#020c1b" flood-opacity=".55"/></filter>
+<clipPath id="clip"><rect x="6" y="5" width="1088" height="339" rx="22"/></clipPath>
+</defs>
+<style>text{font-family:"Segoe UI",Arial,sans-serif}.shine{transform:translateX(-1100px);}@keyframes shine{0%,20%{transform:translateX(-1100px)}65%,100%{transform:translateX(1100px)}}@media(prefers-reduced-motion:reduce){*{animation:none!important}}</style>
+<rect x="6" y="11" width="1088" height="339" rx="22" fill="#091c32" stroke="#031326"/>
+<rect x="6" y="5" width="1088" height="339" rx="22" fill="url(#base)" filter="url(#shadow)"/>
+<g clip-path="url(#clip)"><ellipse cx="187" cy="71.60000000000001" rx="363" ry="340.09999999999997" fill="url(#halo)"/><rect x="6" y="5" width="1088" height="339" fill="url(#frost)"/><g class="shine"><path d="M0 0H308.00000000000006L77.00000000000001 358H-231Z" fill="url(#sheen)"/></g></g>
+<rect x="6" y="5" width="1088" height="339" rx="22" fill="none" stroke="url(#rim)" stroke-width="1.3"/>
+<path d="M28 7H1072" stroke="#fff" stroke-opacity=".28" stroke-linecap="round"/>
+<path d="M28 345H1072" stroke="#8ce5dc" stroke-opacity=".25" stroke-linecap="round"/>
+
+  
+  
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#1d344e"/><stop offset="1" stop-color="#13233c"/>
+    </linearGradient>
+    <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
+      <path d="M34 0H0V34" fill="none" stroke="#afc1d4" stroke-opacity=".07"/>
+    </pattern>
+  </defs>
+  <style>
+    text { font-family: "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif; }
+    .muted { fill: #afc1d4; }
+    .route { fill: none; stroke: #75d6c5; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .packet { fill: none; stroke: #f5f4ef; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 10 180; animation: route 6s linear infinite; }
+    .progress { stroke-dasharray: 72 124; animation: queue 6s ease-in-out infinite; }
+    @keyframes route { to { stroke-dashoffset: -190; } }
+    @keyframes queue { 0%, 100% { stroke-dashoffset: 60; } 55% { stroke-dashoffset: 0; } }
+    @media (prefers-reduced-motion: reduce) { .packet, .progress { animation: none !important; } }
+  </style>
+  
+  <rect x="638" y="12" width="450" height="310" rx="18" fill="#d8ecff" fill-opacity=".035" stroke="#c4e4ff" stroke-opacity=".17"/>
+  <rect x="638" y="1" width="461" height="338" rx="21" fill="url(#grid)"/>
+  <path d="M638 1V339" stroke="#afc1d4" stroke-opacity=".13"/>
+  <g transform="translate(42 34)">
+    <rect width="80" height="30" rx="15" fill="#efa96f"/>
+    <text x="40" y="21" text-anchor="middle" font-size="17" font-weight="700" fill="#13233c">3.0.0</text>
+    <text x="97" y="21" font-size="17" fill="#afc1d4">Major update</text>
+    <text y="84" font-size="38" font-weight="650" fill="#f5f4ef">NexusMods Bypass</text>
+    <text y="132" font-size="28" fill="#f5f4ef">Collection downloads, under control.</text>
+    <text y="173" font-size="19" class="muted">More reliable queues. Clearer reports.</text>
+    <text y="200" font-size="19" class="muted">A responsive interface that fits your screen.</text>
+    <path d="M0 233H550" stroke="#afc1d4" stroke-opacity=".22"/>
+    <text y="267" font-size="17" fill="#75d6c5">47 commits</text>
+    <text x="128" y="267" font-size="17" class="muted">13 languages</text>
+    <text x="280" y="267" font-size="17" class="muted">Chrome / Edge / Firefox</text>
+  </g>
+  <g transform="translate(668 30)">
+    <text x="4" y="20" font-size="17" fill="#afc1d4">Your collection</text>
+    <g transform="translate(0 44)">
+      <path d="M18 0H181L203 22V58H18Z" fill="url(#base)" stroke="#afc1d4" stroke-opacity=".3"/>
+      <path d="M181 0V22H203" fill="none" stroke="#afc1d4" stroke-opacity=".3"/>
+      <path d="M9 14H172L194 36V72H9Z" fill="url(#frost)" stroke="#afc1d4" stroke-opacity=".3"/>
+      <path d="M0 28H163L185 50V98H0Z" fill="#13233c" stroke="#75d6c5" stroke-opacity=".65"/>
+      <path d="M163 28V50H185" fill="none" stroke="#75d6c5" stroke-opacity=".65"/>
+      <path d="M20 62L26 68L38 55" class="route"/>
+      <text x="50" y="66" font-size="17" fill="#f5f4ef">Next file</text>
+      <path d="M20 82H144" stroke="#75d6c5" stroke-opacity=".22" stroke-width="4" stroke-linecap="round"/>
+      <path class="progress" d="M20 82H144" stroke="#75d6c5" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    <path d="M186 120H214V85H244M214 120V175H244" class="route"/>
+    <path d="M186 120H214V85H244M214 120V175H244" class="packet"/>
+    <path d="M236 79L244 85L236 91M236 169L244 175L236 181" class="route"/>
+    <g transform="translate(258 61)">
+      <rect width="143" height="49" rx="10" fill="url(#frost)" stroke="#afc1d4" stroke-opacity=".25"/>
+      <path d="M16 14H38V30H16ZM23 36H31M27 30V36" fill="none" stroke="#75d6c5" stroke-width="2" stroke-linejoin="round"/>
+      <text x="52" y="31" font-size="17" fill="#f5f4ef">Browser</text>
+    </g>
+    <g transform="translate(258 151)">
+      <rect width="143" height="49" rx="10" fill="url(#frost)" stroke="#afc1d4" stroke-opacity=".25"/>
+      <path d="M17 16L27 35L37 16M23 16L27 25L31 16" fill="none" stroke="#efa96f" stroke-width="2" stroke-linejoin="round"/>
+      <text x="52" y="31" font-size="17" fill="#f5f4ef">Vortex</text>
+    </g>
+    <text x="4" y="260" font-size="17" fill="#afc1d4">Choose a mode. Keep your place.</text>
+  </g>
+
+<style>*{animation:none!important}</style></svg>
