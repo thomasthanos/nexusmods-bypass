@@ -131,8 +131,101 @@ function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/1
 {
   const nnw = fs.readFileSync(path.join(root, 'src/content/nnw.js'), 'utf8');
   assert.ok(!/setInterval\([^)]*SLOW_DOWNLOAD_POLL_MS/.test(nnw), 'the 1s slow-download poll is gone');
-  assert.ok(nnw.includes('boundSlowButtons.has(slowDownloadBtn)'), 'buttons are bound once via a WeakSet');
+  assert.ok(nnw.includes('boundSlowButtons.add(slowDownloadBtn)'), 'buttons are marked via a WeakSet');
+  assert.ok(!nnw.includes("slowDownloadBtn.addEventListener('click'"), 'no per-button listener (it ran after Nexus\'s own)');
 }
+
+// --- One owner per click (live test 2.10.1: SkyUI SDK downloaded twice; the requirements modal fetched
+// the MAIN file twice). The real nnw.js runs in the page; Nexus's own handlers are stand-ins. ---------
+(async () => {
+  const w = load('file-page-signed-in.html');
+  const generated = [];
+  w.fetch = (url, init) => {
+    generated.push({ url: String(url), body: String(init?.body || '') });
+    return new Promise(() => {}); // never answers: only who asked, and how often, matters here
+  };
+  w.NexusExt.Storage = {
+    getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: false }),
+    sendDownloadCommand: async () => ({ ok: true, value: {} })
+  };
+  for (const file of ['src/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+  const NNW = w.NexusExt.NNW;
+  await NNW.init();
+
+  // Nexus's file card: a shadow root with its own listener on the slow-download button.
+  const host = w.document.createElement('mod-file-download');
+  host.setAttribute('file-id', '734848');
+  const shadow = host.attachShadow({ mode: 'open' });
+  const slow = w.document.createElement('button');
+  slow.id = 'slowDownloadButton';
+  slow.textContent = 'Slow download';
+  shadow.appendChild(slow);
+  let nexusHandled = 0;
+  slow.addEventListener('click', () => { nexusHandled++; });
+  w.document.body.appendChild(host);
+  await new Promise((r) => setTimeout(r, 120));
+
+  const click = (el) => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true, composed: true, cancelable: true, button: 0 }));
+  click(slow);
+  click(slow);
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(nexusHandled, 0, 'the extension owns the slow-download click: Nexus\'s listener never runs');
+  const forFile = (id) => generated.filter((g) => g.body.includes(`fid=${id}`) || g.url.includes(`file_id=${id}`)).length;
+  assert.equal(forFile('734848'), 1, 'two clicks, one resolve for the file');
+
+  // A link inside a shadow root (event.target is the host) is still recognised and owned.
+  const card = w.document.createElement('mod-file-download');
+  card.setAttribute('file-id', '555');
+  const cardShadow = card.attachShadow({ mode: 'open' });
+  const link = w.document.createElement('a');
+  link.href = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=555';
+  link.textContent = 'Manual download';
+  cardShadow.appendChild(link);
+  let navigated = 0;
+  link.addEventListener('click', (e) => { if (!e.defaultPrevented) navigated++; });
+  w.document.body.appendChild(card);
+  click(link);
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(navigated, 0, 'Nexus\'s own handling of a shadow-DOM download link does not also run');
+  assert.equal(forFile('555'), 1);
+
+  // The requirements modal opened from the SDK card: its download-links name the MAIN file (111).
+  const opener = w.document.createElement('mod-file-download');
+  opener.setAttribute('file-id', '734849');
+  const openerShadow = opener.attachShadow({ mode: 'open' });
+  const openerButton = w.document.createElement('span');
+  openerButton.textContent = 'Manual download';
+  openerShadow.appendChild(openerButton);
+  w.document.body.appendChild(opener);
+  click(openerButton);
+  const modal = w.document.createElement('download-modal');
+  modal.setAttribute('download-links', JSON.stringify({ downloadUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=111' }));
+  const modalShadow = modal.attachShadow({ mode: 'open' });
+  const modalButton = w.document.createElement('button');
+  modalButton.textContent = 'Download mod file';
+  modalShadow.appendChild(modalButton);
+  let modalNative = 0;
+  modalButton.addEventListener('click', () => { modalNative++; });
+  w.document.body.appendChild(modal);
+  click(modalButton);
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(modalNative, 0, 'the modal click has one owner');
+  assert.equal(forFile('111'), 0, 'the main file is never fetched for another file\'s modal');
+  assert.equal(forFile('734849'), 1, 'the clicked file is');
+
+  // pickModalHref, directly.
+  const pick = NNW.pickModalHref;
+  const base = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604';
+  assert.equal(pick({ modalFileId: '7', linksJson: JSON.stringify({ downloadUrl: `${base}?tab=files&file_id=7` }) }), `${base}?tab=files&file_id=7`);
+  assert.equal(pick({ modalFileId: '7', linksJson: JSON.stringify({ downloadUrl: `${base}?tab=files&file_id=1` }), base }), `${base}?tab=files&file_id=7`, 'a link for another file is replaced');
+  assert.equal(pick({ modalFileId: '7', isNMM: true, base }), `${base}?tab=files&file_id=7&nmm=1`);
+  assert.equal(pick({ modalFileId: '', linksJson: '' }), '', 'unknown file: left to Nexus, never guessed');
+  assert.equal(pick({ modalFileId: '', buttonHref: `${base}?tab=files&file_id=9` }), `${base}?tab=files&file_id=9`);
+  console.log('click ownership behavior OK');
+  // nnw.js keeps page timers running; the suite is done.
+  w.close();
+  process.exit(process.exitCode || 0);
+})().catch((error) => { console.error(error); process.exit(1); });
 
 // --- Collection deck spot after late hydration ---------------------------------------------------
 {

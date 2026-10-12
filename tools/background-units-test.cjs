@@ -83,13 +83,55 @@ async function debugLogAndAutoReports() {
   delete global.chrome.permissions;
 }
 
+// One user action, one file: the worker drops a second start for the same game+file, and a start for a
+// file the browser is already downloading (Nexus's own native download included).
+async function downloadStartsAreDeduplicated() {
+  const H = context.__DOWNLOAD_HANDLERS;
+  const saved = global.chrome.downloads;
+  const started = [];
+  let browserItems = [];
+  global.chrome.downloads = {
+    ...(saved || {}),
+    download: (options, cb) => { started.push(options); setTimeout(() => cb(100 + started.length), 5); },
+    search: (_query, cb) => cb(browserItems)
+  };
+  try {
+    const cdn = 'https://supporter-files.nexus-cdn.com/1704/12604/SkyUI_SDK_5_2-12604-5-2SE.7z?md5=a&expires=1';
+    const payload = { url: cdn, folder: '', filename: 'SkyUI_SDK_5_2-12604-5-2SE.7z', fileId: '734848', gameId: '1704' };
+    const [a, b] = await Promise.all([H.DOWNLOAD_START(payload), H.DOWNLOAD_START({ ...payload })]);
+    assert.equal(started.length, 1, 'two simultaneous starts for one file make one download');
+    assert.equal(a.downloadId, b.downloadId);
+    assert.equal(b.duplicate, true);
+    await H.DOWNLOAD_START({ ...payload, url: `${cdn}&again=1` });
+    assert.equal(started.length, 1, 'a repeat within the window is dropped');
+    await H.DOWNLOAD_START({ ...payload, fileId: '999', url: 'https://supporter-files.nexus-cdn.com/1704/12604/SkyUI_5_2_SE-12604-5-2SE.7z' , filename: 'SkyUI_5_2_SE-12604-5-2SE.7z' });
+    assert.equal(started.length, 2, 'a different file still starts');
+
+    context.__recentDownloadStarts.clear();
+    browserItems = [{ id: 7, state: 'in_progress', url: 'https://cf-files.nexus-cdn.com/1704/12604/SkyUI_SDK_5_2-12604-5-2SE.7z?token=x', filename: 'C:\\Users\\u\\Downloads\\SkyUI_SDK_5_2-12604-5-2SE.7z', startTime: new Date().toISOString() }];
+    const native = await H.DOWNLOAD_START(payload);
+    assert.equal(native.duplicate, true, 'a file the browser is already downloading is not started again');
+    assert.equal(native.downloadId, 7);
+    assert.equal(started.length, 2);
+
+    const find = context.findDuplicateDownload;
+    const now = Date.now();
+    assert.ok(find([{ id: 1, state: 'complete', filename: '/d/File (1).zip', url: 'https://x/a', startTime: new Date(now - 5000).toISOString() }], { url: 'https://y/b', filename: 'file.zip', now }), 'renamed copy counts');
+    assert.equal(find([{ id: 1, state: 'complete', filename: '/d/file.zip', startTime: new Date(now - 120000).toISOString() }], { url: '', filename: 'file.zip', now }), null, 'outside the window is a new download');
+    assert.equal(find([{ id: 1, state: 'interrupted', filename: '/d/file.zip', startTime: new Date(now).toISOString() }], { url: '', filename: 'file.zip', now }), null, 'a failed download does not block a retry');
+  } finally {
+    global.chrome.downloads = saved;
+    context.__recentDownloadStarts.clear();
+  }
+}
+
 const context = vm.createContext({ chrome: global.chrome, console, URL, Date, Math, Number, String, Object, Array, Set, Map, Promise, RegExp, JSON, setTimeout, clearTimeout, isNaN, parseInt, AbortController, structuredClone, fetch: noop });
 context.importScripts = (...paths) => {
   for (const path of paths) {
     vm.runInContext(fs.readFileSync(`src/${path}`, 'utf8'), context, { filename: `src/${path}` });
   }
 };
-const source = `${fs.readFileSync('src/background.js', 'utf8')}\n;globalThis.__NXTK = NXTK;globalThis.__STORAGE_HANDLERS = STORAGE_HANDLERS;globalThis.__NDC_JOBS_KEY = NDC_JOBS_KEY;globalThis.__writeQueues = writeQueues;globalThis.__NDC_QUEUE_HANDLERS = NDC_QUEUE_HANDLERS;globalThis.__STORAGE_HISTORY_KEY = STORAGE_HISTORY_KEY;globalThis.__MAX_NDC_JOB_ITEMS = MAX_NDC_JOB_ITEMS;globalThis.__DOWNLOAD_CONFLICT_ACTION = DOWNLOAD_CONFLICT_ACTION;globalThis.__MAX_TRACKED_FAILURES = MAX_TRACKED_FAILURES;globalThis.__recordJobFailure = recordJobFailure;globalThis.__jobFailureCount = jobFailureCount;globalThis.__verifyTransferSize = verifyTransferSize;globalThis.__settledInterruptedState = settledInterruptedState;globalThis.__discardAbandonedDownload = discardAbandonedDownload;globalThis.__handleNdcDownloadTerminal = handleNdcDownloadTerminal;globalThis.__recordQueueItemFailure = recordQueueItemFailure;`;
+const source = `${fs.readFileSync('src/background.js', 'utf8')}\n;globalThis.__NXTK = NXTK;globalThis.__STORAGE_HANDLERS = STORAGE_HANDLERS;globalThis.__NDC_JOBS_KEY = NDC_JOBS_KEY;globalThis.__writeQueues = writeQueues;globalThis.__NDC_QUEUE_HANDLERS = NDC_QUEUE_HANDLERS;globalThis.__STORAGE_HISTORY_KEY = STORAGE_HISTORY_KEY;globalThis.__MAX_NDC_JOB_ITEMS = MAX_NDC_JOB_ITEMS;globalThis.__DOWNLOAD_CONFLICT_ACTION = DOWNLOAD_CONFLICT_ACTION;globalThis.__MAX_TRACKED_FAILURES = MAX_TRACKED_FAILURES;globalThis.__recordJobFailure = recordJobFailure;globalThis.__jobFailureCount = jobFailureCount;globalThis.__verifyTransferSize = verifyTransferSize;globalThis.__settledInterruptedState = settledInterruptedState;globalThis.__discardAbandonedDownload = discardAbandonedDownload;globalThis.__handleNdcDownloadTerminal = handleNdcDownloadTerminal;globalThis.__recordQueueItemFailure = recordQueueItemFailure;globalThis.__DOWNLOAD_HANDLERS = DOWNLOAD_HANDLERS;globalThis.__recentDownloadStarts = recentDownloadStarts;`;
 vm.runInContext(source, context, { filename: 'src/background.js' });
 
 const { retryAfterMilliseconds, buildDownloadPath, downloadFolderOf, __NXTK: NXTK } = context;
@@ -2166,5 +2208,6 @@ jobStateBehaviour()
   .then(workerResolvesTheRequestedFile)
   .then(failureRecordsAreCapped)
   .then(debugLogAndAutoReports)
+  .then(downloadStartsAreDeduplicated)
   .then(() => console.log('background.js unit behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });
