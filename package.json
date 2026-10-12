@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node tools/build-zip.mjs",
     "test:dom": "node tools/dom-fixtures-test.cjs",
-    "lint": "eslint src tools tests eslint.config.mjs playwright.config.mjs",
+    "lint": "eslint src tools tests relay eslint.config.mjs playwright.config.mjs",
     "lint:webext": "node tools/build-zip.mjs && rm -rf .webext-lint && mkdir .webext-lint && unzip -q dist/*-firefox.zip -d .webext-lint && web-ext lint --source-dir .webext-lint",
     "build": "node tools/build-zip.mjs",
     "test:visual": "playwright test"

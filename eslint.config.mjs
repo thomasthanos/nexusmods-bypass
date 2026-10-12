@@ -36,6 +36,11 @@ export default [
     languageOptions: { ecmaVersion: 2022, globals: { ...globals.node, NexusExt: 'writable', NXTK: 'writable', document: 'readonly' } },
     rules: { ...js.configs.recommended.rules, 'no-unused-vars': 'off', 'no-empty': 'off' }
   },
+  {
+    files: ['relay/**/*.js'],
+    languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.serviceworker } },
+    rules: { ...js.configs.recommended.rules, 'no-unused-vars': 'off', 'no-empty': ['error', { allowEmptyCatch: true }] }
+  },
   { files: ['tools/**/*.cjs'], languageOptions: { sourceType: 'commonjs' } },
   { files: ['tools/**/*.mjs', 'tests/**/*.mjs', '*.config.mjs'], languageOptions: { sourceType: 'module' } }
 ];

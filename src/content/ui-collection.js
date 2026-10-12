@@ -642,12 +642,13 @@
   // Tied to how much the extension has been used overall, not to the size of one run: a
   // single file downloaded by hand counts the same as one from a collection. The milestone
   // decides whether there is anything to ask, so this only checks that a run did something.
-  function maybeAskForReview(deck, finishedCount) {
+  function maybeAskForReview(deck, finishedCount, isRunning = () => false) {
     if (finishedCount < 1 || deck.querySelector('.nxtk-deck-ask')) return;
-    NXTK.prepareRatingPrompt()
+    NXTK.prepareRatingPrompt({ includeRuns: true })
       .then((prompt) => {
-        if (!prompt || !deck.isConnected || deck.querySelector('.nxtk-deck-ask')) return;
-        NXTK.markRatingAsked(prompt.milestone);
+        // Never while a download is under way: a new run may have started while this was read.
+        if (!prompt || isRunning() || !deck.isConnected || deck.querySelector('.nxtk-deck-ask')) return;
+        if (prompt.kind !== 'runs') NXTK.markRatingAsked(prompt.milestone);
 
         const row = document.createElement('div');
         row.className = 'nxtk-deck-ask';
@@ -689,10 +690,23 @@
         dismiss.className = 'nxtk-deck-ask-dismiss';
         dismiss.textContent = '×';
         dismiss.setAttribute('aria-label', NXTK.t('ratingDismiss', null, 'Dismiss'));
-        // A dismissal clears this milestone only; the next one may still come round.
-        dismiss.addEventListener('click', () => row.remove());
+        // A dismissal clears this milestone only; the next one may still come round. The run-based
+        // ask is one-time, so closing it answers it.
+        dismiss.addEventListener('click', () => {
+          if (prompt.kind === 'runs') NXTK.markRunPromptAnswered();
+          row.remove();
+        });
 
-        row.append(stars, copy, actions, dismiss);
+        const later = document.createElement('button');
+        later.type = 'button';
+        later.className = 'nxtk-deck-ask-later';
+        later.textContent = prompt.laterText || NXTK.t('ratingLater', null, 'Later');
+        later.addEventListener('click', () => {
+          NXTK.snoozeRatingPrompt();
+          row.remove();
+        });
+
+        row.append(stars, copy, actions, later, dismiss);
         deck.appendChild(row);
       })
       .catch(() => undefined);
@@ -1069,6 +1083,8 @@
     };
 
     ui.startDownload = (count, { resumed = false } = {}) => {
+      state.running = true;
+      deck.querySelector('.nxtk-deck-ask')?.remove();
       menuController?.close();
       state.modsCount = count;
       state.progress = 0;
@@ -1100,6 +1116,7 @@
 
     ui.endDownload = (outcome = 'finished') => {
       ui.setTimeLeft?.(0);
+      state.running = false;
       const vortexHandoff = ndc.downloadMethod === DOWNLOAD_METHOD_VORTEX;
       const outcomes = {
         finished: {
@@ -1154,7 +1171,11 @@
           + 'It checks every file and only fetches what is still missing.'), 'info');
       }
 
-      if (outcome === 'finished') maybeAskForReview(deck, state.progress);
+      if (outcome === 'finished') {
+        NXTK.recordFinishedRun()
+          .catch(() => 0)
+          .then(() => { if (!state.running) maybeAskForReview(deck, state.progress, () => state.running); });
+      }
     };
 
     function renderProgress() {

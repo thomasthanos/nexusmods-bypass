@@ -1398,5 +1398,59 @@
   },
   "noticePageChangedDetail": {
     "message": "Algunas funciones de NexusMods Bypass pueden no funcionar aquí hasta que se actualice la extensión. Los botones propios de Nexus siguen funcionando. Puedes enviar detalles con «Informar de un error» en la ventana de la extensión."
+  },
+  "btnSendReport": {
+    "message": "Enviar informe de error"
+  },
+  "rpTitle": {
+    "message": "Enviar un informe de error"
+  },
+  "rpIntro": {
+    "message": "No se envía nada hasta que pulses Enviar. Abajo está exactamente lo que se enviará: se eliminan nombres, correos, rutas de archivos, cookies, tokens y parámetros de enlaces."
+  },
+  "rpNote": {
+    "message": "¿Qué ha pasado? (opcional)"
+  },
+  "rpContact": {
+    "message": "Correo para responderte (opcional, solo se envía si lo rellenas)"
+  },
+  "rpIncludeLogs": {
+    "message": "Incluir registros de depuración (solo se guardan mientras «Registros de depuración» está activado)"
+  },
+  "rpPreview": {
+    "message": "Informe exacto"
+  },
+  "rpSend": {
+    "message": "Enviar informe"
+  },
+  "rpCopy": {
+    "message": "Copiar informe"
+  },
+  "rpGithub": {
+    "message": "Abrir una incidencia en GitHub"
+  },
+  "rpAuto": {
+    "message": "Enviar informes de error anónimos automáticamente"
+  },
+  "rpAutoDesc": {
+    "message": "Desactivado por defecto. Si se activa, solo se envían el código de error, dónde ocurrió y las versiones de la extensión y del navegador, como máximo diez al día. Sin contenido de páginas, historial ni ajustes."
+  },
+  "rpSent": {
+    "message": "Informe enviado. ¡Gracias! Referencia: $1"
+  },
+  "rpSendFailed": {
+    "message": "No se pudo enviar el informe. Cópialo o abre una incidencia en GitHub."
+  },
+  "rpPermissionDenied": {
+    "message": "No se concedió permiso para contactar con el servidor de informes. Copia el informe o abre una incidencia en GitHub."
+  },
+  "rpCopied": {
+    "message": "Informe copiado al portapapeles."
+  },
+  "ratingPromptRuns": {
+    "message": "$1 colecciones descargadas. Si te ha ahorrado tiempo, una reseña breve o una estrella en GitHub ayuda mucho."
+  },
+  "ratingLater": {
+    "message": "Más tarde"
   }
 }

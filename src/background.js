@@ -109,6 +109,54 @@ function errorEntrySignature(entry) {
   ].join('|');
 }
 
+// Optional anonymous error reports (setting AutoErrorReports, off by default). Sent only when the user
+// turned it on AND granted the relay origin; carries the error code, where it happened and the
+// extension/browser version, never page content or history. Throttled: one per fingerprint per day,
+// at most one every ten minutes and ten a day.
+const AUTO_REPORT_STATE_KEY = 'nxtk_auto_report_state';
+const AUTO_REPORT_MIN_GAP_MS = 10 * 60 * 1000;
+const AUTO_REPORT_DAILY_MAX = 10;
+
+async function maybeAutoReport(entry, { now = Date.now(), fetchImpl = globalThis.fetch } = {}) {
+  const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+  if (!settings?.AutoErrorReports) return false;
+  let granted = false;
+  try {
+    granted = await chrome.permissions.contains(NXTK.RELAY_PERMISSION);
+  } catch (_) {
+  }
+  if (!granted) return false;
+  const fingerprint = `${entry.code}|${entry.context}`.slice(0, 200);
+  const state = (await storageGetLocal(AUTO_REPORT_STATE_KEY, null)) || {};
+  const day = new Date(now).toISOString().slice(0, 10);
+  const today = state.day === day ? state : { day, count: 0, sent: {} };
+  if (now - (Number(state.lastAt) || 0) < AUTO_REPORT_MIN_GAP_MS) return false;
+  if (today.count >= AUTO_REPORT_DAILY_MAX || today.sent?.[fingerprint]) return false;
+  const manifest = chrome.runtime.getManifest();
+  const payload = {
+    schema: NXTK.REPORT_SCHEMA_VERSION,
+    kind: 'auto',
+    version: manifest.version,
+    browser: String(globalThis.navigator?.userAgent || '').replace(/\([^)]*\)/g, '').slice(0, 160),
+    error: {
+      code: entry.code,
+      status: entry.status,
+      context: entry.context,
+      message: String(entry.technicalMessage || '').slice(0, 300)
+    }
+  };
+  await storageSetLocal(AUTO_REPORT_STATE_KEY, {
+    ...today, lastAt: now, count: today.count + 1, sent: { ...(today.sent || {}), [fingerprint]: true }
+  });
+  const response = await fetchImpl(NXTK.RELAY_REPORT_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+    credentials: 'omit'
+  });
+  return !!response?.ok;
+}
+
 function appendErrorLogEntry(entry) {
   return enqueueStorageTask(NXTK.ERROR_LOG_KEY, async () => {
     const stored = await storageGetLocal(NXTK.ERROR_LOG_KEY, []);
@@ -219,7 +267,37 @@ const STORAGE_HANDLERS = {
   async ERROR_LOG_APPEND(payload) {
     const entry = payload?.entry;
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('invalid-error-entry');
-    return appendErrorLogEntry(NXTK.buildErrorEntry(entry, 'background_error'));
+    const built = NXTK.buildErrorEntry(entry, 'background_error');
+    const result = await appendErrorLogEntry(built);
+    maybeAutoReport(built).catch(() => undefined);
+    return result;
+  },
+
+  // The opt-in debug ring buffer (see NXTK.setDebugLogging). Entries are re-sanitized here, so a
+  // caller cannot store anything a report would not be allowed to carry.
+  async DEBUG_LOG_APPEND(payload) {
+    const incoming = Array.isArray(payload?.entries) ? payload.entries.slice(-100) : [];
+    if (!incoming.length) return { ok: true };
+    return enqueueStorageTask(NXTK.DEBUG_LOG_KEY, async () => {
+      const stored = await storageGetLocal(NXTK.DEBUG_LOG_KEY, []);
+      const log = Array.isArray(stored) ? stored : [];
+      for (const raw of incoming) {
+        log.push({
+          at: Number(raw?.at) || Date.now(),
+          level: ['debug', 'info', 'warn', 'error'].includes(raw?.level) ? raw.level : 'info',
+          page: String(raw?.page || '').slice(0, 20),
+          text: NXTK.sanitizeDiagnosticText(raw?.text, 400)
+        });
+      }
+      const trimmed = log.slice(-NXTK.MAX_DEBUG_ENTRIES);
+      await storageSetLocal(NXTK.DEBUG_LOG_KEY, trimmed);
+      return { ok: true, count: trimmed.length };
+    });
+  },
+
+  async DEBUG_LOG_CLEAR() {
+    await storageSetLocal(NXTK.DEBUG_LOG_KEY, []);
+    return { ok: true };
   },
 
   async NDC_HISTORY_ADD(payload) {
@@ -2328,6 +2406,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return;
       }
       sendResponse({ ok: true, tabId: tab?.id || null });
+    });
+    return true;
+  }
+
+  // The report page: preview, send, copy or open as a GitHub issue. Opened from the popup and from
+  // error dialogs on Nexus pages (content scripts cannot open extension pages themselves).
+  if (msg?.type === 'OPEN_REPORT_PAGE') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('report-page/report.html') }, () => {
+      const error = getRuntimeError();
+      sendResponse(error ? { ok: false, error } : { ok: true });
     });
     return true;
   }

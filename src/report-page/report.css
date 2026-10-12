@@ -1,0 +1,17 @@
+:root { color-scheme: dark; }
+body { margin: 0; background: #12131a; color: #e6e6ea; font: clamp(14px, 0.4vw + 9px, 17px)/1.5 system-ui, sans-serif; overflow-x: hidden; }
+.rp { box-sizing: border-box; max-width: min(960px, 100%); margin: 0 auto; padding: clamp(16px, 3vw, 48px); }
+h1 { font-size: 1.5em; margin: 0 0 .4em; }
+h2 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.rp-intro, .rp-hint { color: #a9abb6; }
+.rp-field { display: grid; gap: 6px; margin: 14px 0; }
+.rp-field textarea, .rp-field input { box-sizing: border-box; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #343645; background: #1b1c25; color: inherit; font: inherit; }
+.rp-check { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; }
+.rp-check input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; }
+.rp-preview { box-sizing: border-box; max-height: 45vh; overflow: auto; padding: 12px 14px; border-radius: 10px; border: 1px solid #343645; background: #0c0d12; font: 12px/1.55 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rp-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.rp-actions .nxtk-btn { min-height: 40px; padding: 8px 16px; }
+.rp-status { min-height: 1.5em; }
+.rp-status.is-error { color: #ff7b7b; }
+.rp-status.is-ok { color: #7ee2a8; }
+.rp-auto { margin-top: 28px; padding-top: 16px; border-top: 1px solid #2a2c38; }

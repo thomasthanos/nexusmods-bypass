@@ -1314,5 +1314,59 @@
   },
   "noticePageChangedDetail": {
     "message": "拡張機能が更新されるまで、NexusMods Bypass の一部の機能はここで動作しない場合があります。Nexus 本来のボタンは引き続き使えます。拡張機能のポップアップの「バグを報告」から詳細を送信できます。"
+  },
+  "btnSendReport": {
+    "message": "バグレポートを送信"
+  },
+  "rpTitle": {
+    "message": "バグレポートを送信"
+  },
+  "rpIntro": {
+    "message": "「送信」を押すまで何も送られません。以下が送信される内容そのものです。名前、メールアドレス、ファイルパス、Cookie、トークン、リンクのパラメータは削除されます。"
+  },
+  "rpNote": {
+    "message": "何が起きましたか？（任意）"
+  },
+  "rpContact": {
+    "message": "返信用メールアドレス（任意。入力した場合のみ送信）"
+  },
+  "rpIncludeLogs": {
+    "message": "デバッグログを含める（「デバッグログ」がオンの間だけ記録されます）"
+  },
+  "rpPreview": {
+    "message": "送信される内容"
+  },
+  "rpSend": {
+    "message": "レポートを送信"
+  },
+  "rpCopy": {
+    "message": "レポートをコピー"
+  },
+  "rpGithub": {
+    "message": "代わりに GitHub Issue を開く"
+  },
+  "rpAuto": {
+    "message": "匿名のエラーレポートを自動送信する"
+  },
+  "rpAutoDesc": {
+    "message": "既定ではオフ。オンにすると、エラーコード、発生場所、拡張機能とブラウザのバージョンのみを 1 日最大 10 件まで送信します。ページの内容、履歴、設定は送信しません。"
+  },
+  "rpSent": {
+    "message": "レポートを送信しました。ありがとうございます！ 参照番号: $1"
+  },
+  "rpSendFailed": {
+    "message": "レポートを送信できませんでした。コピーするか、代わりに GitHub Issue を開いてください。"
+  },
+  "rpPermissionDenied": {
+    "message": "レポートサーバーへのアクセス許可が得られませんでした。レポートをコピーするか、GitHub Issue を開いてください。"
+  },
+  "rpCopied": {
+    "message": "レポートをクリップボードにコピーしました。"
+  },
+  "ratingPromptRuns": {
+    "message": "$1 件のコレクションをダウンロードしました。時間の節約になったなら、短いレビューや GitHub のスターがとても励みになります。"
+  },
+  "ratingLater": {
+    "message": "後で"
   }
 }

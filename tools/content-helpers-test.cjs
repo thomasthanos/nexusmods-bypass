@@ -583,7 +583,7 @@ function storeListingBehaviour() {
   const ui = readUi();
   const popup = fs.readFileSync('src/popup/popup.js', 'utf8');
   for (const [label, source] of [['deck', ui], ['popup', popup]]) {
-    assert.match(source, /NXTK\.prepareRatingPrompt\(\)/, `${label}: asks through the shared helper`);
+    assert.match(source, /NXTK\.prepareRatingPrompt\((\{ includeRuns: true \})?\)/, `${label}: asks through the shared helper`);
     assert.match(source, /prompt\.listing\.reviewUrl/, `${label}: links to the resolved listing`);
   }
   assert.match(ui, /stars\.setAttribute\('aria-hidden', 'true'\)/, 'deck: the stars are decoration, not a control');

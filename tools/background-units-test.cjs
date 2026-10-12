@@ -40,13 +40,56 @@ global.chrome = {
   alarms: { create: noop, clear: noop }
 };
 
+async function debugLogAndAutoReports() {
+  const N = context.NXTK;
+  await context.__STORAGE_HANDLERS.DEBUG_LOG_APPEND({ entries: [
+    { at: 1, level: 'info', page: 'mod', text: 'mail jane@example.com from /home/jane' },
+    { at: 2, level: 'bogus', page: 'x'.repeat(50), text: 'ok' }
+  ] });
+  let log = await context.storageGetLocal(N.DEBUG_LOG_KEY, []);
+  assert.equal(log.length, 2);
+  assert.doesNotMatch(log[0].text, /jane/, 'debug lines are sanitized on the way in');
+  assert.equal(log[1].level, 'info', 'unknown levels are normalized');
+  assert.equal(log[1].page.length, 20);
+  await context.__STORAGE_HANDLERS.DEBUG_LOG_APPEND({ entries: Array.from({ length: 100 }, (_, i) => ({ text: `l${i}` })) });
+  for (let i = 0; i < 4; i += 1) await context.__STORAGE_HANDLERS.DEBUG_LOG_APPEND({ entries: Array.from({ length: 100 }, (_, j) => ({ text: `m${j}` })) });
+  log = await context.storageGetLocal(N.DEBUG_LOG_KEY, []);
+  assert.equal(log.length, N.MAX_DEBUG_ENTRIES, 'the ring buffer is capped');
+  await context.__STORAGE_HANDLERS.DEBUG_LOG_CLEAR();
+  assert.deepEqual(await context.storageGetLocal(N.DEBUG_LOG_KEY, null), []);
+
+  const sent = [];
+  const fetchImpl = async (url, init) => { sent.push({ url, body: JSON.parse(init.body), init }); return { ok: true }; };
+  const entry = N.buildErrorEntry({ code: 'request_failed', context: 'Loading x', technicalMessage: 'boom' });
+  let granted = false;
+  global.chrome.permissions = { contains: async () => granted };
+  global.chrome.runtime.getManifest = () => ({ version: '2.9.0' });
+  await context.storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
+  assert.equal(N.DEFAULTS.AutoErrorReports, false, 'auto reports are off by default');
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl }), false, 'off: nothing is sent');
+  await context.storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, AutoErrorReports: true });
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl }), false, 'on but no permission: nothing is sent');
+  granted = true;
+  const t0 = Date.UTC(2026, 9, 12, 10);
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl, now: t0 }), true);
+  assert.equal(sent[0].url, N.RELAY_REPORT_URL);
+  assert.equal(sent[0].body.kind, 'auto');
+  assert.equal(sent[0].init.credentials, 'omit');
+  assert.deepEqual(Object.keys(sent[0].body).sort(), ['browser', 'error', 'kind', 'schema', 'version']);
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl, now: t0 + 60000 }), false, 'ten-minute gap');
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl, now: t0 + 20 * 60000 }), false, 'same fault once a day');
+  const other = N.buildErrorEntry({ code: 'timeout', context: 'Other' });
+  assert.equal(await context.maybeAutoReport(other, { fetchImpl, now: t0 + 20 * 60000 }), true, 'a different fault is sent');
+  delete global.chrome.permissions;
+}
+
 const context = vm.createContext({ chrome: global.chrome, console, URL, Date, Math, Number, String, Object, Array, Set, Map, Promise, RegExp, JSON, setTimeout, clearTimeout, isNaN, parseInt, AbortController, structuredClone, fetch: noop });
 context.importScripts = (...paths) => {
   for (const path of paths) {
     vm.runInContext(fs.readFileSync(`src/${path}`, 'utf8'), context, { filename: `src/${path}` });
   }
 };
-const source = `${fs.readFileSync('src/background.js', 'utf8')}\n;globalThis.__NXTK = NXTK;globalThis.__NDC_JOBS_KEY = NDC_JOBS_KEY;globalThis.__writeQueues = writeQueues;globalThis.__NDC_QUEUE_HANDLERS = NDC_QUEUE_HANDLERS;globalThis.__STORAGE_HISTORY_KEY = STORAGE_HISTORY_KEY;globalThis.__MAX_NDC_JOB_ITEMS = MAX_NDC_JOB_ITEMS;globalThis.__DOWNLOAD_CONFLICT_ACTION = DOWNLOAD_CONFLICT_ACTION;globalThis.__MAX_TRACKED_FAILURES = MAX_TRACKED_FAILURES;globalThis.__recordJobFailure = recordJobFailure;globalThis.__jobFailureCount = jobFailureCount;globalThis.__verifyTransferSize = verifyTransferSize;globalThis.__settledInterruptedState = settledInterruptedState;globalThis.__discardAbandonedDownload = discardAbandonedDownload;globalThis.__handleNdcDownloadTerminal = handleNdcDownloadTerminal;globalThis.__recordQueueItemFailure = recordQueueItemFailure;`;
+const source = `${fs.readFileSync('src/background.js', 'utf8')}\n;globalThis.__NXTK = NXTK;globalThis.__STORAGE_HANDLERS = STORAGE_HANDLERS;globalThis.__NDC_JOBS_KEY = NDC_JOBS_KEY;globalThis.__writeQueues = writeQueues;globalThis.__NDC_QUEUE_HANDLERS = NDC_QUEUE_HANDLERS;globalThis.__STORAGE_HISTORY_KEY = STORAGE_HISTORY_KEY;globalThis.__MAX_NDC_JOB_ITEMS = MAX_NDC_JOB_ITEMS;globalThis.__DOWNLOAD_CONFLICT_ACTION = DOWNLOAD_CONFLICT_ACTION;globalThis.__MAX_TRACKED_FAILURES = MAX_TRACKED_FAILURES;globalThis.__recordJobFailure = recordJobFailure;globalThis.__jobFailureCount = jobFailureCount;globalThis.__verifyTransferSize = verifyTransferSize;globalThis.__settledInterruptedState = settledInterruptedState;globalThis.__discardAbandonedDownload = discardAbandonedDownload;globalThis.__handleNdcDownloadTerminal = handleNdcDownloadTerminal;globalThis.__recordQueueItemFailure = recordQueueItemFailure;`;
 vm.runInContext(source, context, { filename: 'src/background.js' });
 
 const { retryAfterMilliseconds, buildDownloadPath, downloadFolderOf, __NXTK: NXTK } = context;
@@ -2122,5 +2165,6 @@ jobStateBehaviour()
   .then(speedMigrationOnlyRunsForOldCopies)
   .then(workerResolvesTheRequestedFile)
   .then(failureRecordsAreCapped)
+  .then(debugLogAndAutoReports)
   .then(() => console.log('background.js unit behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

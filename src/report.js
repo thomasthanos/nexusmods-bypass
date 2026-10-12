@@ -495,5 +495,89 @@
     }
   }
 
-  Object.assign(NXTK, { buildBugReport, buildReportIssueUrl });
+  // Settings that describe behaviour only. The download folder is a user-chosen path, so it is
+  // reported as set/not set rather than by name.
+  function settingsSnapshot(cfg) {
+    const out = {};
+    for (const [key, value] of Object.entries(cfg || {})) {
+      if (!Object.prototype.hasOwnProperty.call(NXTK.DEFAULTS, key)) continue;
+      if (key === 'DownloadFolder') out[key] = value ? 'custom' : 'default';
+      else if (['boolean', 'number'].includes(typeof value)) out[key] = value;
+    }
+    return out;
+  }
+
+  async function getDebugLog() {
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get(NXTK.DEBUG_LOG_KEY, (result) => {
+          void chrome.runtime.lastError;
+          const log = result?.[NXTK.DEBUG_LOG_KEY];
+          resolve(Array.isArray(log) ? log : []);
+        });
+      } catch (_) {
+        resolve([]);
+      }
+    });
+  }
+
+  // The exact JSON a "Send bug report" posts to the relay. Built from the same parts as the text
+  // report, every string sanitized again, and cut down until it fits MAX_REPORT_BYTES. The report page
+  // shows this object verbatim before anything is sent.
+  async function buildReportPayload(currentError = null, { note = '', includeDebug = true, contact = '' } = {}) {
+    const ownsCache = !reportCache;
+    if (ownsCache) reportCache = {};
+    try {
+      const cfg = await cachedSettings();
+      const errors = await cachedErrorLog();
+      const { browser } = await cachedBrowser();
+      const manifest = chrome.runtime.getManifest();
+      const debug = includeDebug ? await getDebugLog() : [];
+      const clean = (value, max) => sanitizeDiagnosticText(value, max);
+      const payload = {
+        schema: NXTK.REPORT_SCHEMA_VERSION,
+        kind: 'manual',
+        createdAt: new Date().toISOString(),
+        version: manifest.version,
+        browser: clean(browser, 120),
+        locale: clean(globalThis.navigator?.language || '', 20),
+        note: clean(note, 2000),
+        contact: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) ? String(contact).slice(0, 120) : '',
+        settings: settingsSnapshot(cfg),
+        currentError: currentError ? NXTK.buildErrorEntry(currentError) : null,
+        errors: errors.slice(-15).map((entry) => NXTK.buildErrorEntry(entry)),
+        logs: debug.slice(-200).map((entry) => ({
+          at: new Date(Number(entry.at) || 0).toISOString(),
+          level: String(entry.level || 'info'),
+          page: String(entry.page || ''),
+          text: clean(entry.text, 400)
+        })),
+        report: ''
+      };
+      payload.report = clean(await buildReport(currentError, { compact: true, maxEntries: 3, stackChars: 300 }), 12000);
+      const size = () => new TextEncoder().encode(JSON.stringify(payload)).length;
+      while (size() > NXTK.MAX_REPORT_BYTES && payload.logs.length) payload.logs.splice(0, Math.ceil(payload.logs.length / 2));
+      while (size() > NXTK.MAX_REPORT_BYTES && payload.errors.length) payload.errors.shift();
+      if (size() > NXTK.MAX_REPORT_BYTES) payload.report = payload.report.slice(0, 4000);
+      return payload;
+    } finally {
+      if (ownsCache) reportCache = null;
+    }
+  }
+
+  // Posts a payload to the relay. The caller (a page with a user gesture) must have obtained the
+  // optional host permission first; this never asks for it.
+  async function sendReportPayload(payload, { fetchImpl = globalThis.fetch } = {}) {
+    const response = await fetchImpl(NXTK.RELAY_REPORT_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'omit'
+    });
+    let body = null;
+    try { body = await response.json(); } catch (_) { }
+    return { ok: !!response.ok, status: response.status, id: body?.id || '', error: body?.error || '' };
+  }
+
+  Object.assign(NXTK, { buildBugReport, buildReportIssueUrl, buildReportPayload, sendReportPayload });
 })();

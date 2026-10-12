@@ -1566,5 +1566,59 @@
   },
   "noticePageChangedDetail": {
     "message": "Niektóre funkcje NexusMods Bypass mogą tu nie działać do czasu aktualizacji rozszerzenia. Własne przyciski Nexus nadal działają. Szczegóły możesz wysłać przez „Zgłoś błąd” w oknie rozszerzenia."
+  },
+  "btnSendReport": {
+    "message": "Wyślij raport o błędzie"
+  },
+  "rpTitle": {
+    "message": "Wyślij raport o błędzie"
+  },
+  "rpIntro": {
+    "message": "Nic nie zostanie wysłane, dopóki nie naciśniesz Wyślij. Poniżej jest dokładnie to, co zostanie wysłane: nazwy, adresy e-mail, ścieżki plików, ciasteczka, tokeny i parametry linków są usuwane."
+  },
+  "rpNote": {
+    "message": "Co się stało? (opcjonalnie)"
+  },
+  "rpContact": {
+    "message": "E-mail do odpowiedzi (opcjonalnie, wysyłany tylko, jeśli go podasz)"
+  },
+  "rpIncludeLogs": {
+    "message": "Dołącz logi debugowania (zapisywane tylko, gdy „Logi debugowania” są włączone)"
+  },
+  "rpPreview": {
+    "message": "Dokładny raport"
+  },
+  "rpSend": {
+    "message": "Wyślij raport"
+  },
+  "rpCopy": {
+    "message": "Kopiuj raport"
+  },
+  "rpGithub": {
+    "message": "Zamiast tego otwórz zgłoszenie na GitHubie"
+  },
+  "rpAuto": {
+    "message": "Automatycznie wysyłaj anonimowe raporty o błędach"
+  },
+  "rpAutoDesc": {
+    "message": "Domyślnie wyłączone. Po włączeniu wysyłany jest tylko kod błędu, miejsce jego wystąpienia oraz wersje rozszerzenia i przeglądarki, najwyżej dziesięć dziennie. Bez treści stron, historii i ustawień."
+  },
+  "rpSent": {
+    "message": "Raport wysłany. Dziękujemy! Numer: $1"
+  },
+  "rpSendFailed": {
+    "message": "Nie udało się wysłać raportu. Skopiuj go lub otwórz zgłoszenie na GitHubie."
+  },
+  "rpPermissionDenied": {
+    "message": "Nie przyznano uprawnień do serwera raportów. Skopiuj raport lub otwórz zgłoszenie na GitHubie."
+  },
+  "rpCopied": {
+    "message": "Raport skopiowany do schowka."
+  },
+  "ratingPromptRuns": {
+    "message": "Pobrano $1 kolekcji. Jeśli zaoszczędziło ci to czas, krótka recenzja lub gwiazdka na GitHubie bardzo pomaga."
+  },
+  "ratingLater": {
+    "message": "Później"
   }
 }

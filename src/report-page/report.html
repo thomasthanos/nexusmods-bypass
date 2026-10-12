@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="rpTitle">Send a bug report</title>
+  <link rel="stylesheet" href="../popup/nxtk-shared.css">
+  <link rel="stylesheet" href="report.css">
+</head>
+<body>
+  <main class="rp">
+    <h1 data-i18n="rpTitle">Send a bug report</h1>
+    <p class="rp-intro" data-i18n="rpIntro">Nothing is sent until you press Send. Below is exactly what will be sent: names, e-mail addresses, file paths, cookies, tokens and link parameters are removed.</p>
+
+    <label class="rp-field">
+      <span data-i18n="rpNote">What happened? (optional)</span>
+      <textarea id="rpNote" rows="4" maxlength="2000"></textarea>
+    </label>
+    <label class="rp-field">
+      <span data-i18n="rpContact">E-mail for a reply (optional, sent only if you fill it in)</span>
+      <input id="rpContact" type="email" maxlength="120" autocomplete="off">
+    </label>
+    <label class="rp-check">
+      <input id="rpIncludeLogs" type="checkbox" checked>
+      <span data-i18n="rpIncludeLogs">Include debug logs (only recorded while "Debug logs" is on)</span>
+    </label>
+
+    <h2 data-i18n="rpPreview">Exact report</h2>
+    <pre id="rpPreview" class="rp-preview" tabindex="0" aria-live="polite"></pre>
+
+    <div class="rp-actions">
+      <button id="rpSend" class="nxtk-btn nxtk-btn-primary" type="button" data-i18n="rpSend">Send report</button>
+      <button id="rpCopy" class="nxtk-btn nxtk-btn-secondary" type="button" data-i18n="rpCopy">Copy report</button>
+      <button id="rpGithub" class="nxtk-btn nxtk-btn-secondary" type="button" data-i18n="rpGithub">Open a GitHub issue instead</button>
+    </div>
+    <p id="rpStatus" class="rp-status" role="status"></p>
+
+    <section class="rp-auto">
+      <label class="rp-check">
+        <input id="rpAuto" type="checkbox">
+        <span data-i18n="rpAuto">Send anonymous error reports automatically</span>
+      </label>
+      <p class="rp-hint" data-i18n="rpAutoDesc">Off by default. When on, only the error code, where it happened and the extension and browser versions are sent, at most ten a day. No page content, history or settings.</p>
+    </section>
+  </main>
+  <script src="../shared.js"></script>
+  <script src="../report.js"></script>
+  <script src="report.js"></script>
+</body>
+</html>

@@ -20,6 +20,7 @@ const ALLOWLIST = [
   { path: 'content', ext: ['.js', '.css'] },
   { path: 'popup', ext: ['.js', '.css', '.html'] },
   { path: 'onboarding', ext: ['.js', '.css', '.html'] },
+  { path: 'report-page', ext: ['.js', '.css', '.html'] },
   { path: 'icons', ext: ['.png'] },
   { path: '_locales', ext: ['.json'] }
 ];
@@ -45,7 +46,8 @@ for (const check of [
   'content-helpers-test.cjs',
   'report-builder-test.cjs',
   'page-check-test.cjs',
-  'dom-fixtures-test.cjs'
+  'dom-fixtures-test.cjs',
+  'relay-test.mjs'
 ]) {
   const run = spawnSync(process.execPath, [join(root, 'tools', check)], { cwd: root, stdio: 'inherit' });
   if (run.status !== 0) fail(`${check} did not pass — package not built.`);

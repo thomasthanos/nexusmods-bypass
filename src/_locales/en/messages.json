@@ -1710,5 +1710,59 @@
   },
   "noticePageChangedDetail": {
     "message": "Some NexusMods Bypass features may not work here until the extension is updated. Nexus's own buttons still work. You can send details with \"Report a bug\" in the extension popup."
+  },
+  "btnSendReport": {
+    "message": "Send bug report"
+  },
+  "rpTitle": {
+    "message": "Send a bug report"
+  },
+  "rpIntro": {
+    "message": "Nothing is sent until you press Send. Below is exactly what will be sent: names, e-mail addresses, file paths, cookies, tokens and link parameters are removed."
+  },
+  "rpNote": {
+    "message": "What happened? (optional)"
+  },
+  "rpContact": {
+    "message": "E-mail for a reply (optional, sent only if you fill it in)"
+  },
+  "rpIncludeLogs": {
+    "message": "Include debug logs (only recorded while \"Debug logs\" is on)"
+  },
+  "rpPreview": {
+    "message": "Exact report"
+  },
+  "rpSend": {
+    "message": "Send report"
+  },
+  "rpCopy": {
+    "message": "Copy report"
+  },
+  "rpGithub": {
+    "message": "Open a GitHub issue instead"
+  },
+  "rpAuto": {
+    "message": "Send anonymous error reports automatically"
+  },
+  "rpAutoDesc": {
+    "message": "Off by default. When on, only the error code, where it happened and the extension and browser versions are sent, at most ten a day. No page content, history or settings."
+  },
+  "rpSent": {
+    "message": "Report sent. Thank you! Reference: $1"
+  },
+  "rpSendFailed": {
+    "message": "The report could not be sent. Copy it or open a GitHub issue instead."
+  },
+  "rpPermissionDenied": {
+    "message": "Permission to reach the report server was not granted. Copy the report or open a GitHub issue instead."
+  },
+  "rpCopied": {
+    "message": "Report copied to the clipboard."
+  },
+  "ratingPromptRuns": {
+    "message": "$1 collections downloaded. If it saved you time, a short review or a GitHub star helps a lot."
+  },
+  "ratingLater": {
+    "message": "Later"
   }
 }

@@ -364,7 +364,7 @@ window.NexusExt = window.NexusExt || {};
         <div class="nxtk-modal-footer nxtk-alert-footer nxtk-error-footer">
           ${normalized.blocking
             ? `<a class="nxtk-btn nxtk-btn-secondary" href="${escapeHtml(NXTK.TROUBLESHOOTING_URL)}" target="_blank" rel="noopener noreferrer">${escapeHtml(NXTK.t('dlgWhatDoesThisMean', null, 'What does this mean?'))}</a>`
-            : `<button class="nxtk-btn nxtk-btn-secondary" type="button" data-report>${escapeHtml(NXTK.t('dlgReportBug', null, 'Report a bug'))}</button>`}
+            : `<button class="nxtk-btn nxtk-btn-secondary" type="button" data-send-report>${escapeHtml(NXTK.t('btnSendReport', null, 'Send bug report'))}</button><button class="nxtk-btn nxtk-btn-secondary" type="button" data-report>${escapeHtml(NXTK.t('dlgReportBug', null, 'Report a bug'))}</button>`}
           ${requiresLogin
             ? `<button class="nxtk-btn nxtk-btn-primary" type="button" data-login>${escapeHtml(NXTK.t('btnSignIn', null, 'Sign in to Nexus Mods'))}</button>`
             : canRetry
@@ -375,6 +375,12 @@ window.NexusExt = window.NexusExt || {};
 
       const reportButton = modal.querySelector('[data-report]');
       reportButton?.addEventListener('click', () => copyReportAndOpenIssue(reportButton, normalized));
+      // The report page previews the exact payload; the error is already in the log it reads.
+      modal.querySelector('[data-send-report]')?.addEventListener('click', () => {
+        try {
+          chrome.runtime.sendMessage({ type: 'OPEN_REPORT_PAGE' }, () => void chrome.runtime.lastError);
+        } catch (_) { }
+      });
       modal.querySelector('[data-login]')?.addEventListener('click', () => {
         close();
         NexusExt.Auth?.openLogin?.();

@@ -1398,5 +1398,59 @@
   },
   "noticePageChangedDetail": {
     "message": "Alcune funzioni di NexusMods Bypass potrebbero non funzionare qui finché l'estensione non viene aggiornata. I pulsanti di Nexus funzionano comunque. Puoi inviare i dettagli con «Segnala un bug» nel popup dell'estensione."
+  },
+  "btnSendReport": {
+    "message": "Invia segnalazione bug"
+  },
+  "rpTitle": {
+    "message": "Invia una segnalazione di bug"
+  },
+  "rpIntro": {
+    "message": "Non viene inviato nulla finché non premi Invia. Qui sotto c’è esattamente ciò che verrà inviato: nomi, indirizzi e-mail, percorsi di file, cookie, token e parametri dei link vengono rimossi."
+  },
+  "rpNote": {
+    "message": "Cos’è successo? (facoltativo)"
+  },
+  "rpContact": {
+    "message": "E-mail per una risposta (facoltativa, inviata solo se la compili)"
+  },
+  "rpIncludeLogs": {
+    "message": "Includi i log di debug (registrati solo mentre «Log di debug» è attivo)"
+  },
+  "rpPreview": {
+    "message": "Segnalazione esatta"
+  },
+  "rpSend": {
+    "message": "Invia segnalazione"
+  },
+  "rpCopy": {
+    "message": "Copia segnalazione"
+  },
+  "rpGithub": {
+    "message": "Apri invece una issue su GitHub"
+  },
+  "rpAuto": {
+    "message": "Invia automaticamente segnalazioni di errore anonime"
+  },
+  "rpAutoDesc": {
+    "message": "Disattivato per impostazione predefinita. Se attivo, vengono inviati solo il codice di errore, dove è avvenuto e le versioni di estensione e browser, al massimo dieci al giorno. Nessun contenuto di pagina, cronologia o impostazione."
+  },
+  "rpSent": {
+    "message": "Segnalazione inviata. Grazie! Riferimento: $1"
+  },
+  "rpSendFailed": {
+    "message": "Impossibile inviare la segnalazione. Copiala o apri invece una issue su GitHub."
+  },
+  "rpPermissionDenied": {
+    "message": "Il permesso per contattare il server delle segnalazioni non è stato concesso. Copia la segnalazione o apri una issue su GitHub."
+  },
+  "rpCopied": {
+    "message": "Segnalazione copiata negli appunti."
+  },
+  "ratingPromptRuns": {
+    "message": "$1 collezioni scaricate. Se ti ha fatto risparmiare tempo, una breve recensione o una stella su GitHub aiuta molto."
+  },
+  "ratingLater": {
+    "message": "Più tardi"
   }
 }

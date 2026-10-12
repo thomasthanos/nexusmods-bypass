@@ -26,7 +26,7 @@ function loadShared({
   const reads = [];
   const context = {
     console, URL, URLSearchParams, Date, Math, Number, String, Object, Array, Set, Map,
-    Promise, RegExp, JSON, Intl, WeakMap, setTimeout, clearTimeout, parseInt, isNaN,
+    Promise, RegExp, JSON, Intl, WeakMap, TextEncoder, setTimeout, clearTimeout, parseInt, isNaN,
     navigator: { userAgent, language: 'en-GB' },
     location: { href: 'https://www.nexusmods.com/skyrim/mods/1?tab=files&file_id=2', hostname: 'www.nexusmods.com' },
     document: { querySelector: () => null, querySelectorAll: () => [] },
@@ -64,6 +64,79 @@ function loadShared({
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
   return { NXTK: context.NXTK, reads, store };
+}
+
+function personalRedactionTests() {
+  const { NXTK } = loadShared();
+  const clean = (text) => NXTK.sanitizeDiagnosticText(text);
+  assert.equal(clean('mail me at jane.doe@example.com'), 'mail me at [email]');
+  assert.equal(clean('saved to C:\\Users\\Jane\\Downloads\\x.zip'), 'saved to [home]\\Downloads\\x.zip');
+  assert.equal(clean('/home/jane/mods/a.7z and /Users/bob/x'), '[home]/mods/a.7z and [home]/x');
+  assert.match(clean('https://www.nexusmods.com/users/janedoe?tab=x'), /\/users\/\[user\]$/);
+  assert.equal(clean('Cookie: nexusmods_session=abc; other=1'), 'Cookie: [redacted]');
+  assert.equal(clean('Authorization header Bearer abc.def-ghi'), 'Authorization header Bearer [redacted]');
+  assert.equal(clean('t=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijk'), 't=[jwt]');
+  assert.equal(clean('key 0123456789abcdef0123456789abcdef'), 'key [token]');
+  assert.equal(clean('file_id 734848 of mod 12604'), 'file_id 734848 of mod 12604', 'ordinary numbers stay');
+}
+
+async function reportPayloadTests() {
+  const { NXTK, store } = loadShared({
+    settings: { DownloadFolder: 'C:\\Users\\Jane\\Mods', DebugLogs: true },
+    errors: [loggedError({ technicalMessage: 'failed for jane@example.com at /home/jane/x' })]
+  });
+  store[NXTK.DEBUG_LOG_KEY] = [{ at: Date.now(), level: 'info', page: 'mod-file', text: 'opened /Users/jane/a with token=abc' }];
+  const payload = await NXTK.buildReportPayload(null, { note: 'it broke, mail jane@example.com', contact: 'not-an-email' });
+  const text = JSON.stringify(payload);
+  assert.equal(payload.schema, 1);
+  assert.equal(payload.kind, 'manual');
+  assert.equal(payload.version, '2.6.0');
+  assert.equal(payload.settings.DownloadFolder, 'custom', 'the folder path is not reported');
+  assert.equal(payload.settings.DebugLogs, true);
+  assert.equal(payload.contact, '', 'an invalid contact is dropped');
+  assert.equal(payload.logs.length, 1);
+  assert.doesNotMatch(text, /jane|Jane|token=abc/, 'no personal data reaches the payload');
+  assert.ok(new TextEncoder().encode(text).length <= NXTK.MAX_REPORT_BYTES);
+  const noLogs = await NXTK.buildReportPayload(null, { includeDebug: false });
+  assert.equal(noLogs.logs.length, 0, 'logs can be left out');
+
+  store[NXTK.DEBUG_LOG_KEY] = Array.from({ length: 400 }, (_, i) => ({ at: i, level: 'info', page: 'x', text: 'y'.repeat(390) + i }));
+  const big = await NXTK.buildReportPayload(null, {});
+  assert.ok(new TextEncoder().encode(JSON.stringify(big)).length <= NXTK.MAX_REPORT_BYTES, 'large logs are trimmed to fit');
+
+  const calls = [];
+  const result = await NXTK.sendReportPayload(payload, {
+    fetchImpl: async (url, init) => { calls.push({ url, init }); return { ok: true, status: 200, json: async () => ({ ok: true, id: 'abc123' }) }; }
+  });
+  assert.equal(calls[0].url, NXTK.RELAY_REPORT_URL);
+  assert.equal(calls[0].init.credentials, 'omit', 'no cookies go to the relay');
+  assert.deepEqual({ ...result }, { ok: true, status: 200, id: 'abc123', error: '' });
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true })
+    .flatMap((e) => (e.isDirectory() ? walk(`${dir}/${e.name}`) : [`${dir}/${e.name}`]));
+  for (const file of walk('src').filter((f) => /\.(js|json|html)$/.test(f))) {
+    assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /discord(app)?\.com\/api\/webhooks/i, `${file} carries no webhook`);
+  }
+}
+
+async function runPromptTests() {
+  const { NXTK, store } = loadShared({ total: 3 });
+  assert.equal(await NXTK.prepareRatingPrompt({ includeRuns: true }), null, 'nothing before five runs');
+  for (let i = 0; i < 5; i += 1) await NXTK.recordFinishedRun();
+  assert.equal(store.nxtk_runs_finished, 5);
+  const prompt = await NXTK.prepareRatingPrompt({ includeRuns: true });
+  assert.equal(prompt.kind, 'runs');
+  assert.match(prompt.copy, /5 collections/);
+  assert.equal(prompt.laterText, 'Later');
+  assert.equal(await NXTK.prepareRatingPrompt(), null, 'the popup (no runs) is not asked by run count');
+  NXTK.snoozeRatingPrompt();
+  await new Promise((r) => setTimeout(r, 5));
+  assert.ok(store.nxtk_rating_state.snoozeUntil > Date.now() + 13 * 86400000, 'Later snoozes two weeks');
+  assert.equal(await NXTK.prepareRatingPrompt({ includeRuns: true }), null, 'not asked while snoozed');
+  store.nxtk_rating_state.snoozeUntil = Date.now() - 1;
+  assert.ok(await NXTK.prepareRatingPrompt({ includeRuns: true }), 'asked again after the snooze');
+  NXTK.markRunPromptAnswered();
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(await NXTK.prepareRatingPrompt({ includeRuns: true }), null, 'closing it ends the run-based ask');
 }
 
 function loggedError(overrides = {}) {
@@ -442,6 +515,9 @@ Promise.resolve()
   .then(ratingSurfaceTests)
   .then(activityTrailTests)
   .then(settingLimitTests)
+  .then(personalRedactionTests)
+  .then(reportPayloadTests)
+  .then(runPromptTests)
   .then(() => console.log('bug report builder behavior OK'))
   .catch((error) => {
     console.error(error);

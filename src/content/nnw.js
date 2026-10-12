@@ -1923,6 +1923,7 @@ window.NexusExt = window.NexusExt || {};
   async function init() {
     cfg = await NexusExt.Storage.getSettings();
     NXTK.setForceEnglish(cfg.ForceEnglish);
+    NXTK.setDebugLogging?.(cfg.DebugLogs);
     syncNativeFallbackState();
     if (!listenersAttached) {
       attachClickInterceptor();
@@ -1971,6 +1972,7 @@ window.NexusExt = window.NexusExt || {};
     const previousCfg = { ...cfg };
     cfg = { ...(NexusExt.Storage?.DEFAULTS || {}), ...(newCfg || {}) };
     NXTK.setForceEnglish(cfg.ForceEnglish);
+    NXTK.setDebugLogging?.(cfg.DebugLogs);
 
     if (!cfg.AutoCloseTab) cancelScheduledTabClose();
     if (isNativeFallbackActive()) startNativeFallbackIfReady();

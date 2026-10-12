@@ -1314,5 +1314,59 @@
   },
   "noticePageChangedDetail": {
     "message": "在扩展更新之前，NexusMods Bypass 的部分功能可能无法在此使用。Nexus 自带的按钮仍可正常使用。你可以通过扩展弹窗中的“报告问题”发送详情。"
+  },
+  "btnSendReport": {
+    "message": "发送错误报告"
+  },
+  "rpTitle": {
+    "message": "发送错误报告"
+  },
+  "rpIntro": {
+    "message": "在你点击“发送”之前不会发送任何内容。下面就是将要发送的完整内容：姓名、邮箱地址、文件路径、Cookie、令牌和链接参数都会被移除。"
+  },
+  "rpNote": {
+    "message": "发生了什么？（可选）"
+  },
+  "rpContact": {
+    "message": "用于回复的邮箱（可选，仅在填写时发送）"
+  },
+  "rpIncludeLogs": {
+    "message": "包含调试日志（仅在开启“调试日志”时记录）"
+  },
+  "rpPreview": {
+    "message": "将要发送的报告"
+  },
+  "rpSend": {
+    "message": "发送报告"
+  },
+  "rpCopy": {
+    "message": "复制报告"
+  },
+  "rpGithub": {
+    "message": "改为打开 GitHub Issue"
+  },
+  "rpAuto": {
+    "message": "自动发送匿名错误报告"
+  },
+  "rpAutoDesc": {
+    "message": "默认关闭。开启后仅发送错误代码、发生位置以及扩展和浏览器版本，每天最多十条。不发送页面内容、历史或设置。"
+  },
+  "rpSent": {
+    "message": "报告已发送，谢谢！参考编号：$1"
+  },
+  "rpSendFailed": {
+    "message": "无法发送报告。请复制报告或改为打开 GitHub Issue。"
+  },
+  "rpPermissionDenied": {
+    "message": "未获得访问报告服务器的权限。请复制报告或打开 GitHub Issue。"
+  },
+  "rpCopied": {
+    "message": "报告已复制到剪贴板。"
+  },
+  "ratingPromptRuns": {
+    "message": "已下载 $1 个合集。如果它帮你节省了时间，一条简短评价或 GitHub 星标会很有帮助。"
+  },
+  "ratingLater": {
+    "message": "稍后"
   }
 }

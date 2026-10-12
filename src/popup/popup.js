@@ -355,6 +355,11 @@
       );
     });
 
+    document.getElementById('sendReport')?.addEventListener('click', () => {
+      NXTK.setActivity({ trigger: 'popup' });
+      createTab(chrome.runtime.getURL('report-page/report.html'));
+    });
+
     document.getElementById('reportBug').addEventListener('click', async () => {
       NXTK.setActivity({ trigger: 'popup' });
       let issueUrl = NXTK.REPORT_ISSUE_URL;

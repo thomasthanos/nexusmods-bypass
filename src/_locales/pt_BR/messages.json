@@ -1398,5 +1398,59 @@
   },
   "noticePageChangedDetail": {
     "message": "Alguns recursos do NexusMods Bypass podem não funcionar aqui até a extensão ser atualizada. Os botões do próprio Nexus continuam funcionando. Você pode enviar detalhes com “Relatar um bug” no pop-up da extensão."
+  },
+  "btnSendReport": {
+    "message": "Enviar relatório de bug"
+  },
+  "rpTitle": {
+    "message": "Enviar um relatório de bug"
+  },
+  "rpIntro": {
+    "message": "Nada é enviado até você clicar em Enviar. Abaixo está exatamente o que será enviado: nomes, e-mails, caminhos de arquivos, cookies, tokens e parâmetros de links são removidos."
+  },
+  "rpNote": {
+    "message": "O que aconteceu? (opcional)"
+  },
+  "rpContact": {
+    "message": "E-mail para resposta (opcional, enviado só se você preencher)"
+  },
+  "rpIncludeLogs": {
+    "message": "Incluir logs de depuração (gravados só enquanto “Logs de depuração” estiver ativado)"
+  },
+  "rpPreview": {
+    "message": "Relatório exato"
+  },
+  "rpSend": {
+    "message": "Enviar relatório"
+  },
+  "rpCopy": {
+    "message": "Copiar relatório"
+  },
+  "rpGithub": {
+    "message": "Abrir uma issue no GitHub"
+  },
+  "rpAuto": {
+    "message": "Enviar relatórios de erro anônimos automaticamente"
+  },
+  "rpAutoDesc": {
+    "message": "Desativado por padrão. Quando ativado, só o código do erro, onde aconteceu e as versões da extensão e do navegador são enviados, no máximo dez por dia. Nenhum conteúdo de página, histórico ou configuração."
+  },
+  "rpSent": {
+    "message": "Relatório enviado. Obrigado! Referência: $1"
+  },
+  "rpSendFailed": {
+    "message": "Não foi possível enviar o relatório. Copie-o ou abra uma issue no GitHub."
+  },
+  "rpPermissionDenied": {
+    "message": "A permissão para acessar o servidor de relatórios não foi concedida. Copie o relatório ou abra uma issue no GitHub."
+  },
+  "rpCopied": {
+    "message": "Relatório copiado para a área de transferência."
+  },
+  "ratingPromptRuns": {
+    "message": "$1 coleções baixadas. Se isso te poupou tempo, uma avaliação curta ou uma estrela no GitHub ajuda muito."
+  },
+  "ratingLater": {
+    "message": "Mais tarde"
   }
 }

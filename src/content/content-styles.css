@@ -870,6 +870,20 @@
   line-height: 20px;
   cursor: pointer;
 }
+.nxtk-deck-ask-later {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 2px 10px;
+  border: 1px solid var(--nxtk-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nxtk-text-muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.nxtk-deck-ask-later:hover,
+.nxtk-deck-ask-later:focus-visible,
 .nxtk-deck-ask-dismiss:hover,
 .nxtk-deck-ask-dismiss:focus-visible {
   color: var(--nxtk-text-bright);

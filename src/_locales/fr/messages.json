@@ -1398,5 +1398,59 @@
   },
   "noticePageChangedDetail": {
     "message": "Certaines fonctions de NexusMods Bypass peuvent ne pas fonctionner ici tant que l’extension n’est pas mise à jour. Les boutons de Nexus fonctionnent toujours. Vous pouvez envoyer des détails avec « Signaler un bug » dans la fenêtre de l’extension."
+  },
+  "btnSendReport": {
+    "message": "Envoyer un rapport de bug"
+  },
+  "rpTitle": {
+    "message": "Envoyer un rapport de bug"
+  },
+  "rpIntro": {
+    "message": "Rien n’est envoyé avant que vous appuyiez sur Envoyer. Voici exactement ce qui sera envoyé : noms, adresses e-mail, chemins de fichiers, cookies, jetons et paramètres de liens sont retirés."
+  },
+  "rpNote": {
+    "message": "Que s’est-il passé ? (facultatif)"
+  },
+  "rpContact": {
+    "message": "E-mail pour une réponse (facultatif, envoyé seulement si vous le remplissez)"
+  },
+  "rpIncludeLogs": {
+    "message": "Inclure les journaux de débogage (enregistrés seulement quand « Journaux de débogage » est activé)"
+  },
+  "rpPreview": {
+    "message": "Rapport exact"
+  },
+  "rpSend": {
+    "message": "Envoyer le rapport"
+  },
+  "rpCopy": {
+    "message": "Copier le rapport"
+  },
+  "rpGithub": {
+    "message": "Ouvrir plutôt un ticket GitHub"
+  },
+  "rpAuto": {
+    "message": "Envoyer automatiquement des rapports d’erreur anonymes"
+  },
+  "rpAutoDesc": {
+    "message": "Désactivé par défaut. Activé, seuls le code d’erreur, l’endroit où elle s’est produite et les versions de l’extension et du navigateur sont envoyés, dix par jour au maximum. Aucun contenu de page, historique ni réglage."
+  },
+  "rpSent": {
+    "message": "Rapport envoyé. Merci ! Référence : $1"
+  },
+  "rpSendFailed": {
+    "message": "Le rapport n’a pas pu être envoyé. Copiez-le ou ouvrez plutôt un ticket GitHub."
+  },
+  "rpPermissionDenied": {
+    "message": "L’autorisation d’accéder au serveur de rapports n’a pas été accordée. Copiez le rapport ou ouvrez un ticket GitHub."
+  },
+  "rpCopied": {
+    "message": "Rapport copié dans le presse-papiers."
+  },
+  "ratingPromptRuns": {
+    "message": "$1 collections téléchargées. Si cela vous a fait gagner du temps, un court avis ou une étoile sur GitHub aide beaucoup."
+  },
+  "ratingLater": {
+    "message": "Plus tard"
   }
 }
