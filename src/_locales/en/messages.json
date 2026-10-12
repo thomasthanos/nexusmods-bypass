@@ -783,7 +783,7 @@
     "description": "Setting label."
   },
   "setPauseBetweenModsDesc": {
-    "message": "Vortex mode only. Added to the estimate above. Set it to 0 to switch the wait off entirely — including the size estimate — and hand every file to Vortex back to back, letting Vortex queue them itself.",
+    "message": "Vortex mode only. Added to the estimate above. Set it to 0 to switch off the size estimate and let Vortex queue the files itself; a 2-second gap between hand-offs always remains.",
     "description": "Setting description."
   },
   "dlgHistoryTitle": {

@@ -728,10 +728,10 @@ async function fetchNdcResponse(url, options, timeoutMs) {
 
 const MIN_NDC_ALARM_DELAY_MS = 30000;
 
-function retryAfterMilliseconds(raw, strike = 1) {
+function retryAfterMilliseconds(raw, strike = 1, random = Math.random) {
   const seconds = NXTK.parseRetryAfterSeconds(raw);
   if (seconds !== null) return Math.max(MIN_NDC_ALARM_DELAY_MS, seconds * 1000);
-  return NXTK.rateLimitBackoffSeconds(strike) * 1000;
+  return NXTK.withJitter(NXTK.rateLimitBackoffSeconds(strike) * 1000, random);
 }
 
 async function readSharedRateLimitUntil() {
@@ -898,6 +898,8 @@ async function finishNdcJob(job) {
 }
 
 const NDC_RESOLVE_RETRY_DELAY_MS = 1500;
+const NDC_RESOLVE_RETRY_MAX_MS = 15000;
+const NDC_RESOLVE_MAX_ATTEMPTS = 3;
 const BLOCKING_RESOLVE_CODES = new Set(['requires_login', 'cloudflare', 'account_suspended']);
 
 // Never finish here: that would report success and clear history for files never downloaded.
@@ -1061,14 +1063,14 @@ async function advanceNdcJob(jobId) {
         return null;
       }
       const attempts = Number(job.resolveAttempts || 0) + 1;
-      if (attempts < 2) {
+      if (attempts < NDC_RESOLVE_MAX_ATTEMPTS) {
         const transition = await mutateNdcJobIf(
           job.id,
           idleOnItem(startIndex),
           (current) => { current.resolveAttempts = attempts; }
         );
         if (!transition.applied) return null;
-        await waitMs(NDC_RESOLVE_RETRY_DELAY_MS);
+        await waitMs(NXTK.retryDelayMs(attempts, NDC_RESOLVE_RETRY_DELAY_MS, NDC_RESOLVE_RETRY_MAX_MS));
         continue;
       }
       const failureCode = resolved.code || 'request_failed';

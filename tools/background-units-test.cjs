@@ -60,12 +60,22 @@ const { mutateNdcJob, readNdcJob, saveNdcJob, storageSetLocal, storageGetLocal, 
 const { __handleNdcDownloadTerminal: handleNdcDownloadTerminal,
   __recordQueueItemFailure: recordQueueItemFailure } = context;
 
-assert.equal(retryAfterMilliseconds('', 1), 30000, 'first strike backs off 30s');
-assert.equal(retryAfterMilliseconds('', 2), 60000, 'second strike doubles');
-assert.equal(retryAfterMilliseconds('', 3), 120000, 'third strike doubles again');
-assert.equal(retryAfterMilliseconds(undefined, 4), 240000, 'a missing header escalates like an empty one');
-assert.equal(retryAfterMilliseconds('   ', 3), 120000, 'a whitespace header counts as absent');
-assert.equal(retryAfterMilliseconds('', 20), 600000, 'the ladder is capped at 10 minutes');
+assert.equal(retryAfterMilliseconds('', 1, () => 0), 30000, 'first strike backs off 30s');
+assert.equal(retryAfterMilliseconds('', 2, () => 0), 60000, 'second strike doubles');
+assert.equal(retryAfterMilliseconds('', 3, () => 0), 120000, 'third strike doubles again');
+assert.equal(retryAfterMilliseconds(undefined, 4, () => 0), 240000, 'a missing header escalates like an empty one');
+assert.equal(retryAfterMilliseconds('   ', 3, () => 0), 120000, 'a whitespace header counts as absent');
+assert.equal(retryAfterMilliseconds('', 20, () => 0), 600000, 'the ladder is capped at 10 minutes');
+{
+  const jittered = retryAfterMilliseconds('', 1);
+  assert.ok(jittered >= 30000 && jittered <= 36000, 'a computed backoff gets up to 20% jitter, never less');
+  assert.equal(retryAfterMilliseconds('', 1, () => 1), 36000, 'and the jitter is capped at 20%');
+  const d1 = context.NXTK.retryDelayMs(1, 1500, 15000, () => 0);
+  const d3 = context.NXTK.retryDelayMs(3, 1500, 15000, () => 1);
+  assert.equal(d1, 750, 'a first retry waits at least half the base');
+  assert.equal(d3, 6000, 'retries grow exponentially');
+  assert.equal(context.NXTK.retryDelayMs(10, 1500, 15000, () => 1), 15000, 'and are capped');
+}
 assert.equal(retryAfterMilliseconds('120', 1), 120000, 'an explicit Retry-After still wins');
 assert.equal(retryAfterMilliseconds('0', 1), 30000, 'an explicit 0 still respects the alarm floor');
 

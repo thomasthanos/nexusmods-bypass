@@ -232,6 +232,21 @@
     return Number.isNaN(asDate) ? null : Math.max(0, Math.round((asDate - Date.now()) / 1000));
   }
 
+  const MIN_HANDOFF_GAP_SECONDS = 2;
+
+  // Exponential backoff with "equal jitter": half the step is fixed, half is random, so several tabs
+  // or a restarted worker that failed together do not retry in lockstep.
+  function retryDelayMs(attempt, baseMs = 1500, maxMs = 30000, random = Math.random) {
+    const step = Math.max(0, (Number(attempt) || 1) - 1);
+    const ceiling = Math.min(baseMs * Math.pow(2, step), maxMs);
+    return Math.round(ceiling / 2 + random() * (ceiling / 2));
+  }
+
+  // Up to +20% on a computed rate-limit wait; never shortens what Nexus asked for.
+  function withJitter(ms, random = Math.random) {
+    return Math.round(ms * (1 + 0.2 * random()));
+  }
+
   function rateLimitBackoffSeconds(strike) {
     const step = Math.max(0, (Number(strike) || 1) - 1);
     return Math.min(RATE_LIMIT_BASE_SECONDS * Math.pow(2, step), RATE_LIMIT_MAX_SECONDS);
@@ -685,6 +700,9 @@
     RATE_LIMIT_MAX_STRIKES,
     parseRetryAfterSeconds,
     rateLimitBackoffSeconds,
+    retryDelayMs,
+    withJitter,
+    MIN_HANDOFF_GAP_SECONDS,
     CLOUDFLARE_SKIP_LIMIT,
     MAX_TRACKED_SKIPS,
     queueSkipReason,
