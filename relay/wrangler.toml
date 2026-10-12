@@ -7,12 +7,10 @@ workers_dev = true
 # Origins allowed by CORS (prefix match). Extension pages send their own origin.
 ALLOWED_ORIGINS = "chrome-extension://,moz-extension://,extension://"
 
-# Optional: durable per-IP rate limiting. Create with
-#   npx wrangler kv namespace create RATE_LIMIT
-# and paste the id below, then uncomment. Without it an in-memory limiter is used.
-# [[kv_namespaces]]
-# binding = "RATE_LIMIT"
-# id = "<your-kv-namespace-id>"
+# Shared counters and auto-report fingerprints across Worker instances (eventually consistent).
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "05224173d3444f47a4130c0061ed3b09"
 
 # Secrets (never put them in this file):
 #   npx wrangler secret put DISCORD_WEBHOOK_URL

@@ -14,6 +14,7 @@
     DEFAULTS,
     sanitizeDiagnosticText,
     sanitizeUrlForReport,
+    reportPagePath,
     describeActivity,
     describeActivityTrail,
     readTotalDownloads
@@ -569,17 +570,6 @@
       return payload;
     } finally {
       if (ownsCache) reportCache = null;
-    }
-  }
-
-  // Path only (no query or fragment) of the Nexus page an error happened on, for the relay's Page field.
-  function reportPagePath(url) {
-    try {
-      const parsed = new URL(String(url || ''));
-      if (!/(^|\.)nexusmods\.com$/i.test(parsed.hostname)) return '';
-      return sanitizeDiagnosticText(parsed.pathname, 200).replace(/[?#].*$/, '');
-    } catch (_) {
-      return '';
     }
   }
 

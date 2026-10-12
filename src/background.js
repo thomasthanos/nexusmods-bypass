@@ -145,6 +145,8 @@ async function maybeAutoReport(entry, { now = Date.now(), fetchImpl = globalThis
       message: String(entry.technicalMessage || '').slice(0, 300)
     }
   };
+  const page = NXTK.reportPagePath(entry.url);
+  if (page) payload.page = page;
   await storageSetLocal(AUTO_REPORT_STATE_KEY, {
     ...today, lastAt: now, count: today.count + 1, sent: { ...(today.sent || {}), [fingerprint]: true }
   });

@@ -10,7 +10,9 @@ Deployed on 2026-10-12 at https://nexusmods-bypass-relay.mariosthanos3.workers.d
 The Discord destination is stored as the Cloudflare Worker secret `DISCORD_WEBHOOK_URL`.
 The live health check returned `ok: true, configured: true`, and a test report was accepted by Discord.
 `RELAY_CONFIGURED` is enabled in the extension. The first send still asks for the optional relay
-host permission. KV-backed rate limiting and e-mail are not configured.
+host permission. KV-backed rate limiting and auto-report dedupe use the `RATE_LIMIT` binding in
+`wrangler.toml`. KV is eventually consistent: this shares counters across instances but does not
+provide a strict atomic limit. E-mail is not configured.
 
 ## What it does
 - `POST /v1/report`, JSON only, at most 64 KB, schema version 1 (see `validateReport` in `worker.js`).

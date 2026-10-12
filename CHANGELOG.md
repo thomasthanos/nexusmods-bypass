@@ -7,16 +7,14 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
-## Unreleased
-
-- Relay: Discord embed colour by severity (critical/error/report), Page field, strict clamping to every Discord embed limit, 10-minute dedupe of identical auto errors (marked only after delivery succeeds).
-- GitHub fallback: area tag in the issue title and `labels` prefill (bug + area).
-- Reports carry the Nexus page path (no query/fragment) of the selected error.
-
 ## [Unreleased]
 
 ### Changed
 
+- Relay: Discord embed colour by severity (critical/error/report), Page field, strict clamping to every Discord embed limit, 10-minute dedupe of identical auto errors (marked only after delivery succeeds).
+- GitHub fallback: area tag in the issue title and `labels` prefill (bug + area).
+- Manual and automatic reports share the redacted Nexus page path (no query/fragment).
+- The deployed relay uses KV-backed rate limiting and auto-report dedupe across Worker instances.
 - The report page is now a custom, responsive workspace with problem categories, a short summary,
   reproduction steps, expected results, a readable diagnostic overview and an exact JSON view.
   Send, copy and save use the same reviewed snapshot. Replies use an optional e-mail address.

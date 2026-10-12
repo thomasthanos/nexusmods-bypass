@@ -536,6 +536,17 @@
     return text.slice(0, maxLength);
   }
 
+  // Used by both manual and automatic reports; send only a redacted Nexus path, without queries.
+  function reportPagePath(url) {
+    try {
+      const parsed = new URL(String(url || ''));
+      if (!/(^|\.)nexusmods\.com$/i.test(parsed.hostname)) return '';
+      return sanitizeDiagnosticText(parsed.pathname, 200).replace(/[?#].*$/, '');
+    } catch (_) {
+      return '';
+    }
+  }
+
   // Bug-report relay (relay/ in the repository). The extension holds no secret: the relay owns the
   // Discord webhook. Its origin is an optional host permission, asked for the first time a report is
   // sent, so installing this version adds no permission warning. Change RELAY_ORIGIN together with
@@ -933,6 +944,7 @@
     escapeHtml,
     sanitizeUrlForReport,
     sanitizeDiagnosticText,
+    reportPagePath,
     redactPersonalData,
     RELAY_ORIGIN,
     RELAY_CONFIGURED,
