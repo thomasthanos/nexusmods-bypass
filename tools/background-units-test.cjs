@@ -61,6 +61,17 @@ const { __handleNdcDownloadTerminal: handleNdcDownloadTerminal,
   __recordQueueItemFailure: recordQueueItemFailure } = context;
 
 {
+  const c = context.NXTK.classifyDownloadInterrupt;
+  assert.deepEqual({ ...c('NETWORK_FAILED') }, { kind: 'transient', retries: 2 }, 'a dropped connection gets two more tries');
+  assert.equal(c('SERVER_FORBIDDEN').kind, 'link', 'an expired link is retried with a fresh one');
+  assert.equal(c('SERVER_FORBIDDEN').retries, 1);
+  assert.equal(c('FILE_NO_SPACE').retries, 0, 'a full disk is not retried');
+  assert.equal(c('FILE_VIRUS_INFECTED').kind, 'blocked');
+  assert.equal(c('USER_CANCELED').retries, 0, 'a cancel by the user is respected');
+  assert.equal(c('short_file (12 KB of 4 MB)').kind, 'size');
+  assert.deepEqual({ ...c('') }, { kind: 'unknown', retries: 1 }, 'unknown keeps the old single retry');
+}
+{
   const trusted = context.isTrustedSender;
   assert.equal(trusted({ id: 'other', url: 'https://www.nexusmods.com/' }), false, 'another extension is refused');
   assert.equal(trusted({ id: 'test-extension-id', url: 'https://www.nexusmods.com/x' }), true, 'a Nexus page is trusted');

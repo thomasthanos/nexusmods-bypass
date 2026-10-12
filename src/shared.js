@@ -234,6 +234,31 @@
 
   const MIN_HANDOFF_GAP_SECONDS = 2;
 
+  // What a browser-download interrupt reason means for a retry. chrome.downloads names the reason
+  // (InterruptReason); Firefox uses the same strings. Transient network/server hiccups are retried
+  // (with backoff, one file at a time, through Nexus's normal link); problems a retry cannot fix
+  // (disk full, access denied, blocked by the browser, the user cancelling) are not.
+  const DOWNLOAD_INTERRUPTS = Object.freeze({
+    transient: ['NETWORK_FAILED', 'NETWORK_TIMEOUT', 'NETWORK_DISCONNECTED', 'NETWORK_SERVER_DOWN',
+      'NETWORK_INVALID_REQUEST', 'SERVER_FAILED', 'SERVER_NO_RANGE', 'SERVER_CONTENT_LENGTH_MISMATCH',
+      'SERVER_CROSS_ORIGIN_REDIRECT', 'FILE_FAILED', 'FILE_TRANSIENT_ERROR', 'FILE_HASH_MISMATCH', 'CRASH'],
+    // A signed link that expired or was refused: worth one more try with a freshly requested link.
+    link: ['SERVER_FORBIDDEN', 'SERVER_UNAUTHORIZED', 'SERVER_CERT_PROBLEM', 'SERVER_BAD_CONTENT'],
+    disk: ['FILE_NO_SPACE', 'FILE_ACCESS_DENIED', 'FILE_NAME_TOO_LONG', 'FILE_TOO_LARGE', 'FILE_TOO_SHORT'],
+    blocked: ['FILE_VIRUS_INFECTED', 'FILE_BLOCKED', 'FILE_SECURITY_CHECK_FAILED'],
+    user: ['USER_CANCELED', 'USER_SHUTDOWN']
+  });
+  const DOWNLOAD_RETRY_LIMITS = Object.freeze({ transient: 2, link: 1, unknown: 1, disk: 0, blocked: 0, user: 0, size: 1 });
+
+  function classifyDownloadInterrupt(error) {
+    const text = String(error || '').toUpperCase();
+    if (/\bEMPTY_FILE|SHORT_FILE|NOT_A_FILE|SIZE_MISMATCH/.test(text)) return { kind: 'size', retries: DOWNLOAD_RETRY_LIMITS.size };
+    for (const [kind, reasons] of Object.entries(DOWNLOAD_INTERRUPTS)) {
+      if (reasons.some((reason) => text.includes(reason))) return { kind, retries: DOWNLOAD_RETRY_LIMITS[kind] };
+    }
+    return { kind: 'unknown', retries: DOWNLOAD_RETRY_LIMITS.unknown };
+  }
+
   // Log lines carry a little markup (links to mods, emphasis). Rather than trust every caller to have
   // escaped its input before innerHTML, the markup is parsed inertly and rebuilt from an allowlist:
   // anything else becomes text, and links must point at http(s).
@@ -740,6 +765,7 @@
     retryDelayMs,
     withJitter,
     setSafeHtml,
+    classifyDownloadInterrupt,
     MIN_HANDOFF_GAP_SECONDS,
     CLOUDFLARE_SKIP_LIMIT,
     MAX_TRACKED_SKIPS,

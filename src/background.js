@@ -900,6 +900,8 @@ async function finishNdcJob(job) {
 const NDC_RESOLVE_RETRY_DELAY_MS = 1500;
 const NDC_RESOLVE_RETRY_MAX_MS = 15000;
 const NDC_RESOLVE_MAX_ATTEMPTS = 3;
+const NDC_TRANSFER_RETRY_BASE_MS = 2000;
+const NDC_TRANSFER_RETRY_MAX_MS = 20000;
 const BLOCKING_RESOLVE_CODES = new Set(['requires_login', 'cloudflare', 'account_suspended']);
 
 // Never finish here: that would report success and clear history for files never downloaded.
@@ -1583,9 +1585,16 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
   }
 
   const expectedTransferAttempts = Number(job.transferAttempts || 0);
+  // How many fresh attempts a failure earns depends on why it failed: a dropped connection is worth
+  // two more tries, a full disk or a browser block none.
+  const interrupt = effectiveState === 'complete' ? null : NXTK.classifyDownloadInterrupt(effectiveError);
   let plannedOutcome = effectiveState === 'complete'
     ? 'complete'
-    : (retryAllowed && expectedTransferAttempts < 1 ? 'retrying' : 'failed');
+    : (retryAllowed && expectedTransferAttempts < interrupt.retries ? 'retrying' : 'failed');
+  if (plannedOutcome === 'failed' && interrupt && interrupt.kind !== 'unknown' && effectiveError
+    && !String(effectiveError).includes(`[${interrupt.kind}]`)) {
+    effectiveError = `${effectiveError} [${interrupt.kind}]`;
+  }
 
   // A rejected complete file must be gone before activeDownloadId is released; otherwise the
   // retry is forced into a uniquified "(1)" name. The terminalNdcJobs lock around this handler
@@ -1665,6 +1674,8 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
         itemState: 'retrying',
         error: effectiveError || 'interrupted'
       });
+      // Back off before asking Nexus for the file again, so a flaky connection is not hammered.
+      await waitMs(NXTK.retryDelayMs(Number(job.transferAttempts || 1), NDC_TRANSFER_RETRY_BASE_MS, NDC_TRANSFER_RETRY_MAX_MS));
     } else {
       await recordQueueItemFailure(job, item, effectiveError || 'interrupted');
       notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
