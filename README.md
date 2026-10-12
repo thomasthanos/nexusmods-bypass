@@ -5,6 +5,15 @@
 <a href="https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/"><img src=".github/assets/btn-firefox.svg" alt="Get it for Firefox"></a>
 <a href="https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa"><img src=".github/assets/btn-edge.svg" alt="Get it for Edge"></a>
 
+<p>
+<a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/thomasthanos/nexusmods-bypass?style=flat-square&label=release&color=f0a24d"></a>
+<a href="https://github.com/thomasthanos/nexusmods-bypass/releases"><img alt="GitHub downloads" src="https://img.shields.io/github/downloads/thomasthanos/nexusmods-bypass/total?style=flat-square&label=downloads"></a>
+<a href="https://github.com/thomasthanos/nexusmods-bypass/actions/workflows/release-gate.yml"><img alt="Release gate" src="https://img.shields.io/github/actions/workflow/status/thomasthanos/nexusmods-bypass/release-gate.yml?style=flat-square&label=release%20gate"></a>
+<a href="LICENSE"><img alt="Licence: source-available" src="https://img.shields.io/badge/licence-source--available-555?style=flat-square"></a>
+<img alt="Chrome / Edge MV3" src="https://img.shields.io/badge/Chrome%20%C2%B7%20Edge-MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white">
+<img alt="Firefox 140+" src="https://img.shields.io/badge/Firefox-140%2B-FF7139?style=flat-square&logo=firefoxbrowser&logoColor=white">
+</p>
+
 <img src=".github/assets/highlights.svg" alt="Manifest V3 · 13 languages · local-first" width="600">
 
 [![Features](.github/assets/btn-features.svg)](#features)
@@ -12,6 +21,8 @@
 [![Settings](.github/assets/btn-settings.svg)](#settings)
 [![Privacy](.github/assets/btn-privacy.svg)](#privacy)
 [![Help](.github/assets/btn-troubleshooting.svg)](#help)
+
+<sub><a href="#bugs">Bug reports &amp; debug log</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="CONTRIBUTING.md">Contributing</a> · <a href="SECURITY.md">Security</a></sub>
 </div>
 
 ## <img src=".github/assets/icon-cloud.svg" width="20" align="middle"> In short
@@ -20,18 +31,20 @@ Queue a Nexus Mods collection, choose **Vortex** or **browser download**, and le
 
 **Version 3.0.0 — major update:** official Nexus API integration, more reliable queues and download clicks,
 responsive panels, a redesigned bug-report workspace, and a live debug-log page.
-See the [release notes](internal/docs/releases/3.0.0.md) for the complete 47-commit update history.
+See the [3.0.0 release](https://github.com/thomasthanos/nexusmods-bypass/releases/tag/3.0.0) and the [changelog](CHANGELOG.md) for the full history.
 
 <a id="features"></a>
 
 ## <img src=".github/assets/icon-sparkle.svg" width="20" align="middle"> Features
 
-- **Fewer clicks:** auto-start downloads, skip requirement screens and restore download buttons on archived files.
-- **Collection queue:** batch downloads, choose the mode per run, smallest files first, pause between mods and resume after rate limits. Removed mods are skipped instead of stopping the run, and listed with the reason at the end.
-- **Pick up where you left off:** local history, revision comparison and a time-left estimate in browser mode after the first file finishes.
-- **Wabbajack (beta):** import a `.wabbajack` file or a `.zip` containing one. Extract `.rar` and `.7z` first.
-- **Safer handoff:** Vortex tab countdown with **Keep open**, plus a browser fallback for Cloudflare verification and clear error messages.
-- **Extras:** optional ad and Premium-panel hiding, guided setup, an editable bug report draft and an optional support panel.
+- ⚡ **Fewer clicks:** auto-start downloads, skip requirement screens and restore download buttons on archived files.
+- 📦 **Collection queue:** batch downloads, choose the mode per run, smallest files first, pause between mods and resume after rate limits. Removed mods are skipped instead of stopping the run, and listed with the reason at the end.
+- 🔁 **Pick up where you left off:** local history, revision comparison and a time-left estimate in browser mode after the first file finishes.
+- 🔌 **Official Nexus API:** collection, revision and file details through the documented API, update badges and optional curator update policy, click-only Endorse/Track.
+- 🧩 **Wabbajack (beta):** import a `.wabbajack` file or a `.zip` containing one. Extract `.rar` and `.7z` first.
+- 🛟 **Safer handoff:** Vortex tab countdown with **Keep open**, plus a browser fallback for Cloudflare verification and clear error messages.
+- 🐞 **Bug reports & debug log:** a report workspace with a redacted preview, and an opt-in live debug log with filters and export.
+- 🧰 **Extras:** optional ad and Premium-panel hiding, guided setup and an optional support panel.
 
 **13 languages** and an **Always use English** switch are included.
 
@@ -63,6 +76,13 @@ If you want to install manually from the source releases:
 </details>
 
 > **Vortex mode:** keep Vortex running. The browser can confirm a link was sent, but cannot confirm that Vortex completed the download.
+
+## 🚀 Usage
+
+1. Sign in to Nexus Mods.
+2. **Single mod:** open its **Files** tab and press **Mod manager download** or **Manual download** as usual.
+3. **Collection:** open the collection page, pick **Vortex** or **browser download** in the collection panel and start the queue. Keep the tab open while it runs.
+4. Open the toolbar popup for quick switches, **Page settings**, and **Help & Bugs**.
 
 <a id="settings"></a>
 
@@ -135,11 +155,28 @@ Rate limits pause the queue temporarily; it resumes automatically. Keep the coll
 Choose **Skip Downloaded** when the history dialog appears. Cleared history cannot identify files already on disk.
 </details>
 
-<details>
-<summary><b>Report a bug</b></summary>
+<a id="bugs"></a>
 
-Open **Help & Bugs → Send bug report** to describe the problem, add reproduction steps and review the exact redacted diagnostic snapshot. Send it through the optional relay, copy/save it, or open a prefilled GitHub issue. **Debug log** provides a separate opt-in live log with search, level filters and export.
-</details>
+## 🐞 Bug reports & debug log
+
+- **Send bug report** (popup → **Help & Bugs**): pick an area, write a summary, steps and expected result, and review the exact redacted JSON before sending. Send it through the [report relay](relay/README.md) (the browser asks for the relay permission the first time), save or copy it, or open a prefilled [GitHub issue](https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose).
+- **Debug log** (popup → **Help & Bugs → Debug log**): opt-in live log with level filter, search, follow mode, clear and `.txt` / `.json` export. Turn it on from the page itself or with **Debug logs** in Page settings.
+- **Automatic error reports:** anonymous, **off** by default; can be switched on in the report page.
+
+Details on what is collected: [PRIVACY.md](PRIVACY.md).
+
+## 🤝 Contributing
+
+Focused pull requests and bug reports are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. Useful commands:
+
+```sh
+npm ci
+npm run lint
+npm run build          # runs every regression check, then packages Chrome and Firefox zips
+npm run test:visual    # Playwright layout and page tests
+```
+
+Release history: [CHANGELOG.md](CHANGELOG.md) · Security issues: [SECURITY.md](SECURITY.md)
 
 ## <img src=".github/assets/icon-license.svg" width="20" align="middle"> Licence
 
