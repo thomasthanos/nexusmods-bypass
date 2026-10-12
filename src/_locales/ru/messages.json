@@ -1683,5 +1683,17 @@
   },
   "wjHashNoMatch": {
     "message": "Не найдено на Nexus"
+  },
+  "dlgLargeRunTitle": {
+    "message": "Начать большую загрузку?"
+  },
+  "dlgLargeRunLead": {
+    "message": "В очередь будет добавлено модов: $1 ($2)."
+  },
+  "dlgLargeRunHelp": {
+    "message": "Файлы скачиваются по одному, это может занять часы. Можно приостановить или остановить в любой момент."
+  },
+  "dlgLargeRunStart": {
+    "message": "Скачать модов: $1"
   }
 }

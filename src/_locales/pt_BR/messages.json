@@ -1515,5 +1515,17 @@
   },
   "wjHashNoMatch": {
     "message": "Não encontrado no Nexus"
+  },
+  "dlgLargeRunTitle": {
+    "message": "Iniciar um download grande?"
+  },
+  "dlgLargeRunLead": {
+    "message": "Isso coloca $1 mods na fila ($2)."
+  },
+  "dlgLargeRunHelp": {
+    "message": "Os downloads acontecem um de cada vez e podem levar horas. Você pode pausar ou parar a qualquer momento."
+  },
+  "dlgLargeRunStart": {
+    "message": "Baixar $1 mods"
   }
 }

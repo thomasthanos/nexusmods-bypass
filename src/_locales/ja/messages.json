@@ -1431,5 +1431,17 @@
   },
   "wjHashNoMatch": {
     "message": "Nexus で見つかりません"
+  },
+  "dlgLargeRunTitle": {
+    "message": "大量のダウンロードを開始しますか？"
+  },
+  "dlgLargeRunLead": {
+    "message": "$1 件の MOD（$2）をキューに追加します。"
+  },
+  "dlgLargeRunHelp": {
+    "message": "ダウンロードは 1 件ずつ行われ、数時間かかることがあります。いつでも一時停止・停止できます。"
+  },
+  "dlgLargeRunStart": {
+    "message": "$1 件の MOD をダウンロード"
   }
 }

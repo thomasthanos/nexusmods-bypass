@@ -575,6 +575,41 @@
     });
   }
 
+  // A run this big is never started by one stray click (live test: an accidental "Download all mods"
+  // queued 2444 files). Above the threshold the user confirms; Cancel is the default.
+  const LARGE_RUN_CONFIRM_THRESHOLD = 50;
+
+  function confirmLargeRun(mods) {
+    const count = Array.isArray(mods) ? mods.length : 0;
+    if (count <= LARGE_RUN_CONFIRM_THRESHOLD) return Promise.resolve(true);
+    const totalKb = mods.reduce((sum, mod) => sum + (Number(mod?.file?.size) || 0), 0);
+    const size = convertSize(totalKb);
+    return new Promise((resolve) => {
+      const { modal } = openModal({
+        id: 'nxtk-large-run-modal',
+        className: 'nxtk-modal nxtk-modal-sm',
+        onClose: (choice) => resolve(choice === 'start'),
+        html: `
+        <div class="nxtk-modal-header">
+          <div class="nxtk-modal-title">${L('dlgLargeRunTitle', 'Start a large download?')}</div>
+          <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
+        </div>
+        <div class="nxtk-history-summary">
+          <div class="nxtk-history-copy">
+            <div class="nxtk-history-lead">${escapeHtml(NXTK.t('dlgLargeRunLead', [String(count), size], `This queues ${count} mods (${size}).`))}</div>
+            <div class="nxtk-history-text">${L('dlgLargeRunHelp', 'Downloads run one at a time and can take hours. You can pause or stop at any point.')}</div>
+          </div>
+        </div>
+        <div class="nxtk-modal-footer">
+          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-close>${L('btnCancel', 'Cancel')}</button>
+          <button type="button" class="nxtk-btn nxtk-btn-primary" data-close="start" id="nxtk-large-run-start">${escapeHtml(NXTK.t('dlgLargeRunStart', [String(count)], `Download ${count} mods`))}</button>
+        </div>
+      `
+      });
+      modal.querySelector('[data-close]:not([data-close="start"]).nxtk-btn')?.focus();
+    });
+  }
+
   function showHistoryDecisionModal({ downloadedCount, totalCount }) {
     return new Promise((resolve) => {
       const { modal } = openModal({
@@ -950,8 +985,9 @@
     const menu = $('#nxtk-dl-menu');
     const menuController = bindDropdownToggle($('#nxtk-menu-toggle'), menu, { portal: true });
 
-    const startCollectionDownload = (mods, type) => {
+    const startCollectionDownload = async (mods, type) => {
       menuController?.close();
+      if (!await confirmLargeRun(mods)) return;
       runUiTask(
         () => ndc.downloadMods(mods, type),
         { context: 'Starting collection download', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }
@@ -1563,7 +1599,7 @@
       updateCount();
     });
 
-    $('#nxtk-dl-selected').addEventListener('click', () => {
+    $('#nxtk-dl-selected').addEventListener('click', async () => {
       const selected = [];
       listEl.querySelectorAll('.nxtk-mod-item.nxtk-selected').forEach(el => {
         const mod = modsByEntryId.get(el.dataset.fileId);
@@ -1571,6 +1607,7 @@
       });
       if (!selected.length) { nxtkAlert(NXTK.t('alertPickOneMod', null, 'Select at least one mod.')); return; }
       close();
+      if (!await confirmLargeRun(selected)) return;
       runUiTask(
         () => ndc.downloadMods(selected),
         { context: 'Downloading selected mods', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }
@@ -1888,6 +1925,6 @@
     closeAll: closeAllDropdownMenus,
     cleanupOrphanedPortals
   };
-  Object.assign(window.NexusExt.UI, { createControlDeck, showVortexHandoffModal, showHistoryDecisionModal });
+  Object.assign(window.NexusExt.UI, { createControlDeck, showVortexHandoffModal, showHistoryDecisionModal, confirmLargeRun });
   kit.collection = { createControlDeck, disposeControlDeck, deckRunIsActive };
 })();

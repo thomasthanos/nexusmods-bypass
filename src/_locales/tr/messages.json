@@ -1515,5 +1515,17 @@
   },
   "wjHashNoMatch": {
     "message": "Nexus'ta bulunamadı"
+  },
+  "dlgLargeRunTitle": {
+    "message": "Büyük bir indirme başlatılsın mı?"
+  },
+  "dlgLargeRunLead": {
+    "message": "Bu, $1 modu ($2) sıraya ekler."
+  },
+  "dlgLargeRunHelp": {
+    "message": "İndirmeler tek tek yapılır ve saatler sürebilir. İstediğiniz an duraklatabilir veya durdurabilirsiniz."
+  },
+  "dlgLargeRunStart": {
+    "message": "$1 modu indir"
   }
 }

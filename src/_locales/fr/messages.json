@@ -1515,5 +1515,17 @@
   },
   "wjHashNoMatch": {
     "message": "Introuvable sur Nexus"
+  },
+  "dlgLargeRunTitle": {
+    "message": "Lancer un gros téléchargement ?"
+  },
+  "dlgLargeRunLead": {
+    "message": "Cela met $1 mods en file ($2)."
+  },
+  "dlgLargeRunHelp": {
+    "message": "Les téléchargements se font un par un et peuvent prendre des heures. Vous pouvez mettre en pause ou arrêter à tout moment."
+  },
+  "dlgLargeRunStart": {
+    "message": "Télécharger $1 mods"
   }
 }

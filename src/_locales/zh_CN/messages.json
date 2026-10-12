@@ -1431,5 +1431,17 @@
   },
   "wjHashNoMatch": {
     "message": "在 Nexus 上未找到"
+  },
+  "dlgLargeRunTitle": {
+    "message": "要开始大量下载吗？"
+  },
+  "dlgLargeRunLead": {
+    "message": "这将把 $1 个模组（$2）加入队列。"
+  },
+  "dlgLargeRunHelp": {
+    "message": "下载逐个进行，可能需要数小时。你可以随时暂停或停止。"
+  },
+  "dlgLargeRunStart": {
+    "message": "下载 $1 个模组"
   }
 }

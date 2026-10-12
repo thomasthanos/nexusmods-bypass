@@ -1515,5 +1515,17 @@
   },
   "wjHashNoMatch": {
     "message": "Δεν βρέθηκε στο Nexus"
+  },
+  "dlgLargeRunTitle": {
+    "message": "Έναρξη μεγάλης λήψης;"
+  },
+  "dlgLargeRunLead": {
+    "message": "Θα μπουν στην ουρά $1 mod ($2)."
+  },
+  "dlgLargeRunHelp": {
+    "message": "Οι λήψεις γίνονται μία-μία και μπορεί να διαρκέσουν ώρες. Μπορείτε να κάνετε παύση ή διακοπή οποιαδήποτε στιγμή."
+  },
+  "dlgLargeRunStart": {
+    "message": "Λήψη $1 mod"
   }
 }
