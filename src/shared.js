@@ -234,6 +234,43 @@
 
   const MIN_HANDOFF_GAP_SECONDS = 2;
 
+  // Log lines carry a little markup (links to mods, emphasis). Rather than trust every caller to have
+  // escaped its input before innerHTML, the markup is parsed inertly and rebuilt from an allowlist:
+  // anything else becomes text, and links must point at http(s).
+  const SAFE_TAGS = new Set(['A', 'SPAN', 'STRONG', 'B', 'EM', 'I', 'CODE', 'BR', 'SMALL']);
+  const SAFE_ATTRS = new Set(['class', 'title', 'target', 'rel', 'href']);
+
+  function setSafeHtml(target, markup) {
+    const doc = target?.ownerDocument;
+    if (!doc) return;
+    const source = doc.createElement('template');
+    source.innerHTML = String(markup ?? '');
+    const copy = (node, parent) => {
+      for (const child of Array.from(node.childNodes)) {
+        if (child.nodeType === 3) {
+          parent.appendChild(doc.createTextNode(child.nodeValue));
+        } else if (child.nodeType === 1) {
+          if (!SAFE_TAGS.has(child.tagName)) {
+            copy(child, parent);
+            continue;
+          }
+          const el = doc.createElement(child.tagName.toLowerCase());
+          for (const attr of Array.from(child.attributes)) {
+            const name = attr.name.toLowerCase();
+            if (!SAFE_ATTRS.has(name)) continue;
+            if (name === 'href' && !/^https?:\/\//i.test(attr.value.trim())) continue;
+            el.setAttribute(name, attr.value);
+          }
+          if (el.tagName === 'A') el.setAttribute('rel', 'noopener noreferrer');
+          copy(child, el);
+          parent.appendChild(el);
+        }
+      }
+    };
+    target.replaceChildren();
+    copy(source.content, target);
+  }
+
   // Exponential backoff with "equal jitter": half the step is fixed, half is random, so several tabs
   // or a restarted worker that failed together do not retry in lockstep.
   function retryDelayMs(attempt, baseMs = 1500, maxMs = 30000, random = Math.random) {
@@ -702,6 +739,7 @@
     rateLimitBackoffSeconds,
     retryDelayMs,
     withJitter,
+    setSafeHtml,
     MIN_HANDOFF_GAP_SECONDS,
     CLOUDFLARE_SKIP_LIMIT,
     MAX_TRACKED_SKIPS,

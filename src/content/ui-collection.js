@@ -1008,7 +1008,7 @@
     });
 
     ui.log = (message, type) => appendLogRow(type, (node) => {
-      node.innerHTML = message;
+      NXTK.setSafeHtml(node, message);
     });
 
     ui.incrementProgress = () => {
