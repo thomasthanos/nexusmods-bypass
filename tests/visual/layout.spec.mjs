@@ -218,7 +218,7 @@ test('page-change notice fits at 1280x720@150 and 3840x2160', async () => {
   }
 });
 
-test('report page: relay not configured shows a clear state and a GitHub fallback', async () => {
+test('report page: connection failures keep the description and show a retry and GitHub fallback', async () => {
   let [worker] = context.serviceWorkers();
   if (!worker) worker = await context.waitForEvent('serviceworker');
   const id = new URL(worker.url()).host;
@@ -230,7 +230,7 @@ test('report page: relay not configured shows a clear state and a GitHub fallbac
   if (!configured) {
     await expect(page.locator('#rpSend')).toBeDisabled();
     await expect(page.locator('#rpStatus')).toContainText(/not set up/i);
-    await expect(page.locator('#rpGithub')).toHaveClass(/nxtk-btn-primary/);
+    await expect(page.locator('#rpGithub')).toHaveClass(/rp-primary/);
   }
   // A send that fails shows the cause, the fallback and (when it can help) a retry.
   await page.evaluate(() => {
@@ -239,6 +239,7 @@ test('report page: relay not configured shows a clear state and a GitHub fallbac
     globalThis.chrome.permissions.contains = async () => true;
     document.getElementById('rpSend').disabled = false;
   });
+  await page.locator('#rpSummary').fill('Download never starts');
   await page.click('#rpSend');
   await expect(page.locator('#rpStatus')).toContainText(/could not be reached/i);
   await expect(page.locator('#rpFallback')).toBeVisible();
@@ -246,5 +247,90 @@ test('report page: relay not configured shows a clear state and a GitHub fallbac
   const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflowX).toBeLessThanOrEqual(1);
   await page.screenshot({ path: path.join(shotDir, 'report-fallback.png'), fullPage: true });
+  await page.close();
+});
+
+test('report workspace: preview, validation, redaction, one send and JSON export', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`chrome-extension://${id}/report-page/report.html`);
+  await page.waitForFunction(() => document.getElementById('rpPreview').textContent.includes('schema'));
+  await page.click('#rpSend');
+  await expect(page.locator('#rpStatus')).toContainText(/summary or describe/i);
+  await expect(page.locator('#rpSummary')).toBeFocused();
+  await page.locator('#rpSummary').fill('Vortex does not open');
+  await page.locator('#rpNote').fill('The download button says ready, but Vortex does not open. My token=private is redacted.');
+  await page.locator('input[value="vortex"]').check({ force: true });
+  await page.locator('.rp-reproduction summary').click();
+  await page.locator('#rpSteps').fill('1. Open a mod\n2. Click Mod manager download');
+  await page.locator('#rpExpected').fill('Vortex opens the selected file.');
+  await page.locator('#rpContact').fill('bad-email');
+  await page.click('#rpSend');
+  await expect(page.locator('#rpStatus')).toContainText(/valid e-mail/i);
+  await page.locator('#rpContact').fill('reply@example.com');
+  await page.click('#rpJsonTab');
+  await expect(page.locator('#rpPreview')).toContainText('Vortex opens the selected file.');
+  const preview = JSON.parse(await page.locator('#rpPreview').textContent());
+  expect(preview.category).toBe('vortex');
+  expect(preview.note).not.toContain('private');
+  expect(preview.contact).toBe('reply@example.com');
+  await page.locator('#rpJsonTab').press('ArrowLeft');
+  await expect(page.locator('#rpSummaryTab')).toBeFocused();
+  await expect(page.locator('#rpOverview')).toBeVisible();
+  await page.evaluate(() => { document.activeElement.blur(); window.scrollTo(0, 0); });
+  await page.screenshot({ path: path.join(shotDir, 'report-workspace.png'), fullPage: true });
+  await page.evaluate(() => {
+    window.reportTestCalls = [];
+    globalThis.NXTK.checkRelayHealth = async () => ({ ok: true });
+    globalThis.chrome.permissions.contains = async () => true;
+    globalThis.NXTK.sendReportPayload = async (payload) => {
+      window.reportTestCalls.push(payload);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return { ok: true, id: 'test-reference' };
+    };
+  });
+  await page.click('#rpSend');
+  await expect(page.locator('#rpSuccess')).toBeVisible();
+  await expect(page.locator('#rpReference')).toHaveText('test-reference');
+  await expect(page.locator('#rpSend')).toBeDisabled();
+  const sent = await page.evaluate(() => window.reportTestCalls);
+  expect(sent).toHaveLength(1);
+  expect(sent[0]).toEqual(preview);
+  await page.screenshot({ path: path.join(shotDir, 'report-success.png'), fullPage: true });
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#rpSave')]);
+  const saved = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
+  expect(saved.summary).toBe(preview.summary);
+  expect(saved.steps).toBe(preview.steps);
+  await page.close();
+});
+
+test('report workspace: responsive layout and Greek text fit without overflow', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${id}/report-page/report.html`);
+  await page.locator('#rpSummary').fill('Download stops after the Nexus verification');
+  for (const [width, height] of [[1920, 1080], [853, 480], [390, 844]]) {
+    await page.setViewportSize({ width, height });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${width}: report workspace overflows`).toBeLessThanOrEqual(1);
+    await expect(page.locator('#rpSend')).toBeVisible();
+    await page.screenshot({ path: path.join(shotDir, `report-${width}.png`), fullPage: true });
+  }
+  const greek = JSON.parse(fs.readFileSync(path.join(extensionDir, '_locales/el/messages.json'), 'utf8'));
+  await page.evaluate((messages) => {
+    globalThis.chrome.i18n.getMessage = key => messages[key]?.message || '';
+    globalThis.NXTK.setForceEnglish(false);
+    globalThis.NXTK.applyI18nTo(document);
+    document.documentElement.lang = 'el';
+  }, greek);
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  await expect(page.locator('#rpDetailsTitle')).toHaveText('Περιγραφή προβλήματος');
+  await page.screenshot({ path: path.join(shotDir, 'report-greek.png'), fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await page.close();
 });

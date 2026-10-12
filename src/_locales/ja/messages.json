@@ -1485,5 +1485,110 @@
   },
   "rpCopyFailed": {
     "message": "クリップボードにコピーできませんでした。上のレポートを選択して手動でコピーしてください。"
+  },
+  "rpSupport": {
+    "message": "サポートセンター"
+  },
+  "rpSubtitle": {
+    "message": "問題を説明してください。診断情報はこちらで追加します。"
+  },
+  "rpDetails": {
+    "message": "問題を説明"
+  },
+  "rpLocal": {
+    "message": "送信するまでこの端末にのみ保存"
+  },
+  "rpSummaryLabel": {
+    "message": "短い要約"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "例：ダウンロードを押しても Vortex が開かない"
+  },
+  "rpCategory": {
+    "message": "どこで起きますか？"
+  },
+  "rpCatDownload": {
+    "message": "ダウンロード"
+  },
+  "rpCatCollection": {
+    "message": "コレクション"
+  },
+  "rpCatInterface": {
+    "message": "画面"
+  },
+  "rpCatOther": {
+    "message": "その他"
+  },
+  "rpNotePlaceholder": {
+    "message": "何をしていて、何がうまくいきませんでしたか？"
+  },
+  "rpReproduction": {
+    "message": "手順と期待した結果を追加"
+  },
+  "rpSteps": {
+    "message": "再現手順"
+  },
+  "rpExpected": {
+    "message": "何が起きるはずでしたか？"
+  },
+  "rpContactPrivacy": {
+    "message": "返信に使用します。公開 GitHub Issue には含まれません。"
+  },
+  "rpThanks": {
+    "message": "レポートを送信しました。"
+  },
+  "rpKeepReference": {
+    "message": "問い合わせに備えてこの番号を保管してください。"
+  },
+  "rpReview": {
+    "message": "送信前のレポート"
+  },
+  "rpOverview": {
+    "message": "概要"
+  },
+  "rpVersionLabel": {
+    "message": "拡張機能"
+  },
+  "rpBrowserLabel": {
+    "message": "ブラウザー"
+  },
+  "rpErrorsLabel": {
+    "message": "記録されたエラー"
+  },
+  "rpLogsLabel": {
+    "message": "デバッグ記録"
+  },
+  "rpLatestError": {
+    "message": "最新のエラー"
+  },
+  "rpNoErrors": {
+    "message": "エラーの記録はありません。問題は報告できます。"
+  },
+  "rpSave": {
+    "message": "JSON を保存"
+  },
+  "rpPrivacy": {
+    "message": "プライバシーを保護"
+  },
+  "rpAutoHeading": {
+    "message": "自動エラーレポート"
+  },
+  "rpFallbackTitle": {
+    "message": "別の方法でも報告できます。"
+  },
+  "rpSendHint": {
+    "message": "内容を確認し、送信するタイミングを決めます。"
+  },
+  "rpDescribeRequired": {
+    "message": "送信前に要約または問題の説明を入力してください。"
+  },
+  "rpEmailInvalid": {
+    "message": "有効なメールアドレスを入力するか、空欄にしてください。"
+  },
+  "rpSentButton": {
+    "message": "送信済み"
+  },
+  "rpSettingFailed": {
+    "message": "設定を保存できませんでした。もう一度お試しください。"
   }
 }

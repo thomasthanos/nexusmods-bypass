@@ -50,6 +50,10 @@ export function validateReport(p) {
     return '';
   }
   if (p.note !== undefined && !isStr(p.note, 2000)) return 'bad note';
+  if (p.summary !== undefined && !isStr(p.summary, 160)) return 'bad summary';
+  if (p.category !== undefined && !['download', 'collection', 'vortex', 'interface', 'other'].includes(p.category)) return 'bad category';
+  if (p.steps !== undefined && !isStr(p.steps, 1000)) return 'bad steps';
+  if (p.expected !== undefined && !isStr(p.expected, 1000)) return 'bad expected result';
   if (p.contact !== undefined && !isStr(p.contact, 120)) return 'bad contact';
   if (p.report !== undefined && !isStr(p.report, 12000)) return 'bad report';
   if (p.errors !== undefined && (!Array.isArray(p.errors) || p.errors.length > 50)) return 'bad errors';
@@ -90,6 +94,7 @@ export function discordMessage(p, id) {
     if (p.error.context) fields.push({ name: 'Context', value: clip(quiet(p.error.context), 900) });
     if (p.error.message) fields.push({ name: 'Message', value: clip(quiet(p.error.message), 900) });
   } else {
+    if (p.category) fields.push({ name: 'Area', value: p.category, inline: true });
     if (p.currentError?.code) fields.push({ name: 'Current error', value: clip(quiet(p.currentError.code), 200) });
     fields.push({ name: 'Logged errors', value: String(p.errors?.length || 0), inline: true });
     fields.push({ name: 'Debug lines', value: String(p.logs?.length || 0), inline: true });
@@ -99,7 +104,7 @@ export function discordMessage(p, id) {
     username: 'NexusMods Bypass reports',
     allowed_mentions: { parse: [] },
     embeds: [{
-      title: p.kind === 'auto' ? `Auto error: ${clip(quiet(p.error.code), 80)}` : 'Bug report',
+      title: p.kind === 'auto' ? `Auto error: ${clip(quiet(p.error.code), 80)}` : clip(quiet(p.summary || 'Bug report'), 160),
       // Discord rejects an embed over 6000 characters in total; fields take at most ~2600 here.
       description: clip(quiet(p.note || (p.report ? `\`\`\`\n${clip(p.report, 1500)}\n\`\`\`` : '')), 3000),
       color: p.kind === 'auto' ? 0xe8b339 : 0xd98f40,
@@ -157,10 +162,17 @@ export default {
     const id = crypto.randomUUID().slice(0, 8);
     let discord;
     try {
-      discord = await fetch(env.DISCORD_WEBHOOK_URL, {
+      const message = discordMessage(payload, id);
+      const body = new FormData();
+      body.set('payload_json', JSON.stringify(message));
+      // Discord embeds are summaries. The attachment preserves the exact report, including the
+      // reproduction steps, diagnostics and opted-in logs the reporter reviewed before sending.
+      body.set('files[0]', new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `nexusmods-report-${id}.json`);
+      const webhook = new URL(env.DISCORD_WEBHOOK_URL);
+      webhook.searchParams.set('wait', 'true');
+      discord = await fetch(webhook.href, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(discordMessage(payload, id))
+        body
       });
     } catch (_) {
       // An uncaught throw would be a 500 without CORS headers, which the extension sees as "Failed to fetch".

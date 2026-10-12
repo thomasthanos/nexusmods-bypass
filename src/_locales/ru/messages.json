@@ -1737,5 +1737,110 @@
   },
   "rpCopyFailed": {
     "message": "Не удалось скопировать. Выделите отчёт выше и скопируйте вручную."
+  },
+  "rpSupport": {
+    "message": "Центр поддержки"
+  },
+  "rpSubtitle": {
+    "message": "Опишите проблему. Мы добавим диагностические данные."
+  },
+  "rpDetails": {
+    "message": "Опишите проблему"
+  },
+  "rpLocal": {
+    "message": "Только на этом устройстве до отправки"
+  },
+  "rpSummaryLabel": {
+    "message": "Краткое описание"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "Пример: Vortex не открывается после нажатия «Скачать»"
+  },
+  "rpCategory": {
+    "message": "Где возникает проблема?"
+  },
+  "rpCatDownload": {
+    "message": "Загрузки"
+  },
+  "rpCatCollection": {
+    "message": "Коллекции"
+  },
+  "rpCatInterface": {
+    "message": "Интерфейс"
+  },
+  "rpCatOther": {
+    "message": "Другое"
+  },
+  "rpNotePlaceholder": {
+    "message": "Что вы делали и что пошло не так?"
+  },
+  "rpReproduction": {
+    "message": "Добавить шаги и ожидаемый результат"
+  },
+  "rpSteps": {
+    "message": "Шаги для воспроизведения"
+  },
+  "rpExpected": {
+    "message": "Что должно было произойти?"
+  },
+  "rpContactPrivacy": {
+    "message": "Используется для ответа. Не включается в публичный тикет GitHub."
+  },
+  "rpThanks": {
+    "message": "Ваш отчёт отправлен."
+  },
+  "rpKeepReference": {
+    "message": "Сохраните этот номер для дальнейшего обращения."
+  },
+  "rpReview": {
+    "message": "Ваш отчёт перед отправкой"
+  },
+  "rpOverview": {
+    "message": "Обзор"
+  },
+  "rpVersionLabel": {
+    "message": "Расширение"
+  },
+  "rpBrowserLabel": {
+    "message": "Браузер"
+  },
+  "rpErrorsLabel": {
+    "message": "Записанные ошибки"
+  },
+  "rpLogsLabel": {
+    "message": "Записи отладки"
+  },
+  "rpLatestError": {
+    "message": "Последняя ошибка"
+  },
+  "rpNoErrors": {
+    "message": "Ошибки не записаны. Вы всё равно можете сообщить о проблеме."
+  },
+  "rpSave": {
+    "message": "Сохранить JSON"
+  },
+  "rpPrivacy": {
+    "message": "Защита конфиденциальности"
+  },
+  "rpAutoHeading": {
+    "message": "Автоматические отчёты об ошибках"
+  },
+  "rpFallbackTitle": {
+    "message": "Есть другой способ сообщить о проблеме."
+  },
+  "rpSendHint": {
+    "message": "Вы проверяете данные и решаете, когда отправить."
+  },
+  "rpDescribeRequired": {
+    "message": "Перед отправкой добавьте краткое описание или опишите проблему."
+  },
+  "rpEmailInvalid": {
+    "message": "Введите действительный e-mail или оставьте поле пустым."
+  },
+  "rpSentButton": {
+    "message": "Отчёт отправлен"
+  },
+  "rpSettingFailed": {
+    "message": "Не удалось сохранить настройку. Попробуйте ещё раз."
   }
 }

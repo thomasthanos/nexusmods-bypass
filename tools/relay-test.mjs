@@ -17,7 +17,10 @@ assert.ok(!JSON.stringify(msg).includes('@everyone'), 'user text cannot ping');
 assert.equal(msg.embeds[0].footer.text, 'id abc');
 
 const sent = [];
-globalThis.fetch = async (url, init) => { sent.push({ url, body: JSON.parse(init.body) }); return new Response(null, { status: 204 }); };
+globalThis.fetch = async (url, init) => {
+  sent.push({ url, body: JSON.parse(init.body.get('payload_json')), attachment: init.body.get('files[0]') });
+  return new Response(null, { status: 204 });
+};
 const env = { DISCORD_WEBHOOK_URL: 'https://discord.invalid/webhook' };
 const post = (body, ip = '1.1.1.1', extra = {}) => worker.fetch(new Request('https://relay.test/v1/report', {
   method: 'POST',
@@ -31,6 +34,18 @@ const out = await res.json();
 assert.ok(out.ok && out.id);
 assert.equal(res.headers.get('access-control-allow-origin'), 'chrome-extension://abc');
 assert.equal(sent.length, 1, 'forwarded to Discord once');
+assert.equal(new URL(sent[0].url).searchParams.get('wait'), 'true', 'the relay waits for Discord to confirm saving the report');
+assert.deepEqual(JSON.parse(await sent[0].attachment.text()), auto, 'Discord gets the complete report as a JSON attachment');
+assert.match(sent[0].attachment.name, /^nexusmods-report-[a-z0-9-]+\.json$/);
+const manual = { schema: 1, kind: 'manual', version: '2.10.2', summary: 'Vortex does not open', category: 'vortex', steps: 'Click Download', expected: 'Vortex opens', logs: [{ text: 'diagnostic' }] };
+assert.equal(validateReport(manual), '');
+assert.equal(validateReport({ ...manual, category: 'unknown' }), 'bad category');
+assert.equal(validateReport({ ...manual, summary: 'x'.repeat(161) }), 'bad summary');
+assert.equal(validateReport({ ...manual, steps: 'x'.repeat(1001) }), 'bad steps');
+assert.equal(validateReport({ ...manual, expected: 'x'.repeat(1001) }), 'bad expected result');
+await post(manual, '8.8.8.8');
+assert.deepEqual(JSON.parse(await sent[1].attachment.text()), manual, 'steps, expected result and logs all reach Discord');
+assert.equal(sent[1].body.embeds[0].title, manual.summary);
 
 assert.equal((await post('{bad', '2.2.2.2')).status, 400);
 assert.equal((await post({ ...auto, schema: 9 }, '2.2.2.3')).status, 422);

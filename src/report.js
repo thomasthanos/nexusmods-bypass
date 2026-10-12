@@ -524,7 +524,7 @@
   // The exact JSON a "Send bug report" posts to the relay. Built from the same parts as the text
   // report, every string sanitized again, and cut down until it fits MAX_REPORT_BYTES. The report page
   // shows this object verbatim before anything is sent.
-  async function buildReportPayload(currentError = null, { note = '', includeDebug = true, contact = '' } = {}) {
+  async function buildReportPayload(currentError = null, { note = '', includeDebug = true, contact = '', summary = '', category = 'other', steps = '', expected = '' } = {}) {
     const ownsCache = !reportCache;
     if (ownsCache) reportCache = {};
     try {
@@ -534,6 +534,7 @@
       const manifest = chrome.runtime.getManifest();
       const debug = includeDebug ? await getDebugLog() : [];
       const clean = (value, max) => sanitizeDiagnosticText(value, max);
+      const selectedError = currentError || errors[errors.length - 1] || null;
       const payload = {
         schema: NXTK.REPORT_SCHEMA_VERSION,
         kind: 'manual',
@@ -541,10 +542,14 @@
         version: manifest.version,
         browser: clean(browser, 120),
         locale: clean(globalThis.navigator?.language || '', 20),
+        summary: clean(summary, 160),
+        category: ['download', 'collection', 'vortex', 'interface', 'other'].includes(category) ? category : 'other',
+        steps: clean(steps, 1000),
+        expected: clean(expected, 1000),
         note: clean(note, 2000),
         contact: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) ? String(contact).slice(0, 120) : '',
         settings: settingsSnapshot(cfg),
-        currentError: currentError ? NXTK.buildErrorEntry(currentError) : null,
+        currentError: selectedError ? NXTK.buildErrorEntry(selectedError) : null,
         errors: errors.slice(-15).map((entry) => NXTK.buildErrorEntry(entry)),
         logs: debug.slice(-200).map((entry) => ({
           at: new Date(Number(entry.at) || 0).toISOString(),
@@ -554,7 +559,7 @@
         })),
         report: ''
       };
-      payload.report = clean(await buildReport(currentError, { compact: true, maxEntries: 3, stackChars: 300 }), 12000);
+      payload.report = clean(await buildReport(selectedError, { compact: true, maxEntries: 3, stackChars: 300 }), 12000);
       const size = () => new TextEncoder().encode(JSON.stringify(payload)).length;
       while (size() > NXTK.MAX_REPORT_BYTES && payload.logs.length) payload.logs.splice(0, Math.ceil(payload.logs.length / 2));
       while (size() > NXTK.MAX_REPORT_BYTES && payload.errors.length) payload.errors.shift();
@@ -563,6 +568,40 @@
     } finally {
       if (ownsCache) reportCache = null;
     }
+  }
+
+  // The public GitHub fallback carries the same description as the private report, without the reply
+  // e-mail. Keep the complete public JSON on the clipboard when GitHub's URL cannot fit everything.
+  function buildPayloadIssueUrl(payload) {
+    const clean = (value, max) => sanitizeDiagnosticText(value, max);
+    const title = `[Bug] ${clean(payload.summary || payload.currentError?.code || '', 160)}`;
+    const narrative = [
+      clean(payload.note, 2000),
+      payload.steps ? `Steps to reproduce:\n${clean(payload.steps, 1000)}` : '',
+      payload.expected ? `Expected result:\n${clean(payload.expected, 1000)}` : ''
+    ].filter(Boolean).join('\n\n');
+    const build = (description, report) => {
+      const url = new URL(ISSUE_NEW_URL);
+      url.searchParams.set('template', 'nexus_bug_report.yml');
+      url.searchParams.set('title', title);
+      url.searchParams.set('what-happened', description);
+      url.searchParams.set('report', report);
+      url.searchParams.set('browser', clean(payload.browser, 200));
+      return url.href;
+    };
+    const report = clean(payload.report, 12000);
+    for (const length of [report.length, 2000, 500, 0]) {
+      const url = build(narrative, report.slice(0, length));
+      if (url.length <= MAX_ISSUE_URL_CHARS) return { url, complete: length >= report.length };
+    }
+    let low = 0;
+    let high = narrative.length;
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      if (build(narrative.slice(0, middle), '').length <= MAX_ISSUE_URL_CHARS) low = middle;
+      else high = middle - 1;
+    }
+    return { url: build(narrative.slice(0, low), ''), complete: false };
   }
 
   // Why a relay call failed, as one of a few reasons the report page has a message for:
@@ -630,5 +669,5 @@
     };
   }
 
-  Object.assign(NXTK, { buildBugReport, buildReportIssueUrl, buildReportPayload, sendReportPayload, checkRelayHealth, relayFailure });
+  Object.assign(NXTK, { buildBugReport, buildReportIssueUrl, buildReportPayload, buildPayloadIssueUrl, sendReportPayload, checkRelayHealth, relayFailure });
 })();

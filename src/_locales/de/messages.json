@@ -1569,5 +1569,110 @@
   },
   "rpCopyFailed": {
     "message": "Kopieren fehlgeschlagen. Markiere den Bericht oben und kopiere ihn von Hand."
+  },
+  "rpSupport": {
+    "message": "Supportcenter"
+  },
+  "rpSubtitle": {
+    "message": "Beschreibe das Problem. Wir ergänzen die Diagnosedaten."
+  },
+  "rpDetails": {
+    "message": "Problem beschreiben"
+  },
+  "rpLocal": {
+    "message": "Bis zum Senden nur auf diesem Gerät"
+  },
+  "rpSummaryLabel": {
+    "message": "Kurze Zusammenfassung"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "Beispiel: Vortex öffnet sich nach dem Download-Klick nicht"
+  },
+  "rpCategory": {
+    "message": "Wo tritt es auf?"
+  },
+  "rpCatDownload": {
+    "message": "Downloads"
+  },
+  "rpCatCollection": {
+    "message": "Sammlungen"
+  },
+  "rpCatInterface": {
+    "message": "Oberfläche"
+  },
+  "rpCatOther": {
+    "message": "Sonstiges"
+  },
+  "rpNotePlaceholder": {
+    "message": "Was hast du gemacht und was ist schiefgegangen?"
+  },
+  "rpReproduction": {
+    "message": "Schritte und erwartetes Ergebnis hinzufügen"
+  },
+  "rpSteps": {
+    "message": "Schritte zur Reproduktion"
+  },
+  "rpExpected": {
+    "message": "Was hätte passieren sollen?"
+  },
+  "rpContactPrivacy": {
+    "message": "Für eine Antwort. Nicht im öffentlichen GitHub-Issue enthalten."
+  },
+  "rpThanks": {
+    "message": "Dein Bericht wurde gesendet."
+  },
+  "rpKeepReference": {
+    "message": "Bewahre diese Referenz für Rückfragen auf."
+  },
+  "rpReview": {
+    "message": "Dein Bericht vor dem Senden"
+  },
+  "rpOverview": {
+    "message": "Übersicht"
+  },
+  "rpVersionLabel": {
+    "message": "Erweiterung"
+  },
+  "rpBrowserLabel": {
+    "message": "Browser"
+  },
+  "rpErrorsLabel": {
+    "message": "Erfasste Fehler"
+  },
+  "rpLogsLabel": {
+    "message": "Debug-Einträge"
+  },
+  "rpLatestError": {
+    "message": "Letzter Fehler"
+  },
+  "rpNoErrors": {
+    "message": "Keine Fehler erfasst. Du kannst trotzdem ein Problem melden."
+  },
+  "rpSave": {
+    "message": "JSON speichern"
+  },
+  "rpPrivacy": {
+    "message": "Datenschutz integriert"
+  },
+  "rpAutoHeading": {
+    "message": "Automatische Fehlerberichte"
+  },
+  "rpFallbackTitle": {
+    "message": "Es gibt noch einen anderen Meldeweg."
+  },
+  "rpSendHint": {
+    "message": "Du prüfst den Bericht und entscheidest, wann er gesendet wird."
+  },
+  "rpDescribeRequired": {
+    "message": "Füge vor dem Senden eine Zusammenfassung oder Beschreibung hinzu."
+  },
+  "rpEmailInvalid": {
+    "message": "Gib eine gültige E-Mail-Adresse ein oder lasse das Feld leer."
+  },
+  "rpSentButton": {
+    "message": "Bericht gesendet"
+  },
+  "rpSettingFailed": {
+    "message": "Die Einstellung konnte nicht gespeichert werden. Erneut versuchen."
   }
 }

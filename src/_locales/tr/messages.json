@@ -1569,5 +1569,110 @@
   },
   "rpCopyFailed": {
     "message": "Panoya kopyalanamadı. Yukarıdaki raporu seçip elle kopyala."
+  },
+  "rpSupport": {
+    "message": "Destek merkezi"
+  },
+  "rpSubtitle": {
+    "message": "Sorunu açıklayın. Tanılama bilgilerini biz ekleriz."
+  },
+  "rpDetails": {
+    "message": "Sorunu açıklayın"
+  },
+  "rpLocal": {
+    "message": "Gönderene kadar yalnızca bu cihazda"
+  },
+  "rpSummaryLabel": {
+    "message": "Kısa bir özet"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "Örnek: İndir'e tıklayınca Vortex açılmıyor"
+  },
+  "rpCategory": {
+    "message": "Nerede oluyor?"
+  },
+  "rpCatDownload": {
+    "message": "İndirmeler"
+  },
+  "rpCatCollection": {
+    "message": "Koleksiyonlar"
+  },
+  "rpCatInterface": {
+    "message": "Arayüz"
+  },
+  "rpCatOther": {
+    "message": "Diğer"
+  },
+  "rpNotePlaceholder": {
+    "message": "Ne yapıyordunuz ve ne yanlış gitti?"
+  },
+  "rpReproduction": {
+    "message": "Adımları ve beklenen sonucu ekle"
+  },
+  "rpSteps": {
+    "message": "Yeniden oluşturma adımları"
+  },
+  "rpExpected": {
+    "message": "Ne olması gerekiyordu?"
+  },
+  "rpContactPrivacy": {
+    "message": "Yanıt için kullanılır. Herkese açık GitHub kaydına eklenmez."
+  },
+  "rpThanks": {
+    "message": "Raporunuz gönderildi."
+  },
+  "rpKeepReference": {
+    "message": "Takip için bu referansı saklayın."
+  },
+  "rpReview": {
+    "message": "Gönderilmeden önce raporunuz"
+  },
+  "rpOverview": {
+    "message": "Genel bakış"
+  },
+  "rpVersionLabel": {
+    "message": "Uzantı"
+  },
+  "rpBrowserLabel": {
+    "message": "Tarayıcı"
+  },
+  "rpErrorsLabel": {
+    "message": "Kaydedilen hatalar"
+  },
+  "rpLogsLabel": {
+    "message": "Hata ayıklama kayıtları"
+  },
+  "rpLatestError": {
+    "message": "Son hata"
+  },
+  "rpNoErrors": {
+    "message": "Kaydedilmiş hata yok. Yine de bir sorun bildirebilirsiniz."
+  },
+  "rpSave": {
+    "message": "JSON'u kaydet"
+  },
+  "rpPrivacy": {
+    "message": "Gizlilik odaklı"
+  },
+  "rpAutoHeading": {
+    "message": "Otomatik hata raporları"
+  },
+  "rpFallbackTitle": {
+    "message": "Sorunu bildirmenin başka bir yolu var."
+  },
+  "rpSendHint": {
+    "message": "Siz inceler ve ne zaman gönderileceğine karar verirsiniz."
+  },
+  "rpDescribeRequired": {
+    "message": "Göndermeden önce özet ekleyin veya sorunu açıklayın."
+  },
+  "rpEmailInvalid": {
+    "message": "Geçerli bir e-posta girin ya da alanı boş bırakın."
+  },
+  "rpSentButton": {
+    "message": "Rapor gönderildi"
+  },
+  "rpSettingFailed": {
+    "message": "Ayar kaydedilemedi. Tekrar deneyin."
   }
 }

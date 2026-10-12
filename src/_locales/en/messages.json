@@ -1881,5 +1881,110 @@
   },
   "rpCopyFailed": {
     "message": "Could not copy to the clipboard. Select the report above and copy it by hand."
+  },
+  "rpSupport": {
+    "message": "Support center"
+  },
+  "rpSubtitle": {
+    "message": "Help us understand the problem. We'll bring the diagnostics."
+  },
+  "rpDetails": {
+    "message": "Describe the problem"
+  },
+  "rpLocal": {
+    "message": "Only on this device until you send"
+  },
+  "rpSummaryLabel": {
+    "message": "A short summary"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "Example: Vortex doesn't open after clicking Download"
+  },
+  "rpCategory": {
+    "message": "Where does it happen?"
+  },
+  "rpCatDownload": {
+    "message": "Downloads"
+  },
+  "rpCatCollection": {
+    "message": "Collections"
+  },
+  "rpCatInterface": {
+    "message": "Interface"
+  },
+  "rpCatOther": {
+    "message": "Other"
+  },
+  "rpNotePlaceholder": {
+    "message": "What were you doing, and what went wrong?"
+  },
+  "rpReproduction": {
+    "message": "Add steps and the expected result"
+  },
+  "rpSteps": {
+    "message": "Steps to reproduce"
+  },
+  "rpExpected": {
+    "message": "What should have happened?"
+  },
+  "rpContactPrivacy": {
+    "message": "Used for a reply. Excluded from the public GitHub issue."
+  },
+  "rpThanks": {
+    "message": "Your report is on its way."
+  },
+  "rpKeepReference": {
+    "message": "Keep this reference if you need to follow up."
+  },
+  "rpReview": {
+    "message": "Your report, before it leaves"
+  },
+  "rpOverview": {
+    "message": "Overview"
+  },
+  "rpVersionLabel": {
+    "message": "Extension"
+  },
+  "rpBrowserLabel": {
+    "message": "Browser"
+  },
+  "rpErrorsLabel": {
+    "message": "Recorded errors"
+  },
+  "rpLogsLabel": {
+    "message": "Debug entries"
+  },
+  "rpLatestError": {
+    "message": "Latest error"
+  },
+  "rpNoErrors": {
+    "message": "No errors recorded. You can still report a problem."
+  },
+  "rpSave": {
+    "message": "Save JSON"
+  },
+  "rpPrivacy": {
+    "message": "Private by design"
+  },
+  "rpAutoHeading": {
+    "message": "Automatic error reports"
+  },
+  "rpFallbackTitle": {
+    "message": "There's another way to report it."
+  },
+  "rpSendHint": {
+    "message": "You review it. You decide when to send."
+  },
+  "rpDescribeRequired": {
+    "message": "Add a summary or describe the problem before sending."
+  },
+  "rpEmailInvalid": {
+    "message": "Enter a valid e-mail address or leave the field empty."
+  },
+  "rpSentButton": {
+    "message": "Report sent"
+  },
+  "rpSettingFailed": {
+    "message": "The setting could not be saved. Try again."
   }
 }

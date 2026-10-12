@@ -7,6 +7,18 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [Unreleased]
+
+### Changed
+
+- The report page is now a custom, responsive workspace with problem categories, a short summary,
+  reproduction steps, expected results, a readable diagnostic overview and an exact JSON view.
+  Send, copy and save use the same reviewed snapshot. Replies use an optional e-mail address.
+  Empty descriptions and invalid e-mail addresses get inline guidance; sending is guarded against
+  duplicate clicks, and success shows a reference. The interface is translated in all 13 languages.
+- Discord reports include the complete JSON as an attachment alongside the summary. The GitHub
+  fallback preserves the description and reproduction details while excluding the reply e-mail.
+
 ## [2.10.2] - 2026-10-12
 
 ### Fixed

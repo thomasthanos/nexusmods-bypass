@@ -1569,5 +1569,110 @@
   },
   "rpCopyFailed": {
     "message": "Η αντιγραφή στο πρόχειρο απέτυχε. Επίλεξε την αναφορά παραπάνω και αντίγραψέ τη χειροκίνητα."
+  },
+  "rpSupport": {
+    "message": "Κέντρο υποστήριξης"
+  },
+  "rpSubtitle": {
+    "message": "Περιέγραψε το πρόβλημα. Τα διαγνωστικά τα προσθέτουμε εμείς."
+  },
+  "rpDetails": {
+    "message": "Περιγραφή προβλήματος"
+  },
+  "rpLocal": {
+    "message": "Μένει στη συσκευή σου μέχρι την αποστολή"
+  },
+  "rpSummaryLabel": {
+    "message": "Μια σύντομη σύνοψη"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "Π.χ.: Το Vortex δεν ανοίγει όταν πατάω λήψη"
+  },
+  "rpCategory": {
+    "message": "Πού εμφανίζεται;"
+  },
+  "rpCatDownload": {
+    "message": "Λήψεις"
+  },
+  "rpCatCollection": {
+    "message": "Συλλογές"
+  },
+  "rpCatInterface": {
+    "message": "Εμφάνιση"
+  },
+  "rpCatOther": {
+    "message": "Άλλο"
+  },
+  "rpNotePlaceholder": {
+    "message": "Τι έκανες και τι πήγε στραβά;"
+  },
+  "rpReproduction": {
+    "message": "Προσθήκη βημάτων και αναμενόμενου αποτελέσματος"
+  },
+  "rpSteps": {
+    "message": "Βήματα αναπαραγωγής"
+  },
+  "rpExpected": {
+    "message": "Τι θα έπρεπε να συμβεί;"
+  },
+  "rpContactPrivacy": {
+    "message": "Χρησιμοποιείται για απάντηση. Εξαιρείται από το δημόσιο issue στο GitHub."
+  },
+  "rpThanks": {
+    "message": "Η αναφορά σου στάλθηκε."
+  },
+  "rpKeepReference": {
+    "message": "Κράτησε αυτόν τον κωδικό για επικοινωνία σχετικά με την αναφορά."
+  },
+  "rpReview": {
+    "message": "Η αναφορά σου πριν αποσταλεί"
+  },
+  "rpOverview": {
+    "message": "Επισκόπηση"
+  },
+  "rpVersionLabel": {
+    "message": "Επέκταση"
+  },
+  "rpBrowserLabel": {
+    "message": "Περιηγητής"
+  },
+  "rpErrorsLabel": {
+    "message": "Καταγεγραμμένα σφάλματα"
+  },
+  "rpLogsLabel": {
+    "message": "Εγγραφές εντοπισμού σφαλμάτων"
+  },
+  "rpLatestError": {
+    "message": "Τελευταίο σφάλμα"
+  },
+  "rpNoErrors": {
+    "message": "Δεν καταγράφηκαν σφάλματα. Μπορείς να αναφέρεις ένα πρόβλημα."
+  },
+  "rpSave": {
+    "message": "Αποθήκευση JSON"
+  },
+  "rpPrivacy": {
+    "message": "Προστασία απορρήτου"
+  },
+  "rpAutoHeading": {
+    "message": "Αυτόματες αναφορές σφαλμάτων"
+  },
+  "rpFallbackTitle": {
+    "message": "Υπάρχει κι άλλος τρόπος αναφοράς."
+  },
+  "rpSendHint": {
+    "message": "Ελέγχεις τα δεδομένα. Αποφασίζεις πότε θα σταλούν."
+  },
+  "rpDescribeRequired": {
+    "message": "Γράψε μια σύνοψη ή περίγραψε το πρόβλημα πριν την αποστολή."
+  },
+  "rpEmailInvalid": {
+    "message": "Γράψε έγκυρο e-mail ή άφησε το πεδίο κενό."
+  },
+  "rpSentButton": {
+    "message": "Η αναφορά στάλθηκε"
+  },
+  "rpSettingFailed": {
+    "message": "Η ρύθμιση δεν αποθηκεύτηκε. Δοκίμασε ξανά."
   }
 }

@@ -1485,5 +1485,110 @@
   },
   "rpCopyFailed": {
     "message": "无法复制到剪贴板。请选中上方的报告手动复制。"
+  },
+  "rpSupport": {
+    "message": "支持中心"
+  },
+  "rpSubtitle": {
+    "message": "请描述问题。我们会附上诊断信息。"
+  },
+  "rpDetails": {
+    "message": "描述问题"
+  },
+  "rpLocal": {
+    "message": "发送前仅保留在此设备上"
+  },
+  "rpSummaryLabel": {
+    "message": "简短摘要"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "例如：点击下载后 Vortex 没有打开"
+  },
+  "rpCategory": {
+    "message": "问题出现在哪里？"
+  },
+  "rpCatDownload": {
+    "message": "下载"
+  },
+  "rpCatCollection": {
+    "message": "合集"
+  },
+  "rpCatInterface": {
+    "message": "界面"
+  },
+  "rpCatOther": {
+    "message": "其他"
+  },
+  "rpNotePlaceholder": {
+    "message": "你当时在做什么？哪里出了问题？"
+  },
+  "rpReproduction": {
+    "message": "添加复现步骤和预期结果"
+  },
+  "rpSteps": {
+    "message": "复现步骤"
+  },
+  "rpExpected": {
+    "message": "原本应该发生什么？"
+  },
+  "rpContactPrivacy": {
+    "message": "仅用于回复，不会包含在公开的 GitHub 问题中。"
+  },
+  "rpThanks": {
+    "message": "报告已发送。"
+  },
+  "rpKeepReference": {
+    "message": "请保留此编号以便后续联系。"
+  },
+  "rpReview": {
+    "message": "发送前查看报告"
+  },
+  "rpOverview": {
+    "message": "概览"
+  },
+  "rpVersionLabel": {
+    "message": "扩展"
+  },
+  "rpBrowserLabel": {
+    "message": "浏览器"
+  },
+  "rpErrorsLabel": {
+    "message": "已记录的错误"
+  },
+  "rpLogsLabel": {
+    "message": "调试记录"
+  },
+  "rpLatestError": {
+    "message": "最近的错误"
+  },
+  "rpNoErrors": {
+    "message": "没有记录到错误。你仍然可以报告问题。"
+  },
+  "rpSave": {
+    "message": "保存 JSON"
+  },
+  "rpPrivacy": {
+    "message": "隐私保护"
+  },
+  "rpAutoHeading": {
+    "message": "自动错误报告"
+  },
+  "rpFallbackTitle": {
+    "message": "还可以通过其他方式报告。"
+  },
+  "rpSendHint": {
+    "message": "先查看，再决定何时发送。"
+  },
+  "rpDescribeRequired": {
+    "message": "发送前请填写摘要或描述问题。"
+  },
+  "rpEmailInvalid": {
+    "message": "请输入有效邮箱或留空。"
+  },
+  "rpSentButton": {
+    "message": "报告已发送"
+  },
+  "rpSettingFailed": {
+    "message": "无法保存设置，请重试。"
   }
 }

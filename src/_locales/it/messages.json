@@ -1569,5 +1569,110 @@
   },
   "rpCopyFailed": {
     "message": "Copia non riuscita. Seleziona il report qui sopra e copialo a mano."
+  },
+  "rpSupport": {
+    "message": "Centro assistenza"
+  },
+  "rpSubtitle": {
+    "message": "Descrivi il problema. Aggiungiamo noi la diagnostica."
+  },
+  "rpDetails": {
+    "message": "Descrivi il problema"
+  },
+  "rpLocal": {
+    "message": "Solo su questo dispositivo fino all'invio"
+  },
+  "rpSummaryLabel": {
+    "message": "Un breve riepilogo"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "Esempio: Vortex non si apre dopo aver premuto Scarica"
+  },
+  "rpCategory": {
+    "message": "Dove si verifica?"
+  },
+  "rpCatDownload": {
+    "message": "Download"
+  },
+  "rpCatCollection": {
+    "message": "Collezioni"
+  },
+  "rpCatInterface": {
+    "message": "Interfaccia"
+  },
+  "rpCatOther": {
+    "message": "Altro"
+  },
+  "rpNotePlaceholder": {
+    "message": "Cosa stavi facendo e cosa è andato storto?"
+  },
+  "rpReproduction": {
+    "message": "Aggiungi i passaggi e il risultato previsto"
+  },
+  "rpSteps": {
+    "message": "Passaggi per riprodurre il problema"
+  },
+  "rpExpected": {
+    "message": "Cosa sarebbe dovuto succedere?"
+  },
+  "rpContactPrivacy": {
+    "message": "Usata per rispondere. Esclusa dalla segnalazione pubblica su GitHub."
+  },
+  "rpThanks": {
+    "message": "La segnalazione è stata inviata."
+  },
+  "rpKeepReference": {
+    "message": "Conserva questo riferimento per eventuali aggiornamenti."
+  },
+  "rpReview": {
+    "message": "La tua segnalazione prima dell'invio"
+  },
+  "rpOverview": {
+    "message": "Panoramica"
+  },
+  "rpVersionLabel": {
+    "message": "Estensione"
+  },
+  "rpBrowserLabel": {
+    "message": "Browser"
+  },
+  "rpErrorsLabel": {
+    "message": "Errori registrati"
+  },
+  "rpLogsLabel": {
+    "message": "Voci di debug"
+  },
+  "rpLatestError": {
+    "message": "Ultimo errore"
+  },
+  "rpNoErrors": {
+    "message": "Nessun errore registrato. Puoi comunque segnalare un problema."
+  },
+  "rpSave": {
+    "message": "Salva JSON"
+  },
+  "rpPrivacy": {
+    "message": "Privacy integrata"
+  },
+  "rpAutoHeading": {
+    "message": "Segnalazioni automatiche degli errori"
+  },
+  "rpFallbackTitle": {
+    "message": "C'è un altro modo per segnalare il problema."
+  },
+  "rpSendHint": {
+    "message": "Controlli tu il rapporto e decidi quando inviarlo."
+  },
+  "rpDescribeRequired": {
+    "message": "Aggiungi un riepilogo o descrivi il problema prima dell'invio."
+  },
+  "rpEmailInvalid": {
+    "message": "Inserisci un indirizzo e-mail valido o lascia il campo vuoto."
+  },
+  "rpSentButton": {
+    "message": "Segnalazione inviata"
+  },
+  "rpSettingFailed": {
+    "message": "Impossibile salvare la preferenza. Riprova."
   }
 }

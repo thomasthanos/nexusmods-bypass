@@ -1569,5 +1569,110 @@
   },
   "rpCopyFailed": {
     "message": "No se pudo copiar. Selecciona el informe de arriba y cópialo a mano."
+  },
+  "rpSupport": {
+    "message": "Centro de soporte"
+  },
+  "rpSubtitle": {
+    "message": "Describe el problema. Nosotros añadimos el diagnóstico."
+  },
+  "rpDetails": {
+    "message": "Describe el problema"
+  },
+  "rpLocal": {
+    "message": "Solo en este dispositivo hasta que lo envíes"
+  },
+  "rpSummaryLabel": {
+    "message": "Un resumen breve"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "Ejemplo: Vortex no se abre al pulsar Descargar"
+  },
+  "rpCategory": {
+    "message": "¿Dónde ocurre?"
+  },
+  "rpCatDownload": {
+    "message": "Descargas"
+  },
+  "rpCatCollection": {
+    "message": "Colecciones"
+  },
+  "rpCatInterface": {
+    "message": "Interfaz"
+  },
+  "rpCatOther": {
+    "message": "Otro"
+  },
+  "rpNotePlaceholder": {
+    "message": "¿Qué estabas haciendo y qué salió mal?"
+  },
+  "rpReproduction": {
+    "message": "Añadir pasos y resultado esperado"
+  },
+  "rpSteps": {
+    "message": "Pasos para reproducirlo"
+  },
+  "rpExpected": {
+    "message": "¿Qué debería haber ocurrido?"
+  },
+  "rpContactPrivacy": {
+    "message": "Se usa para responder. No se incluye en el issue público de GitHub."
+  },
+  "rpThanks": {
+    "message": "Tu informe se ha enviado."
+  },
+  "rpKeepReference": {
+    "message": "Guarda esta referencia por si necesitas consultarlo."
+  },
+  "rpReview": {
+    "message": "Tu informe antes de enviarlo"
+  },
+  "rpOverview": {
+    "message": "Resumen"
+  },
+  "rpVersionLabel": {
+    "message": "Extensión"
+  },
+  "rpBrowserLabel": {
+    "message": "Navegador"
+  },
+  "rpErrorsLabel": {
+    "message": "Errores registrados"
+  },
+  "rpLogsLabel": {
+    "message": "Entradas de depuración"
+  },
+  "rpLatestError": {
+    "message": "Último error"
+  },
+  "rpNoErrors": {
+    "message": "No hay errores registrados. Puedes informar de un problema."
+  },
+  "rpSave": {
+    "message": "Guardar JSON"
+  },
+  "rpPrivacy": {
+    "message": "Privacidad integrada"
+  },
+  "rpAutoHeading": {
+    "message": "Informes automáticos de errores"
+  },
+  "rpFallbackTitle": {
+    "message": "Hay otra forma de informar."
+  },
+  "rpSendHint": {
+    "message": "Revísalo y decide cuándo enviarlo."
+  },
+  "rpDescribeRequired": {
+    "message": "Añade un resumen o describe el problema antes de enviarlo."
+  },
+  "rpEmailInvalid": {
+    "message": "Introduce un correo válido o deja el campo vacío."
+  },
+  "rpSentButton": {
+    "message": "Informe enviado"
+  },
+  "rpSettingFailed": {
+    "message": "No se pudo guardar el ajuste. Inténtalo de nuevo."
   }
 }

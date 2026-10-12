@@ -4,52 +4,74 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="rpTitle">Send a bug report</title>
-  <link rel="stylesheet" href="../popup/nxtk-shared.css">
   <link rel="stylesheet" href="report.css">
 </head>
 <body>
+  <svg class="rp-symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4"/></symbol>
+    <symbol id="i-bug" viewBox="0 0 24 24"><path d="m8 3 2 3m6-3-2 3M8 10h8M12 10v9M4 10h3m10 0h3M4 15h3m10 0h3M5 21l3-3m8 0 3 3"/><rect x="7" y="6" width="10" height="14" rx="5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path d="M9 20c-4 1-4-2-6-2m13 4v-4c0-1-.3-2-1-2 4-.4 7-2 7-6 0-2-.5-3-1.5-4 .3-1 .3-3-.3-4-2 0-3 1-4 2a12 12 0 0 0-7 0C8 3 7 2 5 2c-.6 1-1 3-.5 4C3.5 7 3 8 3 10c0 4 3 5.6 7 6-1 1-1 2-1 3v3"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8l-5-5Zm0 0v5h5M8 12h8m-8 4h5"/></symbol>
+  </defs></svg>
+  <header class="rp-topbar">
+    <a class="rp-brand" href="../popup/popup.html"><span class="rp-brand-mark"><svg><use href="#i-download"/></svg></span><span>NexusMods <strong>Bypass</strong></span></a>
+    <span class="rp-topbar-context" data-i18n="rpSupport">Support center</span>
+    <span class="rp-version" id="rpVersion">v—</span>
+  </header>
   <main class="rp">
-    <h1 data-i18n="rpTitle">Send a bug report</h1>
-    <p class="rp-intro" data-i18n="rpIntro">Nothing is sent until you press Send. Below is exactly what will be sent: names, e-mail addresses, file paths, cookies, tokens and link parameters are removed.</p>
-
-    <label class="rp-field">
-      <span data-i18n="rpNote">What happened? (optional)</span>
-      <textarea id="rpNote" rows="4" maxlength="2000"></textarea>
-    </label>
-    <label class="rp-field">
-      <span data-i18n="rpContact">E-mail for a reply (optional, sent only if you fill it in)</span>
-      <input id="rpContact" type="email" maxlength="120" autocomplete="off">
-    </label>
-    <label class="rp-check">
-      <input id="rpIncludeLogs" type="checkbox" checked>
-      <span data-i18n="rpIncludeLogs">Include debug logs (only recorded while "Debug logs" is on)</span>
-    </label>
-
-    <h2 data-i18n="rpPreview">Exact report</h2>
-    <pre id="rpPreview" class="rp-preview" tabindex="0" aria-live="polite"></pre>
-
-    <div class="rp-actions">
-      <button id="rpSend" class="nxtk-btn nxtk-btn-primary" type="button" data-i18n="rpSend">Send report</button>
-      <button id="rpCopy" class="nxtk-btn nxtk-btn-secondary" type="button" data-i18n="rpCopy">Copy report</button>
-      <button id="rpGithub" class="nxtk-btn nxtk-btn-secondary" type="button" data-i18n="rpGithub">Open a GitHub issue instead</button>
+    <header class="rp-heading"><div class="rp-heading-icon"><svg><use href="#i-bug"/></svg></div><div><h1 data-i18n="rpTitle">Send a bug report</h1><p class="rp-subtitle" data-i18n="rpSubtitle">Help us understand the problem. We'll bring the diagnostics.</p></div></header>
+    <div class="rp-workspace">
+      <section class="rp-composer" aria-labelledby="rpDetailsTitle">
+        <header class="rp-section-heading"><h2 id="rpDetailsTitle" data-i18n="rpDetails">Describe the problem</h2><span class="rp-local-badge"><span></span><span data-i18n="rpLocal">Only on this device until you send</span></span></header>
+        <form id="rpForm" novalidate>
+          <label class="rp-field" for="rpSummary"><span data-i18n="rpSummaryLabel">A short summary</span><input id="rpSummary" type="text" maxlength="160" autocomplete="off" data-i18n-placeholder="rpSummaryPlaceholder" placeholder="Example: Vortex doesn't open after clicking Download"></label>
+          <fieldset class="rp-category"><legend data-i18n="rpCategory">Where does it happen?</legend><div class="rp-category-options">
+            <label><input type="radio" name="category" value="download"><span data-i18n="rpCatDownload">Downloads</span></label>
+            <label><input type="radio" name="category" value="collection"><span data-i18n="rpCatCollection">Collections</span></label>
+            <label><input type="radio" name="category" value="vortex"><span>Vortex</span></label>
+            <label><input type="radio" name="category" value="interface"><span data-i18n="rpCatInterface">Interface</span></label>
+            <label><input type="radio" name="category" value="other" checked><span data-i18n="rpCatOther">Other</span></label>
+          </div></fieldset>
+          <label class="rp-field" for="rpNote"><span data-i18n="rpNote">What happened? (optional)</span><textarea id="rpNote" rows="5" maxlength="2000" data-i18n-placeholder="rpNotePlaceholder" placeholder="What were you doing, and what went wrong?" aria-describedby="rpNoteCount"></textarea><span class="rp-field-meta" id="rpNoteCount">0 / 2,000</span></label>
+          <details class="rp-reproduction"><summary><span data-i18n="rpReproduction">Add steps and the expected result</span><svg><use href="#i-chevron"/></svg></summary><div class="rp-reproduction-body">
+            <label class="rp-field" for="rpSteps"><span data-i18n="rpSteps">Steps to reproduce</span><textarea id="rpSteps" rows="3" maxlength="1000" placeholder="1. …&#10;2. …&#10;3. …"></textarea></label>
+            <label class="rp-field" for="rpExpected"><span data-i18n="rpExpected">What should have happened?</span><textarea id="rpExpected" rows="2" maxlength="1000"></textarea></label>
+          </div></details>
+          <label class="rp-field rp-contact" for="rpContact"><span data-i18n="rpContact">E-mail for a reply (optional, sent only if you fill it in)</span><input id="rpContact" type="email" maxlength="120" autocomplete="off" inputmode="email" placeholder="you@example.com"><small data-i18n="rpContactPrivacy">Used for a reply. Excluded from the public GitHub issue.</small></label>
+          <div class="rp-submit-area">
+            <div class="rp-status" id="rpStatus" role="status" aria-live="polite" tabindex="-1"></div>
+            <div class="rp-success" id="rpSuccess" hidden><span class="rp-success-mark"><svg><use href="#i-check"/></svg></span><div><h3 data-i18n="rpThanks">Your report is on its way.</h3><p data-i18n="rpKeepReference">Keep this reference if you need to follow up.</p><code id="rpReference"></code></div></div>
+            <button id="rpSend" class="rp-button rp-primary" type="submit"><span id="rpSendLabel" data-i18n="rpSend">Send report</span><svg class="rp-send-icon"><use href="#i-arrow"/></svg><span class="rp-spinner" aria-hidden="true"></span></button>
+            <p class="rp-submit-hint"><svg><use href="#i-shield"/></svg><span data-i18n="rpSendHint">You review it. You decide when to send.</span></p>
+          </div>
+        </form>
+        <div id="rpFallback" class="rp-fallback" hidden><h3 data-i18n="rpFallbackTitle">There's another way to report it.</h3><p data-i18n="rpFallbackLead">You can still report it: open a GitHub issue with the report filled in. The full JSON is copied to the clipboard too, so you can paste it into the issue if the link had to be shortened.</p><div class="rp-actions"><button id="rpRetry" class="rp-button rp-secondary" type="button" data-i18n="rpRetry" hidden>Try again</button><button id="rpFallbackGithub" class="rp-button rp-secondary" type="button" data-i18n="rpFallbackGithub">Open a prefilled GitHub issue</button><button id="rpFallbackCopy" class="rp-button rp-text-button" type="button" data-i18n="rpCopyJson">Copy full JSON</button></div></div>
+      </section>
+      <aside class="rp-review" aria-labelledby="rpReviewTitle">
+        <section class="rp-review-panel">
+          <header class="rp-review-heading"><span class="rp-review-icon"><svg><use href="#i-file"/></svg></span><div><h2 id="rpReviewTitle" data-i18n="rpReview">Your report, before it leaves</h2><span class="rp-size" id="rpSize">— KB</span></div></header>
+          <div class="rp-tabs" role="tablist" data-i18n-aria-label="rpPreview" aria-label="Exact report"><button id="rpSummaryTab" type="button" role="tab" aria-selected="true" aria-controls="rpOverview" data-i18n="rpOverview">Overview</button><button id="rpJsonTab" type="button" role="tab" aria-selected="false" aria-controls="rpJsonPanel" tabindex="-1">JSON</button></div>
+          <div id="rpOverview" role="tabpanel" aria-labelledby="rpSummaryTab" class="rp-overview">
+            <dl class="rp-environment"><div><dt data-i18n="rpVersionLabel">Extension</dt><dd id="rpEnvironmentVersion">—</dd></div><div><dt data-i18n="rpBrowserLabel">Browser</dt><dd id="rpEnvironmentBrowser">—</dd></div><div><dt data-i18n="rpErrorsLabel">Recorded errors</dt><dd id="rpErrorCount">0</dd></div><div><dt data-i18n="rpLogsLabel">Debug entries</dt><dd id="rpLogCount">0</dd></div></dl>
+            <div class="rp-error-context" id="rpErrorContext" hidden><span data-i18n="rpLatestError">Latest error</span><code id="rpErrorCode"></code><p id="rpErrorMessage"></p><span class="rp-error-url" id="rpErrorUrl"></span></div>
+            <div class="rp-empty" id="rpNoErrors"><span class="rp-empty-mark"><svg><use href="#i-check"/></svg></span><span data-i18n="rpNoErrors">No errors recorded. You can still report a problem.</span></div>
+            <div class="rp-note-preview" id="rpNotePreview" hidden><strong id="rpSummaryPreview"></strong><p id="rpDescriptionPreview"></p></div>
+          </div>
+          <div id="rpJsonPanel" role="tabpanel" aria-labelledby="rpJsonTab" hidden><pre id="rpPreview" class="rp-preview" tabindex="0"></pre></div>
+          <div class="rp-review-options"><label class="rp-switch-row"><span class="rp-switch"><input id="rpIncludeLogs" type="checkbox" checked><span class="rp-switch-track"></span></span><span data-i18n="rpIncludeLogs">Include debug logs (only recorded while "Debug logs" is on)</span></label></div>
+          <div class="rp-export-actions"><button id="rpCopy" class="rp-button rp-secondary" type="button"><svg><use href="#i-copy"/></svg><span data-i18n="rpCopy">Copy report</span></button><button id="rpSave" class="rp-button rp-secondary" type="button"><svg><use href="#i-download"/></svg><span data-i18n="rpSave">Save JSON</span></button></div>
+        </section>
+        <section class="rp-privacy"><svg><use href="#i-shield"/></svg><div><h3 data-i18n="rpPrivacy">Private by design</h3><p data-i18n="rpIntro">Nothing is sent until you press Send. Below is exactly what will be sent: names, e-mail addresses, file paths, cookies, tokens and link parameters are removed.</p></div></section>
+        <details class="rp-auto"><summary><span data-i18n="rpAutoHeading">Automatic error reports</span><svg><use href="#i-chevron"/></svg></summary><div class="rp-auto-body"><label class="rp-switch-row"><span class="rp-switch"><input id="rpAuto" type="checkbox"><span class="rp-switch-track"></span></span><span data-i18n="rpAuto">Send anonymous error reports automatically</span></label><p data-i18n="rpAutoDesc">Off by default. When on, only the error code, where it happened and the extension and browser versions are sent, at most ten a day. No page content, history or settings.</p></div></details>
+        <button id="rpGithub" class="rp-button rp-github" type="button"><svg><use href="#i-github"/></svg><span data-i18n="rpGithub">Open a GitHub issue instead</span><svg><use href="#i-arrow"/></svg></button>
+      </aside>
     </div>
-    <p id="rpStatus" class="rp-status" role="status"></p>
-    <div id="rpFallback" class="rp-fallback" hidden>
-      <p class="rp-hint" data-i18n="rpFallbackLead">You can still report it: open a GitHub issue with the report filled in. The full JSON is copied to the clipboard too, so you can paste it into the issue if the link had to be shortened.</p>
-      <div class="rp-actions">
-        <button id="rpRetry" class="nxtk-btn nxtk-btn-secondary" type="button" data-i18n="rpRetry" hidden>Try again</button>
-        <button id="rpFallbackGithub" class="nxtk-btn nxtk-btn-primary" type="button" data-i18n="rpFallbackGithub">Open a prefilled GitHub issue</button>
-        <button id="rpFallbackCopy" class="nxtk-btn nxtk-btn-secondary" type="button" data-i18n="rpCopyJson">Copy full JSON</button>
-      </div>
-    </div>
-
-    <section class="rp-auto">
-      <label class="rp-check">
-        <input id="rpAuto" type="checkbox">
-        <span data-i18n="rpAuto">Send anonymous error reports automatically</span>
-      </label>
-      <p class="rp-hint" data-i18n="rpAutoDesc">Off by default. When on, only the error code, where it happened and the extension and browser versions are sent, at most ten a day. No page content, history or settings.</p>
-    </section>
+    <footer class="rp-footer"><span>NexusMods Bypass</span><a href="https://github.com/thomasthanos/nexusmods-bypass/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer" data-i18n="rpPrivacy">Private by design</a></footer>
   </main>
   <script src="../shared.js"></script>
   <script src="../report.js"></script>

@@ -1569,5 +1569,110 @@
   },
   "rpCopyFailed": {
     "message": "Copie impossible. Sélectionnez le rapport ci-dessus et copiez-le à la main."
+  },
+  "rpSupport": {
+    "message": "Centre d'assistance"
+  },
+  "rpSubtitle": {
+    "message": "Décris le problème. Nous ajoutons les diagnostics."
+  },
+  "rpDetails": {
+    "message": "Décrire le problème"
+  },
+  "rpLocal": {
+    "message": "Sur cet appareil uniquement jusqu'à l'envoi"
+  },
+  "rpSummaryLabel": {
+    "message": "Un bref résumé"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "Exemple : Vortex ne s'ouvre pas après le téléchargement"
+  },
+  "rpCategory": {
+    "message": "Où cela se produit-il ?"
+  },
+  "rpCatDownload": {
+    "message": "Téléchargements"
+  },
+  "rpCatCollection": {
+    "message": "Collections"
+  },
+  "rpCatInterface": {
+    "message": "Interface"
+  },
+  "rpCatOther": {
+    "message": "Autre"
+  },
+  "rpNotePlaceholder": {
+    "message": "Que faisais-tu et qu'est-ce qui a mal fonctionné ?"
+  },
+  "rpReproduction": {
+    "message": "Ajouter les étapes et le résultat attendu"
+  },
+  "rpSteps": {
+    "message": "Étapes pour reproduire le problème"
+  },
+  "rpExpected": {
+    "message": "Quel était le résultat attendu ?"
+  },
+  "rpContactPrivacy": {
+    "message": "Utilisé pour répondre. Exclu du ticket public GitHub."
+  },
+  "rpThanks": {
+    "message": "Ton rapport a été envoyé."
+  },
+  "rpKeepReference": {
+    "message": "Conserve cette référence pour le suivi."
+  },
+  "rpReview": {
+    "message": "Ton rapport avant l'envoi"
+  },
+  "rpOverview": {
+    "message": "Aperçu"
+  },
+  "rpVersionLabel": {
+    "message": "Extension"
+  },
+  "rpBrowserLabel": {
+    "message": "Navigateur"
+  },
+  "rpErrorsLabel": {
+    "message": "Erreurs enregistrées"
+  },
+  "rpLogsLabel": {
+    "message": "Entrées de débogage"
+  },
+  "rpLatestError": {
+    "message": "Dernière erreur"
+  },
+  "rpNoErrors": {
+    "message": "Aucune erreur enregistrée. Tu peux quand même signaler un problème."
+  },
+  "rpSave": {
+    "message": "Enregistrer le JSON"
+  },
+  "rpPrivacy": {
+    "message": "Confidentialité intégrée"
+  },
+  "rpAutoHeading": {
+    "message": "Rapports d'erreurs automatiques"
+  },
+  "rpFallbackTitle": {
+    "message": "Il existe une autre façon de signaler le problème."
+  },
+  "rpSendHint": {
+    "message": "Tu vérifies le rapport et décides quand l'envoyer."
+  },
+  "rpDescribeRequired": {
+    "message": "Ajoute un résumé ou décris le problème avant l'envoi."
+  },
+  "rpEmailInvalid": {
+    "message": "Saisis une adresse e-mail valide ou laisse le champ vide."
+  },
+  "rpSentButton": {
+    "message": "Rapport envoyé"
+  },
+  "rpSettingFailed": {
+    "message": "Le réglage n'a pas pu être enregistré. Réessaie."
   }
 }

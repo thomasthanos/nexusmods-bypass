@@ -1737,5 +1737,110 @@
   },
   "rpCopyFailed": {
     "message": "Nie udało się skopiować. Zaznacz raport powyżej i skopiuj go ręcznie."
+  },
+  "rpSupport": {
+    "message": "Centrum pomocy"
+  },
+  "rpSubtitle": {
+    "message": "Opisz problem. My dodamy dane diagnostyczne."
+  },
+  "rpDetails": {
+    "message": "Opisz problem"
+  },
+  "rpLocal": {
+    "message": "Tylko na tym urządzeniu do momentu wysłania"
+  },
+  "rpSummaryLabel": {
+    "message": "Krótkie podsumowanie"
+  },
+  "rpSummaryPlaceholder": {
+    "message": "Przykład: Vortex nie otwiera się po kliknięciu Pobierz"
+  },
+  "rpCategory": {
+    "message": "Gdzie występuje problem?"
+  },
+  "rpCatDownload": {
+    "message": "Pobieranie"
+  },
+  "rpCatCollection": {
+    "message": "Kolekcje"
+  },
+  "rpCatInterface": {
+    "message": "Interfejs"
+  },
+  "rpCatOther": {
+    "message": "Inne"
+  },
+  "rpNotePlaceholder": {
+    "message": "Co robiono i co poszło nie tak?"
+  },
+  "rpReproduction": {
+    "message": "Dodaj kroki i oczekiwany wynik"
+  },
+  "rpSteps": {
+    "message": "Kroki odtworzenia problemu"
+  },
+  "rpExpected": {
+    "message": "Co powinno się wydarzyć?"
+  },
+  "rpContactPrivacy": {
+    "message": "Służy do odpowiedzi. Nie trafia do publicznego zgłoszenia GitHub."
+  },
+  "rpThanks": {
+    "message": "Zgłoszenie zostało wysłane."
+  },
+  "rpKeepReference": {
+    "message": "Zachowaj ten numer do dalszego kontaktu."
+  },
+  "rpReview": {
+    "message": "Zgłoszenie przed wysłaniem"
+  },
+  "rpOverview": {
+    "message": "Podgląd"
+  },
+  "rpVersionLabel": {
+    "message": "Rozszerzenie"
+  },
+  "rpBrowserLabel": {
+    "message": "Przeglądarka"
+  },
+  "rpErrorsLabel": {
+    "message": "Zapisane błędy"
+  },
+  "rpLogsLabel": {
+    "message": "Wpisy debugowania"
+  },
+  "rpLatestError": {
+    "message": "Ostatni błąd"
+  },
+  "rpNoErrors": {
+    "message": "Nie zapisano błędów. Nadal możesz zgłosić problem."
+  },
+  "rpSave": {
+    "message": "Zapisz JSON"
+  },
+  "rpPrivacy": {
+    "message": "Ochrona prywatności"
+  },
+  "rpAutoHeading": {
+    "message": "Automatyczne zgłaszanie błędów"
+  },
+  "rpFallbackTitle": {
+    "message": "Jest inny sposób zgłoszenia problemu."
+  },
+  "rpSendHint": {
+    "message": "Sprawdzasz zgłoszenie i decydujesz, kiedy je wysłać."
+  },
+  "rpDescribeRequired": {
+    "message": "Przed wysłaniem dodaj podsumowanie lub opis problemu."
+  },
+  "rpEmailInvalid": {
+    "message": "Podaj prawidłowy e-mail lub zostaw pole puste."
+  },
+  "rpSentButton": {
+    "message": "Zgłoszenie wysłane"
+  },
+  "rpSettingFailed": {
+    "message": "Nie udało się zapisać ustawienia. Spróbuj ponownie."
   }
 }

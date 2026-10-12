@@ -17,7 +17,9 @@ host permission. KV-backed rate limiting and e-mail are not configured.
 - At most 10 reports per IP per hour. With a KV namespace bound as `RATE_LIMIT` the counters are
   shared across Cloudflare's edge. Without one, a per-isolate in-memory limiter only slows down bursts.
   For a hard limit, add a Cloudflare Rate Limiting rule on the route. No Durable Object is needed.
-- Posts a Discord embed with mentions disabled. If Resend is configured, it also e-mails the full JSON.
+- Posts a Discord summary with mentions disabled and attaches the full report as a JSON file,
+  preserving the description, reproduction steps, expected result and reviewed diagnostics.
+  If Resend is configured, it also e-mails the full JSON.
 - CORS only for extension origins (`ALLOWED_ORIGINS`).
 
 ## Deploy

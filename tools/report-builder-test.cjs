@@ -97,6 +97,24 @@ async function reportPayloadTests() {
   assert.equal(payload.logs.length, 1);
   assert.doesNotMatch(text, /jane|Jane|token=abc/, 'no personal data reaches the payload');
   assert.ok(new TextEncoder().encode(text).length <= NXTK.MAX_REPORT_BYTES);
+  const detailed = await NXTK.buildReportPayload(null, {
+    summary: 'Cannot start Vortex', category: 'vortex', steps: 'Click Download with token=secret',
+    expected: 'Vortex opens for jane@example.com', note: 'Nothing happened', contact: 'reply@example.com'
+  });
+  assert.equal(detailed.summary, 'Cannot start Vortex');
+  assert.equal(detailed.category, 'vortex');
+  assert.equal(detailed.currentError.code, payload.errors[0].code, 'the latest error is included without a page-specific error');
+  assert.doesNotMatch(detailed.steps, /secret/);
+  assert.doesNotMatch(detailed.expected, /jane@example/);
+  const issue = new URL(NXTK.buildPayloadIssueUrl(detailed).url);
+  assert.equal(issue.searchParams.get('title'), '[Bug] Cannot start Vortex');
+  assert.match(issue.searchParams.get('what-happened'), /Nothing happened/);
+  assert.match(issue.searchParams.get('what-happened'), /Steps to reproduce/);
+  assert.match(issue.searchParams.get('what-happened'), /Expected result/);
+  assert.doesNotMatch(issue.href, /reply/);
+  const hugeIssue = NXTK.buildPayloadIssueUrl({ ...detailed, note: '错'.repeat(2000), steps: '错'.repeat(1000), expected: '错'.repeat(1000), report: '错'.repeat(12000) });
+  assert.ok(hugeIssue.url.length <= 7000, 'large multibyte reports still produce a usable GitHub URL');
+  assert.equal(hugeIssue.complete, false);
   const noLogs = await NXTK.buildReportPayload(null, { includeDebug: false });
   assert.equal(noLogs.logs.length, 0, 'logs can be left out');
 
