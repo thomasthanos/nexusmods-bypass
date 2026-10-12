@@ -586,7 +586,7 @@
     "message": "模组之间的暂停"
   },
   "setPauseBetweenModsDesc": {
-    "message": "仅适用于 Vortex 模式。会加到上面的估算之上。设为 0 可完全关闭等待（包括基于大小的估算），把每个文件连续交给 Vortex 自行排队。"
+    "message": "仅适用于 Vortex 模式。会加到上面的估算之上。设为 0 可关闭基于大小的估算，让 Vortex 自行排队；每次交接之间始终保留 2 秒间隔。"
   },
   "dlgHistoryTitle": {
     "message": "发现已下载的模组"

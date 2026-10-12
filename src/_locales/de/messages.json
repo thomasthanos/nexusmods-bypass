@@ -621,7 +621,7 @@
     "message": "Pause zwischen Mods"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Nur im Vortex-Modus. Wird zur obigen Schätzung addiert. Auf 0 setzen, um das Warten komplett abzuschalten – auch die Größenschätzung – und alle Dateien direkt nacheinander an Vortex zu übergeben."
+    "message": "Nur im Vortex-Modus. Wird zur obigen Schätzung addiert. Auf 0 setzen, um die Größenschätzung abzuschalten und Vortex die Dateien selbst einreihen zu lassen; ein Abstand von 2 Sekunden zwischen den Übergaben bleibt immer bestehen."
   },
   "dlgHistoryTitle": {
     "message": "Heruntergeladene Mods gefunden"

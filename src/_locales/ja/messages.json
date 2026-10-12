@@ -551,7 +551,7 @@
     "message": "MOD 間の待機時間"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Vortex モードのみ。上記の見積もりに加算されます。0 にすると、サイズに基づく見積もりを含めて待機を完全に無効化し、各ファイルを連続で Vortex に渡して Vortex 自身にキュー管理させます。"
+    "message": "Vortex モードのみ。上記の見積もりに加算されます。0 にするとサイズに基づく見積もりを無効にし、Vortex 自身にキュー管理させます。ただし受け渡しの間には常に 2 秒の間隔が残ります。"
   },
   "dlgHistoryTitle": {
     "message": "ダウンロード済みの MOD が見つかりました"

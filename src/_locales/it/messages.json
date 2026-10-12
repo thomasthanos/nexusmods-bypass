@@ -551,7 +551,7 @@
     "message": "Pausa tra le mod"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Solo in modalità Vortex. Si aggiunge alla stima sopra. Impostala a 0 per disattivare completamente l'attesa — inclusa la stima sulle dimensioni — e passare ogni file a Vortex di seguito, lasciando che sia Vortex a metterli in coda."
+    "message": "Solo in modalità Vortex. Si aggiunge alla stima sopra. Impostala a 0 per disattivare la stima sulle dimensioni e lasciare che sia Vortex a mettere in coda i file; tra un passaggio e l'altro resta sempre una pausa di 2 secondi."
   },
   "dlgHistoryTitle": {
     "message": "Trovate mod già scaricate"

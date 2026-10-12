@@ -551,7 +551,7 @@
     "message": "모드 사이 대기"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Vortex 모드 전용입니다. 위 추정치에 더해집니다. 0으로 설정하면 크기 기반 추정을 포함해 대기를 완전히 끄고, 모든 파일을 연달아 Vortex에 넘겨 Vortex가 직접 대기열을 관리하게 합니다."
+    "message": "Vortex 모드 전용입니다. 위 추정치에 더해집니다. 0으로 설정하면 크기 기반 추정을 끄고 Vortex가 직접 대기열을 관리하게 합니다. 단, 전달 사이에는 항상 2초 간격이 유지됩니다."
   },
   "dlgHistoryTitle": {
     "message": "다운로드된 모드를 찾았습니다"

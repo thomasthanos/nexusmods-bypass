@@ -551,7 +551,7 @@
     "message": "Modlar arası bekleme"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Yalnızca Vortex modu. Yukarıdaki tahmine eklenir. 0 yaparsanız — boyuta dayalı tahmin dahil — bekleme tamamen kapanır ve her dosya art arda Vortex'e verilir, kuyruğu Vortex kendi yönetir."
+    "message": "Yalnızca Vortex modu. Yukarıdaki tahmine eklenir. 0 yaparsanız boyuta dayalı tahmin kapanır ve kuyruğu Vortex kendi yönetir; aktarımlar arasında her zaman 2 saniyelik bir ara kalır."
   },
   "dlgHistoryTitle": {
     "message": "İndirilmiş modlar bulundu"

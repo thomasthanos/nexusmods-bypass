@@ -621,7 +621,7 @@
     "message": "Pausa entre mods"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Solo en modo Vortex. Se suma a la estimación anterior. Ponlo en 0 para desactivar la espera por completo —incluida la estimación de tamaño— y entregar cada archivo a Vortex de forma consecutiva."
+    "message": "Solo en modo Vortex. Se suma a la estimación anterior. Ponlo en 0 para desactivar la estimación de tamaño y dejar que Vortex ponga los archivos en cola; siempre se mantiene una pausa de 2 segundos entre entregas."
   },
   "dlgHistoryTitle": {
     "message": "Se encontraron mods descargados"

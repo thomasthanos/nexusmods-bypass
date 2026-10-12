@@ -551,7 +551,7 @@
     "message": "Przerwa między modami"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Tylko w trybie Vortex. Dodawana do powyższego szacunku. Ustaw 0, aby całkowicie wyłączyć oczekiwanie — łącznie z szacunkiem na podstawie rozmiaru — i przekazywać pliki do Vortex jeden po drugim, pozwalając Vortexowi samemu je kolejkować."
+    "message": "Tylko w trybie Vortex. Dodawana do powyższego szacunku. Ustaw 0, aby wyłączyć szacunek na podstawie rozmiaru i pozwolić Vortexowi samemu kolejkować pliki; między przekazaniami zawsze pozostaje 2-sekundowa przerwa."
   },
   "dlgHistoryTitle": {
     "message": "Znaleziono pobrane mody"
