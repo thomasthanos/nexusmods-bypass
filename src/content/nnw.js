@@ -957,7 +957,57 @@ window.NexusExt = window.NexusExt || {};
     return normalized;
   }
 
+  // One file must never start two browser downloads at once: an automatic start, the slow-download
+  // button listener and the page-wide click interceptor can all react to the same file page. A start
+  // for a file that is already in flight, or that started moments ago, is dropped.
+  const DOWNLOAD_DEDUPE_WINDOW_MS = 15000;
+  const activeDownloads = new Map();
+
+  function claimDownload(fileId, isNMM) {
+    if (!fileId) return true;
+    const key = `${isNMM ? 'nmm' : 'browser'}:${fileId}`;
+    const now = Date.now();
+    const previous = activeDownloads.get(key);
+    if (previous && (previous.inFlight || now - previous.at < DOWNLOAD_DEDUPE_WINDOW_MS)) return null;
+    // A content script orphaned by an extension reload or update keeps its listeners in the page. The
+    // DOM is the one thing both copies share, so the claim is also written there.
+    const attr = `data-nxtk-claim-${key.replace(/[^a-z0-9]/gi, '-')}`;
+    const rootEl = document.documentElement;
+    const domAt = Number(rootEl?.getAttribute(attr) || 0);
+    if (domAt && now - domAt < DOWNLOAD_DEDUPE_WINDOW_MS) return null;
+    rootEl?.setAttribute(attr, String(now));
+    const entry = { inFlight: true, at: now };
+    activeDownloads.set(key, entry);
+    return {
+      done(started) {
+        entry.inFlight = false;
+        entry.at = Date.now();
+        if (started) {
+          rootEl?.setAttribute(attr, String(entry.at));
+        } else {
+          activeDownloads.delete(key);
+          rootEl?.removeAttribute(attr);
+        }
+      }
+    };
+  }
+
   async function runDownload(options) {
+    const claim = claimDownload(options?.fileId, options?.isNMM);
+    if (!claim) {
+      Logger.info(`Ignored a duplicate start for file ${options?.fileId}.`);
+      return false;
+    }
+    let started = false;
+    try {
+      started = await runDownloadOnce(options);
+      return started;
+    } finally {
+      claim.done(started);
+    }
+  }
+
+  async function runDownloadOnce(options) {
     const {
       button = null,
       fileId,
@@ -1221,16 +1271,18 @@ window.NexusExt = window.NexusExt || {};
     const selector = includeBound ? 'button' : 'button:not([data-nxtk-slow-bound])';
     const buttons = Array.from(root.querySelectorAll(selector));
     return buttons.filter((button) => {
+      const Sel = globalThis.NexusSelectors;
       const buttonText = normalizeText(button.textContent);
-      if (!buttonText.includes('slow download')) return false;
+      const isSlow = Sel ? Sel.textMatches(buttonText, 'slowDownload') : buttonText.includes('slow download');
+      if (!isSlow) return false;
+      if (button.id === 'slowDownloadButton') return true;
 
       const cardText = normalizeText(button.closest('div,section,article')?.textContent);
-      return (
-        button.id === 'slowDownloadButton'
-        || cardText.includes('wait more')
-        || cardText.includes('delay before each download')
-        || cardText.includes('throttled downloads')
-      );
+      return Sel
+        ? Sel.textMatches(cardText, 'slowCardHint')
+        : (cardText.includes('wait more')
+          || cardText.includes('delay before each download')
+          || cardText.includes('throttled downloads'));
     });
   }
 
@@ -1301,6 +1353,10 @@ window.NexusExt = window.NexusExt || {};
     return isModPage() && location.search.includes('file_id');
   }
 
+  // Nexus re-renders the card and can drop the data attribute while keeping the same element; the
+  // WeakSet makes sure one button never gets a second listener (which started the file twice).
+  const boundSlowButtons = new WeakSet();
+
   function setupSlowDownloadIntercept() {
     if (isNativeFallbackActive()) {
       startNativeFallbackIfReady();
@@ -1312,6 +1368,8 @@ window.NexusExt = window.NexusExt || {};
       const slowDownloadButtons = findSlowDownloadButtons(root);
       for (const slowDownloadBtn of slowDownloadButtons) {
         slowDownloadBtn.dataset.nxtkSlowBound = '1';
+        if (boundSlowButtons.has(slowDownloadBtn)) continue;
+        boundSlowButtons.add(slowDownloadBtn);
         slowDownloadBtn.addEventListener('click', (event) => {
           if (isNativeFallbackActive()) return;
           handleSlowDownloadClick(slowDownloadBtn, event)
@@ -1324,19 +1382,39 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
-  const SLOW_DOWNLOAD_POLL_MS = 1000;
+  // Nexus builds and relabels the download card after load (and inside shadow roots), so the binding
+  // follows DOM changes instead of a one-second poll. The safety tick stays as a slow backstop for
+  // shadow-root changes a document observer cannot see, and for the Cloudflare fallback.
+  const SLOW_DOWNLOAD_SAFETY_MS = 5000;
   let slowDownloadTimer = null;
+  let slowDownloadObserver = null;
+  let slowDownloadScheduled = false;
+
+  function scheduleSlowDownloadSetup() {
+    if (slowDownloadScheduled) return;
+    slowDownloadScheduled = true;
+    const run = () => {
+      slowDownloadScheduled = false;
+      if (!isFilePage()) {
+        stopSlowDownloadPolling();
+        return;
+      }
+      if (!document.hidden || isNativeFallbackActive()) setupSlowDownloadIntercept();
+    };
+    if (typeof requestAnimationFrame === 'function' && !document.hidden) requestAnimationFrame(run);
+    else setTimeout(run, 50);
+  }
 
   function syncSlowDownloadIntercept() {
     if (isFilePage()) {
       setupSlowDownloadIntercept();
+      if (!slowDownloadObserver && typeof MutationObserver === 'function' && document.body) {
+        slowDownloadObserver = new MutationObserver(scheduleSlowDownloadSetup);
+        slowDownloadObserver.observe(document.body, { childList: true, subtree: true });
+        document.addEventListener('visibilitychange', scheduleSlowDownloadSetup);
+      }
       if (slowDownloadTimer === null) {
-        slowDownloadTimer = setInterval(() => {
-          if (!isFilePage()) stopSlowDownloadPolling();
-          // Nobody can press a button in a hidden tab; the first visible tick binds it. A Cloudflare
-          // fallback keeps going, since it may be waiting to start the native download on its own.
-          else if (!document.hidden || isNativeFallbackActive()) setupSlowDownloadIntercept();
-        }, SLOW_DOWNLOAD_POLL_MS);
+        slowDownloadTimer = setInterval(scheduleSlowDownloadSetup, SLOW_DOWNLOAD_SAFETY_MS);
       }
       return;
     }
@@ -1344,6 +1422,11 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function stopSlowDownloadPolling() {
+    if (slowDownloadObserver) {
+      slowDownloadObserver.disconnect();
+      slowDownloadObserver = null;
+      document.removeEventListener('visibilitychange', scheduleSlowDownloadSetup);
+    }
     if (slowDownloadTimer === null) return;
     clearInterval(slowDownloadTimer);
     slowDownloadTimer = null;
@@ -1573,7 +1656,8 @@ window.NexusExt = window.NexusExt || {};
       shadowRoot.appendChild(shadowStyle);
     });
 
-    const premiumBanner = document.querySelector('.bg-nexus-premium-gradient');
+    const premiumBanner = globalThis.NexusSelectors?.find(document, 'premiumBanner')?.element
+      || document.querySelector('.bg-nexus-premium-gradient');
     if (premiumBanner) {
       hideUpsellElement(premiumBanner);
       Logger.info('Hidden premium upsell banner');
@@ -1839,6 +1923,7 @@ window.NexusExt = window.NexusExt || {};
   async function init() {
     cfg = await NexusExt.Storage.getSettings();
     NXTK.setForceEnglish(cfg.ForceEnglish);
+    NXTK.setDebugLogging?.(cfg.DebugLogs);
     syncNativeFallbackState();
     if (!listenersAttached) {
       attachClickInterceptor();
@@ -1887,6 +1972,7 @@ window.NexusExt = window.NexusExt || {};
     const previousCfg = { ...cfg };
     cfg = { ...(NexusExt.Storage?.DEFAULTS || {}), ...(newCfg || {}) };
     NXTK.setForceEnglish(cfg.ForceEnglish);
+    NXTK.setDebugLogging?.(cfg.DebugLogs);
 
     if (!cfg.AutoCloseTab) cancelScheduledTabClose();
     if (isNativeFallbackActive()) startNativeFallbackIfReady();

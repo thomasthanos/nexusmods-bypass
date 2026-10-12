@@ -51,7 +51,7 @@
       label: () => NXTK.t('setPauseBetweenModsLabel', null, 'Pause between mods'),
       type: 'number',
       unit: () => NXTK.t('unitSecondsShort', null, 's'),
-      desc: () => NXTK.t('setPauseBetweenModsDesc', null, 'Vortex mode only. Added to the estimate above. Set it to 0 to switch the wait off entirely — including the size estimate — and hand every file to Vortex back to back, letting Vortex queue them itself.')
+      desc: () => NXTK.t('setPauseBetweenModsDesc', null, 'Vortex mode only. Added to the estimate above. Set it to 0 to switch off the size estimate and let Vortex queue the files itself; a 2-second gap between hand-offs always remains.')
     }
   ];
 

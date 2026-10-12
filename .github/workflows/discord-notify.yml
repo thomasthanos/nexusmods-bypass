@@ -1,0 +1,42 @@
+name: Discord notifications
+
+# Optional: posts new releases and newly opened (or newly labelled) bug issues to Discord.
+# Does nothing when the DISCORD_WEBHOOK_URL repository secret is not set.
+
+on:
+  release:
+    types: [published]
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'release' ||
+      (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug')) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'bug')
+    steps:
+      - name: Post to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          KIND: ${{ github.event_name }}
+          R_NAME: ${{ github.event.release.name || github.event.release.tag_name }}
+          R_URL: ${{ github.event.release.html_url }}
+          R_BODY: ${{ github.event.release.body }}
+          I_TITLE: ${{ github.event.issue.title }}
+          I_URL: ${{ github.event.issue.html_url }}
+          I_USER: ${{ github.event.issue.user.login }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set; skipping."; exit 0; fi
+          if [ "$KIND" = "release" ]; then
+            body=$(jq -n --arg t "$R_NAME" --arg u "$R_URL" --arg d "$R_BODY" \
+              '{username:"NexusMods Bypass", allowed_mentions:{parse:[]}, embeds:[{title:("Release " + $t), url:$u, description:($d|.[0:3900]), color:5763719}]}')
+          else
+            body=$(jq -n --arg t "$I_TITLE" --arg u "$I_URL" --arg a "$I_USER" \
+              '{username:"NexusMods Bypass", allowed_mentions:{parse:[]}, embeds:[{title:("Bug: " + ($t|.[0:200])), url:$u, description:("Opened by " + $a), color:15548997}]}')
+          fi
+          curl -fsS -X POST -H 'content-type: application/json' -d "$body" "$DISCORD_WEBHOOK_URL" > /dev/null || echo "Discord post failed (ignored)."

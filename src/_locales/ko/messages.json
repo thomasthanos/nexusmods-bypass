@@ -551,7 +551,7 @@
     "message": "모드 사이 대기"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Vortex 모드 전용입니다. 위 추정치에 더해집니다. 0으로 설정하면 크기 기반 추정을 포함해 대기를 완전히 끄고, 모든 파일을 연달아 Vortex에 넘겨 Vortex가 직접 대기열을 관리하게 합니다."
+    "message": "Vortex 모드 전용입니다. 위 추정치에 더해집니다. 0으로 설정하면 크기 기반 추정을 끄고 Vortex가 직접 대기열을 관리하게 합니다. 단, 전달 사이에는 항상 2초 간격이 유지됩니다."
   },
   "dlgHistoryTitle": {
     "message": "다운로드된 모드를 찾았습니다"
@@ -1305,5 +1305,68 @@
   },
   "errNexusApiChangedFix": {
     "message": "이 문제는 확장 프로그램 업데이트가 필요합니다. 고칠 수 있도록 버그 보고서를 보내 주세요."
+  },
+  "btnDismiss": {
+    "message": "닫기"
+  },
+  "noticePageChangedTitle": {
+    "message": "Nexus Mods가 이 페이지를 변경했습니다"
+  },
+  "noticePageChangedDetail": {
+    "message": "확장 프로그램이 업데이트될 때까지 일부 NexusMods Bypass 기능이 여기서 작동하지 않을 수 있습니다. Nexus 자체 버튼은 계속 작동합니다. 확장 프로그램 팝업의 '버그 신고'로 자세한 내용을 보낼 수 있습니다."
+  },
+  "btnSendReport": {
+    "message": "버그 보고서 보내기"
+  },
+  "rpTitle": {
+    "message": "버그 보고서 보내기"
+  },
+  "rpIntro": {
+    "message": "보내기를 누르기 전에는 아무것도 전송되지 않습니다. 아래가 전송될 내용 그대로입니다. 이름, 이메일 주소, 파일 경로, 쿠키, 토큰, 링크 매개변수는 제거됩니다."
+  },
+  "rpNote": {
+    "message": "무슨 일이 있었나요? (선택)"
+  },
+  "rpContact": {
+    "message": "답변받을 이메일 (선택, 입력한 경우에만 전송)"
+  },
+  "rpIncludeLogs": {
+    "message": "디버그 로그 포함 ('디버그 로그'가 켜져 있는 동안에만 기록됨)"
+  },
+  "rpPreview": {
+    "message": "전송될 보고서"
+  },
+  "rpSend": {
+    "message": "보고서 보내기"
+  },
+  "rpCopy": {
+    "message": "보고서 복사"
+  },
+  "rpGithub": {
+    "message": "대신 GitHub 이슈 열기"
+  },
+  "rpAuto": {
+    "message": "익명 오류 보고서 자동 전송"
+  },
+  "rpAutoDesc": {
+    "message": "기본값은 꺼짐입니다. 켜면 오류 코드, 발생 위치, 확장 프로그램 및 브라우저 버전만 하루 최대 10건 전송합니다. 페이지 내용, 기록, 설정은 보내지 않습니다."
+  },
+  "rpSent": {
+    "message": "보고서를 보냈습니다. 감사합니다! 참조 번호: $1"
+  },
+  "rpSendFailed": {
+    "message": "보고서를 보낼 수 없습니다. 복사하거나 대신 GitHub 이슈를 여세요."
+  },
+  "rpPermissionDenied": {
+    "message": "보고서 서버 접근 권한이 허용되지 않았습니다. 보고서를 복사하거나 GitHub 이슈를 여세요."
+  },
+  "rpCopied": {
+    "message": "보고서를 클립보드에 복사했습니다."
+  },
+  "ratingPromptRuns": {
+    "message": "컬렉션 $1개를 다운로드했습니다. 시간을 아꼈다면 짧은 리뷰나 GitHub 스타가 큰 도움이 됩니다."
+  },
+  "ratingLater": {
+    "message": "나중에"
   }
 }

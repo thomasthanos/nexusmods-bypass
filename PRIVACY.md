@@ -19,7 +19,7 @@ All of this data is stored in local browser extension storage.
 
 ## Network activity
 
-The extension makes only the Nexus Mods requests needed to resolve and start downloads - the same requests the browser would make when the corresponding buttons are clicked manually. It does not transmit extension data to the publisher or to an analytics service.
+The extension makes only the Nexus Mods requests needed to resolve and start downloads - the same requests the browser would make when the corresponding buttons are clicked manually. It does not transmit extension data to the publisher or to an analytics service, except a bug report you choose to send (below).
 
 ## Cookies
 
@@ -27,7 +27,11 @@ While **Hide ads and Premium panels** is on, the extension writes one first-part
 
 ## Bug reports
 
-The **Report a bug** action opens a GitHub issue form with recent errors, and the last few actions the extension took, included in the draft. Both are redacted for query strings and parameters that could carry a session or an identifier before they reach the draft. The user can review and edit the draft before choosing whether to submit it. Nothing is submitted automatically.
+The **Report a bug** action opens a GitHub issue form with recent errors, and the last few actions the extension took, included in the draft. The **Send bug report** page shows the exact JSON that would be sent - version, browser, a settings snapshot (the download folder only as "custom"/"default"), recent errors and, only if you tick it, the local debug log - and you can copy it, open a GitHub issue, or send it. Everything is redacted first: usernames, emails, cookies, tokens, file paths and URL query strings are removed.
+
+Sending goes to the maintainer's report relay (`nexusmods-bypass-relay.thomasthanos.workers.dev`), a Cloudflare Worker that forwards the report to a private Discord channel (and optionally email). The browser asks for that site as an optional permission the first time you send; it is never requested otherwise. The relay keeps no copy beyond a per-IP rate-limit counter.
+
+**Automatic error reports** are off by default. When turned on (on the report page, which also asks for the same optional permission), new errors are sent as a minimal anonymous record - version, browser and the redacted error - at most once per 10 minutes and 10 per day. Revoking the permission or turning the setting off stops them.
 
 ## Downloads permission
 

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "2.7.4",
+  "version": "2.9.0",
   "description": "__MSG_appDesc__",
   "default_locale": "en",
   "homepage_url": "https://github.com/thomasthanos/nexusmods-bypass",
@@ -13,6 +13,9 @@
   ],
   "host_permissions": [
     "https://www.nexusmods.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://nexusmods-bypass-relay.thomasthanos.workers.dev/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -42,6 +45,7 @@
       ],
       "js": [
         "shared.js",
+        "selectors.js",
         "response-classifier.js",
         "download-url-parser.js",
         "content/storage.js",

@@ -119,6 +119,9 @@
   function teardownActiveCollection() {
     clearTimeout(initRetryTimer);
     initRetryTimer = null;
+    clearTimeout(deckMountRetryTimer);
+    deckMountRetryTimer = null;
+    deckMountAttempts = 0;
     activeNdc?.dispose?.();
     UI.closeExtensionOverlays?.();
 
@@ -140,11 +143,20 @@
     await NNW.waitForDomSettled({ root: document.getElementById('mainContent') || document.body });
     if (mountRun !== deckMountRun || activeNdc !== ndc) return;
 
-    const host = findCollectionHost();
-    if (!host?.container) return;
-
     const existingDeck = document.getElementById('nxtk-control-deck');
-    if (existingDeck) return;
+    if (existingDeck) {
+      deckMountAttempts = 0;
+      return;
+    }
+
+    const host = findCollectionHost();
+    if (!host?.container) {
+      // Next.js hydrates the collection page in stages, and the spot for the deck can arrive after
+      // the DOM first goes quiet. Retry on a short, growing timer instead of waiting for a reload.
+      scheduleDeckMountRetry(ndc);
+      return;
+    }
+    deckMountAttempts = 0;
 
     const deck = UI.createControlDeck(ndc);
     if (host.legacy) {
@@ -155,6 +167,22 @@
     }
 
     resumeBackgroundRunFor(ndc);
+  }
+
+  const DECK_MOUNT_RETRY_BASE_MS = 250;
+  const DECK_MOUNT_RETRY_MAX_MS = 4000;
+  const DECK_MOUNT_MAX_ATTEMPTS = 20;
+  let deckMountAttempts = 0;
+  let deckMountRetryTimer = null;
+
+  function scheduleDeckMountRetry(ndc) {
+    if (deckMountRetryTimer || deckMountAttempts >= DECK_MOUNT_MAX_ATTEMPTS) return;
+    const delay = Math.min(DECK_MOUNT_RETRY_BASE_MS * Math.pow(2, deckMountAttempts), DECK_MOUNT_RETRY_MAX_MS);
+    deckMountAttempts += 1;
+    deckMountRetryTimer = setTimeout(() => {
+      deckMountRetryTimer = null;
+      if (activeNdc === ndc && !document.getElementById('nxtk-control-deck')) handleRouteChange();
+    }, delay);
   }
 
   const ROUTE_CHANGE_DEBOUNCE_MS = 150;
@@ -299,6 +327,12 @@
   }
 
   window.addEventListener('popstate', syncNavigation);
+  // A content script cannot see the page's history.pushState calls; the Navigation API, where the
+  // browser has it, reports SPA navigations directly instead of leaving them to the next poll tick.
+  try {
+    window.navigation?.addEventListener?.('navigatesuccess', syncNavigation);
+  } catch (_) {
+  }
 
   try {
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -369,6 +403,11 @@
       syncObserverRoot();
       syncNavigation();
       syncPollRate();
+      // Self-heal: a collection page whose deck was never mounted, or was wiped by a re-render.
+      if (activeNdc?.initialized && !activeNdc.disposed && extractRouteDetails(location.pathname)
+        && !document.getElementById('nxtk-control-deck')) {
+        handleRouteChange();
+      }
     }
 
     syncPollRate();

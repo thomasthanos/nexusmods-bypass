@@ -621,7 +621,7 @@
     "message": "Pause zwischen Mods"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Nur im Vortex-Modus. Wird zur obigen Schätzung addiert. Auf 0 setzen, um das Warten komplett abzuschalten – auch die Größenschätzung – und alle Dateien direkt nacheinander an Vortex zu übergeben."
+    "message": "Nur im Vortex-Modus. Wird zur obigen Schätzung addiert. Auf 0 setzen, um die Größenschätzung abzuschalten und Vortex die Dateien selbst einreihen zu lassen; ein Abstand von 2 Sekunden zwischen den Übergaben bleibt immer bestehen."
   },
   "dlgHistoryTitle": {
     "message": "Heruntergeladene Mods gefunden"
@@ -1389,5 +1389,68 @@
   },
   "errNexusApiChangedFix": {
     "message": "Dafür braucht die Erweiterung ein Update. Sende einen Fehlerbericht, damit es behoben werden kann."
+  },
+  "btnDismiss": {
+    "message": "Schließen"
+  },
+  "noticePageChangedTitle": {
+    "message": "Nexus Mods hat diese Seite geändert"
+  },
+  "noticePageChangedDetail": {
+    "message": "Einige Funktionen von NexusMods Bypass funktionieren hier möglicherweise erst nach einem Update der Erweiterung. Die eigenen Schaltflächen von Nexus funktionieren weiterhin. Details kannst du über „Fehler melden“ im Popup der Erweiterung senden."
+  },
+  "btnSendReport": {
+    "message": "Fehlerbericht senden"
+  },
+  "rpTitle": {
+    "message": "Fehlerbericht senden"
+  },
+  "rpIntro": {
+    "message": "Es wird nichts gesendet, bevor du auf Senden drückst. Unten steht genau, was gesendet wird: Namen, E-Mail-Adressen, Dateipfade, Cookies, Tokens und Link-Parameter werden entfernt."
+  },
+  "rpNote": {
+    "message": "Was ist passiert? (optional)"
+  },
+  "rpContact": {
+    "message": "E-Mail für eine Antwort (optional, wird nur gesendet, wenn du sie einträgst)"
+  },
+  "rpIncludeLogs": {
+    "message": "Debug-Logs einschließen (werden nur aufgezeichnet, solange „Debug-Logs“ an ist)"
+  },
+  "rpPreview": {
+    "message": "Genauer Bericht"
+  },
+  "rpSend": {
+    "message": "Bericht senden"
+  },
+  "rpCopy": {
+    "message": "Bericht kopieren"
+  },
+  "rpGithub": {
+    "message": "Stattdessen ein GitHub-Issue öffnen"
+  },
+  "rpAuto": {
+    "message": "Anonyme Fehlerberichte automatisch senden"
+  },
+  "rpAutoDesc": {
+    "message": "Standardmäßig aus. Wenn an, werden nur der Fehlercode, der Ort und die Versionen von Erweiterung und Browser gesendet, höchstens zehn pro Tag. Keine Seiteninhalte, kein Verlauf, keine Einstellungen."
+  },
+  "rpSent": {
+    "message": "Bericht gesendet. Danke! Referenz: $1"
+  },
+  "rpSendFailed": {
+    "message": "Der Bericht konnte nicht gesendet werden. Kopiere ihn oder öffne stattdessen ein GitHub-Issue."
+  },
+  "rpPermissionDenied": {
+    "message": "Die Berechtigung für den Berichtsserver wurde nicht erteilt. Kopiere den Bericht oder öffne stattdessen ein GitHub-Issue."
+  },
+  "rpCopied": {
+    "message": "Bericht in die Zwischenablage kopiert."
+  },
+  "ratingPromptRuns": {
+    "message": "$1 Collections heruntergeladen. Wenn es dir Zeit gespart hat, hilft eine kurze Bewertung oder ein GitHub-Stern sehr."
+  },
+  "ratingLater": {
+    "message": "Später"
   }
 }

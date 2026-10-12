@@ -76,7 +76,9 @@
             resolve({
               done: state.done === true,
               cleared: Number(state.cleared) || 0,
-              askedAt: Number(state.askedAt) || 0
+              askedAt: Number(state.askedAt) || 0,
+              snoozeUntil: Number(state.snoozeUntil) || 0,
+              runAsked: state.runAsked === true
             });
             return;
           }
@@ -107,6 +109,7 @@
   // The milestone that has come due, or 0 when there is nothing to ask about.
   function ratingMilestoneDue(total, state) {
     if (!state || state.done) return 0;
+    if (state.snoozeUntil && Date.now() < state.snoozeUntil) return 0;
     const count = Number(total) || 0;
     let due = 0;
     for (const milestone of RATING_MILESTONES) {
@@ -124,6 +127,7 @@
   function markRatingAsked(milestone) {
     readRatingState().then((state) => {
       writeRatingState({
+        ...state,
         done: state.done,
         cleared: Math.max(state.cleared, Number(milestone) || 0),
         askedAt: Date.now()
@@ -133,8 +137,53 @@
 
   function markRatingSettled() {
     readRatingState().then((state) => {
-      writeRatingState({ done: true, cleared: state.cleared, askedAt: Date.now() });
+      writeRatingState({ ...state, done: true, cleared: state.cleared, askedAt: Date.now() });
     });
+  }
+
+  // A second, gentler trigger: after a few whole collection runs finish cleanly, ask once. "Later"
+  // snoozes every ask for two weeks; closing it or following a link ends the run-based ask for good.
+  const RUNS_FINISHED_KEY = 'nxtk_runs_finished';
+  const RATING_RUN_THRESHOLD = 5;
+  const RATING_SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
+
+  function readRunsFinished() {
+    return new Promise((resolve) => {
+      try {
+        if (!chrome?.runtime?.id) return resolve(0);
+        chrome.storage.local.get(RUNS_FINISHED_KEY, (result) => {
+          void chrome.runtime.lastError;
+          resolve(Number(result?.[RUNS_FINISHED_KEY]) || 0);
+        });
+      } catch (_) {
+        resolve(0);
+      }
+    });
+  }
+
+  async function recordFinishedRun() {
+    const next = (await readRunsFinished()) + 1;
+    try {
+      if (chrome?.runtime?.id) chrome.storage.local.set({ [RUNS_FINISHED_KEY]: next }, () => void chrome.runtime.lastError);
+    } catch (_) {
+    }
+    return next;
+  }
+
+  function runPromptDue(runs, state) {
+    if (!state || state.done || state.runAsked) return false;
+    if (state.snoozeUntil && Date.now() < state.snoozeUntil) return false;
+    return (Number(runs) || 0) >= RATING_RUN_THRESHOLD;
+  }
+
+  function snoozeRatingPrompt() {
+    readRatingState().then((state) => {
+      writeRatingState({ ...state, snoozeUntil: Date.now() + RATING_SNOOZE_MS });
+    });
+  }
+
+  function markRunPromptAnswered() {
+    readRatingState().then((state) => writeRatingState({ ...state, runAsked: true }));
   }
 
   const RATING_STAR_PATH = 'M12 2.6l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.7l-5.88 3.01 '
@@ -148,12 +197,29 @@
   }
 
   // The popup and the deck ask in the same words, at the same milestones, for the same listing.
-  async function prepareRatingPrompt() {
+  async function prepareRatingPrompt({ includeRuns = false } = {}) {
     const total = await readTotalDownloads();
     const milestone = await dueRatingMilestone(total);
-    if (!milestone) return null;
     const listing = getStoreListing();
+    if (!milestone) {
+      if (!includeRuns) return null;
+      const runs = await readRunsFinished();
+      if (!runPromptDue(runs, await readRatingState())) return null;
+      return {
+        milestone: 0,
+        kind: 'runs',
+        listing,
+        copy: t('ratingPromptRuns', [String(runs)],
+          `${runs} collections downloaded. If it saved you time, a short review or a GitHub star helps a lot.`),
+        reviewText: t('ratingCta', [listing.name], `Rate on ${listing.name}`),
+        starText: t('ratingStarCta', null, 'Star on GitHub'),
+        laterText: t('ratingLater', null, 'Later'),
+        starUrl: GITHUB_REPO_URL
+      };
+    }
     return {
+      kind: 'downloads',
+      laterText: t('ratingLater', null, 'Later'),
       milestone,
       listing,
       copy: t('ratingPromptCount', [String(milestone)],
@@ -173,6 +239,7 @@
     CloudflareFallback: true,
     HidePremiumUpsells: true,
     DebugLogs: false,
+    AutoErrorReports: false,
     DownloadFolder: 'NexusMods',
     CloseTabDelay: 3000,
     RequestTimeout: 30000,
@@ -230,6 +297,83 @@
     if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds);
     const asDate = Date.parse(header);
     return Number.isNaN(asDate) ? null : Math.max(0, Math.round((asDate - Date.now()) / 1000));
+  }
+
+  const MIN_HANDOFF_GAP_SECONDS = 2;
+
+  // What a browser-download interrupt reason means for a retry. chrome.downloads names the reason
+  // (InterruptReason); Firefox uses the same strings. Transient network/server hiccups are retried
+  // (with backoff, one file at a time, through Nexus's normal link); problems a retry cannot fix
+  // (disk full, access denied, blocked by the browser, the user cancelling) are not.
+  const DOWNLOAD_INTERRUPTS = Object.freeze({
+    transient: ['NETWORK_FAILED', 'NETWORK_TIMEOUT', 'NETWORK_DISCONNECTED', 'NETWORK_SERVER_DOWN',
+      'NETWORK_INVALID_REQUEST', 'SERVER_FAILED', 'SERVER_NO_RANGE', 'SERVER_CONTENT_LENGTH_MISMATCH',
+      'SERVER_CROSS_ORIGIN_REDIRECT', 'FILE_FAILED', 'FILE_TRANSIENT_ERROR', 'FILE_HASH_MISMATCH', 'CRASH'],
+    // A signed link that expired or was refused: worth one more try with a freshly requested link.
+    link: ['SERVER_FORBIDDEN', 'SERVER_UNAUTHORIZED', 'SERVER_CERT_PROBLEM', 'SERVER_BAD_CONTENT'],
+    disk: ['FILE_NO_SPACE', 'FILE_ACCESS_DENIED', 'FILE_NAME_TOO_LONG', 'FILE_TOO_LARGE', 'FILE_TOO_SHORT'],
+    blocked: ['FILE_VIRUS_INFECTED', 'FILE_BLOCKED', 'FILE_SECURITY_CHECK_FAILED'],
+    user: ['USER_CANCELED', 'USER_SHUTDOWN']
+  });
+  const DOWNLOAD_RETRY_LIMITS = Object.freeze({ transient: 2, link: 1, unknown: 1, disk: 0, blocked: 0, user: 0, size: 1 });
+
+  function classifyDownloadInterrupt(error) {
+    const text = String(error || '').toUpperCase();
+    if (/\bEMPTY_FILE|SHORT_FILE|NOT_A_FILE|SIZE_MISMATCH/.test(text)) return { kind: 'size', retries: DOWNLOAD_RETRY_LIMITS.size };
+    for (const [kind, reasons] of Object.entries(DOWNLOAD_INTERRUPTS)) {
+      if (reasons.some((reason) => text.includes(reason))) return { kind, retries: DOWNLOAD_RETRY_LIMITS[kind] };
+    }
+    return { kind: 'unknown', retries: DOWNLOAD_RETRY_LIMITS.unknown };
+  }
+
+  // Log lines carry a little markup (links to mods, emphasis). Rather than trust every caller to have
+  // escaped its input before innerHTML, the markup is parsed inertly and rebuilt from an allowlist:
+  // anything else becomes text, and links must point at http(s).
+  const SAFE_TAGS = new Set(['A', 'SPAN', 'STRONG', 'B', 'EM', 'I', 'CODE', 'BR', 'SMALL']);
+  const SAFE_ATTRS = new Set(['class', 'title', 'target', 'rel', 'href']);
+
+  function setSafeHtml(target, markup) {
+    const doc = target?.ownerDocument;
+    if (!doc) return;
+    const source = doc.createElement('template');
+    source.innerHTML = String(markup ?? '');
+    const copy = (node, parent) => {
+      for (const child of Array.from(node.childNodes)) {
+        if (child.nodeType === 3) {
+          parent.appendChild(doc.createTextNode(child.nodeValue));
+        } else if (child.nodeType === 1) {
+          if (!SAFE_TAGS.has(child.tagName)) {
+            copy(child, parent);
+            continue;
+          }
+          const el = doc.createElement(child.tagName.toLowerCase());
+          for (const attr of Array.from(child.attributes)) {
+            const name = attr.name.toLowerCase();
+            if (!SAFE_ATTRS.has(name)) continue;
+            if (name === 'href' && !/^https?:\/\//i.test(attr.value.trim())) continue;
+            el.setAttribute(name, attr.value);
+          }
+          if (el.tagName === 'A') el.setAttribute('rel', 'noopener noreferrer');
+          copy(child, el);
+          parent.appendChild(el);
+        }
+      }
+    };
+    target.replaceChildren();
+    copy(source.content, target);
+  }
+
+  // Exponential backoff with "equal jitter": half the step is fixed, half is random, so several tabs
+  // or a restarted worker that failed together do not retry in lockstep.
+  function retryDelayMs(attempt, baseMs = 1500, maxMs = 30000, random = Math.random) {
+    const step = Math.max(0, (Number(attempt) || 1) - 1);
+    const ceiling = Math.min(baseMs * Math.pow(2, step), maxMs);
+    return Math.round(ceiling / 2 + random() * (ceiling / 2));
+  }
+
+  // Up to +20% on a computed rate-limit wait; never shortens what Nexus asked for.
+  function withJitter(ms, random = Math.random) {
+    return Math.round(ms * (1 + 0.2 * random()));
   }
 
   function rateLimitBackoffSeconds(strike) {
@@ -357,13 +501,88 @@
   }
 
   // Remove credentials and query secrets before diagnostics are shared.
+  // Personal data a log line can carry even after URL and key=value redaction: e-mail addresses,
+  // home-directory paths (which name the OS user), Nexus profile names, cookies, bearer/JWT tokens
+  // and long opaque secrets. Applied to everything that reaches a report.
+  const PERSONAL_PATTERNS = [
+    [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]'],
+    [/\b[A-Z]:\\(?:Users|Documents and Settings)\\[^\\\s"'<>]+/gi, '[home]'],
+    [/(?:\/Users|\/home)\/[^/\s"'<>]+/g, '[home]'],
+    [/(\/users\/)(?!\d+\b)[A-Za-z0-9_.-]+/g, '$1[user]'],
+    [/\b(Cookie|Set-Cookie)\s*:\s*[^\r\n]+/gi, '$1: [redacted]'],
+    [/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]'],
+    [/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, '[jwt]'],
+    [/\b[A-Fa-f0-9]{32,}\b/g, '[token]'],
+    [/\b[A-Za-z0-9_-]{40,}\b/g, '[token]']
+  ];
+
+  function redactPersonalData(value) {
+    let text = String(value ?? '');
+    for (const [pattern, replacement] of PERSONAL_PATTERNS) text = text.replace(pattern, replacement);
+    return text;
+  }
+
   function sanitizeDiagnosticText(value, maxLength = 1500) {
     let text = String(value ?? '');
     if (!text) return text;
     text = text.replace(EXTENSION_ORIGIN_PATTERN, 'ext://');
     text = text.replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, (match) => sanitizeUrlForReport(match));
     text = redactSensitiveValues(text);
+    text = redactPersonalData(text);
     return text.slice(0, maxLength);
+  }
+
+  // Bug-report relay (relay/ in the repository). The extension holds no secret: the relay owns the
+  // Discord webhook. Its origin is an optional host permission, asked for the first time a report is
+  // sent, so installing this version adds no permission warning. Change RELAY_ORIGIN together with
+  // optional_host_permissions in manifest.json when the Worker is deployed elsewhere.
+  const RELAY_ORIGIN = 'https://nexusmods-bypass-relay.thomasthanos.workers.dev';
+  const RELAY_REPORT_URL = `${RELAY_ORIGIN}/v1/report`;
+  const RELAY_PERMISSION = Object.freeze({ origins: [`${RELAY_ORIGIN}/*`] });
+  const REPORT_SCHEMA_VERSION = 1;
+  const MAX_REPORT_BYTES = 60 * 1024;
+
+  // Opt-in debug log: when "Debug logs" is on, every Logger line also goes to a ring buffer kept by
+  // the background worker (DEBUG_LOG_KEY), so a report can include what led up to a problem across
+  // page loads. Off by default; nothing is kept while it is off.
+  const DEBUG_LOG_KEY = 'nxtk_debug_log';
+  const MAX_DEBUG_ENTRIES = 400;
+  let debugPersist = false;
+  let debugPending = [];
+  let debugFlushTimer = null;
+
+  function setDebugLogging(enabled) {
+    debugPersist = !!enabled;
+    if (!debugPersist) debugPending = [];
+  }
+
+  function debugPageType() {
+    try {
+      const path = typeof location !== 'undefined' ? location.pathname || '' : '';
+      if (/\/collections\//.test(path)) return 'collection';
+      if (/\/mods\/\d+/.test(path)) return /file_id=/.test(location.search) ? 'mod-file' : 'mod';
+      if (typeof location !== 'undefined' && /^(chrome|moz)-extension:/.test(location.protocol)) return 'extension';
+      return path ? 'other' : 'worker';
+    } catch (_) {
+      return 'unknown';
+    }
+  }
+
+  function queueDebugEntry(level, text) {
+    if (!debugPersist || !text) return;
+    debugPending.push({ at: Date.now(), level: String(level || 'info'), page: debugPageType(), text });
+    if (debugPending.length > 100) debugPending.splice(0, debugPending.length - 100);
+    if (debugFlushTimer) return;
+    debugFlushTimer = setTimeout(() => {
+      debugFlushTimer = null;
+      const entries = debugPending;
+      debugPending = [];
+      try {
+        if (!chrome?.runtime?.id || !entries.length) return;
+        chrome.runtime.sendMessage({ type: 'DEBUG_LOG_APPEND', payload: { entries } }, () => void chrome.runtime.lastError);
+      } catch (_) {
+      }
+    }, 2000);
   }
 
   const DOWNLOAD_METHOD_VORTEX = 0;
@@ -456,6 +675,7 @@
   function noteActivity(level, args) {
     const text = sanitizeDiagnosticText(trailText(args), MAX_TRAIL_CHARS);
     if (!text) return;
+    queueDebugEntry(level, text);
     activityTrail.push({ at: Date.now(), level: String(level || 'info'), text });
     while (activityTrail.length > MAX_TRAIL_ENTRIES) activityTrail.shift();
   }
@@ -676,6 +896,12 @@
     markRatingSettled,
     RATING_MILESTONES,
     prepareRatingPrompt,
+    recordFinishedRun,
+    readRunsFinished,
+    runPromptDue,
+    snoozeRatingPrompt,
+    markRunPromptAnswered,
+    RATING_RUN_THRESHOLD,
     ratingStarsMarkup,
     DEFAULTS,
     normalizeSetting,
@@ -685,6 +911,11 @@
     RATE_LIMIT_MAX_STRIKES,
     parseRetryAfterSeconds,
     rateLimitBackoffSeconds,
+    retryDelayMs,
+    withJitter,
+    setSafeHtml,
+    classifyDownloadInterrupt,
+    MIN_HANDOFF_GAP_SECONDS,
     CLOUDFLARE_SKIP_LIMIT,
     MAX_TRACKED_SKIPS,
     queueSkipReason,
@@ -693,6 +924,15 @@
     escapeHtml,
     sanitizeUrlForReport,
     sanitizeDiagnosticText,
+    redactPersonalData,
+    RELAY_ORIGIN,
+    RELAY_REPORT_URL,
+    RELAY_PERMISSION,
+    REPORT_SCHEMA_VERSION,
+    MAX_REPORT_BYTES,
+    DEBUG_LOG_KEY,
+    MAX_DEBUG_ENTRIES,
+    setDebugLogging,
     validateDownloadTarget,
     isSafeNexusPageUrl,
     buildErrorEntry,

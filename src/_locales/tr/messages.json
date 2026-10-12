@@ -551,7 +551,7 @@
     "message": "Modlar arası bekleme"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Yalnızca Vortex modu. Yukarıdaki tahmine eklenir. 0 yaparsanız — boyuta dayalı tahmin dahil — bekleme tamamen kapanır ve her dosya art arda Vortex'e verilir, kuyruğu Vortex kendi yönetir."
+    "message": "Yalnızca Vortex modu. Yukarıdaki tahmine eklenir. 0 yaparsanız boyuta dayalı tahmin kapanır ve kuyruğu Vortex kendi yönetir; aktarımlar arasında her zaman 2 saniyelik bir ara kalır."
   },
   "dlgHistoryTitle": {
     "message": "İndirilmiş modlar bulundu"
@@ -1389,5 +1389,68 @@
   },
   "errNexusApiChangedFix": {
     "message": "Bunun için eklentinin güncellenmesi gerekiyor. Düzeltilebilmesi için bir hata raporu gönderin."
+  },
+  "btnDismiss": {
+    "message": "Kapat"
+  },
+  "noticePageChangedTitle": {
+    "message": "Nexus Mods bu sayfayı değiştirdi"
+  },
+  "noticePageChangedDetail": {
+    "message": "Uzantı güncellenene kadar bazı NexusMods Bypass özellikleri burada çalışmayabilir. Nexus'un kendi düğmeleri çalışmaya devam eder. Ayrıntıları uzantı açılır penceresindeki \"Hata bildir\" ile gönderebilirsin."
+  },
+  "btnSendReport": {
+    "message": "Hata raporu gönder"
+  },
+  "rpTitle": {
+    "message": "Hata raporu gönder"
+  },
+  "rpIntro": {
+    "message": "Gönder'e basana kadar hiçbir şey gönderilmez. Aşağıda gönderilecek olanın tam hali var: adlar, e-posta adresleri, dosya yolları, çerezler, belirteçler ve bağlantı parametreleri kaldırılır."
+  },
+  "rpNote": {
+    "message": "Ne oldu? (isteğe bağlı)"
+  },
+  "rpContact": {
+    "message": "Yanıt için e-posta (isteğe bağlı, yalnızca doldurursan gönderilir)"
+  },
+  "rpIncludeLogs": {
+    "message": "Hata ayıklama günlüklerini ekle (yalnızca \"Hata ayıklama günlükleri\" açıkken kaydedilir)"
+  },
+  "rpPreview": {
+    "message": "Gönderilecek rapor"
+  },
+  "rpSend": {
+    "message": "Raporu gönder"
+  },
+  "rpCopy": {
+    "message": "Raporu kopyala"
+  },
+  "rpGithub": {
+    "message": "Bunun yerine GitHub sorunu aç"
+  },
+  "rpAuto": {
+    "message": "Anonim hata raporlarını otomatik gönder"
+  },
+  "rpAutoDesc": {
+    "message": "Varsayılan olarak kapalı. Açıkken yalnızca hata kodu, nerede olduğu ve uzantı ile tarayıcı sürümleri gönderilir, günde en fazla on. Sayfa içeriği, geçmiş veya ayar gönderilmez."
+  },
+  "rpSent": {
+    "message": "Rapor gönderildi. Teşekkürler! Referans: $1"
+  },
+  "rpSendFailed": {
+    "message": "Rapor gönderilemedi. Kopyala ya da bunun yerine GitHub sorunu aç."
+  },
+  "rpPermissionDenied": {
+    "message": "Rapor sunucusuna erişim izni verilmedi. Raporu kopyala ya da GitHub sorunu aç."
+  },
+  "rpCopied": {
+    "message": "Rapor panoya kopyalandı."
+  },
+  "ratingPromptRuns": {
+    "message": "$1 koleksiyon indirildi. Zaman kazandırdıysa kısa bir değerlendirme ya da GitHub yıldızı çok yardımcı olur."
+  },
+  "ratingLater": {
+    "message": "Sonra"
   }
 }

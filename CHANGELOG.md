@@ -7,6 +7,76 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.9.0] - 2026-10-12
+
+### Added
+- Bug report page (Help & Bugs → Send bug report, and a button on error notices) with a live preview of the exact payload, copy-to-clipboard and prefilled GitHub issue fallbacks, and optional delivery through a relay.
+- Opt-in debug log: a 400-entry ring buffer with level, timestamp, page type, version, browser and a settings snapshot, included in reports only when you tick the box.
+- Optional anonymous automatic error reports (off by default; requires the optional relay permission; throttled).
+- `relay/`: Cloudflare Worker that validates, size-limits and rate-limits reports and forwards them to Discord (and optionally email via Resend). Secrets live only in the Worker.
+- Review/star prompt after 5 finished runs, with "Later" (14-day snooze), store link by browser and GitHub star; never shown during a download. Localized in all locales.
+- CI: `manifest-watch` workflow diffs permissions, host/optional permissions, content-script matches and CSP (Chrome and Firefox) against the base, comments on the PR, posts to Discord, and fails expansions without the `permissions-approved` label. Optional `discord-notify` workflow for releases and bug issues.
+
+### Changed
+- Diagnostic redaction now also strips emails, home-directory paths, cookies, bearer tokens, JWTs and long token-like strings.
+
+## [2.8.1] - 2026-10-12
+
+### Changed
+
+- **The extension's panels fit every screen.** The settings button, settings window, collection panel,
+  mod picker, notices, popup and welcome page now size fluidly from 1280×720 up to 3840×2160 and stay
+  inside the window at 100–150% browser zoom: windows never run off screen and scroll inside
+  themselves, rows wrap instead of clipping, and buttons keep a comfortable touch size. On 1440p and 4K
+  the collection panel uses more of the width.
+- **Interrupted browser downloads are handled by cause.** A dropped connection or server hiccup gets two
+  more tries, an expired link one try with a freshly requested link, and problems a retry cannot fix (a
+  full disk, access denied, a file the browser blocked, a download you cancelled) are not retried. Each
+  retry waits a little longer than the last, and the failure report names the cause. Downloads stay one
+  file at a time through Nexus's normal link.
+- **The *Pause between mods* description** now mentions the 2-second minimum in every language.
+
+### Development
+
+- Playwright layout tests load the unpacked extension against local page fixtures at four screen sizes
+  and three zoom levels, check for overflow and clipping, and upload screenshots as a CI artifact.
+
+## [2.8.0] - 2026-10-12
+
+### Fixed
+
+- **A manual download on a file page no longer starts twice.** A re-rendered download card could lose
+  the marker that said its *Slow download* button was already handled and get a second listener, and an
+  automatic start could race a click; both produced `file.zip` and `file (1).zip`. Every start is now
+  claimed per file and method, in memory and on the page itself, so even a content script left behind by
+  an extension reload cannot start the same file again within 15 seconds. Buttons are bound once.
+- **No more false *sign-in state* warning on file pages while signed in.** A sign-out link or profile
+  menu now proves a session even inside a closed dropdown, more account markers are recognised, and a
+  page with no log-in control at all is read as signed in (noted as inferred) instead of as a site change.
+- **The collection panel mounts without a reload.** When Nexus hydrated the page after it first went
+  quiet, the panel gave up until the next reload. It now retries on a short, growing timer, heals itself
+  if a re-render removes it, and picks up in-app navigation from the Navigation API where available.
+
+### Changed
+
+- **Nexus page hooks live in one place.** `src/selectors.js` lists every selector with ordered
+  fallbacks, and the *Slow download* label is recognised in the languages Nexus serves, not only English.
+- **The download card is watched, not polled.** A DOM observer replaces the one-second poll on file pages
+  (a slow five-second safety tick remains).
+- **Retries back off.** Link resolution gets three attempts with exponential backoff and jitter instead
+  of one fixed 1.5-second retry; computed rate-limit waits get up to 20% jitter (an explicit
+  *Retry-After* is never shortened). Vortex hand-offs keep a 2-second minimum gap even with *Pause
+  between mods* at 0.
+- **When Nexus changes a page and a feature stops working, you are told once**, with a short notice,
+  instead of the feature quietly doing nothing.
+- **Hardening.** Log lines are rendered through an allowlist instead of raw `innerHTML`, and a message
+  sender attached to a tab must name its page.
+
+### Development
+
+- `package.json` with ESLint, jsdom fixture tests for the content scripts (`tools/fixtures`), and
+  `web-ext lint` on the Firefox package in CI.
+
 ## [2.7.4] - 2026-10-04
 
 ### Added

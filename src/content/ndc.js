@@ -1260,10 +1260,12 @@ window.NexusExt = window.NexusExt || {};
 
         if (handedOff && index < mods.length - 1) {
           const computePause = () => {
-            if (this.pauseBetweenDownload === 0) return 0;
+            // A short floor always stays between hand-offs, so a run never fires requests back to back.
+            const floor = NXTK.MIN_HANDOFF_GAP_SECONDS || 0;
+            if (this.pauseBetweenDownload === 0) return floor;
             const { speed } = this.resolveDownloadSpeed();
             const transferSeconds = Math.round(mod.file.size / 1024 / speed);
-            return Math.min(transferSeconds + this.pauseBetweenDownload, MAX_PAUSE_SECONDS);
+            return Math.max(floor, Math.min(transferSeconds + this.pauseBetweenDownload, MAX_PAUSE_SECONDS));
           };
           let pause = computePause();
           if (pause > 0) {

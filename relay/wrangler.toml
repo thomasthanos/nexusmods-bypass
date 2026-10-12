@@ -1,0 +1,21 @@
+name = "nexusmods-bypass-relay"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+# Origins allowed by CORS (prefix match). Extension pages send their own origin.
+ALLOWED_ORIGINS = "chrome-extension://,moz-extension://,extension://"
+
+# Optional: durable per-IP rate limiting. Create with
+#   npx wrangler kv namespace create RATE_LIMIT
+# and paste the id below, then uncomment. Without it an in-memory limiter is used.
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT"
+# id = "<your-kv-namespace-id>"
+
+# Secrets (never put them in this file):
+#   npx wrangler secret put DISCORD_WEBHOOK_URL
+#   npx wrangler secret put RESEND_API_KEY        (optional, e-mail)
+#   npx wrangler secret put REPORT_EMAIL_TO       (optional)
+#   npx wrangler secret put REPORT_EMAIL_FROM     (optional, a verified Resend sender)

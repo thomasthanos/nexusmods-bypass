@@ -15,10 +15,12 @@ const ALLOWLIST = [
   { path: 'response-classifier.js' },
   { path: 'download-url-parser.js' },
   { path: 'shared.js' },
+  { path: 'selectors.js' },
   { path: 'report.js' },
   { path: 'content', ext: ['.js', '.css'] },
   { path: 'popup', ext: ['.js', '.css', '.html'] },
   { path: 'onboarding', ext: ['.js', '.css', '.html'] },
+  { path: 'report-page', ext: ['.js', '.css', '.html'] },
   { path: 'icons', ext: ['.png'] },
   { path: '_locales', ext: ['.json'] }
 ];
@@ -43,7 +45,10 @@ for (const check of [
   'wabbajack-importer-test.cjs',
   'content-helpers-test.cjs',
   'report-builder-test.cjs',
-  'page-check-test.cjs'
+  'page-check-test.cjs',
+  'dom-fixtures-test.cjs',
+  'relay-test.mjs',
+  'manifest-diff-test.mjs'
 ]) {
   const run = spawnSync(process.execPath, [join(root, 'tools', check)], { cwd: root, stdio: 'inherit' });
   if (run.status !== 0) fail(`${check} did not pass — package not built.`);
@@ -305,6 +310,8 @@ const GECKO_MIN_VERSION = '140.0';
 // never added without changing this list on purpose.
 const EXPECTED_PERMISSIONS = ['storage', 'downloads', 'scripting', 'alarms'];
 const EXPECTED_HOST_PERMISSIONS = ['https://www.nexusmods.com/*'];
+// Asked for only when the user sends a report or turns on automatic error reports (relay/README.md).
+const EXPECTED_OPTIONAL_HOST_PERMISSIONS = ['https://nexusmods-bypass-relay.thomasthanos.workers.dev/*'];
 
 function assertPermissions(source) {
   const same = (actual, expected) => JSON.stringify([...(actual || [])].sort()) === JSON.stringify([...expected].sort());
@@ -314,7 +321,7 @@ function assertPermissions(source) {
   if (!same(source.host_permissions, EXPECTED_HOST_PERMISSIONS)) {
     fail(`manifest host_permissions are ${JSON.stringify(source.host_permissions || [])}, expected ${JSON.stringify(EXPECTED_HOST_PERMISSIONS)}`);
   }
-  if (source.optional_permissions?.length || source.optional_host_permissions?.length) {
+  if (source.optional_permissions?.length || !same(source.optional_host_permissions, EXPECTED_OPTIONAL_HOST_PERMISSIONS)) {
     fail('manifest declares optional permissions that nothing documents');
   }
 }

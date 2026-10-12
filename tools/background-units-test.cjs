@@ -40,13 +40,56 @@ global.chrome = {
   alarms: { create: noop, clear: noop }
 };
 
+async function debugLogAndAutoReports() {
+  const N = context.NXTK;
+  await context.__STORAGE_HANDLERS.DEBUG_LOG_APPEND({ entries: [
+    { at: 1, level: 'info', page: 'mod', text: 'mail jane@example.com from /home/jane' },
+    { at: 2, level: 'bogus', page: 'x'.repeat(50), text: 'ok' }
+  ] });
+  let log = await context.storageGetLocal(N.DEBUG_LOG_KEY, []);
+  assert.equal(log.length, 2);
+  assert.doesNotMatch(log[0].text, /jane/, 'debug lines are sanitized on the way in');
+  assert.equal(log[1].level, 'info', 'unknown levels are normalized');
+  assert.equal(log[1].page.length, 20);
+  await context.__STORAGE_HANDLERS.DEBUG_LOG_APPEND({ entries: Array.from({ length: 100 }, (_, i) => ({ text: `l${i}` })) });
+  for (let i = 0; i < 4; i += 1) await context.__STORAGE_HANDLERS.DEBUG_LOG_APPEND({ entries: Array.from({ length: 100 }, (_, j) => ({ text: `m${j}` })) });
+  log = await context.storageGetLocal(N.DEBUG_LOG_KEY, []);
+  assert.equal(log.length, N.MAX_DEBUG_ENTRIES, 'the ring buffer is capped');
+  await context.__STORAGE_HANDLERS.DEBUG_LOG_CLEAR();
+  assert.deepEqual(await context.storageGetLocal(N.DEBUG_LOG_KEY, null), []);
+
+  const sent = [];
+  const fetchImpl = async (url, init) => { sent.push({ url, body: JSON.parse(init.body), init }); return { ok: true }; };
+  const entry = N.buildErrorEntry({ code: 'request_failed', context: 'Loading x', technicalMessage: 'boom' });
+  let granted = false;
+  global.chrome.permissions = { contains: async () => granted };
+  global.chrome.runtime.getManifest = () => ({ version: '2.9.0' });
+  await context.storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
+  assert.equal(N.DEFAULTS.AutoErrorReports, false, 'auto reports are off by default');
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl }), false, 'off: nothing is sent');
+  await context.storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, AutoErrorReports: true });
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl }), false, 'on but no permission: nothing is sent');
+  granted = true;
+  const t0 = Date.UTC(2026, 9, 12, 10);
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl, now: t0 }), true);
+  assert.equal(sent[0].url, N.RELAY_REPORT_URL);
+  assert.equal(sent[0].body.kind, 'auto');
+  assert.equal(sent[0].init.credentials, 'omit');
+  assert.deepEqual(Object.keys(sent[0].body).sort(), ['browser', 'error', 'kind', 'schema', 'version']);
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl, now: t0 + 60000 }), false, 'ten-minute gap');
+  assert.equal(await context.maybeAutoReport(entry, { fetchImpl, now: t0 + 20 * 60000 }), false, 'same fault once a day');
+  const other = N.buildErrorEntry({ code: 'timeout', context: 'Other' });
+  assert.equal(await context.maybeAutoReport(other, { fetchImpl, now: t0 + 20 * 60000 }), true, 'a different fault is sent');
+  delete global.chrome.permissions;
+}
+
 const context = vm.createContext({ chrome: global.chrome, console, URL, Date, Math, Number, String, Object, Array, Set, Map, Promise, RegExp, JSON, setTimeout, clearTimeout, isNaN, parseInt, AbortController, structuredClone, fetch: noop });
 context.importScripts = (...paths) => {
   for (const path of paths) {
     vm.runInContext(fs.readFileSync(`src/${path}`, 'utf8'), context, { filename: `src/${path}` });
   }
 };
-const source = `${fs.readFileSync('src/background.js', 'utf8')}\n;globalThis.__NXTK = NXTK;globalThis.__NDC_JOBS_KEY = NDC_JOBS_KEY;globalThis.__writeQueues = writeQueues;globalThis.__NDC_QUEUE_HANDLERS = NDC_QUEUE_HANDLERS;globalThis.__STORAGE_HISTORY_KEY = STORAGE_HISTORY_KEY;globalThis.__MAX_NDC_JOB_ITEMS = MAX_NDC_JOB_ITEMS;globalThis.__DOWNLOAD_CONFLICT_ACTION = DOWNLOAD_CONFLICT_ACTION;globalThis.__MAX_TRACKED_FAILURES = MAX_TRACKED_FAILURES;globalThis.__recordJobFailure = recordJobFailure;globalThis.__jobFailureCount = jobFailureCount;globalThis.__verifyTransferSize = verifyTransferSize;globalThis.__settledInterruptedState = settledInterruptedState;globalThis.__discardAbandonedDownload = discardAbandonedDownload;globalThis.__handleNdcDownloadTerminal = handleNdcDownloadTerminal;globalThis.__recordQueueItemFailure = recordQueueItemFailure;`;
+const source = `${fs.readFileSync('src/background.js', 'utf8')}\n;globalThis.__NXTK = NXTK;globalThis.__STORAGE_HANDLERS = STORAGE_HANDLERS;globalThis.__NDC_JOBS_KEY = NDC_JOBS_KEY;globalThis.__writeQueues = writeQueues;globalThis.__NDC_QUEUE_HANDLERS = NDC_QUEUE_HANDLERS;globalThis.__STORAGE_HISTORY_KEY = STORAGE_HISTORY_KEY;globalThis.__MAX_NDC_JOB_ITEMS = MAX_NDC_JOB_ITEMS;globalThis.__DOWNLOAD_CONFLICT_ACTION = DOWNLOAD_CONFLICT_ACTION;globalThis.__MAX_TRACKED_FAILURES = MAX_TRACKED_FAILURES;globalThis.__recordJobFailure = recordJobFailure;globalThis.__jobFailureCount = jobFailureCount;globalThis.__verifyTransferSize = verifyTransferSize;globalThis.__settledInterruptedState = settledInterruptedState;globalThis.__discardAbandonedDownload = discardAbandonedDownload;globalThis.__handleNdcDownloadTerminal = handleNdcDownloadTerminal;globalThis.__recordQueueItemFailure = recordQueueItemFailure;`;
 vm.runInContext(source, context, { filename: 'src/background.js' });
 
 const { retryAfterMilliseconds, buildDownloadPath, downloadFolderOf, __NXTK: NXTK } = context;
@@ -60,12 +103,42 @@ const { mutateNdcJob, readNdcJob, saveNdcJob, storageSetLocal, storageGetLocal, 
 const { __handleNdcDownloadTerminal: handleNdcDownloadTerminal,
   __recordQueueItemFailure: recordQueueItemFailure } = context;
 
-assert.equal(retryAfterMilliseconds('', 1), 30000, 'first strike backs off 30s');
-assert.equal(retryAfterMilliseconds('', 2), 60000, 'second strike doubles');
-assert.equal(retryAfterMilliseconds('', 3), 120000, 'third strike doubles again');
-assert.equal(retryAfterMilliseconds(undefined, 4), 240000, 'a missing header escalates like an empty one');
-assert.equal(retryAfterMilliseconds('   ', 3), 120000, 'a whitespace header counts as absent');
-assert.equal(retryAfterMilliseconds('', 20), 600000, 'the ladder is capped at 10 minutes');
+{
+  const c = context.NXTK.classifyDownloadInterrupt;
+  assert.deepEqual({ ...c('NETWORK_FAILED') }, { kind: 'transient', retries: 2 }, 'a dropped connection gets two more tries');
+  assert.equal(c('SERVER_FORBIDDEN').kind, 'link', 'an expired link is retried with a fresh one');
+  assert.equal(c('SERVER_FORBIDDEN').retries, 1);
+  assert.equal(c('FILE_NO_SPACE').retries, 0, 'a full disk is not retried');
+  assert.equal(c('FILE_VIRUS_INFECTED').kind, 'blocked');
+  assert.equal(c('USER_CANCELED').retries, 0, 'a cancel by the user is respected');
+  assert.equal(c('short_file (12 KB of 4 MB)').kind, 'size');
+  assert.deepEqual({ ...c('') }, { kind: 'unknown', retries: 1 }, 'unknown keeps the old single retry');
+}
+{
+  const trusted = context.isTrustedSender;
+  assert.equal(trusted({ id: 'other', url: 'https://www.nexusmods.com/' }), false, 'another extension is refused');
+  assert.equal(trusted({ id: 'test-extension-id', url: 'https://www.nexusmods.com/x' }), true, 'a Nexus page is trusted');
+  assert.equal(trusted({ id: 'test-extension-id', url: 'https://evil.example/nexusmods.com/' }), false, 'another site is refused');
+  assert.equal(trusted({ id: 'test-extension-id', url: 'chrome-extension://test-extension-id/popup/popup.html' }), true, 'the popup is trusted');
+  assert.equal(trusted({ id: 'test-extension-id', tab: { id: 3 } }), false, 'a tab sender with no URL is refused');
+  assert.equal(trusted({ id: 'test-extension-id' }), true, 'an extension context with no URL or tab is accepted');
+}
+assert.equal(retryAfterMilliseconds('', 1, () => 0), 30000, 'first strike backs off 30s');
+assert.equal(retryAfterMilliseconds('', 2, () => 0), 60000, 'second strike doubles');
+assert.equal(retryAfterMilliseconds('', 3, () => 0), 120000, 'third strike doubles again');
+assert.equal(retryAfterMilliseconds(undefined, 4, () => 0), 240000, 'a missing header escalates like an empty one');
+assert.equal(retryAfterMilliseconds('   ', 3, () => 0), 120000, 'a whitespace header counts as absent');
+assert.equal(retryAfterMilliseconds('', 20, () => 0), 600000, 'the ladder is capped at 10 minutes');
+{
+  const jittered = retryAfterMilliseconds('', 1);
+  assert.ok(jittered >= 30000 && jittered <= 36000, 'a computed backoff gets up to 20% jitter, never less');
+  assert.equal(retryAfterMilliseconds('', 1, () => 1), 36000, 'and the jitter is capped at 20%');
+  const d1 = context.NXTK.retryDelayMs(1, 1500, 15000, () => 0);
+  const d3 = context.NXTK.retryDelayMs(3, 1500, 15000, () => 1);
+  assert.equal(d1, 750, 'a first retry waits at least half the base');
+  assert.equal(d3, 6000, 'retries grow exponentially');
+  assert.equal(context.NXTK.retryDelayMs(10, 1500, 15000, () => 1), 15000, 'and are capped');
+}
 assert.equal(retryAfterMilliseconds('120', 1), 120000, 'an explicit Retry-After still wins');
 assert.equal(retryAfterMilliseconds('0', 1), 30000, 'an explicit 0 still respects the alarm floor');
 
@@ -510,7 +583,7 @@ async function expectedOutcomesStayOutOfTheLog() {
   const send = (type) => new Promise((resolve) => {
     const handled = messageListeners[0](
       { type, payload: { gameId: 'g1', collectionId: 'c1' } },
-      { id: 'test-extension-id', tab: { id: 7 } },
+      { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/collections/abc', tab: { id: 7 } },
       resolve
     );
     assert.equal(handled, true, `${type} must answer asynchronously`);
@@ -1797,7 +1870,7 @@ async function staleRecordsAreNotJudged() {
 // still refused outright.
 async function settingsPatchIsNormalized() {
   const send = (type, payload) => new Promise((resolve) => {
-    messageListeners[0]({ type, payload }, { id: 'test-extension-id', tab: { id: 7 } }, resolve);
+    messageListeners[0]({ type, payload }, { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/collections/abc', tab: { id: 7 } }, resolve);
   });
   let reply = await send('SETTINGS_PATCH', { patch: { NDC_pauseBetweenDownload: -30, RequestTimeout: 1 } });
   assert.equal(reply.ok, true, 'out-of-range numbers are accepted');
@@ -2092,5 +2165,6 @@ jobStateBehaviour()
   .then(speedMigrationOnlyRunsForOldCopies)
   .then(workerResolvesTheRequestedFile)
   .then(failureRecordsAreCapped)
+  .then(debugLogAndAutoReports)
   .then(() => console.log('background.js unit behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });
