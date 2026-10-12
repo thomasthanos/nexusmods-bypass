@@ -4,7 +4,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['dist/**', 'node_modules/**', 'internal/**'] },
+  { ignores: ['dist/**', 'node_modules/**', 'internal/**', 'test-results/**'] },
   {
     files: ['src/**/*.js'],
     languageOptions: {
@@ -32,10 +32,10 @@ export default [
     }
   },
   {
-    files: ['tools/**/*.{js,cjs,mjs}', 'eslint.config.mjs'],
+    files: ['tools/**/*.{js,cjs,mjs}', 'tests/**/*.mjs', '*.config.mjs'],
     languageOptions: { ecmaVersion: 2022, globals: { ...globals.node, NexusExt: 'writable', NXTK: 'writable', document: 'readonly' } },
     rules: { ...js.configs.recommended.rules, 'no-unused-vars': 'off', 'no-empty': 'off' }
   },
   { files: ['tools/**/*.cjs'], languageOptions: { sourceType: 'commonjs' } },
-  { files: ['tools/**/*.mjs', 'eslint.config.mjs'], languageOptions: { sourceType: 'module' } }
+  { files: ['tools/**/*.mjs', 'tests/**/*.mjs', '*.config.mjs'], languageOptions: { sourceType: 'module' } }
 ];

@@ -28,3 +28,25 @@ jobs:
           mkdir -p /tmp/firefox-pkg
           unzip -q dist/*-firefox.zip -d /tmp/firefox-pkg
           npx web-ext lint --source-dir /tmp/firefox-pkg
+
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Loads the unpacked extension against local page fixtures at 3840x2160, 2560x1440, 1920x1080
+      # and 1280x720, each at 100/125/150% zoom, and checks nothing overflows or clips.
+      - name: Layout tests
+        run: npm run test:visual
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layout-screenshots
+          path: test-results/
+          retention-days: 14

@@ -7,6 +7,27 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.8.1] - 2026-10-12
+
+### Changed
+
+- **The extension's panels fit every screen.** The settings button, settings window, collection panel,
+  mod picker, notices, popup and welcome page now size fluidly from 1280×720 up to 3840×2160 and stay
+  inside the window at 100–150% browser zoom: windows never run off screen and scroll inside
+  themselves, rows wrap instead of clipping, and buttons keep a comfortable touch size. On 1440p and 4K
+  the collection panel uses more of the width.
+- **Interrupted browser downloads are handled by cause.** A dropped connection or server hiccup gets two
+  more tries, an expired link one try with a freshly requested link, and problems a retry cannot fix (a
+  full disk, access denied, a file the browser blocked, a download you cancelled) are not retried. Each
+  retry waits a little longer than the last, and the failure report names the cause. Downloads stay one
+  file at a time through Nexus's normal link.
+- **The *Pause between mods* description** now mentions the 2-second minimum in every language.
+
+### Development
+
+- Playwright layout tests load the unpacked extension against local page fixtures at four screen sizes
+  and three zoom levels, check for overflow and clipping, and upload screenshots as a CI artifact.
+
 ## [2.8.0] - 2026-10-12
 
 ### Fixed

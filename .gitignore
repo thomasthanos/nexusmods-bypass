@@ -15,3 +15,4 @@ you need to add this (gitgnore this folder)/
 nexusmods
 internal/docs/store-description.md
 .webext-lint/
+test-results/
