@@ -1,51 +1,32 @@
-<div align="center">
-<img src=".github/assets/hero.svg" alt="NexusMods Bypass — a calmer way to download collections" width="100%">
+<p align="center">
+  <img src="docs/assets/hero.svg" alt="NexusMods Bypass: queue Nexus Mods collections, skip repetitive steps, and resume your queue" width="100%" />
+</p>
 
-<a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj"><img src=".github/assets/btn-chrome.svg" alt="Get it for Chrome"></a>
-<a href="https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/"><img src=".github/assets/btn-firefox.svg" alt="Get it for Firefox"></a>
-<a href="https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa"><img src=".github/assets/btn-edge.svg" alt="Get it for Edge"></a>
+<p align="center">
+  <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/thomasthanos/nexusmods-bypass?display_name=tag&style=flat-square&color=f0a24d&labelColor=151c31" /></a>
+  <a href="https://github.com/thomasthanos/nexusmods-bypass/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/thomasthanos/nexusmods-bypass/total?style=flat-square&label=downloads&color=8b83ff&labelColor=151c31" /></a>
+  <img alt="Chrome, Edge, Firefox 140+" src="https://img.shields.io/badge/chrome%20%C2%B7%20edge%20%C2%B7%20firefox-MV3-45c8e6?style=flat-square&labelColor=151c31" />
+  <a href="LICENSE"><img alt="Licence: source-available" src="https://img.shields.io/badge/licence-source--available-f0b86e?style=flat-square&labelColor=151c31" /></a>
+</p>
 
-<img src=".github/assets/highlights.svg" alt="Manifest V3 · 13 languages · local-first" width="600">
+<p align="center">
+  <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><img src="docs/assets/download.svg" alt="Download the latest release" width="380" /></a>
+  <br />
+  <sub>or from the store: <a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj">Chrome</a> · <a href="https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/">Firefox</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa">Edge</a> &nbsp;|&nbsp; <a href="CHANGELOG.md">Changelog</a> · <a href="PRIVACY.md">Privacy</a> · <a href="#bugs">Report a bug</a></sub>
+</p>
 
-[![Features](.github/assets/btn-features.svg)](#features)
-[![Install](.github/assets/btn-install.svg)](#install)
-[![Settings](.github/assets/btn-settings.svg)](#settings)
-[![Privacy](.github/assets/btn-privacy.svg)](#privacy)
-[![Help](.github/assets/btn-troubleshooting.svg)](#help)
-</div>
+<img src="docs/assets/divider.svg" alt="" width="100%" />
 
-## <img src=".github/assets/icon-cloud.svg" width="20" align="middle"> In short
+<p align="center">
+  <img src="docs/assets/features.svg" alt="Fewer clicks, collection queue, resume, official Nexus API, Wabbajack (beta), safer Vortex handoff, reports and debug log, 13 languages" width="100%" />
+</p>
 
-Queue a Nexus Mods collection, choose **Vortex** or **browser download**, and let the extension handle the pages, pacing and resume history.
-
-**Version 3.0.0 — major update:** official Nexus API integration, more reliable queues and download clicks,
-responsive panels, a redesigned bug-report workspace, and a live debug-log page.
-See the [release notes](internal/docs/releases/3.0.0.md) for the complete 47-commit update history.
-
-<a id="features"></a>
-
-## <img src=".github/assets/icon-sparkle.svg" width="20" align="middle"> Features
-
-- **Fewer clicks:** auto-start downloads, skip requirement screens and restore download buttons on archived files.
-- **Collection queue:** batch downloads, choose the mode per run, smallest files first, pause between mods and resume after rate limits. Removed mods are skipped instead of stopping the run, and listed with the reason at the end.
-- **Pick up where you left off:** local history, revision comparison and a time-left estimate in browser mode after the first file finishes.
-- **Wabbajack (beta):** import a `.wabbajack` file or a `.zip` containing one. Extract `.rar` and `.7z` first.
-- **Safer handoff:** Vortex tab countdown with **Keep open**, plus a browser fallback for Cloudflare verification and clear error messages.
-- **Extras:** optional ad and Premium-panel hiding, guided setup, an editable bug report draft and an optional support panel.
-
-**13 languages** and an **Always use English** switch are included.
-
-<a id="install"></a>
-
-## <img src=".github/assets/icon-install.svg" width="20" align="middle"> Install
-
-Use the **Chrome**, **Firefox** or **Edge** store button above. For manual installation:
+<p align="center">
+  <img src="docs/assets/install-steps.svg" alt="Download the ZIP, load it, sign in to Nexus Mods" width="100%" />
+</p>
 
 <details>
-<summary><b>Manual Installation (Developer Mode)</b></summary>
-<br>
-
-If you want to install manually from the source releases:
+<summary><b>Manual install</b></summary>
 
 **Chrome, Edge, Brave, Opera**
 1. Download the latest `nexus.mods.bypass-<version>.zip` from the [Releases page](https://github.com/thomasthanos/nexusmods-bypass/releases/latest).
@@ -62,16 +43,14 @@ If you want to install manually from the source releases:
 *Note: A temporary add-on is unloaded when Firefox closes. Installing it permanently requires downloading from the official AMO store.*
 </details>
 
-> **Vortex mode:** keep Vortex running. The browser can confirm a link was sent, but cannot confirm that Vortex completed the download.
+> In **Vortex mode**, keep Vortex running: the browser can confirm a link was sent, not that Vortex finished the download.
 
-<a id="settings"></a>
+## Usage
 
-## <img src=".github/assets/icon-settings.svg" width="20" align="middle"> Settings
-
-Open the popup → **Page settings**. Changes save instantly; **Restore Defaults** resets them and refreshes the Nexus page.
+Sign in to Nexus Mods. On a mod's **Files** tab, download as usual. On a **collection**, pick Vortex or browser download in the collection panel and start the queue (keep the tab open). The toolbar popup has quick switches, **Page settings** and **Help & Bugs**.
 
 <details>
-<summary><b>See all settings</b></summary>
+<summary><b>Settings</b></summary>
 
 - **Download flow:** auto-start, close Vortex tabs, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first, Cloudflare fallback.
 - **Files & pacing:** browser download folder, Nexus download speed, pause between mods.
@@ -80,11 +59,10 @@ Open the popup → **Page settings**. Changes save instantly; **Restore Defaults
 - **Language:** Always use English.
 </details>
 
-<a id="privacy"></a>
+<details>
+<summary><b>Privacy & permissions</b></summary>
 
-## <img src=".github/assets/icon-shield.svg" width="20" align="middle"> Privacy & permissions
-
-Settings, history and error logs stay in local extension storage. There are no analytics or extension accounts. Download requests go to Nexus Mods. Bug reports are opt-in: **Help & Bugs → Send bug report** (or the button on an error notice) shows the exact redacted JSON before anything leaves your browser, and lets you copy it or open a prefilled GitHub issue instead. Usernames, emails, cookies, tokens, file paths and URL query strings are stripped. Optional anonymous automatic error reports are **off** by default.
+Settings, history and logs stay in local extension storage; no analytics or accounts. Reports are opt-in and show the exact redacted JSON first. Details: [PRIVACY.md](PRIVACY.md).
 
 | Permission | Used for |
 |---|---|
@@ -94,22 +72,19 @@ Settings, history and error logs stay in local extension storage. There are no a
 | `alarms` | Pacing the background queue. |
 | `https://www.nexusmods.com/*` | The only site the extension operates on. |
 | `https://nexusmods-bypass-relay.mariosthanos3.workers.dev/*` (optional) | Requested only when you first send a report; delivers it to the maintainer via the [report relay](relay/README.md). |
+</details>
 
-No tabs permission, all-URLs access or remote code. [![Read the privacy details](.github/assets/btn-privacy-detail.svg)](PRIVACY.md)
+<a id="bugs"></a>
+<details>
+<summary><b>Bug reports & debug log</b></summary>
 
-<a id="source"></a>
+- **Send bug report** (popup → Help & Bugs): describe it, review the redacted JSON, then send through the [relay](relay/README.md), save/copy it, or open a prefilled [GitHub issue](https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose).
+- **Debug log** (Help & Bugs → Debug log): opt-in live log with filters, search and export.
+- **Automatic error reports**: anonymous, off by default.
+</details>
 
-## <img src=".github/assets/icon-code.svg" width="20" align="middle"> Source map
-
-<div align="center">
-<img src=".github/assets/tree-nexus.svg" alt="The extension source: manifest, background queue, content scripts, popup, translations and tools" width="760">
-</div>
-
-Contributors changing translations: run `node tools/check-locales.mjs`.
-
-<a id="help"></a>
-
-## <img src=".github/assets/icon-help.svg" width="20" align="middle"> Quick fixes
+<details>
+<summary><b>Quick fixes</b></summary>
 
 <details>
 <summary><b>Downloads do not start</b></summary>
@@ -134,20 +109,23 @@ Rate limits pause the queue temporarily; it resumes automatically. Keep the coll
 
 Choose **Skip Downloaded** when the history dialog appears. Cleared history cannot identify files already on disk.
 </details>
-
-<details>
-<summary><b>Report a bug</b></summary>
-
-Open **Help & Bugs → Send bug report** to describe the problem, add reproduction steps and review the exact redacted diagnostic snapshot. Send it through the optional relay, copy/save it, or open a prefilled GitHub issue. **Debug log** provides a separate opt-in live log with search, level filters and export.
 </details>
 
-## <img src=".github/assets/icon-license.svg" width="20" align="middle"> Licence
+<details>
+<summary><b>For developers</b></summary>
 
-Most code is source-available under the repository [licence](LICENSE). The *NexusMods Bypass* name, `src/icons/` and `internal/` are excluded from its permissions.
+```sh
+npm ci && npm run lint
+npm run build          # regression checks, then Chrome and Firefox zips
+npm run test:visual    # Playwright tests
+```
 
-`src/content/nnw.js` is separately licensed [GPL-3.0-or-later](src/LICENSE-GPL-3.0-or-later.txt) and is based on [Nexus No Wait ++](https://github.com/torkelicious/nexus-no-wait-pp). Other original code, including `src/download-url-parser.js`, remains under the main licence. See the [third-party notices](THIRD-PARTY-NOTICES.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/nexus-site-map.md](docs/nexus-site-map.md) and [SECURITY.md](SECURITY.md).
+</details>
 
-**Not affiliated with, endorsed by, or connected to Nexus Mods.**
+## Licence
+
+Source-available under the repository [licence](LICENSE); the name, `src/icons/` and `internal/` are excluded. `src/content/nnw.js` is [GPL-3.0-or-later](src/LICENSE-GPL-3.0-or-later.txt), based on [Nexus No Wait ++](https://github.com/torkelicious/nexus-no-wait-pp) — see [third-party notices](THIRD-PARTY-NOTICES.md).
 
 > [!WARNING]
 > **Use at your own risk.** Some features — skipping the download countdown via the ad-timer cookie
@@ -156,6 +134,6 @@ Most code is source-available under the repository [licence](LICENSE). The *Nexu
 > which reserve faster and automated downloading for Premium members. Nexus Mods could restrict
 > accounts that use them. Consider supporting Nexus Mods and the mod authors with Premium.
 
-<div align="center">
-<img src=".github/assets/footer.svg" alt="NexusMods Bypass by ThomasThanos" width="100%">
-</div>
+<p align="center">
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+</p>

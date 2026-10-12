@@ -1,4 +1,11 @@
-# Bug-report relay
+<p align="center">
+  <img src="../docs/assets/header-relay.svg" alt="Bug-report relay" width="100%" />
+</p>
+
+<p align="center"><sub><a href="../README.md">← README</a> · <a href="../PRIVACY.md">Privacy</a> · <a href="../CONTRIBUTING.md">Contributing</a> · <a href="../CHANGELOG.md">Changelog</a></sub></p>
+
+<img src="../docs/assets/divider.svg" alt="" width="100%" />
+
 
 A small Cloudflare Worker that receives reports from the extension's **Send bug report** page (and
 the optional, off-by-default anonymous error reports), checks them, and forwards them to a Discord
@@ -68,3 +75,9 @@ curl -X POST "$RELAY/v1/report" -H 'content-type: application/json' \
   -d '{"schema":1,"kind":"auto","version":"2.9.0","error":{"code":"test"}}'
 ```
 `node tools/relay-test.mjs` runs the validation, rate-limit and Discord-formatting tests offline.
+
+<img src="../docs/assets/divider.svg" alt="" width="100%" />
+
+<p align="center">
+  <a href="https://github.com/thomasthanos"><img src="../docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+</p>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="200" viewBox="0 0 1200 200" role="img" aria-labelledby="t d">
+  <title id="t">How it works</title>
+  <desc id="d">Content scripts: UI and download clicks on nexusmods.com; Background queue: MV3 service worker paces the queue; Vortex or browser: nxm:// handoff or chrome.downloads; Optional relay: Opt-in reports via a Cloudflare Worker</desc>
+  <style>
+    text { font-family: 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif; text-anchor: middle; }
+    .title { font-size: 19px; font-weight: 700; fill: #eef0ff; }
+    .desc { font-size: 13.5px; fill: #9aa3c7; }
+    .node { animation: node 4.5s ease-in-out infinite; }
+    .halo { transform-box: fill-box; transform-origin: center; animation: halo 4.5s ease-in-out infinite; }
+    @keyframes node { 0%, 100% { stroke-opacity: .3; } 10%, 36% { stroke-opacity: 1; } }
+    @keyframes halo { 0%, 100% { opacity: 0; transform: scale(.8); } 14% { opacity: .55; transform: scale(1.15); } 36% { opacity: 0; transform: scale(1.3); } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#151c31"/><stop offset="1" stop-color="#0e1325"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#aab4ff" stop-opacity=".26"/><stop offset="1" stop-color="#aab4ff" stop-opacity=".07"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#f0a24d"/><stop offset=".5" stop-color="#8b83ff"/><stop offset="1" stop-color="#45c8e6"/></linearGradient>
+    <radialGradient id="glowA"><stop stop-color="#f0a24d" stop-opacity=".35"/><stop offset="1" stop-color="#f0a24d" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowB"><stop stop-color="#8b83ff" stop-opacity=".32"/><stop offset="1" stop-color="#8b83ff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x=".75" y=".75" width="1198.5" height="198.5" rx="24" fill="url(#face)" stroke="url(#edge)" stroke-width="1.5"/>
+  <path d="M186 66H414M486 66H714M786 66H1014" stroke="#fff" stroke-opacity=".10" stroke-width="3" stroke-linecap="round"/>
+  <g><circle class="halo" style="animation-delay:0.0s" cx="150" cy="66" r="34" fill="#f0a24d" fill-opacity=".18"/><circle class="node" style="animation-delay:0.0s" cx="150" cy="66" r="30" fill="#151c31" stroke="url(#accent)" stroke-width="2"/><g transform="translate(136.0 52) scale(0.875)" fill="none" stroke="#f0a24d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h13l4 4v20H8zM21 4v4h4M12 15h9m-9 5h9"/></g><text x="150" y="128" class="title">Content scripts</text><text x="150" y="152" class="desc">UI and download clicks on nexusmods.com</text></g><g><circle class="halo" style="animation-delay:1.5s" cx="450" cy="66" r="34" fill="#f0a24d" fill-opacity=".18"/><circle class="node" style="animation-delay:1.5s" cx="450" cy="66" r="30" fill="#151c31" stroke="url(#accent)" stroke-width="2"/><g transform="translate(436.0 52) scale(0.875)" fill="none" stroke="#f0a24d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h20M6 16h20M6 24h12"/></g><text x="450" y="128" class="title">Background queue</text><text x="450" y="152" class="desc">MV3 service worker paces the queue</text></g><g><circle class="halo" style="animation-delay:3.0s" cx="750" cy="66" r="34" fill="#f0a24d" fill-opacity=".18"/><circle class="node" style="animation-delay:3.0s" cx="750" cy="66" r="30" fill="#151c31" stroke="url(#accent)" stroke-width="2"/><g transform="translate(736.0 52) scale(0.875)" fill="none" stroke="#f0a24d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16h16m-5-6 6 6-6 6M25 7v18"/></g><text x="750" y="128" class="title">Vortex or browser</text><text x="750" y="152" class="desc">nxm:// handoff or chrome.downloads</text></g><g><circle class="halo" style="animation-delay:4.5s" cx="1050" cy="66" r="34" fill="#f0a24d" fill-opacity=".18"/><circle class="node" style="animation-delay:4.5s" cx="1050" cy="66" r="30" fill="#151c31" stroke="url(#accent)" stroke-width="2"/><g transform="translate(1036.0 52) scale(0.875)" fill="none" stroke="#f0a24d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 24h14a5 5 0 0 0 0-10 7 7 0 0 0-13.5-1A5.5 5.5 0 0 0 9 24z"/></g><text x="1050" y="128" class="title">Optional relay</text><text x="1050" y="152" class="desc">Opt-in reports via a Cloudflare Worker</text></g>
+</svg>

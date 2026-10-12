@@ -1,4 +1,11 @@
-# Nexus Mods site map & official API study
+<p align="center">
+  <img src="assets/header-site-map.svg" alt="Nexus Mods site map & official API study" width="100%" />
+</p>
+
+<p align="center"><sub><a href="../README.md">← README</a> · <a href="../PRIVACY.md">Privacy</a> · <a href="../CONTRIBUTING.md">Contributing</a> · <a href="../CHANGELOG.md">Changelog</a></sub></p>
+
+<img src="assets/divider.svg" alt="" width="100%" />
+
 
 This is a study of how nexusmods.com is structured and which **official, documented** interfaces could replace the extension's DOM scraping and internal endpoints. Like the [Reverse-Engineering](https://github.com/mytechnotalent/Reverse-Engineering) course, it works from observation, but only through legitimate sources:
 
@@ -221,3 +228,9 @@ Feature flags (in-page settings): **Use the official Nexus API** (default on; of
 - Vortex (nxm handling, OAuth, collections): https://github.com/Nexus-Mods/Vortex
 - NexusMods.App: https://github.com/Nexus-Mods/NexusMods.App
 - This repo: `src/content/main.js`, `nnw.js`, `ndc.js`, `page-check.js`, `auth.js`
+
+<img src="assets/divider.svg" alt="" width="100%" />
+
+<p align="center">
+  <a href="https://github.com/thomasthanos"><img src="assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+</p>

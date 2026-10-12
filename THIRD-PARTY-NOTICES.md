@@ -1,4 +1,11 @@
-# Third-party notices - NexusMods Bypass
+<p align="center">
+  <img src="docs/assets/header-notices.svg" alt="Third-party notices - NexusMods Bypass" width="100%" />
+</p>
+
+<p align="center"><sub><a href="README.md">← README</a> · <a href="PRIVACY.md">Privacy</a> · <a href="CONTRIBUTING.md">Contributing</a> · <a href="CHANGELOG.md">Changelog</a></sub></p>
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
 
 NexusMods Bypass is a plain JavaScript browser extension. It contains no framework, bundled third-party runtime, remotely loaded code, advertising SDK, or analytics SDK.
 
@@ -35,3 +42,9 @@ NexusMods Bypass is not affiliated with, endorsed by, sponsored by, or connected
 Chrome, Chromium, Edge, and Firefox APIs and trademarks belong to their respective owners. Compatibility with a browser does not imply endorsement.
 
 If a notice appears incomplete, open an issue in the [repository](https://github.com/thomasthanos/nexusmods-bypass/issues).
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
+<p align="center">
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+</p>
