@@ -1147,7 +1147,7 @@ function bundleBoundaryTests() {
 
   assert.doesNotMatch(fs.readFileSync('src/shared.js', 'utf8'), /function buildReport\(/,
     'the report builder is not part of shared.js, which the worker and every page load');
-  assert.match(fs.readFileSync('src/report.js', 'utf8'), /Object\.assign\(NXTK, \{ buildBugReport, buildReportIssueUrl \}\)/,
+  assert.match(fs.readFileSync('src/report.js', 'utf8'), /Object\.assign\(NXTK, \{ buildBugReport, buildReportIssueUrl[,} ]/,
     'report.js provides it instead');
 }
 

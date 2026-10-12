@@ -7,6 +7,19 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.9.0] - 2026-10-12
+
+### Added
+- Bug report page (Help & Bugs → Send bug report, and a button on error notices) with a live preview of the exact payload, copy-to-clipboard and prefilled GitHub issue fallbacks, and optional delivery through a relay.
+- Opt-in debug log: a 400-entry ring buffer with level, timestamp, page type, version, browser and a settings snapshot, included in reports only when you tick the box.
+- Optional anonymous automatic error reports (off by default; requires the optional relay permission; throttled).
+- `relay/`: Cloudflare Worker that validates, size-limits and rate-limits reports and forwards them to Discord (and optionally email via Resend). Secrets live only in the Worker.
+- Review/star prompt after 5 finished runs, with "Later" (14-day snooze), store link by browser and GitHub star; never shown during a download. Localized in all locales.
+- CI: `manifest-watch` workflow diffs permissions, host/optional permissions, content-script matches and CSP (Chrome and Firefox) against the base, comments on the PR, posts to Discord, and fails expansions without the `permissions-approved` label. Optional `discord-notify` workflow for releases and bug issues.
+
+### Changed
+- Diagnostic redaction now also strips emails, home-directory paths, cookies, bearer tokens, JWTs and long token-like strings.
+
 ## [2.8.1] - 2026-10-12
 
 ### Changed

@@ -79,7 +79,7 @@ Open the popup → **Page settings**. Changes save instantly; **Restore Defaults
 
 ## <img src=".github/assets/icon-shield.svg" width="20" align="middle"> Privacy & permissions
 
-Settings, history and error logs stay in local extension storage. There are no analytics or extension accounts. Download requests go to Nexus Mods; the optional bug report opens a draft for you to review before submitting.
+Settings, history and error logs stay in local extension storage. There are no analytics or extension accounts. Download requests go to Nexus Mods. Bug reports are opt-in: **Help & Bugs → Send bug report** (or the button on an error notice) shows the exact redacted JSON before anything leaves your browser, and lets you copy it or open a prefilled GitHub issue instead. Usernames, emails, cookies, tokens, file paths and URL query strings are stripped. Optional anonymous automatic error reports are **off** by default.
 
 | Permission | Used for |
 |---|---|
@@ -88,6 +88,7 @@ Settings, history and error logs stay in local extension storage. There are no a
 | `scripting` | Injecting the extension's packaged UI on Nexus pages as needed. |
 | `alarms` | Pacing the background queue. |
 | `https://www.nexusmods.com/*` | The only site the extension operates on. |
+| `https://nexusmods-bypass-relay.thomasthanos.workers.dev/*` (optional) | Requested only when you first send a report; delivers it to the maintainer via the [report relay](relay/README.md). |
 
 No tabs permission, all-URLs access or remote code. [![Read the privacy details](.github/assets/btn-privacy-detail.svg)](PRIVACY.md)
 
