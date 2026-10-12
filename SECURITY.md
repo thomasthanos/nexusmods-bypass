@@ -1,4 +1,17 @@
-# Security Policy
+<p align="center">
+  <img src="docs/assets/header-security.svg" alt="Security Policy" width="100%" />
+</p>
+
+<p align="center">
+  <a href="README.md"><img src="docs/assets/link-readme.svg" alt="Back to the README" height="42" /></a>
+  <a href="PRIVACY.md"><img src="docs/assets/link-privacy.svg" alt="Privacy" height="42" /></a>
+  <a href="CONTRIBUTING.md"><img src="docs/assets/link-contributing.svg" alt="Contributing" height="42" /></a>
+  <a href="CHANGELOG.md"><img src="docs/assets/link-changelog.svg" alt="Changelog" height="42" /></a>
+  <a href="LICENSE"><img src="docs/assets/link-license.svg" alt="Licence" height="42" /></a>
+</p>
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
 
 ## Supported Versions
 
@@ -22,3 +35,9 @@ If you discover a security vulnerability in NexusMods Bypass, please do not disc
 We take all security reports seriously and will review your submission as quickly as possible. We aim to acknowledge your report within 48 hours and will keep you informed of our progress toward a fix.
 
 Thank you for helping keep NexusMods Bypass secure!
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
+<p align="center">
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+</p>

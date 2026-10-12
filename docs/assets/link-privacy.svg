@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="92" height="42" viewBox="0 0 92 42" role="img" aria-labelledby="t"><title id="t">PRIVACY</title>
+  <rect x="1" y="1" width="90" height="40" rx="12" fill="#17223a" stroke="#58d39a" stroke-opacity=".72" stroke-width="1.5"/>
+  <g transform="translate(7 7) scale(0.75)" fill="none" stroke="#58d39a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4l10 4v7c0 7-10 13-10 13S6 22 6 15V8z M11 16l3 3 7-7"/></g>
+  <text x="34" y="25" font-family="Segoe UI,Arial,sans-serif" font-size="9" font-weight="700" letter-spacing=".25" fill="#f1f4ff">PRIVACY</text>
+</svg>

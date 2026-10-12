@@ -1,4 +1,17 @@
-# Privacy policy - NexusMods Bypass
+<p align="center">
+  <img src="docs/assets/header-privacy.svg" alt="Privacy policy - NexusMods Bypass" width="100%" />
+</p>
+
+<p align="center">
+  <a href="README.md"><img src="docs/assets/link-readme.svg" alt="Back to the README" height="42" /></a>
+  <a href="PRIVACY.md"><img src="docs/assets/link-privacy.svg" alt="Privacy" height="42" /></a>
+  <a href="CONTRIBUTING.md"><img src="docs/assets/link-contributing.svg" alt="Contributing" height="42" /></a>
+  <a href="CHANGELOG.md"><img src="docs/assets/link-changelog.svg" alt="Changelog" height="42" /></a>
+  <a href="LICENSE"><img src="docs/assets/link-license.svg" alt="Licence" height="42" /></a>
+</p>
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
 
 **Last updated:** 13 September 2026
 **Publisher:** Thomas Thanos
@@ -48,3 +61,9 @@ The `scripting` permission lets the extension add parts of its own packaged code
 Third-party requests to Nexus Mods remain subject to Nexus Mods' own terms and privacy policy. NexusMods Bypass is not affiliated with, endorsed by, or connected to Nexus Mods.
 
 Material changes to this policy will be reflected in its update date and in the public commit history.
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
+<p align="center">
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+</p>

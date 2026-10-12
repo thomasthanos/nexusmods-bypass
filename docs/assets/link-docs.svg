@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="164" height="42" viewBox="0 0 164 42" role="img" aria-labelledby="t"><title id="t">SITE &amp; API MAP</title>
+  <rect x="1" y="1" width="162" height="40" rx="12" fill="#17223a" stroke="#8b83ff" stroke-opacity=".72" stroke-width="1.5"/>
+  <g transform="translate(7 7) scale(0.75)" fill="none" stroke="#8b83ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l8-3 8 3 8-3v19l-8 3-8-3-8 3zM12 5v19M20 8v19"/></g>
+  <text x="34" y="25" font-family="Segoe UI,Arial,sans-serif" font-size="9" font-weight="700" letter-spacing=".25" fill="#f1f4ff">SITE &amp; API MAP</text>
+</svg>

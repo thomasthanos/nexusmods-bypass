@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="98" height="42" viewBox="0 0 98 42" role="img" aria-labelledby="t"><title id="t">SECURITY</title>
+  <rect x="1" y="1" width="96" height="40" rx="12" fill="#17223a" stroke="#fba9a4" stroke-opacity=".72" stroke-width="1.5"/>
+  <g transform="translate(7 7) scale(0.75)" fill="none" stroke="#fba9a4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14h16v12H8zM11 14V10a5 5 0 0 1 10 0v4"/></g>
+  <text x="34" y="25" font-family="Segoe UI,Arial,sans-serif" font-size="9" font-weight="700" letter-spacing=".25" fill="#f1f4ff">SECURITY</text>
+</svg>

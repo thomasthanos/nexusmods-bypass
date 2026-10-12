@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="64" viewBox="0 0 380 64" role="img" aria-labelledby="t"><title id="t">Download the latest release</title>
+  <style>text { font-family: 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif; } .s { animation: shine 5s ease-in-out infinite; } @keyframes shine { 0%,60% { transform: translateX(-160px); } 100% { transform: translateX(560px); } } @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }</style>
+  <defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f6b25e"/><stop offset="1" stop-color="#e2893a"/></linearGradient>
+  <linearGradient id="sh" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <clipPath id="c"><rect width="380" height="64" rx="18"/></clipPath></defs>
+  <g clip-path="url(#c)"><rect width="380" height="64" fill="url(#b)"/><rect class="s" x="0" y="0" width="120" height="64" fill="url(#sh)"/></g>
+  <g fill="none" stroke="#231b11" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M42 18v20m-8-8 8 8 8-8M32 46h20"/></g>
+  <text x="70" y="30" font-size="18" font-weight="750" fill="#231b11">Download from Releases</text>
+  <text x="70" y="49" font-size="12.5" font-weight="600" fill="#3d2c17">Chrome · Edge · Brave · Opera · Firefox 140+</text>
+</svg>

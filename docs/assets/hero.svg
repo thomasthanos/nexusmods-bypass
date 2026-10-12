@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-labelledby="t d">
+  <title id="t">NexusMods Bypass</title>
+  <desc id="d">Queue Nexus Mods collections, skip repetitive steps, and resume your queue in Chrome, Firefox and Edge.</desc>
+  <style>
+    text { font-family: 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif; }
+    .h1 { font-size: 54px; font-weight: 750; fill: #f1f4ff; letter-spacing: -1.5px; text-anchor: middle; }
+    .h1 tspan { fill: #f0a24d; }
+    .sub { font-size: 18px; fill: #9aa3c7; text-anchor: middle; }
+    .chip { font-size: 13.5px; font-weight: 600; fill: #dfe3ff; }
+    .glow-a { animation: drift-a 14s ease-in-out infinite alternate; }
+    .glow-b { animation: drift-b 17s ease-in-out infinite alternate; }
+    .halo { transform-box: fill-box; transform-origin: center; animation: pulse 4.5s ease-in-out infinite; }
+    .arrow { animation: drop 2.4s ease-in-out infinite; }
+    .dot { transform-box: fill-box; transform-origin: center; animation: pulse 2.6s ease-in-out infinite; }
+    .rise { animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes drift-a { to { transform: translate(90px, 30px); } }
+    @keyframes drift-b { to { transform: translate(-110px, -26px); } }
+    @keyframes pulse { 0%, 100% { transform: scale(.92); opacity: .65; } 50% { transform: scale(1.06); opacity: 1; } }
+    @keyframes drop { 0%, 100% { transform: translateY(-3px); } 50% { transform: translateY(4px); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#151c31"/><stop offset="1" stop-color="#0e1325"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#aab4ff" stop-opacity=".26"/><stop offset="1" stop-color="#aab4ff" stop-opacity=".07"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#f0a24d"/><stop offset=".5" stop-color="#8b83ff"/><stop offset="1" stop-color="#45c8e6"/></linearGradient>
+    <radialGradient id="glowA"><stop stop-color="#f0a24d" stop-opacity=".35"/><stop offset="1" stop-color="#f0a24d" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowB"><stop stop-color="#8b83ff" stop-opacity=".32"/><stop offset="1" stop-color="#8b83ff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x=".75" y=".75" width="1198.5" height="378.5" rx="28" fill="url(#face)" stroke="url(#edge)" stroke-width="1.5"/>
+  <ellipse class="glow-a" cx="300" cy="90" rx="320" ry="160" fill="url(#glowA)"/>
+  <ellipse class="glow-b" cx="920" cy="300" rx="340" ry="170" fill="url(#glowB)"/>
+  <circle class="halo" cx="600" cy="92" r="46" fill="#f0a24d" fill-opacity=".10" stroke="#f0a24d" stroke-opacity=".45" stroke-width="1.5"/>
+  <rect x="566" y="58" width="68" height="68" rx="18" fill="#f0a24d"/>
+  <g class="arrow" fill="none" stroke="#231b11" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M600 72v30m-13-13 13 13 13-13M584 112h32"/></g>
+  <text x="600" y="200" class="h1">NexusMods <tspan>Bypass</tspan></text>
+  <text x="600" y="240" class="sub">Queue Nexus Mods collections, skip repetitive steps, and resume your queue.</text>
+  <rect x="520" y="262" width="160" height="3" rx="1.5" fill="url(#accent)"/>
+  <g class="rise"><rect x="229" y="300" width="135" height="34" rx="17" fill="#ffffff" fill-opacity=".04" stroke="url(#edge)"/><circle class="dot" cx="245" cy="317" r="4" fill="#f0a24d"/><text x="257" y="322" class="chip">Manifest V3</text></g><g class="rise"><rect x="380" y="300" width="281" height="34" rx="17" fill="#ffffff" fill-opacity=".04" stroke="url(#edge)"/><circle class="dot" cx="396" cy="317" r="4" fill="#f0a24d"/><text x="408" y="322" class="chip">Chrome · Edge · Firefox 140+</text></g><g class="rise"><rect x="677" y="300" width="143" height="34" rx="17" fill="#ffffff" fill-opacity=".04" stroke="url(#edge)"/><circle class="dot" cx="693" cy="317" r="4" fill="#f0a24d"/><text x="705" y="322" class="chip">13 languages</text></g><g class="rise"><rect x="836" y="300" width="135" height="34" rx="17" fill="#ffffff" fill-opacity=".04" stroke="url(#edge)"/><circle class="dot" cx="852" cy="317" r="4" fill="#f0a24d"/><text x="864" y="322" class="chip">Local-first</text></g>
+</svg>

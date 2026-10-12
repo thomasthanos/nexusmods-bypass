@@ -1,4 +1,17 @@
-# Changelog
+<p align="center">
+  <img src="docs/assets/header-changelog.svg" alt="Changelog" width="100%" />
+</p>
+
+<p align="center">
+  <a href="README.md"><img src="docs/assets/link-readme.svg" alt="Back to the README" height="42" /></a>
+  <a href="PRIVACY.md"><img src="docs/assets/link-privacy.svg" alt="Privacy" height="42" /></a>
+  <a href="CONTRIBUTING.md"><img src="docs/assets/link-contributing.svg" alt="Contributing" height="42" /></a>
+  <a href="CHANGELOG.md"><img src="docs/assets/link-changelog.svg" alt="Changelog" height="42" /></a>
+  <a href="LICENSE"><img src="docs/assets/link-license.svg" alt="Licence" height="42" /></a>
+</p>
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
 
 Notable changes to NexusMods Bypass. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow the `manifest.json` version, which is the single source of truth.
@@ -1224,3 +1237,9 @@ reporting and relay improvements. [Full release notes and commit history](intern
 
 - The `downloads.ui` permission is retained for this release only, to perform the restore
   above. It is removed from the manifest in 2.5.0.
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
+<p align="center">
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+</p>

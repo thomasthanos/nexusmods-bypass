@@ -1,4 +1,17 @@
-# Contributing to NexusMods Bypass
+<p align="center">
+  <img src="docs/assets/header-contributing.svg" alt="Contributing to NexusMods Bypass" width="100%" />
+</p>
+
+<p align="center">
+  <a href="README.md"><img src="docs/assets/link-readme.svg" alt="Back to the README" height="42" /></a>
+  <a href="PRIVACY.md"><img src="docs/assets/link-privacy.svg" alt="Privacy" height="42" /></a>
+  <a href="CONTRIBUTING.md"><img src="docs/assets/link-contributing.svg" alt="Contributing" height="42" /></a>
+  <a href="CHANGELOG.md"><img src="docs/assets/link-changelog.svg" alt="Changelog" height="42" /></a>
+  <a href="LICENSE"><img src="docs/assets/link-license.svg" alt="Licence" height="42" /></a>
+</p>
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
 
 Bug reports and focused pull requests are welcome. Before contributing, read the source-available
 [licence](LICENSE). Contributions are licensed to the project owner under its terms, except for
@@ -46,3 +59,9 @@ Keep permissions narrow, do not add remote code or telemetry, and do not commit 
 ## Scope
 
 Good contributions include bug fixes, compatibility updates, translation corrections, accessibility improvements, and narrowly justified features. Changes that weaken privacy, broaden host access without need, hide behaviour, or add analytics will not be accepted.
+
+<img src="docs/assets/divider.svg" alt="" width="100%" />
+
+<p align="center">
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+</p>
