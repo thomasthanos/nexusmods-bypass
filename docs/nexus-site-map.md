@@ -189,6 +189,24 @@ For a browser extension running *on* nexusmods.com, the lowest-friction legitima
 
 **Non-goals:** no change to the download/bypass path, no use of `download_link.json`, no parallel or segmented downloads, no Cloudflare or auth workarounds.
 
+## 8a. Implementation status (2.10.0)
+
+| Item | Status | Where |
+|---|---|---|
+| Central API module: token bucket (60 burst, 1/s), 429 backoff honouring `Retry-After` (60 s doubling to 15 min otherwise), memory and TTL cache, permanent cache for published revisions (`storage.local`, 20 entries), in-flight dedupe | ✅ | `src/content/nexus-api.js` |
+| Weekly schema watch with Discord alert | ✅ | `tools/schema-watch.mjs`, `.github/workflows/schema-watch.yml`, snapshot `tools/fixtures/nexus-v2-schema.json` |
+| P1 collection lookups via `api.nexusmods.com/v2/graphql`, router fallback on network/5xx/404/adult-blocked (never on 403/Cloudflare) | ✅ | `ndc.js` `fetchMods`/`fetchRevisions` |
+| P1 game id via `game(domainName)` | ✅ | `nnw.js` `prefetchGameIdFromApi` (DOM is the fallback) |
+| P1 mod-page file list from `modFiles`, DOM only for placement | ✅ (archived view: headers without `data-id` matched by unique name+version) | `nnw.js` `loadApiFileList` |
+| P2 batched details (`legacyModsByDomain`, 50 per request) | ✅ | `ndc.ensureApiDetails` |
+| P2 `updatePolicy` | ✅ badge for latest/prefer when Nexus is newer; opt-in **Follow curator update policy** swaps to the newest active file in the same group (`exact` never changes) | `ndc.applyUpdatePolicy`, `NexusApi.resolveByPolicy` |
+| P2 newer-revision badge | ✅ | `ui-collection.js` `showNewerRevisionBadge` |
+| P3 endorse/track | ✅ per-row buttons, one request per click, no retries | `ui-collection.js` `runModAction` |
+| P3 hash matching | ✅ "Identify archives by hash" in the Wabbajack dialog: local MD5 → `fileHash`. Wabbajack's own xxHash64 values cannot be looked up | `wabbajack-importer.js` `identifyArchives` |
+| Registering a Nexus app (OAuth client / SSO appid) | ❌ **not done, by decision.** A future option if features outside nexusmods.com tabs are wanted; it would add `Application-Name/Version` headers and per-app quotas | — |
+
+Feature flags (in-page settings): **Use the official Nexus API** (default on; off restores pre-2.10 behaviour byte-for-byte for collection queries), **Follow curator update policy** (default off), **Endorse and track buttons** (default on, only with the API on).
+
 ## 9. Risks
 
 - `api-router` versus the v2 host could differ in cookie or session handling for adult content. Phase 1 keeps the fallback and should be checked by a manual run on an adult-flagged collection while signed in.

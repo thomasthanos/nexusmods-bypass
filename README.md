@@ -71,6 +71,7 @@ Open the popup → **Page settings**. Changes save instantly; **Restore Defaults
 
 - **Download flow:** auto-start, close Vortex tabs, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first, Cloudflare fallback.
 - **Files & pacing:** browser download folder, Nexus download speed, pause between mods.
+- **Official Nexus API:** use the documented API for collection, mod and file details (on), follow curator update policy (off), endorse and track buttons (on). See [docs/nexus-site-map.md](docs/nexus-site-map.md).
 - **Advanced:** request timeout and close-tab delay.
 - **Language:** Always use English.
 </details>
