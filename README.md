@@ -1,18 +1,16 @@
 <div align="center">
 
-<img src=".github/assets/releases/3.0.0.svg" alt="NexusMods Bypass 3.0.0 — collection downloads under control" width="100%">
+<picture><source media="(prefers-reduced-motion: reduce) and (max-width: 600px)" srcset=".github/assets/readme/hero-mobile-static.svg"><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme/hero-static.svg"><source media="(max-width: 600px)" srcset=".github/assets/readme/hero-mobile.svg"><img src=".github/assets/readme/hero.svg" alt="NexusMods Bypass 3.0.0 — collection queue with browser and Vortex handoffs" width="100%"></picture>
 
 <p>Download Nexus Mods collections to your browser or Vortex.<br>Choose your files, control the pace and pick up where you left off.</p>
 
 <p><a href="https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj"><img src=".github/assets/btn-chrome.svg" alt="Install from the Chrome Web Store" height="38"></a> <a href="https://addons.mozilla.org/en-US/firefox/addon/nexusmods-bypass/"><img src=".github/assets/btn-firefox.svg" alt="Install from Firefox Add-ons" height="38"></a> <a href="https://microsoftedge.microsoft.com/addons/detail/hcjpcnajmkanhodhpkoinodjbkeolgaa"><img src=".github/assets/btn-edge.svg" alt="Install from Edge Add-ons" height="38"></a></p>
 
-<p><a href="#install">Install</a> &nbsp; / &nbsp; <a href="#features">Features</a> &nbsp; / &nbsp; <a href="#help">Help &amp; bugs</a> &nbsp; / &nbsp; <a href="#privacy">Privacy</a> &nbsp; / &nbsp; <a href="#source">For contributors</a></p>
+<p><a href="#install"><img src=".github/assets/readme/install.svg" alt="Install" height="52"></a> <a href="#features"><img src=".github/assets/readme/features.svg" alt="Features" height="52"></a> <a href="#help"><img src=".github/assets/readme/help.svg" alt="Help and bugs" height="52"></a> <a href="#privacy"><img src=".github/assets/readme/privacy.svg" alt="Privacy" height="52"></a> <a href="#source"><img src=".github/assets/readme/source.svg" alt="For contributors" height="52"></a></p>
 
 </div>
 
-**3.0.0 is available on GitHub.** Store versions may differ from the GitHub release.
-Read the [major-update notes](https://github.com/thomasthanos/nexusmods-bypass/releases/tag/3.0.0)
-or [browse the full changelog](CHANGELOG.md).
+<p><a href="https://github.com/thomasthanos/nexusmods-bypass/releases/tag/3.0.0"><picture><source media="(max-width: 600px)" srcset=".github/assets/readme/release-card-mobile.svg"><img src=".github/assets/readme/release-card.svg" alt="3.0.0 is available on GitHub — explore release notes and downloads. Store versions may differ." width="100%"></picture></a></p>
 
 > [!WARNING]
 > Use at your own risk. Skipping the download countdown through the ad-timer cookie
@@ -221,7 +219,12 @@ The release gate also runs lint and browser-layout checks.
 
 </details>
 
-## Licence & attribution
+<a id="licence"></a>
+
+<picture><source media="(max-width: 600px)" srcset=".github/assets/readme/licence-card-mobile.svg"><img src=".github/assets/readme/licence-card.svg" alt="Licence and attribution — source-available project; NNW is separately GPL-3.0-or-later" width="100%"></picture>
+
+<details>
+<summary><strong>Read the licence scope and third-party attribution</strong></summary>
 
 Most code is **source-available**, not open source, under the repository [licence](LICENSE).
 The *NexusMods Bypass* name, `src/icons/` and `internal/` are excluded from its permissions.
@@ -232,8 +235,14 @@ The *NexusMods Bypass* name, `src/icons/` and `internal/` are excluded from its 
 Other original code, including the download URL parser, remains under the main licence.
 See the [third-party notices](THIRD-PARTY-NOTICES.md).
 
-**Not affiliated with, endorsed by or connected to Nexus Mods.**
+</details>
 
----
+<div align="center">
 
-[Releases](https://github.com/thomasthanos/nexusmods-bypass/releases) · [Changelog](CHANGELOG.md) · [Privacy](PRIVACY.md) · [Issues](https://github.com/thomasthanos/nexusmods-bypass/issues)
+<picture><source media="(prefers-reduced-motion: reduce) and (max-width: 600px)" srcset=".github/assets/readme/footer-mobile-static.svg"><source media="(prefers-reduced-motion: reduce)" srcset=".github/assets/readme/footer-static.svg"><source media="(max-width: 600px)" srcset=".github/assets/readme/footer-mobile.svg"><img src=".github/assets/footer.svg" alt="Made for the long mod list — NexusMods Bypass by ThomasThanos" width="100%"></picture>
+
+<p><a href="https://github.com/thomasthanos/nexusmods-bypass/releases"><img src=".github/assets/readme/releases.svg" alt="Releases" height="52"></a> <a href="CHANGELOG.md"><img src=".github/assets/readme/changelog.svg" alt="Changelog" height="52"></a> <a href="PRIVACY.md"><img src=".github/assets/readme/privacy.svg" alt="Privacy policy" height="52"></a> <a href="https://github.com/thomasthanos/nexusmods-bypass/issues"><img src=".github/assets/readme/issues.svg" alt="GitHub issues" height="52"></a></p>
+
+<sub>Not affiliated with, endorsed by or connected to Nexus Mods.</sub>
+
+</div>

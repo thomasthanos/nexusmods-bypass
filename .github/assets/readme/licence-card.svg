@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="118" viewBox="0 0 1000 118" role="img" aria-labelledby="title description">
+  <title id="title">Licence and attribution</title>
+  <desc id="description">Source-available, not open source. NNW is separately GPL-3.0-or-later. Expand the text below for full licence links and scope.</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#172c44"/><stop offset="1" stop-color="#213852"/></linearGradient></defs>
+  <rect x="1" y="1" width="998" height="116" rx="18" fill="url(#bg)" stroke="#536b85" stroke-opacity=".6"/>
+  <g transform="translate(28 30)" fill="none" stroke="#efb887" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m26 0 24 9v18c0 16-24 29-24 29S2 43 2 27V9L26 0Z"/><path d="m16 26 7 7 14-15"/></g>
+  <g font-family="Segoe UI,Arial,sans-serif"><text x="108" y="44" fill="#f2f6fc" font-size="24" font-weight="650">Licence &amp; attribution</text><text x="108" y="75" fill="#bacadc" font-size="17">Source-available project. NNW is separately GPL-3.0-or-later.</text><text x="108" y="99" fill="#a4b9ce" font-size="14">Review the licence scope, module attribution and third-party notices below.</text></g>
+</svg>

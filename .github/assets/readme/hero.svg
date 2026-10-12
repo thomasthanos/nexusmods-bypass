@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="340" viewBox="0 0 1100 340" role="img" aria-labelledby="title description">
+  <title id="title">NexusMods Bypass 3.0.0 — major update</title>
+  <desc id="description">Collection downloads under control. A file queue branches into browser and Vortex downloads. Includes 47 commits and 13 interface languages.</desc>
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#1d344e"/><stop offset="1" stop-color="#13233c"/>
+    </linearGradient>
+    <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
+      <path d="M34 0H0V34" fill="none" stroke="#afc1d4" stroke-opacity=".07"/>
+    </pattern>
+  </defs>
+  <style>
+    text { font-family: "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif; }
+    .muted { fill: #afc1d4; }
+    .route { fill: none; stroke: #75d6c5; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .packet { fill: none; stroke: #f5f4ef; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 10 180; animation: route 6s linear infinite; }
+    .progress { stroke-dasharray: 72 124; animation: queue 6s ease-in-out infinite; }
+    @keyframes route { to { stroke-dashoffset: -190; } }
+    @keyframes queue { 0%, 100% { stroke-dashoffset: 60; } 55% { stroke-dashoffset: 0; } }
+    @media (prefers-reduced-motion: reduce) { .packet, .progress { animation: none !important; } }
+  </style>
+  <rect width="1100" height="340" rx="22" fill="#13233c"/>
+  <rect x="638" y="1" width="461" height="338" rx="21" fill="url(#surface)"/>
+  <rect x="638" y="1" width="461" height="338" rx="21" fill="url(#grid)"/>
+  <path d="M638 1V339" stroke="#afc1d4" stroke-opacity=".13"/>
+  <g transform="translate(42 34)">
+    <rect width="80" height="30" rx="15" fill="#efa96f"/>
+    <text x="40" y="21" text-anchor="middle" font-size="17" font-weight="700" fill="#13233c">3.0.0</text>
+    <text x="97" y="21" font-size="17" fill="#afc1d4">Major update</text>
+    <text y="84" font-size="38" font-weight="650" fill="#f5f4ef">NexusMods Bypass</text>
+    <text y="132" font-size="28" fill="#f5f4ef">Collection downloads, under control.</text>
+    <text y="173" font-size="19" class="muted">More reliable queues. Clearer reports.</text>
+    <text y="200" font-size="19" class="muted">A responsive interface that fits your screen.</text>
+    <path d="M0 233H550" stroke="#afc1d4" stroke-opacity=".22"/>
+    <text y="267" font-size="17" fill="#75d6c5">47 commits</text>
+    <text x="128" y="267" font-size="17" class="muted">13 languages</text>
+    <text x="280" y="267" font-size="17" class="muted">Chrome / Edge / Firefox</text>
+  </g>
+  <g transform="translate(668 30)">
+    <text x="4" y="20" font-size="17" fill="#afc1d4">Your collection</text>
+    <g transform="translate(0 44)">
+      <path d="M18 0H181L203 22V58H18Z" fill="#27445f" stroke="#afc1d4" stroke-opacity=".3"/>
+      <path d="M181 0V22H203" fill="none" stroke="#afc1d4" stroke-opacity=".3"/>
+      <path d="M9 14H172L194 36V72H9Z" fill="#213c57" stroke="#afc1d4" stroke-opacity=".3"/>
+      <path d="M0 28H163L185 50V98H0Z" fill="#13233c" stroke="#75d6c5" stroke-opacity=".65"/>
+      <path d="M163 28V50H185" fill="none" stroke="#75d6c5" stroke-opacity=".65"/>
+      <path d="M20 62L26 68L38 55" class="route"/>
+      <text x="50" y="66" font-size="17" fill="#f5f4ef">Next file</text>
+      <path d="M20 82H144" stroke="#75d6c5" stroke-opacity=".22" stroke-width="4" stroke-linecap="round"/>
+      <path class="progress" d="M20 82H144" stroke="#75d6c5" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    <path d="M186 120H214V85H244M214 120V175H244" class="route"/>
+    <path d="M186 120H214V85H244M214 120V175H244" class="packet"/>
+    <path d="M236 79L244 85L236 91M236 169L244 175L236 181" class="route"/>
+    <g transform="translate(258 61)">
+      <rect width="143" height="49" rx="10" fill="#213c57" stroke="#afc1d4" stroke-opacity=".25"/>
+      <path d="M16 14H38V30H16ZM23 36H31M27 30V36" fill="none" stroke="#75d6c5" stroke-width="2" stroke-linejoin="round"/>
+      <text x="52" y="31" font-size="17" fill="#f5f4ef">Browser</text>
+    </g>
+    <g transform="translate(258 151)">
+      <rect width="143" height="49" rx="10" fill="#213c57" stroke="#afc1d4" stroke-opacity=".25"/>
+      <path d="M17 16L27 35L37 16M23 16L27 25L31 16" fill="none" stroke="#efa96f" stroke-width="2" stroke-linejoin="round"/>
+      <text x="52" y="31" font-size="17" fill="#f5f4ef">Vortex</text>
+    </g>
+    <text x="4" y="260" font-size="17" fill="#afc1d4">Choose a mode. Keep your place.</text>
+  </g>
+</svg>

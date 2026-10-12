@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="186" viewBox="0 0 600 186" role="img" aria-labelledby="title description">
+<title id="title">Explore release 3.0.0</title><desc id="description">Available on GitHub. View release notes and downloads. Store versions may differ.</desc>
+<rect x="1" y="1" width="598" height="184" rx="18" fill="#1c3650" stroke="#55738e"/>
+<g font-family="Segoe UI,Arial,sans-serif"><rect x="22" y="23" width="110" height="44" rx="12" fill="#75d6c5"/><text x="77" y="53" text-anchor="middle" fill="#13263e" font-size="26" font-weight="700">3.0.0</text><text x="152" y="53" fill="#f2f6fc" font-size="27" font-weight="650">Ready on GitHub</text><text x="22" y="103" fill="#c1cede" font-size="22">Release notes and browser downloads</text><text x="22" y="141" fill="#aebfd1" font-size="20">Store versions may differ.</text></g>
+<path d="M552 35l10 10-10 10" fill="none" stroke="#75d6c5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
