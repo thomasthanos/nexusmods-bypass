@@ -2255,7 +2255,9 @@ const EXPECTED_HANDLER_OUTCOMES = new Set(['job-not-found']);
 
 function isTrustedSender(sender) {
   if (!sender || sender.id !== chrome.runtime.id) return false;
-  if (!sender.url) return true;
+  // A content script always reports the page it runs in. A sender without a URL is accepted only when
+  // it is not attached to a tab (the extension's own worker or popup on browsers that omit the URL).
+  if (!sender.url) return !sender.tab;
   if (sender.url.startsWith(chrome.runtime.getURL(''))) return true;
   return TRUSTED_SENDER_URL.test(sender.url);
 }

@@ -60,6 +60,15 @@ const { mutateNdcJob, readNdcJob, saveNdcJob, storageSetLocal, storageGetLocal, 
 const { __handleNdcDownloadTerminal: handleNdcDownloadTerminal,
   __recordQueueItemFailure: recordQueueItemFailure } = context;
 
+{
+  const trusted = context.isTrustedSender;
+  assert.equal(trusted({ id: 'other', url: 'https://www.nexusmods.com/' }), false, 'another extension is refused');
+  assert.equal(trusted({ id: 'test-extension-id', url: 'https://www.nexusmods.com/x' }), true, 'a Nexus page is trusted');
+  assert.equal(trusted({ id: 'test-extension-id', url: 'https://evil.example/nexusmods.com/' }), false, 'another site is refused');
+  assert.equal(trusted({ id: 'test-extension-id', url: 'chrome-extension://test-extension-id/popup/popup.html' }), true, 'the popup is trusted');
+  assert.equal(trusted({ id: 'test-extension-id', tab: { id: 3 } }), false, 'a tab sender with no URL is refused');
+  assert.equal(trusted({ id: 'test-extension-id' }), true, 'an extension context with no URL or tab is accepted');
+}
 assert.equal(retryAfterMilliseconds('', 1, () => 0), 30000, 'first strike backs off 30s');
 assert.equal(retryAfterMilliseconds('', 2, () => 0), 60000, 'second strike doubles');
 assert.equal(retryAfterMilliseconds('', 3, () => 0), 120000, 'third strike doubles again');
@@ -520,7 +529,7 @@ async function expectedOutcomesStayOutOfTheLog() {
   const send = (type) => new Promise((resolve) => {
     const handled = messageListeners[0](
       { type, payload: { gameId: 'g1', collectionId: 'c1' } },
-      { id: 'test-extension-id', tab: { id: 7 } },
+      { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/collections/abc', tab: { id: 7 } },
       resolve
     );
     assert.equal(handled, true, `${type} must answer asynchronously`);
@@ -1807,7 +1816,7 @@ async function staleRecordsAreNotJudged() {
 // still refused outright.
 async function settingsPatchIsNormalized() {
   const send = (type, payload) => new Promise((resolve) => {
-    messageListeners[0]({ type, payload }, { id: 'test-extension-id', tab: { id: 7 } }, resolve);
+    messageListeners[0]({ type, payload }, { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/collections/abc', tab: { id: 7 } }, resolve);
   });
   let reply = await send('SETTINGS_PATCH', { patch: { NDC_pauseBetweenDownload: -30, RequestTimeout: 1 } });
   assert.equal(reply.ok, true, 'out-of-range numbers are accepted');
