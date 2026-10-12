@@ -89,7 +89,7 @@ Settings, history and error logs stay in local extension storage. There are no a
 | `scripting` | Injecting the extension's packaged UI on Nexus pages as needed. |
 | `alarms` | Pacing the background queue. |
 | `https://www.nexusmods.com/*` | The only site the extension operates on. |
-| `https://nexusmods-bypass-relay.thomasthanos.workers.dev/*` (optional) | Requested only when you first send a report; delivers it to the maintainer via the [report relay](relay/README.md). |
+| `https://nexusmods-bypass-relay.mariosthanos3.workers.dev/*` (optional) | Requested only when you first send a report; delivers it to the maintainer via the [report relay](relay/README.md). |
 
 No tabs permission, all-URLs access or remote code. [![Read the privacy details](.github/assets/btn-privacy-detail.svg)](PRIVACY.md)
 

@@ -4,6 +4,14 @@ A small Cloudflare Worker that receives reports from the extension's **Send bug 
 the optional, off-by-default anonymous error reports), checks them, and forwards them to a Discord
 channel (and optionally e-mail). The extension never contains the webhook or any other secret.
 
+## Current deployment
+
+Deployed on 2026-10-12 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev.
+The Discord destination is stored as the Cloudflare Worker secret `DISCORD_WEBHOOK_URL`.
+The live health check returned `ok: true, configured: true`, and a test report was accepted by Discord.
+`RELAY_CONFIGURED` is enabled in the extension. The first send still asks for the optional relay
+host permission. KV-backed rate limiting and e-mail are not configured.
+
 ## What it does
 - `POST /v1/report`, JSON only, at most 64 KB, schema version 1 (see `validateReport` in `worker.js`).
 - At most 10 reports per IP per hour. With a KV namespace bound as `RATE_LIMIT` the counters are
@@ -13,7 +21,8 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 - CORS only for extension origins (`ALLOWED_ORIGINS`).
 
 ## Deploy
-The relay is **not deployed by CI**: `wrangler` needs an interactive `wrangler login` (or a
+To update this deployment or deploy your own copy, use your machine. The relay is **not deployed by CI**:
+`wrangler` needs an interactive `wrangler login` (or a
 Cloudflare API token, which this repository deliberately does not hold). Deploy from your machine:
 ```sh
 cd relay

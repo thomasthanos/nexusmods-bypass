@@ -540,11 +540,11 @@
   // Discord webhook. Its origin is an optional host permission, asked for the first time a report is
   // sent, so installing this version adds no permission warning. Change RELAY_ORIGIN together with
   // optional_host_permissions in manifest.json when the Worker is deployed elsewhere.
-  const RELAY_ORIGIN = 'https://nexusmods-bypass-relay.thomasthanos.workers.dev';
-  // false until the Worker is deployed at RELAY_ORIGIN; the build can override it with
-  // NXTK_RELAY_CONFIGURED=1/0 (tools/build-zip.mjs). While false, Send shows as unavailable and the
-  // report page offers the GitHub issue route instead.
-  const RELAY_CONFIGURED = false;
+  const RELAY_ORIGIN = 'https://nexusmods-bypass-relay.mariosthanos3.workers.dev';
+  // The deployed Worker is configured and has passed the live health and report-delivery checks.
+  // Builds can override this with NXTK_RELAY_CONFIGURED=1/0 (tools/build-zip.mjs). While false,
+  // Send shows as unavailable and the report page offers the GitHub issue route instead.
+  const RELAY_CONFIGURED = true;
   const RELAY_REPORT_URL = `${RELAY_ORIGIN}/v1/report`;
   const RELAY_HEALTH_URL = `${RELAY_ORIGIN}/v1/health`;
   const RELAY_PERMISSION = Object.freeze({ origins: [`${RELAY_ORIGIN}/*`] });
