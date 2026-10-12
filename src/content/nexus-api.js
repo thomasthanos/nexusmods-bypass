@@ -104,7 +104,8 @@ window.NexusExt = window.NexusExt || {};
     const limiter = { blockedUntil: 0, strikes: 0 };
     const memory = new Map();
     const inflight = new Map();
-    let persisted = null;
+    let persistedPromise = null;
+    let modsCacheVersion = 0;
     const stats = { requests: 0, cacheHits: 0, fallbacks: 0, rateLimited: 0 };
 
     function refill() {
@@ -150,11 +151,17 @@ window.NexusExt = window.NexusExt || {};
       return { ok: false, status: 429, text: '', error, rateLimit: { retryAfterSeconds: Math.ceil(waitMs / 1000) } };
     }
 
-    async function loadPersisted() {
-      if (persisted) return persisted;
-      const stored = storage ? await storage.get(PERSIST_KEY) : null;
-      persisted = stored && typeof stored === 'object' && !Array.isArray(stored) ? { ...stored } : {};
-      return persisted;
+    function abortedResult(context) {
+      return { ok: false, status: 0, text: '', error: NexusExt.Errors?.create?.('aborted', { context }) || { code: 'aborted' } };
+    }
+
+    function loadPersisted() {
+      if (!persistedPromise) {
+        persistedPromise = Promise.resolve().then(() => storage?.get(PERSIST_KEY)).then((stored) =>
+          stored && typeof stored === 'object' && !Array.isArray(stored) ? { ...stored } : {}
+        ).catch(() => ({}));
+      }
+      return persistedPromise;
     }
 
     async function readCache(key) {
@@ -206,6 +213,7 @@ window.NexusExt = window.NexusExt || {};
       query, operationName, variables = {}, context = 'Nexus API', signal = null, timeoutMs,
       cacheKey = '', ttlMs = 0, permanentIf = null, fallback = true, mutation = false, retries = 2
     }) {
+      const modsVersion = modsCacheVersion;
       const cached = mutation ? null : await readCache(cacheKey);
       if (cached != null) {
         stats.cacheHits++;
@@ -219,29 +227,32 @@ window.NexusExt = window.NexusExt || {};
         let attempt = 0;
         for (;;) {
           const slot = await acquire(signal);
-          if (slot.aborted) return { ok: false, status: 0, text: '', error: NexusExt.Errors?.create?.('aborted', { context }) || { code: 'aborted' } };
+          if (slot.aborted) return abortedResult(context);
           if (slot.waitMs) return rateLimitedResult(slot.waitMs);
 
           let result = await post(V2_URL, body, { signal, timeoutMs, context });
           let source = 'v2';
+          if (!mutation && fallback && fallbackWorthy(result)) {
+            const routerSlot = await acquire(signal);
+            if (routerSlot.aborted) return abortedResult(context);
+            if (routerSlot.waitMs) return rateLimitedResult(routerSlot.waitMs);
+            stats.fallbacks++;
+            const routed = await post(ROUTER_URL, body, { signal, timeoutMs, context });
+            if (routed.ok || !result.ok || routed.status === 429 || routed.error?.code === 'rate_limited') {
+              result = routed;
+              source = 'router';
+            }
+          }
           if (result.status === 429 || result.error?.code === 'rate_limited') {
             noteRateLimited(result.rateLimit?.retryAfterSeconds);
             if (mutation || attempt++ >= retries) return { ...result, source };
             continue;
           }
-          if (!mutation && fallback && fallbackWorthy(result)) {
-            stats.fallbacks++;
-            const routed = await post(ROUTER_URL, body, { signal, timeoutMs, context });
-            if (routed.ok || !result.ok) {
-              result = routed;
-              source = 'router';
-            }
-          }
           if (result.ok) {
             limiter.strikes = 0;
             const json = parseJson(result.text);
             const clean = json && !Array.isArray(json.errors) && json.data;
-            if (clean && key) {
+            if (clean && key && (!key.startsWith('mods:') || modsVersion === modsCacheVersion)) {
               const permanent = typeof permanentIf === 'function' && !!permanentIf(json);
               await writeCache(key, result.text, ttlMs, permanent);
             }
@@ -251,7 +262,7 @@ window.NexusExt = window.NexusExt || {};
       })();
       if (key) {
         inflight.set(key, run);
-        run.finally(() => inflight.delete(key)).catch(() => {});
+        run.finally(() => { if (inflight.get(key) === run) inflight.delete(key); }).catch(() => {});
       }
       return run;
     }
@@ -313,7 +324,7 @@ window.NexusExt = window.NexusExt || {};
 
     async function modFiles({ modId, gameId: gid, signal }) {
       if (!/^\d+$/.test(String(modId)) || !/^\d+$/.test(String(gid))) return null;
-      const { data: d, result } = await data({
+      const { data: d } = await data({
         query: QUERIES.ModFiles,
         operationName: 'ModFiles',
         variables: { modId: String(modId), gameId: String(gid) },
@@ -322,7 +333,7 @@ window.NexusExt = window.NexusExt || {};
         cacheKey: `files:${gid}:${modId}`,
         ttlMs: TTL.modFiles
       });
-      return Array.isArray(d?.modFiles) ? d.modFiles : (result.ok ? [] : null);
+      return Array.isArray(d?.modFiles) ? d.modFiles : null;
     }
 
     // Details for many mods in batches of 50: Map("domain:modId" -> mod).
@@ -383,6 +394,14 @@ window.NexusExt = window.NexusExt || {};
         mutation: true
       });
       const payload = json?.data && Object.values(json.data)[0];
+      if (payload?.success) {
+        // Mod details include account-specific endorsement/tracking flags. An older in-flight
+        // read must neither be reused nor repopulate the cache after this change.
+        modsCacheVersion++;
+        for (const cache of [memory, inflight]) {
+          for (const key of cache.keys()) if (key.startsWith('mods:')) cache.delete(key);
+        }
+      }
       const message = Array.isArray(json?.errors) ? String(json.errors[0]?.message || '').slice(0, 200) : '';
       return { ok: !!payload?.success, message, error: result.ok ? null : result.error };
     }
@@ -418,7 +437,7 @@ window.NexusExt = window.NexusExt || {};
   //  latest -> the newest file in its group.
   function resolveByPolicy(policy, files, fileId) {
     const p = String(policy || 'exact').toLowerCase();
-    if (p === 'exact') return null;
+    if (p !== 'latest' && p !== 'prefer') return null;
     const pinned = (files || []).find((f) => String(f?.fileId) === String(fileId));
     if (p === 'prefer' && pinned && ACTIVE_CATEGORIES.has(String(pinned.category))) return null;
     const latest = latestInGroup(files, fileId);

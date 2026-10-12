@@ -24,10 +24,7 @@ jobs:
       # AMO's own linter on the Firefox package exactly as it would be uploaded. Errors fail the gate;
       # warnings (mostly innerHTML on escaped templates) are reported only.
       - name: web-ext lint (Firefox package)
-        run: |
-          mkdir -p /tmp/firefox-pkg
-          unzip -q dist/*-firefox.zip -d /tmp/firefox-pkg
-          npx web-ext lint --source-dir /tmp/firefox-pkg
+        run: node tools/lint-webext.mjs
 
   visual:
     runs-on: ubuntu-latest

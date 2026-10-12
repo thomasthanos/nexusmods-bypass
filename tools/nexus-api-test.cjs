@@ -121,6 +121,73 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
   }
 
   // ---- Caching: TTL, permanent published revisions (persisted), latest not permanent, in-flight dedupe.
+  // A fallback is a real request too, and its 429 must block subsequent calls.
+  {
+    const h = harness({ responses: [netFail(), limited(5), ok({ data: { a: 1 } })] });
+    assert.equal((await h.api.graphql({ query: 'q', operationName: 'Q' })).ok, true);
+    assert.deepEqual(h.sleeps, [5000], 'router Retry-After is honoured');
+    assert.equal(h.calls.length, 3);
+    const burst = harness({ responses: Array.from({ length: 31 }, () => [netFail(), ok({ data: {} })]).flat() });
+    for (let i = 0; i < 31; i++) await burst.api.graphql({ query: 'q', operationName: 'Q' });
+    assert.deepEqual(burst.sleeps, [1000, 1000], 'both endpoints consume the shared request budget');
+  }
+
+  // Concurrent cache reads share one storage read rather than replacing each other's store.
+  {
+    let reads = 0;
+    let release;
+    const api = NexusApi.createNexusApi({
+      storage: { get: () => { reads++; return new Promise((r) => { release = r; }); }, set: async () => {} },
+      request: async (_url, options) => ok({ data: { game: { id: JSON.parse(options.body).variables.domainName === 'skyrim' ? 1 : 2 } } })
+    });
+    const a = api.gameId('skyrim');
+    const b = api.gameId('fallout4');
+    await new Promise((r) => setImmediate(r));
+    assert.equal(reads, 1, 'cache initialization is shared across different concurrent queries');
+    release({});
+    assert.deepEqual(await Promise.all([a, b]), ['1', '2']);
+  }
+
+  // Successful actions invalidate viewer-state caches; refused actions keep valid cached data.
+  {
+    const mods = (tracked) => ok({ data: { legacyModsByDomain: { nodes: [{ modId: 1, uid: '42', viewerTracked: tracked, game: { domainName: 'skyrim' } }] } } });
+    const h = harness({ responses: [mods(false), ok({ data: { trackMod: { success: true } } }), mods(true)] });
+    const pairs = [{ gameDomain: 'skyrim', modId: 1 }];
+    await h.api.modsByDomain(pairs);
+    await h.api.modAction('track', '42');
+    assert.equal((await h.api.modsByDomain(pairs)).get('skyrim:1').viewerTracked, true);
+    assert.equal(h.calls.length, 3, 'viewer state is fetched again after a successful action');
+    const refused = harness({ responses: [mods(false), ok({ data: { trackMod: { success: false } } })] });
+    await refused.api.modsByDomain(pairs);
+    await refused.api.modAction('track', '42');
+    await refused.api.modsByDomain(pairs);
+    assert.equal(refused.calls.length, 2, 'a refused action does not invalidate the cache');
+
+    let finishOld;
+    let reads = 0;
+    const api = NexusApi.createNexusApi({ storage: null, request: async (_url, options) => {
+      if (JSON.parse(options.body).operationName === 'TrackMod') return ok({ data: { trackMod: { success: true } } });
+      return ++reads === 1 ? new Promise((r) => { finishOld = r; }) : mods(true);
+    } });
+    const old = api.modsByDomain(pairs);
+    await new Promise((r) => setImmediate(r));
+    await api.modAction('track', '42');
+    assert.equal((await api.modsByDomain(pairs)).get('skyrim:1').viewerTracked, true, 'an old in-flight read is not reused after an action');
+    finishOld(mods(false));
+    await old;
+    assert.equal((await api.modsByDomain(pairs)).get('skyrim:1').viewerTracked, true, 'an old response cannot overwrite the refreshed cache');
+  }
+
+  // GraphQL failures and missing data are not valid empty file lists.
+  {
+    for (const response of [ok({ errors: [{ message: 'schema changed' }], data: null }), ok({ data: {} })]) {
+      const h = harness({ responses: [response] });
+      assert.equal(await h.api.modFiles({ modId: 1, gameId: 2 }), null);
+    }
+    const h = harness({ responses: [ok({ data: { modFiles: [] } })] });
+    assert.equal((await h.api.modFiles({ modId: 1, gameId: 2 })).length, 0);
+  }
+
   {
     const published = ok({ data: { collectionRevision: { revisionNumber: 4, revisionStatus: 'published', modFiles: [] } } });
     const h = harness({ responses: [published, published] });
@@ -192,6 +259,7 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal(NexusApi.resolveByPolicy('prefer', files, 1).fileId, 3, 'prefer moves off an archived file');
     assert.equal(NexusApi.resolveByPolicy('latest', files, 99), null, 'unknown file: unchanged');
     assert.equal(NexusApi.resolveByPolicy('latest', null, 1), null);
+    assert.equal(NexusApi.resolveByPolicy('unknown', files, 1), null, 'unknown policy never changes a pinned file');
   }
 
   // ---- Every query is valid against the schema snapshot (tools/schema-watch.mjs checks the live one).
@@ -296,10 +364,10 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     const on = new NDC('skyrimspecialedition', 'abc123', 3);
     on.loadRunSettings({ UseOfficialApi: true, FollowUpdatePolicy: true });
     on.api = () => stubApi;
-    const swapped = await on.applyUpdatePolicy([mod(1, 'exact'), mod(1, 'latest'), mod(1, 'prefer')]);
-    assert.deepEqual([...swapped].map((m) => m.fileId), [1, 2, 2]);
+    const swapped = await on.applyUpdatePolicy([mod(1, 'exact'), mod(1, 'latest'), mod(1, 'prefer'), mod(1, 'unknown')]);
+    assert.deepEqual([...swapped].map((m) => m.fileId), [1, 2, 2, 1]);
     assert.equal(swapped[1].file.url, 'https://www.nexusmods.com/skyrimspecialedition/mods/9?tab=files&file_id=2');
-    assert.equal(lookups.length, 2, 'exact entries cost no request');
+    assert.equal(lookups.length, 2, 'exact and unknown policies cost no request');
     on.followUpdatePolicy = false;
     assert.equal((await on.applyUpdatePolicy([mod(1, 'latest')]))[0].fileId, 1, 'setting off: never swaps');
 

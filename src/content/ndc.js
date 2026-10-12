@@ -1505,7 +1505,7 @@ window.NexusExt = window.NexusExt || {};
       for (const mod of mods) {
         const policy = String(mod?.updatePolicy || 'exact').toLowerCase();
         const gameNumericId = mod?.file?.mod?.game?.id;
-        if (policy === 'exact' || !gameNumericId || this.isStopped()) {
+        if (!['latest', 'prefer'].includes(policy) || !gameNumericId || this.isStopped()) {
           out.push(mod);
           continue;
         }

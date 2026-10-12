@@ -7,6 +7,20 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.10.1] - 2026-10-12
+
+### Fixed
+- Fallback API requests now consume the shared token bucket and honour router HTTP 429 responses and `Retry-After`.
+- Successful Endorse/Track actions invalidate cached viewer flags, including older in-flight reads, so reopening a collection cannot restore stale account state.
+- Concurrent API calls share cache initialization instead of issuing duplicate storage reads and replacing each other's cache entries.
+- Unknown curator update policies preserve pinned files without requesting file lists.
+- GraphQL errors and missing file data return a failed lookup instead of a valid empty file list.
+- Firefox package lint selects the current version explicitly, so older ZIPs left in `dist/` do not break validation.
+
+### Development
+- Regression coverage for the API fixes above.
+- A deliberate release workflow publishes Chrome/Edge and Firefox ZIPs only after regression, lint, browser-layout and live-schema checks. It runs on a `chore(release): publish ...` commit to main or manual dispatch, and keeps an already published release unchanged.
+
 ## [2.10.0] - 2026-10-12
 
 ### Added
