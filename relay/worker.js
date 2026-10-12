@@ -15,7 +15,7 @@ export const LIMIT_PER_HOUR = 10;
 const memoryBuckets = new Map();
 
 const CORS = {
-  'access-control-allow-methods': 'POST, OPTIONS',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
   'access-control-allow-headers': 'content-type',
   'access-control-max-age': '86400'
 };
@@ -24,8 +24,9 @@ function corsHeaders(request, env) {
   const origin = request.headers.get('origin') || '';
   const allowed = String(env.ALLOWED_ORIGINS || 'chrome-extension://,moz-extension://,extension://')
     .split(',').map((s) => s.trim()).filter(Boolean);
-  const ok = allowed.some((prefix) => origin.startsWith(prefix));
-  return ok ? { ...CORS, 'access-control-allow-origin': origin, vary: 'origin' } : { ...CORS };
+  // Only a well-formed extension origin (scheme://id, nothing after it) is echoed back.
+  const ok = /^[a-z-]+:\/\/[A-Za-z0-9._-]+$/.test(origin) && allowed.some((prefix) => origin.startsWith(prefix));
+  return ok ? { ...CORS, 'access-control-allow-origin': origin, vary: 'origin' } : { ...CORS, vary: 'origin' };
 }
 
 function json(body, status, headers) {
@@ -99,7 +100,8 @@ export function discordMessage(p, id) {
     allowed_mentions: { parse: [] },
     embeds: [{
       title: p.kind === 'auto' ? `Auto error: ${clip(quiet(p.error.code), 80)}` : 'Bug report',
-      description: clip(quiet(p.note || (p.report ? `\`\`\`\n${clip(p.report, 1500)}\n\`\`\`` : '')), 3800),
+      // Discord rejects an embed over 6000 characters in total; fields take at most ~2600 here.
+      description: clip(quiet(p.note || (p.report ? `\`\`\`\n${clip(p.report, 1500)}\n\`\`\`` : '')), 3000),
       color: p.kind === 'auto' ? 0xe8b339 : 0xd98f40,
       fields,
       footer: { text: `id ${id}` },
@@ -127,9 +129,13 @@ export default {
     const headers = corsHeaders(request, env);
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
+    // Health check the extension makes before sending: reachable, and whether a destination is set.
+    if (url.pathname === '/v1/health' && (request.method === 'GET' || request.method === 'HEAD')) {
+      return json({ ok: true, configured: !!env.DISCORD_WEBHOOK_URL, maxBytes: MAX_BODY_BYTES }, 200, headers);
+    }
     if (url.pathname !== '/v1/report') return json({ error: 'not found' }, 404, headers);
     if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405, headers);
-    if (!(request.headers.get('content-type') || '').includes('application/json')) return json({ error: 'expected json' }, 415, headers);
+    if (!/^application\/json\b/i.test((request.headers.get('content-type') || '').trim())) return json({ error: 'expected json' }, 415, headers);
     const declared = Number(request.headers.get('content-length') || 0);
     if (declared > MAX_BODY_BYTES) return json({ error: 'too large' }, 413, headers);
     const text = await request.text();
@@ -149,11 +155,17 @@ export default {
 
     if (!env.DISCORD_WEBHOOK_URL) return json({ error: 'relay not configured' }, 503, headers);
     const id = crypto.randomUUID().slice(0, 8);
-    const discord = await fetch(env.DISCORD_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(discordMessage(payload, id))
-    });
+    let discord;
+    try {
+      discord = await fetch(env.DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(discordMessage(payload, id))
+      });
+    } catch (_) {
+      // An uncaught throw would be a 500 without CORS headers, which the extension sees as "Failed to fetch".
+      return json({ error: 'upstream failed' }, 502, headers);
+    }
     const email = sendEmail(env, payload, id).catch(() => undefined);
     if (ctx?.waitUntil) ctx.waitUntil(email);
     if (!discord.ok) return json({ error: 'upstream failed' }, 502, headers);

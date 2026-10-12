@@ -830,8 +830,12 @@ window.NexusExt = window.NexusExt || {};
         url,
         folder: settings.DownloadFolder ?? '',
         filename: inferBrowserDownloadName(url, fileId),
-        fallbackExtension: '.zip'
+        fallbackExtension: '.zip',
+        // The worker de-duplicates by game+file across every tab and content-script copy.
+        fileId: String(fileId || ''),
+        gameId: String(getGameId() || '')
       });
+      if (reply?.ok && reply.value?.duplicate) Logger.info(`File ${fileId} is already downloading; not starting a second copy.`);
       if (reply?.ok) return true;
       if (reply?.error) Logger.warn('Managed download failed:', reply.error);
       return false;
@@ -1202,31 +1206,23 @@ window.NexusExt = window.NexusExt || {};
     const DOWNLOAD_HREF_PATTERNS = ['/Core/Libs/Common/', 'tab=files&file_id=', 'file_id=', 'ModRequirementsPopUp', '/api/files/'];
     const isDownloadHref = (href) => DOWNLOAD_HREF_PATTERNS.some(p => href.includes(p));
 
-    document.body.addEventListener('click', async function (event) {
+    // Registered on window in the capture phase: it runs before any handler Nexus puts on the page,
+    // its shadow roots or the button itself, so when the extension takes a click Nexus never sees it
+    // (one owner per click: no native download racing the extension's).
+    window.addEventListener('click', async function (event) {
       if (!isModPage()) return;
       if (isNativeFallbackActive()) return;
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+      noteFileClick(path);
 
-      if (cfg.SkipRequirements && event.composedPath) {
-        const path = event.composedPath();
+      if (cfg.SkipRequirements && path.length) {
         const modal = path.find(node => node?.tagName === 'DOWNLOAD-MODAL');
         if (modal) {
           const modalButton = path.find(node => node && (node.tagName === 'BUTTON' || node.tagName === 'A'));
           if (modalButton) {
             const buttonText = normalizeText(modalButton.textContent);
             const isNMMModal = buttonText.includes('manager') || buttonText.includes('vortex') || modalButton.href?.includes('nmm=1');
-            let modalHref = modalButton.href || modalButton.getAttribute?.('href') || '';
-            const linksJson = modal.getAttribute('download-links');
-
-            if (linksJson) {
-              try {
-                const links = JSON.parse(decodeDownloadUrlValue(linksJson));
-                modalHref = isNMMModal
-                  ? links.vortexDownloadUrl || links.nmmDownloadUrl || links.downloadUrl || modalHref
-                  : links.downloadUrl || modalHref;
-              } catch (err) {
-                Logger.warn('Failed to parse download modal links:', err);
-              }
-            }
+            const modalHref = resolveModalHref(modal, modalButton, isNMMModal);
 
             if (modalHref && !shouldPassThroughToNative(extractFileId(modalHref))) {
               event.preventDefault();
@@ -1244,7 +1240,10 @@ window.NexusExt = window.NexusExt || {};
 
       if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
 
-      const element = event.target.closest('a,button');
+      // The first link or button on the click's path, shadow DOM included (event.target is retargeted
+      // to the shadow host, which hid links inside Nexus's file cards from this check).
+      const element = path.find((node) => node?.tagName === 'A' || node?.tagName === 'BUTTON')
+        || event.target?.closest?.('a,button');
       if (!element) return;
       if (element.closest(IGNORE_ANCESTORS)) return;
       const linkHref = element.href || element.getAttribute('href') || '';
@@ -1265,6 +1264,81 @@ window.NexusExt = window.NexusExt || {};
         ));
     }, true);
 
+    // The slow-download button, taken the same way: before Nexus's own listener on it can start the
+    // native download alongside the extension's.
+    window.addEventListener('click', (event) => {
+      if (!isFilePage() || isNativeFallbackActive()) return;
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+      const slowButton = path.find((node) => node?.tagName === 'BUTTON'
+        && (boundSlowButtons.has(node) || node.id === 'slowDownloadButton'));
+      if (!slowButton) return;
+      handleSlowDownloadClick(slowButton, event)
+        .catch((cause) => handleError(
+          slowButton,
+          Errors.fromException(cause, { context: 'Starting slow download' })
+        ));
+    }, true);
+
+    // Which file the user last clicked a control for. The requirements modal that click opens is for
+    // that file, so the modal may only ever download that file id.
+    let lastFileClick = { id: '', at: 0 };
+    function noteFileClick(path) {
+      // A click inside the modal is the modal's own button; it must not replace the file it is for.
+      if (path.some((node) => node?.tagName === 'DOWNLOAD-MODAL')) return;
+      for (const node of path) {
+        const id = node?.getAttribute?.('file-id') || node?.dataset?.fileId
+          || (node?.tagName === 'A' ? extractFileId(node.href || node.getAttribute?.('href') || '') : '');
+        if (/^\d{1,12}$/.test(String(id || ''))) {
+          lastFileClick = { id: String(id), at: Date.now() };
+          return;
+        }
+      }
+    }
+    function recentlyClickedFileId() {
+      return Date.now() - lastFileClick.at < FILE_CLICK_MEMORY_MS ? lastFileClick.id : '';
+    }
+    function resolveModalHref(modal, modalButton, isNMMModal) {
+      return pickModalHref({
+        modalFileId: modal.getAttribute('file-id') || modal.getAttribute('data-file-id') || recentlyClickedFileId(),
+        buttonHref: modalButton.href || modalButton.getAttribute?.('href') || '',
+        linksJson: modal.getAttribute('download-links'),
+        isNMM: isNMMModal
+      });
+    }
+  }
+
+  const FILE_CLICK_MEMORY_MS = 2 * 60 * 1000;
+
+  // The link a requirements-modal button may follow. Only a link for the file the modal is about is
+  // accepted: the modal's download-links can name another file of the mod (its main file), which made
+  // "Download mod file" fetch the main file instead of the one clicked. When the file cannot be pinned
+  // down the click is left to Nexus (empty result), never guessed.
+  function pickModalHref({ modalFileId = '', buttonHref = '', linksJson = '', isNMM = false, base = '' }) {
+    const expected = String(modalFileId || '');
+    let links = null;
+    if (linksJson) {
+      try {
+        links = JSON.parse(decodeDownloadUrlValue(linksJson));
+      } catch (err) {
+        Logger.warn('Failed to parse download modal links:', err);
+      }
+    }
+    const candidates = (isNMM
+      ? [links?.vortexDownloadUrl, links?.nmmDownloadUrl, links?.downloadUrl, buttonHref]
+      : [links?.downloadUrl, buttonHref]).filter(Boolean).map(String);
+    for (const candidate of candidates) {
+      let id = '';
+      try {
+        const url = new URL(candidate, location.href);
+        id = url.pathname.match(/\/api\/files\/(\d+)/)?.[1] || url.searchParams.get('file_id') || url.searchParams.get('id') || '';
+      } catch (_) {
+        id = '';
+      }
+      if (expected ? id === expected : !!id) return candidate;
+    }
+    if (!expected) return '';
+    const page = base || getModPagePath() || `${location.origin}${normalizeModPathname(location.pathname)}`;
+    return `${page}?tab=files&file_id=${expected}${isNMM ? '&nmm=1' : ''}`;
   }
 
   function normalizeText(value) {
@@ -1395,17 +1469,10 @@ window.NexusExt = window.NexusExt || {};
     for (const root of roots) {
       const slowDownloadButtons = findSlowDownloadButtons(root);
       for (const slowDownloadBtn of slowDownloadButtons) {
+        // Marked only; the click itself is taken by the window capture listener in
+        // attachClickInterceptor, ahead of Nexus's own listener on the button.
         slowDownloadBtn.dataset.nxtkSlowBound = '1';
-        if (boundSlowButtons.has(slowDownloadBtn)) continue;
         boundSlowButtons.add(slowDownloadBtn);
-        slowDownloadBtn.addEventListener('click', (event) => {
-          if (isNativeFallbackActive()) return;
-          handleSlowDownloadClick(slowDownloadBtn, event)
-            .catch((cause) => handleError(
-              slowDownloadBtn,
-              Errors.fromException(cause, { context: 'Starting slow download' })
-            ));
-        });
       }
     }
   }
@@ -2069,6 +2136,7 @@ window.NexusExt = window.NexusExt || {};
     waitForDomSettled,
     parseDownloadURLFromResponse,
     parseNxmDownloadLink,
-    refreshAdTimerCookie
+    refreshAdTimerCookie,
+    pickModalHref
   };
 })();

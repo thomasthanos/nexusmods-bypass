@@ -1354,9 +1354,6 @@
   "rpSent": {
     "message": "报告已发送，谢谢！参考编号：$1"
   },
-  "rpSendFailed": {
-    "message": "无法发送报告。请复制报告或改为打开 GitHub Issue。"
-  },
   "rpPermissionDenied": {
     "message": "未获得访问报告服务器的权限。请复制报告或打开 GitHub Issue。"
   },
@@ -1431,5 +1428,62 @@
   },
   "wjHashNoMatch": {
     "message": "在 Nexus 上未找到"
+  },
+  "dlgLargeRunTitle": {
+    "message": "要开始大量下载吗？"
+  },
+  "dlgLargeRunLead": {
+    "message": "这将把 $1 个模组（$2）加入队列。"
+  },
+  "dlgLargeRunHelp": {
+    "message": "下载逐个进行，可能需要数小时。你可以随时暂停或停止。"
+  },
+  "dlgLargeRunStart": {
+    "message": "下载 $1 个模组"
+  },
+  "rpErrNotConfigured": {
+    "message": "报告服务器尚未设置，因此无法从这里发送报告。"
+  },
+  "rpErrUnreachable": {
+    "message": "无法连接到报告服务器。请检查网络连接后重试。"
+  },
+  "rpErrRateLimited": {
+    "message": "来自此网络的报告过多。请约 $1 分钟后重试。"
+  },
+  "rpErrTooLarge": {
+    "message": "报告对服务器来说太大。请关闭调试日志后重试。"
+  },
+  "rpErrRejected": {
+    "message": "报告服务器未接受此报告。"
+  },
+  "rpErrServer": {
+    "message": "报告服务器出现问题。请稍后重试。"
+  },
+  "rpChecking": {
+    "message": "正在检查报告服务器…"
+  },
+  "rpSending": {
+    "message": "正在发送…"
+  },
+  "rpRetry": {
+    "message": "重试"
+  },
+  "rpFallbackLead": {
+    "message": "你仍然可以报告：打开一个已填写报告的 GitHub issue。完整的 JSON 也会复制到剪贴板，以防链接被截短。"
+  },
+  "rpFallbackGithub": {
+    "message": "打开已填写的 GitHub issue"
+  },
+  "rpCopyJson": {
+    "message": "复制完整 JSON"
+  },
+  "rpGithubCopied": {
+    "message": "已在新标签页中打开 GitHub。完整 JSON 已在剪贴板中：请粘贴到 issue 里。"
+  },
+  "rpSendUnavailable": {
+    "message": "暂时无法发送"
+  },
+  "rpCopyFailed": {
+    "message": "无法复制到剪贴板。请选中上方的报告手动复制。"
   }
 }

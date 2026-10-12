@@ -565,19 +565,70 @@
     }
   }
 
-  // Posts a payload to the relay. The caller (a page with a user gesture) must have obtained the
-  // optional host permission first; this never asks for it.
-  async function sendReportPayload(payload, { fetchImpl = globalThis.fetch } = {}) {
-    const response = await fetchImpl(NXTK.RELAY_REPORT_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-      credentials: 'omit'
-    });
-    let body = null;
-    try { body = await response.json(); } catch (_) { }
-    return { ok: !!response.ok, status: response.status, id: body?.id || '', error: body?.error || '' };
+  // Why a relay call failed, as one of a few reasons the report page has a message for:
+  // not_configured, unreachable, rate_limited, too_large, rejected, server_error.
+  function relayFailure(status, error = '') {
+    if (status === 503 || /not configured/i.test(error)) return 'not_configured';
+    if (status === 429) return 'rate_limited';
+    if (status === 413) return 'too_large';
+    if (status === 400 || status === 415 || status === 422) return 'rejected';
+    if (!status) return 'unreachable';
+    return 'server_error';
   }
 
-  Object.assign(NXTK, { buildBugReport, buildReportIssueUrl, buildReportPayload, sendReportPayload });
+  async function timedFetch(fetchImpl, url, init, timeoutMs) {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      return await fetchImpl(url, controller ? { ...init, signal: controller.signal } : init);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  // Is the relay there and set up? { ok, reason } with the reasons above. Needs the host permission.
+  async function checkRelayHealth({ fetchImpl = globalThis.fetch, timeoutMs = 8000 } = {}) {
+    if (!NXTK.RELAY_CONFIGURED) return { ok: false, reason: 'not_configured' };
+    let response;
+    try {
+      response = await timedFetch(fetchImpl, NXTK.RELAY_HEALTH_URL, { method: 'GET', credentials: 'omit' }, timeoutMs);
+    } catch (_) {
+      return { ok: false, reason: 'unreachable' };
+    }
+    let body = null;
+    try { body = await response.json(); } catch (_) { }
+    if (!response.ok) return { ok: false, reason: relayFailure(response.status, body?.error || ''), status: response.status };
+    if (body && body.configured === false) return { ok: false, reason: 'not_configured' };
+    return { ok: true, reason: '' };
+  }
+
+  // Posts a payload to the relay. The caller (a page with a user gesture) must have obtained the
+  // optional host permission first; this never asks for it. Never throws.
+  async function sendReportPayload(payload, { fetchImpl = globalThis.fetch, timeoutMs = 20000 } = {}) {
+    if (!NXTK.RELAY_CONFIGURED) return { ok: false, status: 0, id: '', error: '', reason: 'not_configured' };
+    let response;
+    try {
+      response = await timedFetch(fetchImpl, NXTK.RELAY_REPORT_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+        credentials: 'omit'
+      }, timeoutMs);
+    } catch (_) {
+      return { ok: false, status: 0, id: '', error: '', reason: 'unreachable' };
+    }
+    let body = null;
+    try { body = await response.json(); } catch (_) { }
+    const retryAfter = Number(response.headers?.get?.('retry-after')) || 0;
+    return {
+      ok: !!response.ok,
+      status: response.status,
+      id: body?.id || '',
+      error: body?.error || '',
+      reason: response.ok ? '' : relayFailure(response.status, body?.error || ''),
+      retryAfterSeconds: retryAfter
+    };
+  }
+
+  Object.assign(NXTK, { buildBugReport, buildReportIssueUrl, buildReportPayload, sendReportPayload, checkRelayHealth, relayFailure });
 })();

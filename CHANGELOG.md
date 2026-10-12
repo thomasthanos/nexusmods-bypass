@@ -7,6 +7,53 @@ This file starts at 2.4.3. Earlier releases predate it and the repository histor
 squashed, so reconstructing them accurately is not possible — rather than invent entries,
 they are simply not listed.
 
+## [2.10.2] - 2026-10-12
+
+### Fixed
+
+- **Duplicate downloads.** A manual download on a mod's Files tab could save the file twice, because
+  the extension's handler ran alongside Nexus's own. Each click now has one owner: the extension's
+  window capture-phase listener (shadow-DOM aware via `composedPath()`) takes the click and stops
+  Nexus's handler, or it leaves the click alone entirely.
+- **Requirements modal downloaded the main file.** "Download mod file" in the requirements modal now
+  downloads only the file that was clicked (pinned by `file_id`); a modal link that points at a
+  different file is ignored.
+- **Background dedupe safety net.** `DOWNLOAD_START` is keyed by game + file id and also checks
+  `chrome.downloads` for an in-progress or recent (60 s) download of the same URL or filename, so a
+  second start for the same file returns the existing download instead of a new copy.
+- **False "not signed in" on adult collections.** A v2 API "not signed in" answer now falls back to the
+  site-session router, and a final "not signed in" is checked against a viewer query
+  (`preferences { adult }`). Signed in means the API refused the content (e.g. adult content hidden
+  in Nexus preferences), which is reported as access denied, not as a login problem.
+- **Error log noise.** Failed API attempts that a fallback recovers ("Failed to fetch" on v2) are no
+  longer logged as errors; they go to the debug log. Only an operation's final failure is recorded.
+- **`nexus_page_changed` false positives.** The page check no longer reports a change while a download
+  modal is open or the adult-content gate is shown.
+
+- **Bug-report sending.** "The report could not be sent" no longer stands alone. Before sending,
+  the report page checks the relay's health (`GET /v1/health`). Each failure gets its own message:
+  not configured, unreachable, rate limited (with the wait time), permission denied, too large, or a
+  server error. Where retrying can help there is a **Try again** button, and every failure offers a
+  prefilled GitHub issue, shortened to fit the URL limit, with the full JSON copied to the clipboard.
+- **Relay worker.** Added `GET /v1/health`. CORS now echoes only well-formed `chrome-extension://` and
+  `moz-extension://` origins. `application/json; charset=…` is accepted. A Discord outage returns a 502
+  that keeps the CORS headers (before, it threw a header-less 500 that the browser reported as
+  "Failed to fetch"). The embed is capped under Discord's 6000-character limit.
+
+### Added
+
+- **Relay build flag.** `RELAY_CONFIGURED` in `src/shared.js` can be overridden at build time with
+  `NXTK_RELAY_CONFIGURED=1|0`. The flag stays off until the Worker is deployed. While it is off, Send
+  shows as unavailable, GitHub is the primary action, and automatic error reports stay off. Deploy
+  steps are in `relay/README.md`; wrangler requires an interactive login, so CI cannot deploy.
+- **UI polish.** Scrollbars are themed (WebKit and Firefox `scrollbar-color`/`scrollbar-width`) in the
+  injected UI, popup, settings and report page. Focus rings and hover/active states are now consistent.
+  Native selects are themed on the extension pages. The custom dropdowns now act as listboxes:
+  ARIA roles, arrow keys, Home/End, Escape returns focus to the trigger, and the chosen option is
+  marked as selected. Transitions are turned off under `prefers-reduced-motion`.
+- **Confirm before large runs.** "Download all mods" (and mandatory/optional/selected) asks for
+  confirmation when more than 50 mods would be downloaded.
+
 ## [2.10.1] - 2026-10-12
 
 ### Fixed

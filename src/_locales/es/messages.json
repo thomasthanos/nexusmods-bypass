@@ -1438,9 +1438,6 @@
   "rpSent": {
     "message": "Informe enviado. ¡Gracias! Referencia: $1"
   },
-  "rpSendFailed": {
-    "message": "No se pudo enviar el informe. Cópialo o abre una incidencia en GitHub."
-  },
   "rpPermissionDenied": {
     "message": "No se concedió permiso para contactar con el servidor de informes. Copia el informe o abre una incidencia en GitHub."
   },
@@ -1515,5 +1512,62 @@
   },
   "wjHashNoMatch": {
     "message": "No encontrado en Nexus"
+  },
+  "dlgLargeRunTitle": {
+    "message": "¿Iniciar una descarga grande?"
+  },
+  "dlgLargeRunLead": {
+    "message": "Esto pone en cola $1 mods ($2)."
+  },
+  "dlgLargeRunHelp": {
+    "message": "Las descargas van de una en una y pueden tardar horas. Puedes pausar o detener en cualquier momento."
+  },
+  "dlgLargeRunStart": {
+    "message": "Descargar $1 mods"
+  },
+  "rpErrNotConfigured": {
+    "message": "El servidor de informes aún no está configurado, así que no se pueden enviar informes desde aquí."
+  },
+  "rpErrUnreachable": {
+    "message": "No se pudo contactar con el servidor de informes. Comprueba tu conexión e inténtalo de nuevo."
+  },
+  "rpErrRateLimited": {
+    "message": "Demasiados informes desde esta red. Vuelve a intentarlo en unos $1 minutos."
+  },
+  "rpErrTooLarge": {
+    "message": "El informe es demasiado grande para el servidor. Desactiva los registros de depuración e inténtalo de nuevo."
+  },
+  "rpErrRejected": {
+    "message": "El servidor de informes no aceptó este informe."
+  },
+  "rpErrServer": {
+    "message": "El servidor de informes tuvo un problema. Inténtalo de nuevo en un momento."
+  },
+  "rpChecking": {
+    "message": "Comprobando el servidor de informes…"
+  },
+  "rpSending": {
+    "message": "Enviando…"
+  },
+  "rpRetry": {
+    "message": "Reintentar"
+  },
+  "rpFallbackLead": {
+    "message": "Aún puedes informarlo: abre una issue de GitHub con el informe rellenado. El JSON completo también se copia al portapapeles por si el enlace tuvo que acortarse."
+  },
+  "rpFallbackGithub": {
+    "message": "Abrir una issue de GitHub rellenada"
+  },
+  "rpCopyJson": {
+    "message": "Copiar JSON completo"
+  },
+  "rpGithubCopied": {
+    "message": "GitHub se abrió en una pestaña nueva. El JSON completo está en el portapapeles: pégalo en la issue."
+  },
+  "rpSendUnavailable": {
+    "message": "El envío aún no está disponible"
+  },
+  "rpCopyFailed": {
+    "message": "No se pudo copiar. Selecciona el informe de arriba y cópialo a mano."
   }
 }

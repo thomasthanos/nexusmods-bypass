@@ -55,4 +55,32 @@ assert.equal(limited.status, 429, 'KV limiter enforces the same limit');
 
 assert.equal((await worker.fetch(new Request('https://relay.test/v1/report', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '5.5.5.5' }, body: JSON.stringify(auto) }), {}, {})).status, 503, 'unconfigured relay says so');
 
+// Preflight from both browsers' extension origins.
+for (const origin of ['chrome-extension://abcdef', 'moz-extension://1234-5678']) {
+  const pre = await worker.fetch(new Request('https://relay.test/v1/report', { method: 'OPTIONS', headers: { origin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' } }), env);
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get('access-control-allow-origin'), origin, `${origin} preflight allowed`);
+  assert.match(pre.headers.get('access-control-allow-headers'), /content-type/);
+}
+const evil = await worker.fetch(new Request('https://relay.test/v1/report', { method: 'OPTIONS', headers: { origin: 'https://evil.example' } }), env);
+assert.equal(evil.headers.get('access-control-allow-origin'), null, 'web origins are not allowed');
+// Health.
+const health = await worker.fetch(new Request('https://relay.test/v1/health', { headers: { origin: 'moz-extension://x' } }), env);
+assert.deepEqual({ ...(await health.json()), maxBytes: 0 }, { ok: true, configured: true, maxBytes: 0 });
+assert.equal((await (await worker.fetch(new Request('https://relay.test/v1/health'), {})).json()).configured, false);
+// Content type with a charset is fine; a wrong one is refused.
+assert.equal((await post(auto, '3.3.3.1', { 'content-type': 'application/json; charset=utf-8' })).status, 200);
+assert.equal((await post(auto, '3.3.3.2', { 'content-type': 'text/plain' })).status, 415);
+// Discord unreachable: a 502 that still carries CORS headers.
+const realFetch = globalThis.fetch;
+globalThis.fetch = async () => { throw new TypeError('network'); };
+res = await post(auto, '3.3.3.3');
+assert.equal(res.status, 502);
+assert.equal(res.headers.get('access-control-allow-origin'), 'chrome-extension://abc');
+globalThis.fetch = realFetch;
+// Worst-case embed stays under Discord's 6000-character limit.
+const big = discordMessage({ ...auto, kind: 'manual', note: 'n'.repeat(2000), contact: 'c'.repeat(120), browser: 'b'.repeat(200), currentError: { code: 'x'.repeat(80) } }, 'id');
+const e = big.embeds[0];
+assert.ok(e.title.length + e.description.length + e.footer.text.length + e.fields.reduce((n, f) => n + f.name.length + f.value.length, 0) < 6000);
+
 console.log('relay worker behavior OK');

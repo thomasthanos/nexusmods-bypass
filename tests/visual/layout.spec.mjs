@@ -217,3 +217,34 @@ test('page-change notice fits at 1280x720@150 and 3840x2160', async () => {
     await page.close();
   }
 });
+
+test('report page: relay not configured shows a clear state and a GitHub fallback', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`chrome-extension://${id}/report-page/report.html`);
+  await page.waitForTimeout(500);
+  const configured = await page.evaluate(() => globalThis.NXTK.RELAY_CONFIGURED);
+  if (!configured) {
+    await expect(page.locator('#rpSend')).toBeDisabled();
+    await expect(page.locator('#rpStatus')).toContainText(/not set up/i);
+    await expect(page.locator('#rpGithub')).toHaveClass(/nxtk-btn-primary/);
+  }
+  // A send that fails shows the cause, the fallback and (when it can help) a retry.
+  await page.evaluate(() => {
+    globalThis.NXTK.RELAY_CONFIGURED = true;
+    globalThis.NXTK.checkRelayHealth = async () => ({ ok: false, reason: 'unreachable' });
+    globalThis.chrome.permissions.contains = async () => true;
+    document.getElementById('rpSend').disabled = false;
+  });
+  await page.click('#rpSend');
+  await expect(page.locator('#rpStatus')).toContainText(/could not be reached/i);
+  await expect(page.locator('#rpFallback')).toBeVisible();
+  await expect(page.locator('#rpRetry')).toBeVisible();
+  const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflowX).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: path.join(shotDir, 'report-fallback.png'), fullPage: true });
+  await page.close();
+});

@@ -1606,9 +1606,6 @@
   "rpSent": {
     "message": "Raport wysłany. Dziękujemy! Numer: $1"
   },
-  "rpSendFailed": {
-    "message": "Nie udało się wysłać raportu. Skopiuj go lub otwórz zgłoszenie na GitHubie."
-  },
   "rpPermissionDenied": {
     "message": "Nie przyznano uprawnień do serwera raportów. Skopiuj raport lub otwórz zgłoszenie na GitHubie."
   },
@@ -1683,5 +1680,62 @@
   },
   "wjHashNoMatch": {
     "message": "Nie znaleziono na Nexus"
+  },
+  "dlgLargeRunTitle": {
+    "message": "Rozpocząć duże pobieranie?"
+  },
+  "dlgLargeRunLead": {
+    "message": "To doda do kolejki $1 modów ($2)."
+  },
+  "dlgLargeRunHelp": {
+    "message": "Pobieranie odbywa się po jednym pliku i może trwać godzinami. W każdej chwili możesz wstrzymać lub zatrzymać."
+  },
+  "dlgLargeRunStart": {
+    "message": "Pobierz $1 modów"
+  },
+  "rpErrNotConfigured": {
+    "message": "Serwer raportów nie jest jeszcze skonfigurowany, więc nie można stąd wysyłać raportów."
+  },
+  "rpErrUnreachable": {
+    "message": "Nie można połączyć się z serwerem raportów. Sprawdź połączenie i spróbuj ponownie."
+  },
+  "rpErrRateLimited": {
+    "message": "Zbyt wiele raportów z tej sieci. Spróbuj ponownie za około $1 min."
+  },
+  "rpErrTooLarge": {
+    "message": "Raport jest za duży dla serwera. Wyłącz logi debugowania i spróbuj ponownie."
+  },
+  "rpErrRejected": {
+    "message": "Serwer raportów nie przyjął tego raportu."
+  },
+  "rpErrServer": {
+    "message": "Serwer raportów miał problem. Spróbuj ponownie za chwilę."
+  },
+  "rpChecking": {
+    "message": "Sprawdzanie serwera raportów…"
+  },
+  "rpSending": {
+    "message": "Wysyłanie…"
+  },
+  "rpRetry": {
+    "message": "Spróbuj ponownie"
+  },
+  "rpFallbackLead": {
+    "message": "Nadal możesz to zgłosić: otwórz zgłoszenie na GitHubie z wypełnionym raportem. Pełny JSON jest też kopiowany do schowka, na wypadek gdyby link trzeba było skrócić."
+  },
+  "rpFallbackGithub": {
+    "message": "Otwórz wypełnione zgłoszenie na GitHubie"
+  },
+  "rpCopyJson": {
+    "message": "Kopiuj pełny JSON"
+  },
+  "rpGithubCopied": {
+    "message": "GitHub otwarto w nowej karcie. Pełny JSON jest w schowku: wklej go do zgłoszenia."
+  },
+  "rpSendUnavailable": {
+    "message": "Wysyłanie nie jest jeszcze dostępne"
+  },
+  "rpCopyFailed": {
+    "message": "Nie udało się skopiować. Zaznacz raport powyżej i skopiuj go ręcznie."
   }
 }

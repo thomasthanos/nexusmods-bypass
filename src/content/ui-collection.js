@@ -500,17 +500,56 @@
     const label = trigger.querySelector('[data-select-label]');
     const controller = bindDropdownToggle(trigger, menu);
 
+    // Listbox semantics and keyboard: arrows/Home/End move, Enter/Space choose, Escape closes and
+    // returns focus to the trigger; ArrowDown/ArrowUp on the closed trigger opens it.
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    menu.setAttribute('role', 'listbox');
+    if (!menu.id) menu.id = `${select.id || 'nxtk-select'}-menu`;
+    trigger.setAttribute('aria-controls', menu.id);
+    const items = () => Array.from(menu.querySelectorAll('[data-select-value]'));
+    const focusItem = (index) => {
+      const list = items();
+      if (!list.length) return;
+      list[Math.max(0, Math.min(list.length - 1, index))].focus();
+    };
+    const selectedIndex = () => Math.max(0, items().findIndex((item) => item.dataset.selectValue === select.value));
+    const openAndFocus = (index) => {
+      if (!controller?.isOpen?.()) trigger.click();
+      requestAnimationFrame(() => focusItem(index ?? selectedIndex()));
+    };
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        openAndFocus(e.key === 'ArrowUp' ? items().length - 1 : undefined);
+      }
+    });
+    menu.addEventListener('keydown', (e) => {
+      const list = items();
+      const at = list.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); focusItem(at + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); focusItem(at - 1); }
+      else if (e.key === 'Home') { e.preventDefault(); focusItem(0); }
+      else if (e.key === 'End') { e.preventDefault(); focusItem(list.length - 1); }
+      else if (e.key === 'Escape' || e.key === 'Tab') {
+        if (e.key === 'Escape') e.preventDefault();
+        controller?.close();
+        trigger.focus();
+      }
+    });
+
     const syncLabel = () => {
       const selectedOption = select.options[select.selectedIndex];
       if (label) label.textContent = selectedOption?.textContent || placeholder;
       menu.querySelectorAll('[data-select-value]').forEach((item) => {
-        item.classList.toggle('nxtk-selected', item.dataset.selectValue === select.value);
+        const on = item.dataset.selectValue === select.value;
+        item.classList.toggle('nxtk-selected', on);
+        item.setAttribute('aria-selected', String(on));
       });
     };
 
     const renderOptions = () => {
       menu.innerHTML = Array.from(select.options).map((option) => `
-        <button type="button" class="nxtk-dropdown-item nxtk-custom-select-item" data-select-value="${escapeHtml(option.value)}">
+        <button type="button" role="option" class="nxtk-dropdown-item nxtk-custom-select-item" data-select-value="${escapeHtml(option.value)}">
           <span>${escapeHtml(option.textContent)}</span>
           <span class="nxtk-custom-select-check">${svgIcon('check')}</span>
         </button>
@@ -522,6 +561,7 @@
           select.dispatchEvent(new Event('change', { bubbles: true }));
           controller?.close();
           syncLabel();
+          trigger.focus();
         });
       });
       syncLabel();
@@ -572,6 +612,41 @@
       `
       });
       modal.querySelector('[data-close="vortex"]')?.focus();
+    });
+  }
+
+  // A run this big is never started by one stray click (live test: an accidental "Download all mods"
+  // queued 2444 files). Above the threshold the user confirms; Cancel is the default.
+  const LARGE_RUN_CONFIRM_THRESHOLD = 50;
+
+  function confirmLargeRun(mods) {
+    const count = Array.isArray(mods) ? mods.length : 0;
+    if (count <= LARGE_RUN_CONFIRM_THRESHOLD) return Promise.resolve(true);
+    const totalKb = mods.reduce((sum, mod) => sum + (Number(mod?.file?.size) || 0), 0);
+    const size = convertSize(totalKb);
+    return new Promise((resolve) => {
+      const { modal } = openModal({
+        id: 'nxtk-large-run-modal',
+        className: 'nxtk-modal nxtk-modal-sm',
+        onClose: (choice) => resolve(choice === 'start'),
+        html: `
+        <div class="nxtk-modal-header">
+          <div class="nxtk-modal-title">${L('dlgLargeRunTitle', 'Start a large download?')}</div>
+          <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
+        </div>
+        <div class="nxtk-history-summary">
+          <div class="nxtk-history-copy">
+            <div class="nxtk-history-lead">${escapeHtml(NXTK.t('dlgLargeRunLead', [String(count), size], `This queues ${count} mods (${size}).`))}</div>
+            <div class="nxtk-history-text">${L('dlgLargeRunHelp', 'Downloads run one at a time and can take hours. You can pause or stop at any point.')}</div>
+          </div>
+        </div>
+        <div class="nxtk-modal-footer">
+          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-close>${L('btnCancel', 'Cancel')}</button>
+          <button type="button" class="nxtk-btn nxtk-btn-primary" data-close="start" id="nxtk-large-run-start">${escapeHtml(NXTK.t('dlgLargeRunStart', [String(count)], `Download ${count} mods`))}</button>
+        </div>
+      `
+      });
+      modal.querySelector('[data-close]:not([data-close="start"]).nxtk-btn')?.focus();
     });
   }
 
@@ -950,8 +1025,9 @@
     const menu = $('#nxtk-dl-menu');
     const menuController = bindDropdownToggle($('#nxtk-menu-toggle'), menu, { portal: true });
 
-    const startCollectionDownload = (mods, type) => {
+    const startCollectionDownload = async (mods, type) => {
       menuController?.close();
+      if (!await confirmLargeRun(mods)) return;
       runUiTask(
         () => ndc.downloadMods(mods, type),
         { context: 'Starting collection download', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }
@@ -1563,7 +1639,7 @@
       updateCount();
     });
 
-    $('#nxtk-dl-selected').addEventListener('click', () => {
+    $('#nxtk-dl-selected').addEventListener('click', async () => {
       const selected = [];
       listEl.querySelectorAll('.nxtk-mod-item.nxtk-selected').forEach(el => {
         const mod = modsByEntryId.get(el.dataset.fileId);
@@ -1571,6 +1647,7 @@
       });
       if (!selected.length) { nxtkAlert(NXTK.t('alertPickOneMod', null, 'Select at least one mod.')); return; }
       close();
+      if (!await confirmLargeRun(selected)) return;
       runUiTask(
         () => ndc.downloadMods(selected),
         { context: 'Downloading selected mods', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }
@@ -1888,6 +1965,6 @@
     closeAll: closeAllDropdownMenus,
     cleanupOrphanedPortals
   };
-  Object.assign(window.NexusExt.UI, { createControlDeck, showVortexHandoffModal, showHistoryDecisionModal });
+  Object.assign(window.NexusExt.UI, { createControlDeck, showVortexHandoffModal, showHistoryDecisionModal, confirmLargeRun });
   kit.collection = { createControlDeck, disposeControlDeck, deckRunIsActive };
 })();

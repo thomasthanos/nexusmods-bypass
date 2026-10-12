@@ -34,6 +34,14 @@
       <button id="rpGithub" class="nxtk-btn nxtk-btn-secondary" type="button" data-i18n="rpGithub">Open a GitHub issue instead</button>
     </div>
     <p id="rpStatus" class="rp-status" role="status"></p>
+    <div id="rpFallback" class="rp-fallback" hidden>
+      <p class="rp-hint" data-i18n="rpFallbackLead">You can still report it: open a GitHub issue with the report filled in. The full JSON is copied to the clipboard too, so you can paste it into the issue if the link had to be shortened.</p>
+      <div class="rp-actions">
+        <button id="rpRetry" class="nxtk-btn nxtk-btn-secondary" type="button" data-i18n="rpRetry" hidden>Try again</button>
+        <button id="rpFallbackGithub" class="nxtk-btn nxtk-btn-primary" type="button" data-i18n="rpFallbackGithub">Open a prefilled GitHub issue</button>
+        <button id="rpFallbackCopy" class="nxtk-btn nxtk-btn-secondary" type="button" data-i18n="rpCopyJson">Copy full JSON</button>
+      </div>
+    </div>
 
     <section class="rp-auto">
       <label class="rp-check">

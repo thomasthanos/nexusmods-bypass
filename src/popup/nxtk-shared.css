@@ -369,3 +369,54 @@
 .nxtk-stagger-4 { animation: nxtk-fadeIn 0.5s cubic-bezier(0.32, 0.72, 0.24, 1) 0.22s both; }
 .nxtk-stagger-5 { animation: nxtk-fadeIn 0.5s cubic-bezier(0.32, 0.72, 0.24, 1) 0.28s both; }
 .nxtk-stagger-6 { animation: nxtk-fadeIn 0.5s cubic-bezier(0.32, 0.72, 0.24, 1) 0.34s both; }
+
+/* ---- 2.10.2 polish shared by the popup, settings and report pages. ---- */
+html { scrollbar-width: thin; scrollbar-color: rgba(217, 143, 64, 0.45) transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(217, 143, 64, 0.45) rgba(255, 255, 255, 0.03); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(217, 143, 64, 0.38); border: 2px solid transparent; background-clip: padding-box; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(236, 170, 90, 0.6); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+:is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--nxtk-accent-hover);
+  outline-offset: 2px;
+}
+.nxtk-btn { transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .08s ease, box-shadow .15s ease; }
+.nxtk-btn:active:not(:disabled) { transform: translateY(1px) scale(.99); }
+.nxtk-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Native selects, themed (keyboard and screen readers keep the browser's own behaviour). */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 8px 34px 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(27, 28, 37, 0.9) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23ecaa5a' stroke-width='2'/></svg>") no-repeat right 12px center;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+select:hover { border-color: rgba(217, 143, 64, 0.45); }
+select:focus-visible { border-color: var(--nxtk-accent); box-shadow: 0 0 0 3px rgba(217, 143, 64, 0.2); }
+select option { background: #1b1c25; color: #ececf3; }
+
+input[type="checkbox"], input[type="radio"] { accent-color: var(--nxtk-accent); }
+textarea, input[type="text"], input[type="email"], input[type="search"] { transition: border-color .15s ease, box-shadow .15s ease; }
+textarea:hover, input[type="text"]:hover, input[type="email"]:hover, input[type="search"]:hover { border-color: rgba(217, 143, 64, 0.35); }
+textarea:focus-visible, input[type="text"]:focus-visible, input[type="email"]:focus-visible, input[type="search"]:focus-visible {
+  border-color: var(--nxtk-accent); box-shadow: 0 0 0 3px rgba(217, 143, 64, 0.2); outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+  .nxtk-btn:active:not(:disabled) { transform: none; }
+}

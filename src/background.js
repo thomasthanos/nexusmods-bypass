@@ -119,7 +119,7 @@ const AUTO_REPORT_DAILY_MAX = 10;
 
 async function maybeAutoReport(entry, { now = Date.now(), fetchImpl = globalThis.fetch } = {}) {
   const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-  if (!settings?.AutoErrorReports) return false;
+  if (!settings?.AutoErrorReports || !NXTK.RELAY_CONFIGURED) return false;
   let granted = false;
   try {
     granted = await chrome.permissions.contains(NXTK.RELAY_PERMISSION);
@@ -420,6 +420,63 @@ function withFallbackExtension(name, fallbackExtension) {
 
 const RETIRED_STORAGE_KEYS = ['nxtk_managed_downloads', 'nxtk_download_ui_default_reset'];
 
+// One user action, one file on disk. Every browser download a page asks for is checked here, in the
+// one place every tab and every (possibly orphaned) content script shares: the same game+file within
+// the window, or a download the browser already has for the same file (Nexus's own native download
+// started in parallel included), is not started again.
+const DOWNLOAD_DEDUPE_WINDOW_MS = 60 * 1000;
+const recentDownloadStarts = new Map();
+
+function downloadFileKey(payload) {
+  const fileId = String(payload?.fileId || '').trim();
+  if (!/^\d{1,12}$/.test(fileId)) return '';
+  const gameId = String(payload?.gameId || '').trim();
+  return `${/^\d{1,12}$/.test(gameId) ? gameId : '?'}:${fileId}`;
+}
+
+function urlPathKey(value) {
+  try {
+    const parsed = new URL(String(value || ''));
+    return `${parsed.host}${decodeURIComponent(parsed.pathname)}`.toLowerCase();
+  } catch (_) {
+    return '';
+  }
+}
+
+function downloadBaseName(value) {
+  const name = String(value || '').split(/[\\/]/).pop() || '';
+  // "file (1).zip" is the browser's rename of a second copy of "file.zip".
+  return name.replace(/ \(\d+\)(?=\.[^.]+$)/, '').toLowerCase();
+}
+
+// The browser's own download that is the same file, if one is in progress or started in the window.
+function findDuplicateDownload(items, { url, filename, now = Date.now(), windowMs = DOWNLOAD_DEDUPE_WINDOW_MS }) {
+  const wantedPath = urlPathKey(url);
+  const wantedName = downloadBaseName(filename);
+  for (const item of Array.isArray(items) ? items : []) {
+    if (!item || item.state === 'interrupted' || item.error) continue;
+    const started = Date.parse(item.startTime || '') || 0;
+    const recent = item.state === 'in_progress' || (started && now - started <= windowMs);
+    if (!recent) continue;
+    const samePath = wantedPath && [item.url, item.finalUrl].some((u) => urlPathKey(u) === wantedPath);
+    const sameName = wantedName && wantedName.length > 4 && downloadBaseName(item.filename) === wantedName;
+    if (samePath || sameName) return item;
+  }
+  return null;
+}
+
+function searchRecentDownloads(now) {
+  return new Promise((resolve) => {
+    try {
+      chrome.downloads.search({ startedAfter: new Date(now - DOWNLOAD_DEDUPE_WINDOW_MS).toISOString() }, (items) => {
+        resolve(getRuntimeError() ? [] : (items || []));
+      });
+    } catch (_) {
+      resolve([]);
+    }
+  });
+}
+
 const DOWNLOAD_HANDLERS = {
   async DOWNLOAD_START(payload) {
     if (!hasDownloadsApi()) throw new Error('no-permission');
@@ -432,20 +489,41 @@ const DOWNLOAD_HANDLERS = {
       extractDownloadExtension(verdict.url) || payload?.fallbackExtension || '.zip'
     );
     const filename = buildDownloadPath(payload?.folder, requestedName);
-    const downloadId = await new Promise((resolve, reject) => {
-      const options = {
-        url: verdict.url,
-        filename,
-        conflictAction: DOWNLOAD_CONFLICT_ACTION,
-        saveAs: false
-      };
-      chrome.downloads.download(options, (id) => {
-        const error = getRuntimeError();
-        if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
-        resolve(id);
+    const now = Date.now();
+    for (const [key, entry] of recentDownloadStarts) {
+      if (now - entry.at > DOWNLOAD_DEDUPE_WINDOW_MS) recentDownloadStarts.delete(key);
+    }
+    const fileKey = downloadFileKey(payload);
+    const previous = fileKey ? recentDownloadStarts.get(fileKey) : null;
+    if (previous) {
+      // Started (or starting) already: hand back the same result instead of a second file.
+      const earlier = await previous.result.catch(() => null);
+      if (earlier) return { ...earlier, duplicate: true };
+    }
+    // Registered before anything is awaited, so two requests arriving together share one start.
+    const result = (async () => {
+      const existing = findDuplicateDownload(await searchRecentDownloads(now), { url: verdict.url, filename: requestedName, now });
+      if (existing) return { downloadId: existing.id, filename: existing.filename || filename, duplicate: true };
+      const downloadId = await new Promise((resolve, reject) => {
+        const options = {
+          url: verdict.url,
+          filename,
+          conflictAction: DOWNLOAD_CONFLICT_ACTION,
+          saveAs: false
+        };
+        chrome.downloads.download(options, (id) => {
+          const error = getRuntimeError();
+          if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
+          resolve(id);
+        });
       });
-    });
-    return { downloadId, filename };
+      return { downloadId, filename };
+    })();
+    if (fileKey) {
+      recentDownloadStarts.set(fileKey, { at: now, result });
+      result.catch(() => recentDownloadStarts.delete(fileKey));
+    }
+    return result;
   }
 };
 

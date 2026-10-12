@@ -104,13 +104,28 @@ async function reportPayloadTests() {
   const big = await NXTK.buildReportPayload(null, {});
   assert.ok(new TextEncoder().encode(JSON.stringify(big)).length <= NXTK.MAX_REPORT_BYTES, 'large logs are trimmed to fit');
 
+  NXTK.RELAY_CONFIGURED = false;
+  assert.equal((await NXTK.sendReportPayload(payload, { fetchImpl: async () => { throw new Error('must not be called'); } })).reason, 'not_configured');
+  assert.equal((await NXTK.checkRelayHealth()).reason, 'not_configured');
+  NXTK.RELAY_CONFIGURED = true;
+  const reply = (status, body, headers = {}) => async () => ({ ok: status < 300, status, json: async () => body, headers: { get: (k) => headers[k] ?? null } });
+  assert.equal((await NXTK.sendReportPayload(payload, { fetchImpl: async () => { throw new TypeError('Failed to fetch'); } })).reason, 'unreachable');
+  const limited = await NXTK.sendReportPayload(payload, { fetchImpl: reply(429, { error: 'rate limited' }, { 'retry-after': '3600' }) });
+  assert.equal(limited.reason, 'rate_limited');
+  assert.equal(limited.retryAfterSeconds, 3600);
+  assert.equal((await NXTK.sendReportPayload(payload, { fetchImpl: reply(503, { error: 'relay not configured' }) })).reason, 'not_configured');
+  assert.equal((await NXTK.sendReportPayload(payload, { fetchImpl: reply(413, {}) })).reason, 'too_large');
+  assert.equal((await NXTK.sendReportPayload(payload, { fetchImpl: reply(502, {}) })).reason, 'server_error');
+  assert.equal((await NXTK.checkRelayHealth({ fetchImpl: reply(200, { ok: true, configured: false }) })).reason, 'not_configured');
+  assert.equal((await NXTK.checkRelayHealth({ fetchImpl: reply(200, { ok: true, configured: true }) })).ok, true);
+  assert.equal((await NXTK.checkRelayHealth({ fetchImpl: async () => { throw new TypeError('x'); } })).reason, 'unreachable');
   const calls = [];
   const result = await NXTK.sendReportPayload(payload, {
     fetchImpl: async (url, init) => { calls.push({ url, init }); return { ok: true, status: 200, json: async () => ({ ok: true, id: 'abc123' }) }; }
   });
   assert.equal(calls[0].url, NXTK.RELAY_REPORT_URL);
   assert.equal(calls[0].init.credentials, 'omit', 'no cookies go to the relay');
-  assert.deepEqual({ ...result }, { ok: true, status: 200, id: 'abc123', error: '' });
+  assert.deepEqual({ ...result }, { ok: true, status: 200, id: 'abc123', error: '', reason: '', retryAfterSeconds: 0 });
   const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true })
     .flatMap((e) => (e.isDirectory() ? walk(`${dir}/${e.name}`) : [`${dir}/${e.name}`]));
   for (const file of walk('src').filter((f) => /\.(js|json|html)$/.test(f))) {

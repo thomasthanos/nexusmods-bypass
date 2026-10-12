@@ -1438,9 +1438,6 @@
   "rpSent": {
     "message": "Rapor gönderildi. Teşekkürler! Referans: $1"
   },
-  "rpSendFailed": {
-    "message": "Rapor gönderilemedi. Kopyala ya da bunun yerine GitHub sorunu aç."
-  },
   "rpPermissionDenied": {
     "message": "Rapor sunucusuna erişim izni verilmedi. Raporu kopyala ya da GitHub sorunu aç."
   },
@@ -1515,5 +1512,62 @@
   },
   "wjHashNoMatch": {
     "message": "Nexus'ta bulunamadı"
+  },
+  "dlgLargeRunTitle": {
+    "message": "Büyük bir indirme başlatılsın mı?"
+  },
+  "dlgLargeRunLead": {
+    "message": "Bu, $1 modu ($2) sıraya ekler."
+  },
+  "dlgLargeRunHelp": {
+    "message": "İndirmeler tek tek yapılır ve saatler sürebilir. İstediğiniz an duraklatabilir veya durdurabilirsiniz."
+  },
+  "dlgLargeRunStart": {
+    "message": "$1 modu indir"
+  },
+  "rpErrNotConfigured": {
+    "message": "Rapor sunucusu henüz kurulmadı, bu yüzden raporlar buradan gönderilemiyor."
+  },
+  "rpErrUnreachable": {
+    "message": "Rapor sunucusuna ulaşılamadı. Bağlantını kontrol edip tekrar dene."
+  },
+  "rpErrRateLimited": {
+    "message": "Bu ağdan çok fazla rapor gönderildi. Yaklaşık $1 dakika sonra tekrar dene."
+  },
+  "rpErrTooLarge": {
+    "message": "Rapor sunucu için çok büyük. Hata ayıklama kayıtlarını kapatıp tekrar dene."
+  },
+  "rpErrRejected": {
+    "message": "Rapor sunucusu bu raporu kabul etmedi."
+  },
+  "rpErrServer": {
+    "message": "Rapor sunucusunda bir sorun oluştu. Birazdan tekrar dene."
+  },
+  "rpChecking": {
+    "message": "Rapor sunucusu kontrol ediliyor…"
+  },
+  "rpSending": {
+    "message": "Gönderiliyor…"
+  },
+  "rpRetry": {
+    "message": "Tekrar dene"
+  },
+  "rpFallbackLead": {
+    "message": "Yine de bildirebilirsin: raporu doldurulmuş bir GitHub issue aç. Bağlantının kısaltılması gerekirse diye tam JSON panoya da kopyalanır."
+  },
+  "rpFallbackGithub": {
+    "message": "Doldurulmuş GitHub issue aç"
+  },
+  "rpCopyJson": {
+    "message": "Tam JSON'u kopyala"
+  },
+  "rpGithubCopied": {
+    "message": "GitHub yeni sekmede açıldı. Tam JSON panoda: issue'ya yapıştır."
+  },
+  "rpSendUnavailable": {
+    "message": "Gönderme henüz kullanılamıyor"
+  },
+  "rpCopyFailed": {
+    "message": "Panoya kopyalanamadı. Yukarıdaki raporu seçip elle kopyala."
   }
 }

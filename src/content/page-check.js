@@ -229,9 +229,29 @@ window.NexusExt = window.NexusExt || {};
     } catch (_) { }
   }
 
-  function reportFailures(result, build) {
+  // Legitimate states in which the usual page parts are hidden or not rendered: a download modal
+  // over the page, or Nexus's adult-content gate. A check failing then is not a site change.
+  const ADULT_GATE_TEXT = /(contains|includes) adult content|adult content (is )?(hidden|blocked|filter)|show adult content|confirm (that )?you are (over )?18|you must be 18/i;
+  function pageVariant(doc = (typeof document !== 'undefined' ? document : null)) {
+    if (!doc?.querySelector) return '';
+    try {
+      if (doc.querySelector('download-modal[open], dialog[open], [role="dialog"][aria-modal="true"]')) return 'modal open';
+      if (doc.querySelector('[data-e2e-id*="adult" i], [class*="adult-gate" i], [id*="adult-content" i]')) return 'adult content gate';
+      const main = doc.querySelector('main') || doc.body;
+      const text = String(main?.innerText || main?.textContent || '').slice(0, 20000);
+      if (ADULT_GATE_TEXT.test(text)) return 'adult content gate';
+    } catch (_) { }
+    return '';
+  }
+
+  function reportFailures(result, build, doc) {
     const failed = failuresOf(result);
     if (!failed.length) return;
+    const variant = pageVariant(doc);
+    if (variant) {
+      globalThis.NXTK?.queueDebugEntry?.('debug', `Nexus page check skipped on the ${result.label} (${variant}): ${failed.map((entry) => entry.id).join(', ')}`);
+      return;
+    }
     const signature = `${result.page}:${failed.map((entry) => entry.id).join(',')}`;
     const missing = failed.map((entry) => `${entry.label} (${entry.detail})`).join('; ');
     window.NexusExt.NNW?.Logger?.warn?.(`Nexus page check failed on the ${result.label}: ${missing}`);
@@ -306,6 +326,7 @@ window.NexusExt = window.NexusExt || {};
     rememberBuild,
     describe,
     reportFailures,
+    pageVariant,
     lastResult: () => lastResult
   };
 })();

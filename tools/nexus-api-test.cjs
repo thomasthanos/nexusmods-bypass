@@ -5,12 +5,19 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
 
+const recorded = [];
+const debugEntries = [];
+
 function loadApi() {
   const ctx = vm.createContext({ console, URL, setTimeout, clearTimeout, Promise, JSON, Math, Date });
   ctx.window = ctx;
   ctx.NexusExt = ctx.window.NexusExt = {
-    Errors: { create: (code, extra = {}) => ({ code, ...extra }) }
+    Errors: {
+      create: (code, extra = {}) => { const e = { code, ...extra }; if (extra.record !== false) recorded.push(e); return e; },
+      record: (e) => { recorded.push(e); return e; }
+    }
   };
+  ctx.NXTK = { queueDebugEntry: (level, text) => debugEntries.push({ level, text }) };
   vm.runInContext(fs.readFileSync('src/content/nexus-api.js', 'utf8'), ctx, { filename: 'nexus-api.js' });
   return ctx.window.NexusExt.NexusApi;
 }
@@ -381,6 +388,57 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal(NDC.updateAvailable(mod(1, 'latest')), true, 'policy allows and Nexus is newer');
     assert.equal(NDC.updateAvailable(mod(1, 'exact')), false, 'exact pins never show it');
     assert.equal(NDC.updateAvailable({ ...mod(1, 'prefer'), api: { version: '1.0' } }), false, 'same version');
+  }
+
+    // ---- Attempt failures are quiet; only the final outcome is logged (2.10.2).
+  {
+    recorded.length = 0; debugEntries.length = 0;
+    const h = harness({ responses: [netFail(), ok({ data: { a: 1 } })] });
+    const r = await h.api.graphql({ query: 'q', operationName: 'Q' });
+    assert.equal(r.ok, true);
+    assert.equal(r.source, 'router');
+    assert.equal(recorded.length, 0, 'a v2 network failure the router answered is not an error');
+    assert.equal(debugEntries.length, 1, 'it goes to the debug log');
+    assert.equal(debugEntries[0].level, 'debug');
+    const h2 = harness({ responses: [netFail(), netFail()] });
+    const r2 = await h2.api.graphql({ query: 'q', operationName: 'Q' });
+    assert.equal(r2.ok, false);
+    assert.equal(recorded.length, 1, 'all fallbacks failed: logged once');
+    assert.equal(recorded[0].code, 'network_error');
+  }
+
+  // ---- v2 "not signed in" falls back to the session-backed router.
+  {
+    recorded.length = 0;
+    const loggedOut = () => ({ ok: false, status: 200, text: '{"errors":[{"message":"not signed in"}]}', error: { code: 'requires_login' } });
+    const h = harness({ responses: [loggedOut(), ok({ data: { collectionRevision: { modFiles: [] } } })] });
+    const r = await h.api.graphql({ query: 'q', operationName: 'Q' });
+    assert.equal(r.ok, true, 'the router answer counts');
+    assert.equal(h.calls[1].url, NexusApi.ROUTER_URL);
+    assert.equal(recorded.length, 0, 'no false requires_login in the error log');
+  }
+
+  // ---- Both say requires_login but the viewer query says signed in: not a login problem.
+  {
+    recorded.length = 0;
+    const loggedOut = () => ({ ok: false, status: 200, text: '', error: { code: 'requires_login' } });
+    const h = harness({ responses: [loggedOut(), loggedOut(), ok({ data: { preferences: { adult: false } } })] });
+    const r = await h.api.graphql({ query: 'q', operationName: 'Q' });
+    assert.equal(h.calls[2].body.operationName, 'Viewer');
+    assert.equal(h.calls[2].url, NexusApi.ROUTER_URL, 'viewer check uses the site session');
+    assert.equal(r.error.code, 'access_denied');
+    assert.match(r.error.technicalMessage, /adult content hidden/);
+    assert.equal(recorded.length, 1);
+    assert.equal(recorded[0].code, 'access_denied');
+    // Signed out for real: requires_login stands and is logged once.
+    recorded.length = 0;
+    const h2 = harness({ responses: [loggedOut(), loggedOut(), ok({ errors: [{ message: 'You must be logged in to retrieve user preferences', extensions: { code: 'UNAUTHORIZED' } }], data: { preferences: null } })] });
+    const r2 = await h2.api.graphql({ query: 'q', operationName: 'Q' });
+    assert.equal(r2.error.code, 'requires_login');
+    assert.equal(recorded.length, 1);
+    const who = await h2.api.viewer();
+    assert.equal(who.signedIn, false);
+    assert.equal(h2.calls.length, 3, 'viewer answer is cached');
   }
 
   console.log('nexus api behavior OK');

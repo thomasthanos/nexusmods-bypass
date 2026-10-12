@@ -1750,9 +1750,6 @@
   "rpSent": {
     "message": "Report sent. Thank you! Reference: $1"
   },
-  "rpSendFailed": {
-    "message": "The report could not be sent. Copy it or open a GitHub issue instead."
-  },
   "rpPermissionDenied": {
     "message": "Permission to reach the report server was not granted. Copy the report or open a GitHub issue instead."
   },
@@ -1827,5 +1824,62 @@
   },
   "wjHashNoMatch": {
     "message": "Not found on Nexus"
+  },
+  "dlgLargeRunTitle": {
+    "message": "Start a large download?"
+  },
+  "dlgLargeRunLead": {
+    "message": "This queues $1 mods ($2)."
+  },
+  "dlgLargeRunHelp": {
+    "message": "Downloads run one at a time and can take hours. You can pause or stop at any point."
+  },
+  "dlgLargeRunStart": {
+    "message": "Download $1 mods"
+  },
+  "rpErrNotConfigured": {
+    "message": "The report server is not set up yet, so reports cannot be sent from here."
+  },
+  "rpErrUnreachable": {
+    "message": "The report server could not be reached. Check your connection and try again."
+  },
+  "rpErrRateLimited": {
+    "message": "Too many reports from this network. Try again in about $1 minutes."
+  },
+  "rpErrTooLarge": {
+    "message": "The report is too large for the report server. Turn off debug logs and try again."
+  },
+  "rpErrRejected": {
+    "message": "The report server did not accept this report."
+  },
+  "rpErrServer": {
+    "message": "The report server had a problem. Try again in a moment."
+  },
+  "rpChecking": {
+    "message": "Checking the report server…"
+  },
+  "rpSending": {
+    "message": "Sending…"
+  },
+  "rpRetry": {
+    "message": "Try again"
+  },
+  "rpFallbackLead": {
+    "message": "You can still report it: open a GitHub issue with the report filled in. The full JSON is copied to the clipboard too, so you can paste it into the issue if the link had to be shortened."
+  },
+  "rpFallbackGithub": {
+    "message": "Open a prefilled GitHub issue"
+  },
+  "rpCopyJson": {
+    "message": "Copy full JSON"
+  },
+  "rpGithubCopied": {
+    "message": "GitHub opened in a new tab. The full report JSON is on your clipboard: paste it into the issue."
+  },
+  "rpSendUnavailable": {
+    "message": "Sending is not available yet"
+  },
+  "rpCopyFailed": {
+    "message": "Could not copy to the clipboard. Select the report above and copy it by hand."
   }
 }

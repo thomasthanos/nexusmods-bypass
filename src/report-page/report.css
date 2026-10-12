@@ -15,3 +15,6 @@ h2 { font-size: 1.05em; margin: 1.4em 0 .4em; }
 .rp-status.is-error { color: #ff7b7b; }
 .rp-status.is-ok { color: #7ee2a8; }
 .rp-auto { margin-top: 28px; padding-top: 16px; border-top: 1px solid #2a2c38; }
+.rp-fallback { margin-top: 10px; padding: 12px 14px; border-radius: 10px; border: 1px solid #4a3a26; background: #1d1912; }
+.rp-fallback .rp-hint { margin: 0; }
+.nxtk-btn:disabled { opacity: .55; cursor: not-allowed; }

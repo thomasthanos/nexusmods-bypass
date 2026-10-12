@@ -1438,9 +1438,6 @@
   "rpSent": {
     "message": "Segnalazione inviata. Grazie! Riferimento: $1"
   },
-  "rpSendFailed": {
-    "message": "Impossibile inviare la segnalazione. Copiala o apri invece una issue su GitHub."
-  },
   "rpPermissionDenied": {
     "message": "Il permesso per contattare il server delle segnalazioni non è stato concesso. Copia la segnalazione o apri una issue su GitHub."
   },
@@ -1515,5 +1512,62 @@
   },
   "wjHashNoMatch": {
     "message": "Non trovato su Nexus"
+  },
+  "dlgLargeRunTitle": {
+    "message": "Avviare un download di grandi dimensioni?"
+  },
+  "dlgLargeRunLead": {
+    "message": "Verranno messe in coda $1 mod ($2)."
+  },
+  "dlgLargeRunHelp": {
+    "message": "I download avvengono uno alla volta e possono richiedere ore. Puoi mettere in pausa o fermare in qualsiasi momento."
+  },
+  "dlgLargeRunStart": {
+    "message": "Scarica $1 mod"
+  },
+  "rpErrNotConfigured": {
+    "message": "Il server dei report non è ancora configurato, quindi i report non possono essere inviati da qui."
+  },
+  "rpErrUnreachable": {
+    "message": "Impossibile raggiungere il server dei report. Controlla la connessione e riprova."
+  },
+  "rpErrRateLimited": {
+    "message": "Troppi report da questa rete. Riprova tra circa $1 minuti."
+  },
+  "rpErrTooLarge": {
+    "message": "Il report è troppo grande per il server. Disattiva i log di debug e riprova."
+  },
+  "rpErrRejected": {
+    "message": "Il server dei report non ha accettato questo report."
+  },
+  "rpErrServer": {
+    "message": "Il server dei report ha avuto un problema. Riprova tra poco."
+  },
+  "rpChecking": {
+    "message": "Controllo del server dei report…"
+  },
+  "rpSending": {
+    "message": "Invio…"
+  },
+  "rpRetry": {
+    "message": "Riprova"
+  },
+  "rpFallbackLead": {
+    "message": "Puoi comunque segnalarlo: apri una issue GitHub con il report precompilato. Il JSON completo viene anche copiato negli appunti, nel caso il link sia stato accorciato."
+  },
+  "rpFallbackGithub": {
+    "message": "Apri una issue GitHub precompilata"
+  },
+  "rpCopyJson": {
+    "message": "Copia JSON completo"
+  },
+  "rpGithubCopied": {
+    "message": "GitHub aperto in una nuova scheda. Il JSON completo è negli appunti: incollalo nella issue."
+  },
+  "rpSendUnavailable": {
+    "message": "L'invio non è ancora disponibile"
+  },
+  "rpCopyFailed": {
+    "message": "Copia non riuscita. Seleziona il report qui sopra e copialo a mano."
   }
 }

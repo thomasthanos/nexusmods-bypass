@@ -38,6 +38,7 @@ window.NexusExt = window.NexusExt || {};
 
   // Every query the extension sends. tools/schema-watch.mjs validates these against the live schema.
   const QUERIES = Object.freeze({
+    Viewer: 'query Viewer { preferences { adult } }',
     // Legacy form, byte-for-byte what earlier versions sent (used when the official API is off).
     CollectionRevisionModsLegacy: `query CollectionRevisionMods ($revision: Int, $slug: String!, $viewAdultContent: Boolean) { collectionRevision (revision: $revision, slug: $slug, viewAdultContent: $viewAdultContent) { externalResources { id, name, resourceType, resourceUrl }, modFiles { fileId, optional, file { ${MOD_FILE_FIELDS} } } } }`,
     CollectionRevisionMods: `query CollectionRevisionMods ($revision: Int, $slug: String!, $viewAdultContent: Boolean) { collectionRevision (revision: $revision, slug: $slug, viewAdultContent: $viewAdultContent) { revisionNumber, revisionStatus, latest, externalResources { id, name, resourceType, resourceUrl }, modFiles { fileId, optional, updatePolicy, version, file { ${MOD_FILE_FIELDS} } } } }`,
@@ -53,7 +54,7 @@ window.NexusExt = window.NexusExt || {};
   });
 
   // GraphQL error codes for which the router (the page's own endpoint) is worth one more try.
-  const FALLBACK_GRAPHQL_CODES = /"code"\s*:\s*"(ADULT_CONTENT_BLOCKED|UNAUTHENTICATED|FORBIDDEN)"/;
+  const FALLBACK_GRAPHQL_CODES = /"code"\s*:\s*"(ADULT_CONTENT_BLOCKED|UNAUTHENTICATED|UNAUTHORIZED|FORBIDDEN)"/;
 
   function fallbackWorthy(result) {
     if (!result) return true;
@@ -62,6 +63,9 @@ window.NexusExt = window.NexusExt || {};
       if (code === 'rate_limited' || code === 'aborted') return false;
       // A Cloudflare challenge or a 403 is an answer, not an outage: it is reported, never routed around.
       if (code === 'cloudflare' || code === 'access_denied' || result.status === 403) return false;
+      // The v2 endpoint can answer "not signed in" where the site's own session (the router) is
+      // signed in, e.g. for an adult collection; the router's answer is the one that counts.
+      if (code === 'requires_login') return true;
       return !result.status || result.status >= 500 || result.status === 404
         || ['network_error', 'timeout', 'server_error'].includes(code);
     }
@@ -152,7 +156,7 @@ window.NexusExt = window.NexusExt || {};
     }
 
     function abortedResult(context) {
-      return { ok: false, status: 0, text: '', error: NexusExt.Errors?.create?.('aborted', { context }) || { code: 'aborted' } };
+      return { ok: false, status: 0, text: '', error: NexusExt.Errors?.create?.('aborted', { context, record: false }) || { code: 'aborted' } };
     }
 
     function loadPersisted() {
@@ -204,7 +208,53 @@ window.NexusExt = window.NexusExt || {};
         method: 'POST',
         mode: 'cors',
         credentials: 'include'
-      }, { timeoutMs, context, signal });
+      }, { timeoutMs, context, signal, record: false });
+    }
+
+    // Attempts are not logged (a v2 failure the router answers is not an error); the final outcome
+    // of an operation is. A failed attempt that a fallback recovered goes to the debug log only.
+    function debugNote(text) {
+      try { globalThis.NXTK?.queueDebugEntry?.('debug', text); } catch (_) { /* best effort */ }
+    }
+
+    function recordFinal(result) {
+      const code = result?.error?.code;
+      if (!result || result.ok || !code || code === 'aborted') return;
+      NexusExt.Errors?.record?.(result.error);
+    }
+
+    // Who the site session says the user is: { signedIn, adult } from the router (which carries
+    // the site's cookies), each null when unknown. Cached briefly; never logs.
+    let viewerCache = null;
+    async function viewer({ signal } = {}) {
+      if (viewerCache && viewerCache.expires > now()) return viewerCache.value;
+      let value = { signedIn: null, adult: null };
+      const slot = await acquire(signal);
+      if (slot.ok) {
+        const result = await post(ROUTER_URL, JSON.stringify({ query: QUERIES.Viewer, operationName: 'Viewer', variables: {} }), {
+          signal, timeoutMs: 15000, context: 'Checking sign-in'
+        });
+        const json = result.ok ? parseJson(result.text) : null;
+        const prefs = json?.data?.preferences;
+        if (prefs && typeof prefs === 'object') value = { signedIn: true, adult: typeof prefs.adult === 'boolean' ? prefs.adult : null };
+        else if ((result.ok && Array.isArray(json?.errors) && json.errors.some((e) => /UNAUTH/i.test(String(e?.extensions?.code || '')) || /logged in|signed in/i.test(String(e?.message || ''))))
+          || result.error?.code === 'requires_login') value = { signedIn: false, adult: null };
+        if (value.signedIn !== null) viewerCache = { value, expires: now() + 5 * 60 * 1000 };
+      }
+      return value;
+    }
+
+    // A "not signed in" answer is checked against the session before it is believed: signed in
+    // means the API is refusing this content (adult preference, permissions), which is a different
+    // problem with different advice.
+    async function confirmLogin(result, { signal, context }) {
+      if (result?.error?.code !== 'requires_login') return result;
+      const who = await viewer({ signal });
+      if (who.signedIn !== true) return result;
+      const Errors = NexusExt.Errors;
+      const technicalMessage = `API answered as signed out, but the session is signed in${who.adult === false ? ' with adult content hidden in Nexus preferences' : ''}`;
+      const error = Errors?.create ? Errors.create('access_denied', { context, technicalMessage, record: false }) : { code: 'access_denied', technicalMessage };
+      return { ...result, error };
     }
 
     // One GraphQL operation. Returns the Errors.request shape ({ ok, status, text, error }) plus
@@ -222,6 +272,15 @@ window.NexusExt = window.NexusExt || {};
       const key = !mutation && cacheKey ? cacheKey : '';
       if (key && inflight.has(key)) return inflight.get(key);
 
+      const finish = async (result, source, firstAttempt) => {
+        let final = { ...result, source };
+        if (!final.ok) final = await confirmLogin(final, { signal, context });
+        recordFinal(final);
+        if (final.ok && firstAttempt && !firstAttempt.ok) {
+          debugNote(`${operationName || 'GraphQL'}: v2 attempt failed (${firstAttempt.error?.code || firstAttempt.status}), answered by ${source}`);
+        }
+        return final;
+      };
       const run = (async () => {
         const body = JSON.stringify({ query, variables, operationName });
         let attempt = 0;
@@ -231,6 +290,7 @@ window.NexusExt = window.NexusExt || {};
           if (slot.waitMs) return rateLimitedResult(slot.waitMs);
 
           let result = await post(V2_URL, body, { signal, timeoutMs, context });
+          const firstAttempt = result;
           let source = 'v2';
           if (!mutation && fallback && fallbackWorthy(result)) {
             const routerSlot = await acquire(signal);
@@ -245,7 +305,7 @@ window.NexusExt = window.NexusExt || {};
           }
           if (result.status === 429 || result.error?.code === 'rate_limited') {
             noteRateLimited(result.rateLimit?.retryAfterSeconds);
-            if (mutation || attempt++ >= retries) return { ...result, source };
+            if (mutation || attempt++ >= retries) return finish(result, source, firstAttempt);
             continue;
           }
           if (result.ok) {
@@ -257,7 +317,7 @@ window.NexusExt = window.NexusExt || {};
               await writeCache(key, result.text, ttlMs, permanent);
             }
           }
-          return { ...result, source };
+          return finish(result, source, firstAttempt);
         }
       })();
       if (key) {
@@ -415,6 +475,7 @@ window.NexusExt = window.NexusExt || {};
       modsByDomain,
       fileByMd5,
       modAction,
+      viewer,
       stats,
       _state: { bucket, limiter, memory }
     };

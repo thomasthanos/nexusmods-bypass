@@ -1438,9 +1438,6 @@
   "rpSent": {
     "message": "Rapport envoyé. Merci ! Référence : $1"
   },
-  "rpSendFailed": {
-    "message": "Le rapport n’a pas pu être envoyé. Copiez-le ou ouvrez plutôt un ticket GitHub."
-  },
   "rpPermissionDenied": {
     "message": "L’autorisation d’accéder au serveur de rapports n’a pas été accordée. Copiez le rapport ou ouvrez un ticket GitHub."
   },
@@ -1515,5 +1512,62 @@
   },
   "wjHashNoMatch": {
     "message": "Introuvable sur Nexus"
+  },
+  "dlgLargeRunTitle": {
+    "message": "Lancer un gros téléchargement ?"
+  },
+  "dlgLargeRunLead": {
+    "message": "Cela met $1 mods en file ($2)."
+  },
+  "dlgLargeRunHelp": {
+    "message": "Les téléchargements se font un par un et peuvent prendre des heures. Vous pouvez mettre en pause ou arrêter à tout moment."
+  },
+  "dlgLargeRunStart": {
+    "message": "Télécharger $1 mods"
+  },
+  "rpErrNotConfigured": {
+    "message": "Le serveur de rapports n'est pas encore configuré : les rapports ne peuvent pas être envoyés d'ici."
+  },
+  "rpErrUnreachable": {
+    "message": "Le serveur de rapports est injoignable. Vérifiez votre connexion et réessayez."
+  },
+  "rpErrRateLimited": {
+    "message": "Trop de rapports depuis ce réseau. Réessayez dans environ $1 minutes."
+  },
+  "rpErrTooLarge": {
+    "message": "Le rapport est trop volumineux pour le serveur. Désactivez les journaux de débogage et réessayez."
+  },
+  "rpErrRejected": {
+    "message": "Le serveur de rapports n'a pas accepté ce rapport."
+  },
+  "rpErrServer": {
+    "message": "Le serveur de rapports a rencontré un problème. Réessayez dans un instant."
+  },
+  "rpChecking": {
+    "message": "Vérification du serveur de rapports…"
+  },
+  "rpSending": {
+    "message": "Envoi…"
+  },
+  "rpRetry": {
+    "message": "Réessayer"
+  },
+  "rpFallbackLead": {
+    "message": "Vous pouvez quand même le signaler : ouvrez une issue GitHub préremplie. Le JSON complet est aussi copié dans le presse-papiers, au cas où le lien aurait dû être raccourci."
+  },
+  "rpFallbackGithub": {
+    "message": "Ouvrir une issue GitHub préremplie"
+  },
+  "rpCopyJson": {
+    "message": "Copier le JSON complet"
+  },
+  "rpGithubCopied": {
+    "message": "GitHub s'est ouvert dans un nouvel onglet. Le JSON complet est dans le presse-papiers : collez-le dans l'issue."
+  },
+  "rpSendUnavailable": {
+    "message": "L'envoi n'est pas encore disponible"
+  },
+  "rpCopyFailed": {
+    "message": "Copie impossible. Sélectionnez le rapport ci-dessus et copiez-le à la main."
   }
 }
