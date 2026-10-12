@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="600" height="148" viewBox="0 0 600 148" role="img" aria-labelledby="title description">
-<title id="title">Made for the long mod list</title><desc id="description">NexusMods Bypass by ThomasThanos.</desc>
-<style>text{font-family:Segoe UI,Arial,sans-serif}.flow{stroke-dasharray:18 54;animation:flow 9s linear infinite}@keyframes flow{to{stroke-dashoffset:-72}}@media(prefers-reduced-motion:reduce){.flow{animation:none!important}}</style>
-<rect x="1" y="1" width="598" height="146" rx="18" fill="#182c44" stroke="#577591"/>
-<path d="M24 112H576" stroke="#36516d" stroke-width="2"/><path d="M24 112H576" class="flow" stroke="#75d6c5" stroke-width="2"/>
-<text x="300" y="53" text-anchor="middle" fill="#f2f6fc" font-size="28" font-weight="700">Made for the long mod list.</text><text x="300" y="85" text-anchor="middle" fill="#afc2d7" font-size="20">NexusMods Bypass by ThomasThanos</text>
-<style>* { animation: none !important; }</style>
-</svg>
