@@ -55,7 +55,7 @@ let context;
 test.beforeAll(async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-visual-'));
   context = await chromium.launchPersistentContext(userDataDir, {
-    channel: 'chromium',
+    channel: process.env.NXTK_PLAYWRIGHT_CHANNEL || 'chromium',
     headless: true,
     args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`]
   });

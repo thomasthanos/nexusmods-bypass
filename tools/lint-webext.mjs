@@ -20,7 +20,11 @@ function run(command, args) {
 }
 
 try {
-  run('unzip', ['-q', archive, '-d', sourceDir]);
+  if (process.platform === 'win32') {
+    run('tar.exe', ['-xf', archive, '-C', sourceDir]);
+  } else {
+    run('unzip', ['-q', archive, '-d', sourceDir]);
+  }
   run(process.execPath, [cli, 'lint', '--source-dir', sourceDir]);
 } finally {
   rmSync(sourceDir, { recursive: true, force: true });

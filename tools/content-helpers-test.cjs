@@ -596,6 +596,39 @@ function storeListingBehaviour() {
   }
 }
 
+// Browser-action popups are sized from their document. A viewport-relative cap on the root creates a
+// feedback loop while Chromium is measuring it: the provisional narrow viewport clamps the requested
+// width, so the popup can settle as a tall strip instead of the intended panel.
+function popupSizingTests() {
+  const css = fs.readFileSync('src/popup/popup.css', 'utf8');
+  assert.match(css, /html, body\s*\{[^}]*\bwidth:\s*380px;/s,
+    'the popup root requests its full panel width');
+  assert.doesNotMatch(css, /html, body\s*\{[^}]*\bmax-width:\s*100vw;/s,
+    'the popup root width is not clamped to Chromium\'s provisional viewport');
+}
+
+function downloadDoctorRemovedTests() {
+  assert.equal(fs.existsSync('src/download-doctor.js'), false,
+    'the Download Doctor runtime is not shipped');
+  for (const file of [
+    'src/background.js',
+    'src/shared.js',
+    'src/content/ui-settings.js',
+    'src/popup/popup.html',
+    'src/popup/popup.js',
+    'src/popup/popup.css',
+    'tools/build-zip.mjs'
+  ]) {
+    assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /download[ -]?doctor|DoctorDownloads|DOCTOR_/i,
+      `${file} has no Download Doctor integration left`);
+  }
+  for (const locale of fs.readdirSync('src/_locales')) {
+    const messages = fs.readFileSync(`src/_locales/${locale}/messages.json`, 'utf8');
+    assert.doesNotMatch(messages, /"(?:toggleDoctor|doctor[A-Z]|setDoctor)/,
+      `${locale} has no Download Doctor locale keys left`);
+  }
+}
+
 // The phrases that mean "this mod is gone" are read from the whole page, description and
 // changelog included. An author writing about some other mod being pulled must not get their
 // own live mod refused, and a mod that really is gone must still be recognised.
@@ -1249,6 +1282,8 @@ adTimerCookieBehaviour();
 needsExtractingIsNotAFailure();
 queueEtaBehaviour();
 storeListingBehaviour();
+popupSizingTests();
+downloadDoctorRemovedTests();
 modUnavailableTests();
 unavailableModPageTests();
 blockingVerdictTests();
