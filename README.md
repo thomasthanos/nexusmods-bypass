@@ -146,7 +146,7 @@ Most code is source-available under the repository [licence](LICENSE). The *Nexu
 > [!WARNING]
 > **Use at your own risk.** Some features — skipping the download countdown via the ad-timer cookie
 > (tied to *Hide ads and Premium panels*) and the background collection queue that requests download
-> links directly — may conflict with the [Nexus Mods Terms of Service](https://help.nexusmods.com/article/18-terms-of-service),
+> links directly — may conflict with the Nexus Mods Terms of Service,
 > which reserve faster and automated downloading for Premium members. Nexus Mods could restrict
 > accounts that use them. Consider supporting Nexus Mods and the mod authors with Premium.
 
