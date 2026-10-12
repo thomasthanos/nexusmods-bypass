@@ -1724,5 +1724,8 @@
         "content": "$2"
       }
     }
+  },
+  "dbEnable": {
+    "message": "Hata ayıklama günlüklerini aç"
   }
 }

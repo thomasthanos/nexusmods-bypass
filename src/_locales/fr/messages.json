@@ -1724,5 +1724,8 @@
         "content": "$2"
       }
     }
+  },
+  "dbEnable": {
+    "message": "Activer les journaux de débogage"
   }
 }

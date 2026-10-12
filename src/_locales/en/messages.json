@@ -2050,5 +2050,9 @@
       }
     },
     "description": "Debug log page."
+  },
+  "dbEnable": {
+    "message": "Turn on debug logs",
+    "description": "Debug log page."
   }
 }

@@ -127,24 +127,51 @@
     return true;
   }
 
-  async function ensureRelayPermission() {
+  // Known grant state, refreshed at load and whenever the permission changes, so the click handler
+  // never has to await anything before chrome.permissions.request.
+  let relayGranted = false;
+  function refreshRelayGrant() {
     try {
-      if (await chrome.permissions.contains(NXTK.RELAY_PERMISSION)) return true;
-      return await chrome.permissions.request(NXTK.RELAY_PERMISSION);
+      chrome.permissions.contains(NXTK.RELAY_PERMISSION, (granted) => { void chrome.runtime.lastError; relayGranted = !!granted; });
     } catch (_) {
-      return false;
     }
   }
 
-  async function send() {
-    if (sending || sent || !validate()) return;
-    if (!NXTK.RELAY_CONFIGURED) { showFailure('not_configured'); return; }
+  // Must run synchronously inside the click/submit handler: Chrome and especially Firefox only show
+  // the prompt while the user gesture is still active, and any await before request() loses it.
+  function requestRelayPermissionNow() {
+    if (relayGranted) return Promise.resolve(true);
+    try {
+      // A plain (unfrozen) copy: some browsers' bindings reject frozen arrays.
+      return Promise.resolve(chrome.permissions.request({ origins: [...NXTK.RELAY_PERMISSION.origins] }))
+        .then((granted) => {
+          relayGranted = !!granted;
+          if (!granted) NXTK.queueDebugEntry?.('warn', 'Relay permission request returned false (dismissed, or no prompt shown)');
+          return relayGranted;
+        }, (cause) => {
+          // e.g. "Only permissions specified in the manifest may be requested" on a stale build.
+          NXTK.queueDebugEntry?.('error', `Relay permission request failed: ${String(cause?.message || cause).slice(0, 160)}`);
+          return false;
+        });
+    } catch (cause) {
+      NXTK.queueDebugEntry?.('error', `Relay permission request threw: ${String(cause?.message || cause).slice(0, 160)}`);
+      return Promise.resolve(false);
+    }
+  }
+
+  function send() {
+    if (sending || sent || !validate()) return undefined;
+    if (!NXTK.RELAY_CONFIGURED) { showFailure('not_configured'); return undefined; }
+    return deliver(requestRelayPermissionNow());
+  }
+
+  async function deliver(permission) {
     clearTimeout(rebuildTimer);
     setBusy(true);
     hideFailure();
     try {
-      // Requested first, while the click still counts as a user gesture.
-      if (!await ensureRelayPermission()) { showFailure('permission'); return; }
+      // Requested synchronously in send(), while the click still counts as a user gesture.
+      if (!await permission) { showFailure('permission'); return; }
       status(T('rpChecking', 'Checking the report server…'));
       const health = await NXTK.checkRelayHealth();
       if (!health.ok) { showFailure(health.reason); return; }
@@ -234,7 +261,8 @@
     $('rpAuto').checked = NXTK.RELAY_CONFIGURED && !!stored?.[NXTK.SETTINGS_KEY]?.AutoErrorReports;
     $('rpAuto').addEventListener('change', async (event) => {
       const enabled = event.target.checked;
-      if (enabled && !await ensureRelayPermission()) {
+      const permission = enabled ? requestRelayPermissionNow() : Promise.resolve(true);
+      if (!await permission) {
         event.target.checked = false;
         status(failureText('permission'), 'error');
         return;
@@ -257,6 +285,9 @@
     document.documentElement.lang = chrome.i18n.getUILanguage();
     $('rpVersion').textContent = `v${chrome.runtime.getManifest().version}`;
     applyRelayState();
+    refreshRelayGrant();
+    chrome.permissions.onAdded?.addListener(refreshRelayGrant);
+    chrome.permissions.onRemoved?.addListener(refreshRelayGrant);
     $('rpForm').addEventListener('submit', (event) => { event.preventDefault(); send(); });
     $('rpRetry').addEventListener('click', () => send());
     $('rpCopy').addEventListener('click', () => copy().catch(() => undefined));
