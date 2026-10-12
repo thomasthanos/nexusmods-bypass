@@ -1727,5 +1727,37 @@
   },
   "dbEnable": {
     "message": "Ativar logs de depuração"
+  },
+  "btnSendReportTip": {
+    "message": "Descreva o problema, revise o relatório e envie",
+    "description": "UI string."
+  },
+  "btnCopyReport": {
+    "message": "Copiar relatório",
+    "description": "UI string."
+  },
+  "btnCopyReportTip": {
+    "message": "Copia o relatório de erro limpo e abre uma issue no GitHub",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Abrir o log de depuração em uma nova aba",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Concluído: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Ocultar o pop-up de downloads do navegador durante coleções",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Somente Chrome e Edge. Impede que o balão de downloads abra a cada arquivo e o restaura ao terminar, parar ou falhar.",
+    "description": "UI string."
   }
 }

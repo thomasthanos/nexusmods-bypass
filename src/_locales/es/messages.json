@@ -1727,5 +1727,37 @@
   },
   "dbEnable": {
     "message": "Activar registros de depuración"
+  },
+  "btnSendReportTip": {
+    "message": "Describe el problema, revisa el informe y envíalo",
+    "description": "UI string."
+  },
+  "btnCopyReport": {
+    "message": "Copiar informe",
+    "description": "UI string."
+  },
+  "btnCopyReportTip": {
+    "message": "Copia el informe de error depurado y abre una incidencia en GitHub",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Abrir el registro de depuración en una pestaña nueva",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Completado: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Ocultar la ventana de descargas del navegador durante las colecciones",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Solo Chrome y Edge. Evita que la burbuja de descargas se abra con cada archivo y la restaura al terminar, detenerse o fallar.",
+    "description": "UI string."
   }
 }

@@ -1643,5 +1643,37 @@
   },
   "dbEnable": {
     "message": "디버그 로그 켜기"
+  },
+  "btnSendReportTip": {
+    "message": "문제를 설명하고 보고서를 확인한 뒤 보내세요",
+    "description": "UI string."
+  },
+  "btnCopyReport": {
+    "message": "오류 보고서 복사",
+    "description": "UI string."
+  },
+  "btnCopyReportTip": {
+    "message": "정리된 오류 보고서를 복사하고 GitHub 이슈를 엽니다",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "새 탭에서 디버그 로그 열기",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "완료: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "컬렉션 다운로드 중 브라우저 다운로드 팝업 숨기기",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Chrome과 Edge 전용. 파일마다 다운로드 버블이 열리지 않게 하고 종료, 중지, 오류 시 다시 켭니다.",
+    "description": "UI string."
   }
 }

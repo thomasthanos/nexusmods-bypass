@@ -1727,5 +1727,37 @@
   },
   "dbEnable": {
     "message": "Activer les journaux de débogage"
+  },
+  "btnSendReportTip": {
+    "message": "Décrivez le problème, vérifiez le rapport puis envoyez-le",
+    "description": "UI string."
+  },
+  "btnCopyReport": {
+    "message": "Copier le rapport",
+    "description": "UI string."
+  },
+  "btnCopyReportTip": {
+    "message": "Copie le rapport d'erreur nettoyé et ouvre une issue GitHub",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Ouvrir le journal de débogage dans un nouvel onglet",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Terminé : $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Masquer la fenêtre de téléchargement du navigateur pendant les collections",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Chrome et Edge uniquement. Empêche la bulle de téléchargement de s'ouvrir à chaque fichier et la réactive à la fin, à l'arrêt ou en cas d'erreur.",
+    "description": "UI string."
   }
 }

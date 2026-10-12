@@ -937,6 +937,7 @@
 .nxtk-log-msg  { color: var(--nxtk-text); word-break: break-word; }
 .nxtk-log-error .nxtk-log-msg { color: var(--nxtk-danger); }
 .nxtk-log-info  .nxtk-log-msg { color: var(--nxtk-info); }
+.nxtk-log-day { justify-content: center; color: var(--nxtk-text-muted, #9aa3b2); font-size: .85em; opacity: .85; }
 
 .nxtk-modal-backdrop {
   position: fixed; inset: 0; z-index: 999999;

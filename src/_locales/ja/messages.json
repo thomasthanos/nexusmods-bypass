@@ -1643,5 +1643,37 @@
   },
   "dbEnable": {
     "message": "デバッグログをオンにする"
+  },
+  "btnSendReportTip": {
+    "message": "問題を説明し、レポートを確認して送信します",
+    "description": "UI string."
+  },
+  "btnCopyReport": {
+    "message": "エラーレポートをコピー",
+    "description": "UI string."
+  },
+  "btnCopyReportTip": {
+    "message": "匿名化したエラーレポートをコピーし GitHub Issue を開きます",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "デバッグログを新しいタブで開きます",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "完了: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "コレクションのダウンロード中はブラウザーのダウンロード表示を隠す",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Chrome と Edge のみ。ファイルごとにダウンロードバブルが開くのを防ぎ、終了・停止・失敗時に元に戻します。",
+    "description": "UI string."
   }
 }

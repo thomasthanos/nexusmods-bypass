@@ -1643,5 +1643,37 @@
   },
   "dbEnable": {
     "message": "开启调试日志"
+  },
+  "btnSendReportTip": {
+    "message": "描述问题，检查已脱敏的报告后发送",
+    "description": "UI string."
+  },
+  "btnCopyReport": {
+    "message": "复制错误报告",
+    "description": "UI string."
+  },
+  "btnCopyReportTip": {
+    "message": "复制已脱敏的错误报告并打开 GitHub Issue",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "在新标签页中打开调试日志",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "已完成：$NAME$（$SIZE$）",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "下载合集时隐藏浏览器下载弹窗",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "仅限 Chrome 和 Edge。合集下载期间不再为每个文件弹出下载气泡，结束、停止或出错时恢复。",
+    "description": "UI string."
   }
 }

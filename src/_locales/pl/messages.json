@@ -1895,5 +1895,37 @@
   },
   "dbEnable": {
     "message": "Włącz dzienniki debugowania"
+  },
+  "btnSendReportTip": {
+    "message": "Opisz problem, sprawdź raport i wyślij go",
+    "description": "UI string."
+  },
+  "btnCopyReport": {
+    "message": "Kopiuj raport błędu",
+    "description": "UI string."
+  },
+  "btnCopyReportTip": {
+    "message": "Kopiuje oczyszczony raport błędu i otwiera zgłoszenie na GitHubie",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Otwórz dziennik debugowania w nowej karcie",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Ukończono: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Ukryj okno pobierania przeglądarki podczas pobierania kolekcji",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Tylko Chrome i Edge. Nie pozwala, by dymek pobierania otwierał się przy każdym pliku, i przywraca go po zakończeniu, zatrzymaniu lub błędzie.",
+    "description": "UI string."
   }
 }

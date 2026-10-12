@@ -1727,5 +1727,37 @@
   },
   "dbEnable": {
     "message": "Ενεργοποίηση αρχείων αποσφαλμάτωσης"
+  },
+  "btnSendReportTip": {
+    "message": "Περιγράψτε το πρόβλημα, ελέγξτε την αναφορά και στείλτε την",
+    "description": "UI string."
+  },
+  "btnCopyReport": {
+    "message": "Αντιγραφή αναφοράς",
+    "description": "UI string."
+  },
+  "btnCopyReportTip": {
+    "message": "Αντιγράφει την αναφορά σφάλματος και ανοίγει ένα GitHub issue",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Άνοιγμα του ζωντανού αρχείου καταγραφής σε νέα καρτέλα",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Ολοκληρώθηκε: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Απόκρυψη αναδυόμενου παραθύρου λήψεων κατά τις λήψεις συλλογών",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Μόνο Chrome και Edge. Δεν αφήνει το παράθυρο λήψεων να ανοίγει για κάθε αρχείο όσο τρέχει μια συλλογή και το επαναφέρει όταν τελειώσει, σταματήσει ή αποτύχει.",
+    "description": "UI string."
   }
 }

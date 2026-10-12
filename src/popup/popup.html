@@ -94,17 +94,22 @@
       </div>
 
       <div class="popup-tab-panel" id="panelHelp" role="tabpanel" aria-labelledby="tabHelp" hidden>
-        <button class="popup-btn popup-bug-btn nxtk-btn nxtk-btn-primary" id="sendReport" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
-          <span data-i18n="btnSendReport">Send bug report</span>
-        </button>
-        <button class="popup-btn popup-bug-btn nxtk-btn nxtk-btn-secondary" id="reportBug">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17a6.002 6.002 0 0 0-2.84 0L8.41 3 7 4.41l1.62 2.63C7.88 7.55 7.26 8.22 6.81 9H4v2h2.09A5.98 5.98 0 0 0 6 12v1H4v2h2v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-1h2v-2h-2v-1c0-.34-.03-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>
-          <span data-i18n="btnReportBug">Report a bug — copies error report</span>
-        </button>
-        <button class="popup-btn nxtk-btn nxtk-btn-secondary" id="openDebugLog" type="button">
-          <span data-i18n="btnDebugLog">Debug log</span>
-        </button>
+        <div class="popup-help-actions">
+          <button class="popup-help-primary" id="sendReport" type="button" title="Describe the problem, review the redacted report, then send it" data-i18n-title="btnSendReportTip">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+            <span data-i18n="btnSendReport">Send bug report</span>
+          </button>
+          <div class="popup-help-row">
+            <button class="popup-help-secondary" id="reportBug" type="button" title="Copies the redacted error report and opens a GitHub issue" data-i18n-title="btnCopyReportTip">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
+              <span data-i18n="btnCopyReport">Copy error report</span>
+            </button>
+            <button class="popup-help-secondary" id="openDebugLog" type="button" title="Open the live debug log in a new tab" data-i18n-title="btnDebugLogTip">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h10v2H4zm0 6h16v2H4zm14-6h2v2h-2z"/></svg>
+              <span data-i18n="btnDebugLog">Debug log</span>
+            </button>
+          </div>
+        </div>
 
         <section class="popup-help" id="popupHelp">
           <h2 class="popup-help-title">

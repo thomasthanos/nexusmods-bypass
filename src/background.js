@@ -824,6 +824,7 @@ async function claimNdcJobOwnership(job, tabId) {
 }
 
 function notifyNdcJob(job, type, extra = {}, alsoTabIds = []) {
+  syncDownloadUi();
   const targets = new Set();
   if (Number.isInteger(job?.tabId) && job.tabId >= 0) targets.add(job.tabId);
   for (const tabId of alsoTabIds) {
@@ -1892,6 +1893,52 @@ if (chrome.tabs?.onRemoved) {
 const NDC_CLAIM_KEY = 'nxtk_ndc_run_claims';
 const NDC_CLAIM_TTL_MS = 45000;
 
+// Chrome's download bubble opens for every file, which on a long collection run is noise. With
+// HideDownloadPopup on, it is switched off while any collection run is active (a page-driven run
+// holds a claim; a background queue has a running job) and switched back on as soon as none is.
+// Firefox has no downloads.setUiOptions, so this is a no-op there.
+function downloadUiShouldBeEnabled({ setting, claims, jobs }) {
+  if (!setting) return true;
+  const claimed = Object.keys(claims || {}).length > 0;
+  const running = Object.values(jobs || {}).some((job) => job?.status === 'running');
+  return !(claimed || running);
+}
+
+const DOWNLOAD_UI_ALARM = 'nxtk-download-ui';
+let downloadUiEnabled = null;
+let downloadUiSync = Promise.resolve();
+function syncDownloadUi() {
+  downloadUiSync = downloadUiSync.then(async () => {
+    if (typeof chrome.downloads?.setUiOptions !== 'function') return;
+    let enabled = true;
+    try {
+      const settings = { ...NXTK.DEFAULTS, ...(await storageGetLocal(NXTK.SETTINGS_KEY, null) || {}) };
+      enabled = downloadUiShouldBeEnabled({
+        setting: !!settings.HideDownloadPopup,
+        claims: cleanNdcClaims(await storageGetLocal(NDC_CLAIM_KEY, null)),
+        jobs: await readNdcJobs()
+      });
+    } catch (_) {
+      enabled = true;
+    }
+    if (enabled === downloadUiEnabled) return;
+    try {
+      await chrome.downloads.setUiOptions({ enabled });
+      downloadUiEnabled = enabled;
+      // While it is off, re-check every minute so a run that ended without a release (a crashed
+      // or closed tab, whose claim simply expires) still gives the popup back.
+      try {
+        if (!enabled) chrome.alarms?.create?.(DOWNLOAD_UI_ALARM, { delayInMinutes: 1 });
+        else chrome.alarms?.clear?.(DOWNLOAD_UI_ALARM);
+      } catch (_) {
+      }
+    } catch (cause) {
+      recordBackgroundError('download popup toggle', cause);
+    }
+  }).catch(() => undefined);
+  return downloadUiSync;
+}
+
 function cleanNdcClaims(stored) {
   const claims = Object.create(null);
   const now = Date.now();
@@ -2229,6 +2276,7 @@ const NDC_QUEUE_HANDLERS = {
       if (held && held.tabId !== tabId) return { granted: false, heldBy: held.tabId, reason: 'lease' };
       claims[key] = { tabId, at: Date.now() };
       await storageSetLocal(NDC_CLAIM_KEY, claims);
+      syncDownloadUi();
       return { granted: true };
     });
   },
@@ -2245,16 +2293,30 @@ const NDC_QUEUE_HANDLERS = {
       if (!claims[key] || claims[key].tabId !== tabId) return { released: false };
       delete claims[key];
       await storageSetLocal(NDC_CLAIM_KEY, claims);
+      syncDownloadUi();
       return { released: true };
     });
   }
 };
 
+if (chrome.storage?.onChanged) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes?.[NXTK.SETTINGS_KEY]) syncDownloadUi();
+  });
+}
+
 if (chrome.alarms?.onAlarm) {
   chrome.alarms.onAlarm.addListener((alarm) => {
     const name = String(alarm?.name || '');
+    if (name === DOWNLOAD_UI_ALARM) {
+      downloadUiEnabled = null;
+      syncDownloadUi();
+      return;
+    }
     if (name === 'nxtk-reconcile') {
       reconcileNdcJobs().catch(() => {});
+      // An expired claim (its tab crashed or closed) or a finished job puts the popup back.
+      syncDownloadUi();
       cleanPendingTerminals();
       return;
     }
@@ -2413,7 +2475,7 @@ function pruneAfterBoot(context) {
 }
 
 if (chrome.runtime?.onStartup) {
-  chrome.runtime.onStartup.addListener(() => pruneAfterBoot('prune on startup'));
+  chrome.runtime.onStartup.addListener(() => { pruneAfterBoot('prune on startup'); syncDownloadUi(); });
 }
 
 const TRUSTED_SENDER_URL = /^https:\/\/(?:[\w-]+\.)*nexusmods\.com\//i;

@@ -308,6 +308,30 @@ html, body {
 .popup-bug-btn:hover,
 .popup-bug-btn:focus-visible { color: var(--nxtk-text-bright); }
 
+.popup-help-actions { display: grid; gap: 8px; margin-bottom: 12px; }
+.popup-help-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.popup-help-primary,
+.popup-help-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 36px; padding: 8px 12px; border-radius: 8px;
+  font: 600 12.5px/1.2 inherit; font-family: inherit; letter-spacing: 0; text-transform: none;
+  cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.popup-help-primary svg, .popup-help-secondary svg { width: 15px; height: 15px; flex: none; fill: currentColor; }
+.popup-help-primary {
+  width: 100%; color: #1d1409; background: var(--nxtk-accent, #d98f40); border: 1px solid transparent;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .18) inset, 0 2px 8px rgba(0, 0, 0, .25);
+}
+.popup-help-primary:hover { background: #e9a457; }
+.popup-help-primary:active { background: #c47d32; }
+.popup-help-secondary {
+  min-width: 0; color: var(--nxtk-text); background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .12);
+}
+.popup-help-secondary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.popup-help-secondary:hover { color: var(--nxtk-text-bright); background: rgba(255, 255, 255, .08); border-color: rgba(217, 143, 64, .55); }
+.popup-help-primary:focus-visible, .popup-help-secondary:focus-visible { outline: 2px solid var(--nxtk-accent, #d98f40); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .popup-help-primary, .popup-help-secondary { transition: none; } }
+
 .popup-btn {
   display: flex;
   width: 100%;

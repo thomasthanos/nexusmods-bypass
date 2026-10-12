@@ -11,6 +11,18 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
+## 2026-10-13 — v3.0.1
+
+### Fixed
+- **Collection ETA** — the remaining time is now human-readable (`7d 8h`, `3h 12m`, `45m`, `30s`, units localized via `Intl`) and sane: per-file latency and large-file throughput are measured separately with a smoothed average, with the configured download speed as fallback. A 1975-file run that showed `17645:01:37` now estimates about half an hour.
+
+### Added
+- **Activity log** — `Completed` lines show the file size (`Completed: X (12.4 MB)`), and a date line appears when a run crosses midnight.
+- **Hide browser download popup during collection downloads** (default on, Chrome/Edge) — uses `chrome.downloads.setUiOptions` while a run is active and restores it when the run ends, stops or fails; new `downloads.ui` permission, omitted from the Firefox build.
+
+### Changed
+- **Popup Help & Bugs** — one solid primary *Send bug report* button and a two-column row of *Copy error report* / *Debug log* with icons, sentence case, tooltips and focus rings; 13 locales.
+
 ## 2026-10-12
 
 **Versions / tags:** tag `3.0.0` · **3.0.0** · **2.10.3** · **2.10.2** · tag `2.10.1` · **2.10.1** · **2.10.0** · **2.9.0** · **2.8.1** · **2.8.0**

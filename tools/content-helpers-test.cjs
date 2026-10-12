@@ -432,20 +432,52 @@ function needsExtractingIsNotAFailure() {
 // The remaining-time figure is the one number in the deck a user will plan around, so it
 // has to come from measurement and say nothing at all until there is something to measure.
 function queueEtaBehaviour() {
+  const shared = fs.readFileSync('src/shared.js', 'utf8');
+  const body = extractFunction(shared, 'createQueueEta');
   const ndc = fs.readFileSync('src/content/ndc.js', 'utf8');
-  const body = extractFunction(ndc, 'createQueueEta');
+  assert.match(ndc, /NXTK\.createQueueEta\(sizesKb, \{ fallbackMBps: this\.resolveDownloadSpeed\(\)\.speed \}\)/,
+    'the queue uses the shared estimator with the configured speed as fallback');
 
-  const build = (sizesKb) => {
+  const build = (sizesKb, options = {}) => {
     let now = 0;
-    const DateShim = function (value) { return new Date(value === undefined ? now : value); };
-    DateShim.now = () => now;
-    const factory = new Function('sizes', 'DateShim', `
-      const Date = DateShim;
+    const factory = new Function('sizes', 'options', `
+      const ETA_LARGE_BYTES = 1024 * 1024;
       ${body}
-      return createQueueEta(sizes);
+      return createQueueEta(sizes, options);
     `);
-    return { eta: factory(sizesKb, DateShim), at: (ms) => { now = ms; } };
+    return { eta: factory(sizesKb, { ...options, now: () => now }), at: (ms) => { now = ms; } };
   };
+
+  // The reported bug: 1975 small files at about one a second showed "17645:01:37".
+  // Per-file latency must win over bytes/second for latency-bound files.
+  const many = build(Array.from({ length: 1975 }, () => 200));
+  for (let index = 0; index < 19; index += 1) {
+    many.at(index * 1000);
+    many.eta.itemStarted();
+    many.at(index * 1000 + 900);
+    many.eta.itemCompleted(index);
+  }
+  const left = many.eta.remainingSeconds(19, 1975);
+  assert.ok(left > 25 * 60 && left < 40 * 60, `1956 one-second files are about half an hour, got ${left}s`);
+
+  const formatEta = new Function(`
+    ${extractFunction(shared, 'formatUnit')}
+    ${extractFunction(shared, 'formatEta')}
+    return formatEta;
+  `)();
+  assert.equal(formatEta(7 * 86400 + 8 * 3600 + 100, 'en'), '7d 8h');
+  assert.equal(formatEta(3 * 3600 + 12 * 60 + 5, 'en'), '3h 12m');
+  assert.equal(formatEta(45 * 60, 'en'), '45m');
+  assert.equal(formatEta(30, 'en'), '30s');
+  assert.equal(formatEta(0, 'en'), '0s');
+  const formatBytes = new Function(`${extractFunction(shared, 'formatBytes')}\nreturn formatBytes;`)();
+  assert.equal(formatBytes(12.4 * 1024 * 1024, 'en'), '12.4 MB');
+  assert.equal(formatBytes(512, 'en'), '512 B');
+  assert.equal(formatBytes(3 * 1024 ** 3, 'en'), '3.0 GB');
+  for (const locale of fs.readdirSync('src/_locales')) {
+    const messages = JSON.parse(fs.readFileSync(`src/_locales/${locale}/messages.json`, 'utf8'));
+    assert.match(messages.logCompletedSize?.message || '', /\$NAME\$[\s\S]*\$SIZE\$/, `${locale} has the sized completed line`);
+  }
 
   const TEN_MB_KB = 10 * 1024;
 

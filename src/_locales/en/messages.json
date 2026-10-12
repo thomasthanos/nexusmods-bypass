@@ -2054,5 +2054,37 @@
   "dbEnable": {
     "message": "Turn on debug logs",
     "description": "Debug log page."
+  },
+  "btnSendReportTip": {
+    "message": "Describe the problem, review the redacted report, then send it",
+    "description": "UI string."
+  },
+  "btnCopyReport": {
+    "message": "Copy error report",
+    "description": "UI string."
+  },
+  "btnCopyReportTip": {
+    "message": "Copies the redacted error report and opens a GitHub issue",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Open the live debug log in a new tab",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Completed: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Hide the browser download popup during collection downloads",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Chrome and Edge only. Keeps the download bubble from opening for every file while a collection run is active, and turns it back on when the run ends, stops or fails.",
+    "description": "UI string."
   }
 }

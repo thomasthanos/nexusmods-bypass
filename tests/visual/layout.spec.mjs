@@ -438,3 +438,36 @@ test('every page shows the manifest version, and the debug page can turn logging
   expect(await page.evaluate(() => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_settings', (o) => r(o.nxtk_settings.DebugLogs))))).toBe(true);
   await page.close();
 });
+
+test('popup help tab: one solid primary, two compact secondaries, sentence case, tooltips', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  for (const width of [380]) { // the popup body is a fixed 380px
+    const page = await context.newPage();
+    await page.setViewportSize({ width, height: 600 });
+    await page.goto(`chrome-extension://${id}/popup/popup.html`);
+    await page.click('#tabHelp');
+    const primary = page.locator('#sendReport');
+    await expect(primary).toBeVisible();
+    const style = await primary.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { opacity: cs.opacity, transform: cs.textTransform, color: cs.color, bg: cs.backgroundColor, h: el.getBoundingClientRect().height };
+    });
+    expect(style.opacity).toBe('1');
+    expect(style.transform).toBe('none');
+    expect(style.color).toBe('rgb(29, 20, 9)');
+    const boxes = await Promise.all(['#reportBug', '#openDebugLog'].map((sel) => page.locator(sel).boundingBox()));
+    expect(Math.abs(boxes[0].y - boxes[1].y)).toBeLessThan(1);
+    expect(Math.abs(boxes[0].height - style.h)).toBeLessThan(1);
+    expect(boxes[0].x + boxes[0].width).toBeLessThanOrEqual(boxes[1].x);
+    for (const sel of ['#sendReport', '#reportBug', '#openDebugLog']) {
+      expect((await page.locator(sel).getAttribute('title')) || '').not.toBe('');
+      const overflow = await page.locator(sel).evaluate((el) => el.scrollWidth - el.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(1);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    await page.screenshot({ path: path.join(shotDir, `popup-help-${width}.png`) });
+    await page.close();
+  }
+});
