@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Кнопки для архивных файлов"
-  },
+  },
   "btnPageSettings": {
     "message": "Настройки страницы"
   },
@@ -91,10 +91,10 @@
   },
   "bugCardText": {
     "message": "Каждая кнопка «Сообщить об ошибке» копирует полный отчёт и открывает предзаполненный GitHub issue."
-  },
+  },
   "openNexusBtn": {
     "message": "Открыть Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Не связано с Nexus Mods. Нужен собственный аккаунт Nexus Mods; премиум-контент остаётся премиум."
   },
@@ -601,25 +601,22 @@
     "message": "Настройки помощника загрузок"
   },
   "setSubtitle": {
-    "message": "Изменения сохраняются сразу. Восстановление настроек перезагрузит страницу."
+    "message": "Изменения сохраняются автоматически."
   },
   "setSectionFlow": {
-    "message": "Процесс загрузки"
+    "message": "Загрузки"
   },
   "setSectionPacing": {
-    "message": "Файлы и темп"
+    "message": "Коллекции"
   },
   "setSectionAdvanced": {
     "message": "Дополнительно"
   },
   "setRestoreDefaults": {
-    "message": "Сбросить настройки и обновить"
-  },
-  "setNeedHelp": {
-    "message": "Нужна помощь с загрузкой?"
+    "message": "Восстановить настройки"
   },
   "setReportOnGithub": {
-    "message": "Сообщить об ошибке на GitHub"
+    "message": "Сообщить об ошибке"
   },
   "setRestoreTitle": {
     "message": "Сброс настроек"
@@ -659,7 +656,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Добавляет кнопки загрузки Vortex и браузера к архивным файлам, скрытым Nexus."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Папка загрузок браузера"
   },
@@ -1197,7 +1194,7 @@
     }
   },
   "setSectionLanguage": {
-    "message": "Язык"
+    "message": "Оформление и язык"
   },
   "setForceEnglishLabel": {
     "message": "Всегда использовать английский"
@@ -2050,19 +2047,19 @@
     "message": "Пользователь Vortex"
   },
   "presetVortexDesc": {
-    "message": "Отправлять файлы в Vortex, запускать автоматически, закрывать лишнюю вкладку."
+    "message": "Отправлять в Vortex и закрывать вкладку."
   },
   "presetBrowser": {
     "message": "Загрузка через браузер"
   },
   "presetBrowserDesc": {
-    "message": "Сохранять настоящие файлы в «Загрузки», запускать автоматически."
+    "message": "Сохранять файлы через браузер."
   },
   "presetMinimal": {
     "message": "Минимум"
   },
   "presetMinimalDesc": {
-    "message": "Только то, что вы нажмёте: без автозапуска и лишних кнопок."
+    "message": "Начинать только по нажатию."
   },
   "setSectionPresets": {
     "message": "Быстрая настройка"
@@ -2207,5 +2204,70 @@
   },
   "btnOpenModFiles": {
     "message": "Открыть вкладку «Файлы»"
+  },
+  "setShortAutoStartDownload": {
+    "message": "Начинать при открытии страницы файла."
+  },
+  "setShortAutoCloseTab": {
+    "message": "Только Vortex. Закрывать временную вкладку после отправки."
+  },
+  "setShortSkipRequirements": {
+    "message": "Переходить сразу к загрузке."
+  },
+  "setShortShowAlertsOnError": {
+    "message": "Показывать сообщение, если загрузка не начинается."
+  },
+  "setShortHidePremiumUpsells": {
+    "message": "Скрывать рекламу, предложения Premium и обратный отсчёт."
+  },
+  "setShortHandleArchivedFiles": {
+    "message": "Добавлять кнопки к архивным файлам."
+  },
+  "setShortWabbajackImport": {
+    "message": "Ставить файлы Nexus из списка .wabbajack в очередь (бета)."
+  },
+  "setShortHideDownloadPopup": {
+    "message": "Chrome / Edge: не открывать окно загрузок при выполнении."
+  },
+  "setShortNDC_smallestFirst": {
+    "message": "Сначала загружать небольшие файлы."
+  },
+  "setShortUseOfficialApi": {
+    "message": "Использовать документированный API вместо страниц."
+  },
+  "setShortFollowUpdatePolicy": {
+    "message": "Использовать новые файлы с разрешения автора коллекции."
+  },
+  "setShortShowModActions": {
+    "message": "Показывать Endorse и Track. Без автоматической отправки."
+  },
+  "setShortCloudflareFallback": {
+    "message": "Открывать страницу файла для проверки браузера."
+  },
+  "setShortForceEnglish": {
+    "message": "Использовать английский вместо языка браузера."
+  },
+  "setShortDownloadFolder": {
+    "message": "Только браузер. Пустое поле означает папку загрузок."
+  },
+  "setShortRequestTimeout": {
+    "message": "Время ожидания ссылки на загрузку."
+  },
+  "setShortCloseTabDelay": {
+    "message": "Только Vortex. Пауза перед закрытием вкладки."
+  },
+  "setShortNDC_downloadSpeed": {
+    "message": "Только Vortex. Оценивать время загрузки каждого файла."
+  },
+  "setShortNDC_pauseBetweenDownload": {
+    "message": "Только Vortex. Добавлять паузу между файлами."
+  },
+  "setHelpFor": {
+    "message": "Подробнее: $1",
+    "placeholders": {
+      "setting": {
+        "content": "$1"
+      }
+    }
   }
 }

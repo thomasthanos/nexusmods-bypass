@@ -664,15 +664,15 @@
     "description": "Settings dialog title."
   },
   "setSubtitle": {
-    "message": "Changes save instantly. Restore defaults will reload this page.",
+    "message": "Changes save automatically.",
     "description": "Settings dialog subtitle."
   },
   "setSectionFlow": {
-    "message": "Download Flow",
+    "message": "Downloads",
     "description": "Settings section heading."
   },
   "setSectionPacing": {
-    "message": "Files & Pacing",
+    "message": "Collections",
     "description": "Settings section heading."
   },
   "setSectionAdvanced": {
@@ -680,15 +680,11 @@
     "description": "Collapsed section holding developer/troubleshooting settings."
   },
   "setRestoreDefaults": {
-    "message": "Restore Defaults & Refresh",
+    "message": "Restore defaults",
     "description": "Footer button."
   },
-  "setNeedHelp": {
-    "message": "Need help with a download?",
-    "description": "Support line in the settings footer."
-  },
   "setReportOnGithub": {
-    "message": "Report a bug on GitHub",
+    "message": "Report a bug",
     "description": "Support button in the settings footer."
   },
   "setRestoreTitle": {
@@ -1345,7 +1341,7 @@
     }
   },
   "setSectionLanguage": {
-    "message": "Language",
+    "message": "Appearance & language",
     "description": "Settings section heading for the language toggle."
   },
   "setForceEnglishLabel": {
@@ -2224,19 +2220,19 @@
     "message": "Vortex user"
   },
   "presetVortexDesc": {
-    "message": "Send files to Vortex, start automatically, close the extra tab."
+    "message": "Send to Vortex and close the tab."
   },
   "presetBrowser": {
     "message": "Browser downloads"
   },
   "presetBrowserDesc": {
-    "message": "Save real files to your Downloads folder, start automatically."
+    "message": "Save files with your browser."
   },
   "presetMinimal": {
     "message": "Minimal"
   },
   "presetMinimalDesc": {
-    "message": "Only what you click: no auto-start, no extra buttons."
+    "message": "Start only when you click."
   },
   "setSectionPresets": {
     "message": "Quick setup"
@@ -2381,5 +2377,70 @@
   },
   "btnOpenModFiles": {
     "message": "Open the Files tab"
+  },
+  "setShortAutoStartDownload": {
+    "message": "Start when you open a file page."
+  },
+  "setShortAutoCloseTab": {
+    "message": "Vortex only. Close the temporary tab after sending."
+  },
+  "setShortSkipRequirements": {
+    "message": "Go straight to the download step."
+  },
+  "setShortShowAlertsOnError": {
+    "message": "Show a message when a download cannot start."
+  },
+  "setShortHidePremiumUpsells": {
+    "message": "Hide ads, upgrade panels and the download countdown."
+  },
+  "setShortHandleArchivedFiles": {
+    "message": "Add download buttons to archived files."
+  },
+  "setShortWabbajackImport": {
+    "message": "Queue Nexus files from a .wabbajack modlist (beta)."
+  },
+  "setShortHideDownloadPopup": {
+    "message": "Chrome / Edge: keep the download bubble quiet during a run."
+  },
+  "setShortNDC_smallestFirst": {
+    "message": "Download smaller collection files first."
+  },
+  "setShortUseOfficialApi": {
+    "message": "Use the documented API instead of page lookups."
+  },
+  "setShortFollowUpdatePolicy": {
+    "message": "Use newer files only when the curator allows it."
+  },
+  "setShortShowModActions": {
+    "message": "Show Endorse and Track. Nothing is sent automatically."
+  },
+  "setShortCloudflareFallback": {
+    "message": "Open the file page to complete a browser check."
+  },
+  "setShortForceEnglish": {
+    "message": "Use English instead of your browser language."
+  },
+  "setShortDownloadFolder": {
+    "message": "Browser only. Empty means the Downloads folder."
+  },
+  "setShortRequestTimeout": {
+    "message": "How long to wait for a download link."
+  },
+  "setShortCloseTabDelay": {
+    "message": "Vortex only. Wait before closing the temporary tab."
+  },
+  "setShortNDC_downloadSpeed": {
+    "message": "Vortex only. Estimate how long each file takes."
+  },
+  "setShortNDC_pauseBetweenDownload": {
+    "message": "Vortex only. Add a gap between files."
+  },
+  "setHelpFor": {
+    "message": "More information: $1",
+    "placeholders": {
+      "setting": {
+        "content": "$1"
+      }
+    }
   }
 }

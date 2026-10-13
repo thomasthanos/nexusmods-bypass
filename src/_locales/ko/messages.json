@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "보관된 파일 버튼"
-  },
+  },
   "btnPageSettings": {
     "message": "페이지 설정"
   },
@@ -91,10 +91,10 @@
   },
   "bugCardText": {
     "message": "모든 \"버그 신고\" 버튼은 전체 진단 보고서를 복사하고 내용이 채워진 GitHub 이슈를 엽니다."
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods 열기"
-  },
+  },
   "disclaimer": {
     "message": "Nexus Mods와 제휴 관계가 없습니다. 본인의 Nexus Mods 계정이 필요하며, Premium 전용 콘텐츠는 그대로 Premium 전용입니다."
   },
@@ -461,25 +461,22 @@
     "message": "다운로드 도우미 설정"
   },
   "setSubtitle": {
-    "message": "변경 사항은 즉시 저장됩니다. 기본값 복원 시 이 페이지가 다시 로드됩니다."
+    "message": "변경 사항은 자동으로 저장됩니다."
   },
   "setSectionFlow": {
-    "message": "다운로드 흐름"
+    "message": "다운로드"
   },
   "setSectionPacing": {
-    "message": "파일 및 속도"
+    "message": "컬렉션"
   },
   "setSectionAdvanced": {
     "message": "고급"
   },
   "setRestoreDefaults": {
-    "message": "기본값 복원 후 새로고침"
-  },
-  "setNeedHelp": {
-    "message": "다운로드에 도움이 필요하신가요?"
+    "message": "기본값 복원"
   },
   "setReportOnGithub": {
-    "message": "GitHub에서 버그 신고"
+    "message": "버그 신고"
   },
   "setRestoreTitle": {
     "message": "기본값 복원"
@@ -519,7 +516,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus가 숨기는 보관된 파일 항목에 Vortex 및 브라우저 다운로드 버튼을 추가합니다."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "브라우저 다운로드 폴더"
   },
@@ -1020,7 +1017,7 @@
     }
   },
   "setSectionLanguage": {
-    "message": "언어"
+    "message": "화면 및 언어"
   },
   "setForceEnglishLabel": {
     "message": "항상 영어 사용"
@@ -1798,19 +1795,19 @@
     "message": "Vortex 사용자"
   },
   "presetVortexDesc": {
-    "message": "파일을 Vortex로 보내고, 자동으로 시작하고, 추가 탭을 닫습니다."
+    "message": "Vortex로 보내고 탭을 닫습니다."
   },
   "presetBrowser": {
     "message": "브라우저 다운로드"
   },
   "presetBrowserDesc": {
-    "message": "실제 파일을 다운로드 폴더에 저장하고 자동으로 시작합니다."
+    "message": "브라우저로 파일을 저장합니다."
   },
   "presetMinimal": {
     "message": "최소"
   },
   "presetMinimalDesc": {
-    "message": "클릭한 것만: 자동 시작 없음, 추가 버튼 없음."
+    "message": "클릭할 때만 시작합니다."
   },
   "setSectionPresets": {
     "message": "빠른 설정"
@@ -1955,5 +1952,70 @@
   },
   "btnOpenModFiles": {
     "message": "Files 탭 열기"
+  },
+  "setShortAutoStartDownload": {
+    "message": "파일 페이지를 열면 시작합니다."
+  },
+  "setShortAutoCloseTab": {
+    "message": "Vortex 전용. 전송 후 임시 탭을 닫습니다."
+  },
+  "setShortSkipRequirements": {
+    "message": "바로 다운로드 단계로 이동합니다."
+  },
+  "setShortShowAlertsOnError": {
+    "message": "시작할 수 없으면 메시지를 표시합니다."
+  },
+  "setShortHidePremiumUpsells": {
+    "message": "광고, Premium 안내 및 카운트다운을 숨깁니다."
+  },
+  "setShortHandleArchivedFiles": {
+    "message": "보관된 파일에 다운로드 버튼을 추가합니다."
+  },
+  "setShortWabbajackImport": {
+    "message": ".wabbajack의 Nexus 파일을 대기열에 추가합니다(베타)."
+  },
+  "setShortHideDownloadPopup": {
+    "message": "Chrome / Edge: 실행 중 다운로드 팝업을 열지 않습니다."
+  },
+  "setShortNDC_smallestFirst": {
+    "message": "작은 파일부터 다운로드합니다."
+  },
+  "setShortUseOfficialApi": {
+    "message": "페이지 조회 대신 문서화된 API를 사용합니다."
+  },
+  "setShortFollowUpdatePolicy": {
+    "message": "제작자가 허용할 때만 최신 파일을 사용합니다."
+  },
+  "setShortShowModActions": {
+    "message": "Endorse와 Track을 표시합니다. 자동 전송하지 않습니다."
+  },
+  "setShortCloudflareFallback": {
+    "message": "파일 페이지를 열어 브라우저 확인을 완료합니다."
+  },
+  "setShortForceEnglish": {
+    "message": "브라우저 언어 대신 영어를 사용합니다."
+  },
+  "setShortDownloadFolder": {
+    "message": "브라우저 전용. 비우면 다운로드 폴더입니다."
+  },
+  "setShortRequestTimeout": {
+    "message": "다운로드 링크를 기다리는 시간입니다."
+  },
+  "setShortCloseTabDelay": {
+    "message": "Vortex 전용. 임시 탭을 닫기 전에 기다립니다."
+  },
+  "setShortNDC_downloadSpeed": {
+    "message": "Vortex 전용. 각 파일의 소요 시간을 추정합니다."
+  },
+  "setShortNDC_pauseBetweenDownload": {
+    "message": "Vortex 전용. 파일 사이에 대기 시간을 추가합니다."
+  },
+  "setHelpFor": {
+    "message": "자세한 정보: $1",
+    "placeholders": {
+      "setting": {
+        "content": "$1"
+      }
+    }
   }
 }

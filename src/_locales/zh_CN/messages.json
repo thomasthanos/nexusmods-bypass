@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "已归档文件按钮"
-  },
+  },
   "btnPageSettings": {
     "message": "页面设置"
   },
@@ -91,10 +91,10 @@
   },
   "bugCardText": {
     "message": "每个\"报告问题\"按钮都会复制完整诊断报告并打开预填好的 GitHub issue。"
-  },
+  },
   "openNexusBtn": {
     "message": "打开 Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "与 Nexus Mods 无关联。您需要自己的 Nexus Mods 账户；高级版专属内容仍需高级版。"
   },
@@ -496,25 +496,22 @@
     "message": "下载助手设置"
   },
   "setSubtitle": {
-    "message": "更改会立即保存。恢复默认设置将重新加载此页面。"
+    "message": "更改会自动保存。"
   },
   "setSectionFlow": {
-    "message": "下载流程"
+    "message": "下载"
   },
   "setSectionPacing": {
-    "message": "文件与节奏"
+    "message": "合集"
   },
   "setSectionAdvanced": {
     "message": "高级"
   },
   "setRestoreDefaults": {
-    "message": "恢复默认并刷新"
-  },
-  "setNeedHelp": {
-    "message": "下载遇到问题？"
+    "message": "恢复默认设置"
   },
   "setReportOnGithub": {
-    "message": "在 GitHub 上报告问题"
+    "message": "报告问题"
   },
   "setRestoreTitle": {
     "message": "恢复默认设置"
@@ -554,7 +551,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "当 Nexus 隐藏归档文件时，为其添加 Vortex 与浏览器下载按钮。"
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "浏览器下载文件夹"
   },
@@ -1020,7 +1017,7 @@
     }
   },
   "setSectionLanguage": {
-    "message": "语言"
+    "message": "外观和语言"
   },
   "setForceEnglishLabel": {
     "message": "始终使用英语"
@@ -1798,19 +1795,19 @@
     "message": "Vortex 用户"
   },
   "presetVortexDesc": {
-    "message": "把文件发送到 Vortex,自动开始,关闭多余的标签页。"
+    "message": "发送到 Vortex 并关闭标签页。"
   },
   "presetBrowser": {
     "message": "浏览器下载"
   },
   "presetBrowserDesc": {
-    "message": "把真实文件保存到下载文件夹,自动开始。"
+    "message": "通过浏览器保存文件。"
   },
   "presetMinimal": {
     "message": "精简"
   },
   "presetMinimalDesc": {
-    "message": "只做你点击的操作:不自动开始,不加额外按钮。"
+    "message": "仅在点击时开始。"
   },
   "setSectionPresets": {
     "message": "快速设置"
@@ -1955,5 +1952,70 @@
   },
   "btnOpenModFiles": {
     "message": "打开“文件”标签页"
+  },
+  "setShortAutoStartDownload": {
+    "message": "打开文件页面时开始。"
+  },
+  "setShortAutoCloseTab": {
+    "message": "仅限 Vortex。发送后关闭临时标签页。"
+  },
+  "setShortSkipRequirements": {
+    "message": "直接进入下载步骤。"
+  },
+  "setShortShowAlertsOnError": {
+    "message": "无法开始下载时显示提示。"
+  },
+  "setShortHidePremiumUpsells": {
+    "message": "隐藏广告、Premium 推广和倒计时。"
+  },
+  "setShortHandleArchivedFiles": {
+    "message": "为已归档文件添加下载按钮。"
+  },
+  "setShortWabbajackImport": {
+    "message": "将 .wabbajack 中的 Nexus 文件加入队列（测试版）。"
+  },
+  "setShortHideDownloadPopup": {
+    "message": "Chrome / Edge：运行期间不弹出下载窗口。"
+  },
+  "setShortNDC_smallestFirst": {
+    "message": "优先下载小文件。"
+  },
+  "setShortUseOfficialApi": {
+    "message": "使用有文档的 API，而非查找页面。"
+  },
+  "setShortFollowUpdatePolicy": {
+    "message": "仅在合集作者允许时使用较新的文件。"
+  },
+  "setShortShowModActions": {
+    "message": "显示 Endorse 和 Track，不会自动发送。"
+  },
+  "setShortCloudflareFallback": {
+    "message": "打开文件页面以完成浏览器验证。"
+  },
+  "setShortForceEnglish": {
+    "message": "使用英语，而非浏览器语言。"
+  },
+  "setShortDownloadFolder": {
+    "message": "仅限浏览器。留空则使用下载文件夹。"
+  },
+  "setShortRequestTimeout": {
+    "message": "等待下载链接的时间。"
+  },
+  "setShortCloseTabDelay": {
+    "message": "仅限 Vortex。关闭标签页前等待。"
+  },
+  "setShortNDC_downloadSpeed": {
+    "message": "仅限 Vortex。估算每个文件所需时间。"
+  },
+  "setShortNDC_pauseBetweenDownload": {
+    "message": "仅限 Vortex。在文件之间增加间隔。"
+  },
+  "setHelpFor": {
+    "message": "更多信息：$1",
+    "placeholders": {
+      "setting": {
+        "content": "$1"
+      }
+    }
   }
 }

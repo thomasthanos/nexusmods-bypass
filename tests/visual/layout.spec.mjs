@@ -871,6 +871,169 @@ test('settings: quick-setup presets apply and technical settings sit under Advan
   await ext.close();
 });
 
+for (const [width, height] of [[1280, 800], [1366, 768], [360, 800]]) {
+  for (const zoom of ZOOMS) {
+    test(`compact settings groups fit at ${width}x${height}@${zoom}`, async () => {
+      const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', width, height, zoom);
+      await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
+      const modal = page.locator('#nxtk-settings-modal .nxtk-modal');
+      await expect(modal.locator('[data-settings-group="downloads"]')).toBeVisible();
+      await page.waitForTimeout(600);
+      await assertFits(page, '#nxtk-settings-modal .nxtk-modal', 'compact settings');
+      const header = await modal.locator('.nxtk-modal-header').boundingBox();
+      const closeButton = await modal.locator('.nxtk-modal-close').boundingBox();
+      expect(closeButton.x + closeButton.width, 'close stays in the upper right, not on its own row').toBeGreaterThanOrEqual(header.x + header.width - 1);
+      const layout = await modal.evaluate((el) => {
+        const rect = (selector) => el.querySelector(selector).getBoundingClientRect().toJSON();
+        const scroll = el.querySelector('.nxtk-modal-scroll');
+        return {
+          downloads: rect('[data-settings-group="downloads"]'), collections: rect('[data-settings-group="collections"]'),
+          appearance: rect('[data-settings-group="appearance"]'), presets: rect('.nxtk-settings-presets'),
+          overflow: scroll.scrollWidth - scroll.clientWidth,
+          clipped: [...scroll.querySelectorAll('*')].filter((child) => child.getBoundingClientRect().right > scroll.getBoundingClientRect().right + 1).map((child) => ({ class: child.className, flex: getComputedStyle(child).flex, width: child.getBoundingClientRect().width })),
+          descSize: parseFloat(getComputedStyle(el.querySelector('.nxtk-setting-desc')).fontSize)
+        };
+      });
+      expect(layout.overflow, JSON.stringify(layout.clipped)).toBeLessThanOrEqual(1);
+      expect(layout.descSize).toBeGreaterThanOrEqual(12);
+      expect(layout.presets.bottom).toBeLessThanOrEqual(layout.downloads.top);
+      if (width / zoom >= 760) {
+        expect(Math.abs(layout.downloads.top - layout.collections.top)).toBeLessThanOrEqual(1);
+        expect(Math.abs(layout.downloads.width - layout.collections.width)).toBeLessThanOrEqual(1);
+        expect(layout.appearance.height, 'appearance must not stretch into a tall empty card').toBeLessThan(260);
+      } else {
+        expect(layout.collections.top).toBeGreaterThanOrEqual(layout.downloads.bottom);
+      }
+      await page.screenshot({ path: path.join(shotDir, `compact-settings-${width}x${height}-${zoom}.png`) });
+      await modal.locator('#nxtk-advanced-toggle').click();
+      await expect(modal.locator('#nxtk-advanced-body')).toBeVisible();
+      for (const input of await modal.locator('[data-setting]').all()) {
+        await input.scrollIntoViewIfNeeded();
+        const box = await input.evaluate((el) => {
+          const target = el.type === 'checkbox' ? el.closest('.nxtk-toggle') : el;
+          const r = target.getBoundingClientRect();
+          const outer = el.closest('.nxtk-modal-scroll').getBoundingClientRect();
+          return { left: r.left, right: r.right, parentLeft: outer.left, parentRight: outer.right };
+        });
+        expect(box.left).toBeGreaterThanOrEqual(box.parentLeft - 1);
+        expect(box.right).toBeLessThanOrEqual(box.parentRight + 1);
+      }
+      await assertFits(page, '#nxtk-settings-modal .nxtk-modal-footer', 'footer stays reachable');
+      await page.close();
+    });
+  }
+}
+
+test('compact settings information works by keyboard without changing the switch', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
+  await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
+  const row = page.locator('#nxtk-settings-modal [data-key="AutoStartDownload"]');
+  const input = row.locator('input');
+  const before = await input.isChecked();
+  const help = row.locator('[data-setting-help]');
+  await help.focus();
+  await page.keyboard.press('Enter');
+  await expect(help).toHaveAttribute('aria-expanded', 'true');
+  await expect(row.locator('.nxtk-setting-help')).toBeVisible();
+  expect(await input.isChecked()).toBe(before);
+  await page.keyboard.press('Space');
+  await expect(row.locator('.nxtk-setting-help')).toBeHidden();
+  expect(await input.isChecked()).toBe(before);
+  await page.close();
+});
+
+test('quick setup preserves the dialog, open help, Advanced, scroll and focus without navigation', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
+  await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
+  const modal = page.locator('#nxtk-settings-modal .nxtk-modal');
+  const original = await modal.elementHandle();
+  await modal.locator('#nxtk-advanced-toggle').click();
+  await modal.locator('[data-key="AutoStartDownload"] [data-setting-help]').click();
+  const preset = modal.locator('[data-preset="browser"]');
+  await preset.focus();
+  const beforeScroll = await modal.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollTop);
+  let navigations = 0;
+  page.on('framenavigated', () => { navigations++; });
+  await page.keyboard.press('Enter');
+  await expect(preset).toHaveAttribute('aria-pressed', 'true');
+  expect(await original.evaluate((el) => el.isConnected), 'the same modal stays mounted').toBe(true);
+  await expect(modal.locator('#nxtk-advanced-toggle')).toHaveAttribute('aria-expanded', 'true');
+  await expect(modal.locator('[data-key="AutoStartDownload"] [data-setting-help]')).toHaveAttribute('aria-expanded', 'true');
+  expect(await modal.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollTop)).toBe(beforeScroll);
+  expect(await preset.evaluate((el) => document.activeElement === el)).toBe(true);
+  await expect(modal.locator('[data-setting="AutoCloseTab"]')).not.toBeChecked();
+  expect(navigations).toBe(0);
+  await page.close();
+});
+
+test('compact settings switches work by clicking their label, track and using Space', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
+  await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
+  const row = page.locator('#nxtk-settings-modal [data-key="SkipRequirements"]');
+  const input = row.locator('input');
+  const before = await input.isChecked();
+  await row.locator('label').click();
+  expect(await input.isChecked()).toBe(!before);
+  await row.locator('.nxtk-toggle').click();
+  expect(await input.isChecked()).toBe(before);
+  await input.focus();
+  await page.keyboard.press('Space');
+  expect(await input.isChecked()).toBe(!before);
+  await page.keyboard.press('Space');
+  expect(await input.isChecked()).toBe(before);
+  await page.close();
+});
+
+test('compact settings numeric fields show the complete valid speed value', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
+  await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
+  await page.locator('#nxtk-advanced-toggle').click();
+  const speed = page.locator('#nxtk-settings-modal [data-setting="NDC_downloadSpeed"]');
+  const before = await speed.inputValue();
+  await speed.fill('999.9');
+  const measured = await speed.evaluate((el) => {
+    const style = getComputedStyle(el);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    return {
+      available: el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+      needed: ctx.measureText('999.9').width
+    };
+  });
+  expect(measured.available, 'the whole speed value should fit, not just the caret end').toBeGreaterThanOrEqual(measured.needed - 1);
+  await speed.fill(before);
+  await page.close();
+});
+
+test('compact settings long labels and reset confirmation remain usable', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 360, 800, 1);
+  await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
+  const modal = page.locator('#nxtk-settings-modal .nxtk-modal');
+  await modal.locator('[data-key="AutoStartDownload"] .nxtk-setting-title').evaluate((el) => {
+    el.textContent = 'Downloads automatisch starten, sobald eine Nexus-Dateiseite geöffnet wird';
+  });
+  const row = modal.locator('[data-key="AutoStartDownload"]');
+  await row.scrollIntoViewIfNeeded();
+  await row.locator('[data-setting-help]').click();
+  await expect(row.locator('.nxtk-setting-help')).toBeVisible();
+  const overflow = await modal.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: path.join(shotDir, 'compact-settings-long-label.png') });
+  await modal.locator('[data-key="DownloadFolder"] input').fill('CompactUiTest');
+  await modal.locator('[data-key="DownloadFolder"] input').press('Tab');
+  await modal.locator('[data-reset]').click();
+  const confirm = page.locator('#nxtk-confirm-modal');
+  await expect(confirm).toBeVisible();
+  await confirm.locator('[data-close="cancel"]').click();
+  await expect(modal.locator('[data-key="DownloadFolder"] input')).toHaveValue('CompactUiTest');
+  await modal.locator('[data-reset]').click();
+  await Promise.all([page.waitForEvent('domcontentloaded'), page.locator('#nxtk-confirm-modal [data-close="confirm"]').click()]);
+  await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
+  await expect(page.locator('#nxtk-settings-modal input[data-setting="DownloadFolder"]')).toHaveValue('NexusMods');
+  await page.close();
+});
+
 test('welcome page: setup saves choices and Test Vortex asks when it cannot tell', async () => {
   const { id, ext, read, patch } = await extensionPage();
   await patch({}, { nxtk_vortex_open: { confirmed: false, failStreak: 0 } });
@@ -986,7 +1149,7 @@ test('collection: Download history view shows sent / downloaded / missing and cl
 
 // ---- stress and edge cases ----
 
-for (const lang of ['de', 'ru']) {
+for (const lang of ['de', 'ru', 'el']) {
   test(`longest locales (${lang}): popup and collection deck fit at 380px`, async () => {
     // Headless Chromium ignores --lang for extensions, so a copy of the extension serves this
     // locale's messages as its English ones: the same strings, rendered in the real layout.
@@ -1036,6 +1199,19 @@ for (const lang of ['de', 'ru']) {
       await expect(page.locator('#nxtk-select-mods')).toBeVisible();
       await page.waitForTimeout(400);
       await assertFits(page, '#nxtk-dropdown-portal .nxtk-open', `${lang} deck menu 380`);
+      await deck.locator('#nxtk-menu-toggle').click();
+      await page.locator('#nxtk-settings-fab').click();
+      const settings = page.locator('#nxtk-settings-modal .nxtk-modal');
+      const catalog = JSON.parse(fs.readFileSync(path.join(extensionDir, `_locales/${lang}/messages.json`), 'utf8'));
+      await expect(settings.locator('[data-settings-group="appearance"] h3')).toHaveText(catalog.setSectionLanguage.message);
+      for (const width of [360, 1280]) {
+        await page.setViewportSize({ width, height: 800 });
+        await page.waitForTimeout(400);
+        await assertFits(page, '#nxtk-settings-modal .nxtk-modal', `${lang} settings ${width}`);
+        expect(await settings.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+        await settings.locator('.nxtk-modal-scroll').evaluate((el) => { el.scrollTop = 0; });
+        await page.screenshot({ path: path.join(shotDir, `compact-settings-${lang}-${width}.png`) });
+      }
     } finally {
       await ctx.close();
     }

@@ -1,0 +1,180 @@
+// Real settings modal + storage + shared helpers. Only browser APIs are supplied by the fixture.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { JSDOM } = require('jsdom');
+const root = path.resolve(__dirname, '..');
+const en = JSON.parse(fs.readFileSync(path.join(root, 'src/_locales/en/messages.json'), 'utf8'));
+const tick = () => new Promise((resolve) => setTimeout(resolve, 15));
+
+function fixture(locale = 'en') {
+  const dom = new JSDOM('<!doctype html><body><button id="opener">Settings</button></body>', {
+    url: 'https://www.nexusmods.com/skyrimspecialedition/mods/1', runScripts: 'outside-only', pretendToBeVisual: true
+  });
+  const w = dom.window;
+  const observers = [];
+  const NativeObserver = w.MutationObserver;
+  w.MutationObserver = class extends NativeObserver {
+    constructor(callback) { super(callback); observers.push(this); }
+  };
+  const store = {};
+  const messages = JSON.parse(fs.readFileSync(path.join(root, `src/_locales/${locale}/messages.json`), 'utf8'));
+  w.chrome = {
+    runtime: {
+      id: 'settings-test', lastError: null, getManifest: () => ({ version: '3.1.0' }),
+      sendMessage: (message, callback) => {
+        if (message.type === 'SETTINGS_PATCH' || message.type === 'SETTINGS_RESET') {
+          const next = message.type === 'SETTINGS_RESET' ? { ...w.NXTK.DEFAULTS }
+            : { ...w.NXTK.DEFAULTS, ...store.nxtk_settings, ...message.payload.patch };
+          store.nxtk_settings = next;
+          callback({ ok: true, value: next });
+        } else callback({ ok: false, error: 'fixture does not load optional bundles' });
+      }
+    },
+    storage: {
+      local: {
+        get: (key, callback) => callback({ [key]: store[key] }),
+        set: (values, callback) => { Object.assign(store, values); callback?.(); }
+      }, onChanged: { addListener() {} }
+    },
+    i18n: {
+      getMessage: (key, args = []) => (messages[key]?.message || en[key]?.message || '').replace(/\$(\d+)/g, (_, n) => args[Number(n) - 1] || ''),
+      getUILanguage: () => locale
+    }
+  };
+  for (const file of ['src/shared.js', 'src/content/storage.js', 'src/content/ui.js', 'src/content/ui-settings.js']) {
+    w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+  }
+  const modal = () => w.document.querySelector('#nxtk-settings-modal .nxtk-modal');
+  return { w, store, modal, close: () => { observers.forEach((o) => o.disconnect()); dom.window.close(); } };
+}
+
+(async () => {
+  const f = fixture();
+  const { w, store, modal } = f;
+  const find = (selector) => modal().querySelector(selector);
+  const change = (key, value, type = 'change') => {
+    const input = find(`[data-setting="${key}"]`);
+    if (input.type === 'checkbox') input.checked = value;
+    else input.value = value;
+    input.dispatchEvent(new w.Event(type, { bubbles: true }));
+  };
+  try {
+    await w.NexusExt.UIKit.settings.open();
+    const groups = {
+      downloads: ['AutoStartDownload', 'AutoCloseTab', 'SkipRequirements', 'HandleArchivedFiles', 'DownloadFolder'],
+      collections: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'],
+      appearance: ['HidePremiumUpsells', 'ShowAlertsOnError', 'ForceEnglish']
+    };
+    for (const [group, keys] of Object.entries(groups)) {
+      const section = find(`[data-settings-group="${group}"]`);
+      assert.ok(section, `${group} has its own readable group`);
+      assert.deepEqual([...section.querySelectorAll('[data-setting]')].map((el) => el.dataset.setting), keys);
+    }
+    assert.equal(find('#nxtk-advanced-body').hidden, true);
+    assert.equal(modal().querySelectorAll('[data-setting]').length, 19, 'all settings appear exactly once');
+    assert.equal(new Set([...modal().querySelectorAll('[data-setting]')].map((el) => el.dataset.setting)).size, 19);
+    for (const input of modal().querySelectorAll('[data-setting]')) {
+      assert.ok(input.labels?.length || input.getAttribute('aria-labelledby'), `${input.dataset.setting} has an accessible label`);
+    }
+
+    // Help opens separately: tapping information must never change the neighbouring setting.
+    const row = find('[data-key="AutoStartDownload"]');
+    const help = row.querySelector('[data-setting-help]');
+    const detail = w.document.getElementById(help.getAttribute('aria-controls'));
+    const before = row.querySelector('input').checked;
+    assert.equal(detail.hidden, true);
+    help.click();
+    assert.equal(detail.hidden, false);
+    assert.equal(help.getAttribute('aria-expanded'), 'true');
+    assert.match(detail.textContent, /Nexus file page/);
+    assert.equal(row.querySelector('input').checked, before);
+    help.click();
+    assert.equal(detail.hidden, true);
+    assert.equal(help.getAttribute('aria-expanded'), 'false');
+
+    change('AutoStartDownload', false);
+    await tick();
+    assert.equal(store.nxtk_settings.AutoStartDownload, false);
+    assert.match(find('#nxtk-preset-note').textContent, /Custom/);
+    change('DownloadFolder', '  Mods & archives  ', 'input');
+    find('.nxtk-modal-footer [data-close]').click();
+    await tick();
+    assert.equal(store.nxtk_settings.DownloadFolder, 'Mods & archives', 'closing flushes a pending folder edit');
+
+    await w.NexusExt.UIKit.settings.open();
+    const sameModal = modal();
+    find('#nxtk-advanced-toggle').click();
+    const keptHelp = find('[data-key="AutoStartDownload"] [data-setting-help]');
+    keptHelp.click();
+    find('.nxtk-modal-scroll').scrollTop = 137;
+    change('DownloadFolder', '  Pending preset folder  ', 'input');
+    find('[data-preset="browser"]').focus();
+    find('[data-preset="browser"]').click();
+    await tick();
+    assert.equal(modal(), sameModal, 'Quick setup updates the existing dialog instead of replacing it');
+    assert.equal(find('.nxtk-modal-scroll').scrollTop, 137, 'preset preserves scroll');
+    assert.equal(find('#nxtk-advanced-body').hidden, false, 'preset preserves expanded Advanced');
+    assert.equal(keptHelp.getAttribute('aria-expanded'), 'true', 'preset preserves open explanations');
+    assert.equal(w.document.activeElement, find('[data-preset="browser"]'), 'preset preserves keyboard focus');
+    assert.equal(store.nxtk_settings.NDC_downloadMethod, 1);
+    assert.equal(store.nxtk_settings.DownloadFolder, 'Pending preset folder', 'preset flushes a pending field without resetting it');
+    assert.equal(find('[data-preset="browser"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(find('[data-setting="AutoCloseTab"]').checked, false, 'visible switches update in place');
+    assert.equal(find('#nxtk-advanced-body').hidden, false);
+    change('RequestTimeout', '45', 'input');
+    find('.nxtk-modal-footer [data-close]').click();
+    await tick();
+    assert.equal(store.nxtk_settings.RequestTimeout, 45000, 'seconds remain milliseconds in storage');
+
+    await w.NexusExt.UIKit.settings.open();
+    change('WabbajackImport', true);
+    assert.equal(find('#nxtk-wj-import').hidden, false);
+    find('[data-preset="minimal"]').click();
+    await tick();
+    assert.equal(find('[data-setting="WabbajackImport"]').checked, false);
+    assert.equal(find('#nxtk-wj-import').hidden, true, 'Minimal updates the import action without reopening');
+    find('[data-preset="vortex"]').click();
+    find('[data-preset="minimal"]').click();
+    find('[data-preset="browser"]').click();
+    await tick();
+    assert.equal(store.nxtk_settings.NDC_downloadMethod, 1, 'rapid preset clicks are serialized in click order');
+    assert.equal(store.nxtk_settings.AutoStartDownload, true);
+    assert.equal(store.nxtk_settings.AutoCloseTab, false);
+    assert.equal(find('[data-preset="browser"]').getAttribute('aria-pressed'), 'true');
+    change('WabbajackImport', false);
+    assert.equal(find('#nxtk-wj-import').hidden, true);
+    change('ForceEnglish', true);
+    await tick();
+    assert.equal(find('[data-setting="ForceEnglish"]').checked, true, 'language change reopens with the saved state');
+    find('[data-reset]').click();
+    await tick();
+    const confirm = w.document.querySelector('#nxtk-confirm-modal');
+    assert.ok(confirm, 'restore still requires confirmation');
+    confirm.querySelector('[data-close="cancel"]').click();
+    await tick();
+    assert.equal(store.nxtk_settings.DownloadFolder, 'Pending preset folder', 'cancel leaves settings untouched');
+    assert.ok(modal(), 'cancel returns to settings');
+    for (const locale of fs.readdirSync(path.join(root, 'src/_locales'))) {
+      const localized = fixture(locale);
+      try {
+        await localized.w.NexusExt.UIKit.settings.open();
+        const localizedRow = localized.modal().querySelector('[data-key="ForceEnglish"]');
+        const button = localizedRow.querySelector('[data-setting-help]');
+        assert.ok(!button.getAttribute('aria-label').includes('$1'), `${locale} substitutes the setting name in the help label`);
+        button.click();
+        assert.equal(localizedRow.querySelector('.nxtk-setting-help').hidden, false);
+        assert.equal(localizedRow.querySelector('input').checked, false, `${locale} help must not force English`);
+      } finally {
+        localized.w.NexusExt.UIKit.closeModal('nxtk-settings-modal');
+        await tick();
+        localized.close();
+      }
+    }
+    console.log('Compact settings: grouping, help, labels, autosave, presets, language, Advanced, import and reset-cancel OK');
+  } finally {
+    w.NexusExt.UIKit.closeModal('nxtk-settings-modal');
+    await tick();
+    f.close();
+  }
+})().catch((error) => { console.error(error); process.exitCode = 1; });

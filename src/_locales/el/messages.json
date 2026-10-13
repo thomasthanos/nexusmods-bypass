@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Κουμπιά αρχειοθετημένων αρχείων"
-  },
+  },
   "btnPageSettings": {
     "message": "Ρυθμίσεις σελίδας"
   },
@@ -91,10 +91,10 @@
   },
   "bugCardText": {
     "message": "Κάθε κουμπί «Αναφορά σφάλματος» αντιγράφει πλήρες διαγνωστικό report και ανοίγει προσυμπληρωμένο GitHub issue."
-  },
+  },
   "openNexusBtn": {
     "message": "Άνοιγμα Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Καμία σχέση με το Nexus Mods. Χρειάζεσαι δικό σου λογαριασμό Nexus Mods· το premium περιεχόμενο παραμένει premium."
   },
@@ -531,25 +531,22 @@
     "message": "Ρυθμίσεις βοηθού λήψεων"
   },
   "setSubtitle": {
-    "message": "Οι αλλαγές αποθηκεύονται αμέσως. Η επαναφορά θα φορτώσει ξανά τη σελίδα."
+    "message": "Οι αλλαγές αποθηκεύονται αυτόματα."
   },
   "setSectionFlow": {
-    "message": "Ροή λήψης"
+    "message": "Λήψεις"
   },
   "setSectionPacing": {
-    "message": "Αρχεία και ρυθμός"
+    "message": "Συλλογές"
   },
   "setSectionAdvanced": {
     "message": "Για προχωρημένους"
   },
   "setRestoreDefaults": {
-    "message": "Επαναφορά προεπιλογών και ανανέωση"
-  },
-  "setNeedHelp": {
-    "message": "Χρειάζεστε βοήθεια με μια λήψη;"
+    "message": "Επαναφορά προεπιλογών"
   },
   "setReportOnGithub": {
-    "message": "Αναφορά σφάλματος στο GitHub"
+    "message": "Αναφορά σφάλματος"
   },
   "setRestoreTitle": {
     "message": "Επαναφορά προεπιλογών"
@@ -589,7 +586,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Προσθέτει κουμπιά λήψης Vortex και περιηγητή σε αρχειοθετημένα αρχεία όταν το Nexus τα κρύβει."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Φάκελος λήψεων περιηγητή"
   },
@@ -1079,7 +1076,7 @@
     }
   },
   "setSectionLanguage": {
-    "message": "Γλώσσα"
+    "message": "Εμφάνιση και γλώσσα"
   },
   "setForceEnglishLabel": {
     "message": "Πάντα στα αγγλικά"
@@ -1882,19 +1879,19 @@
     "message": "Χρήστης Vortex"
   },
   "presetVortexDesc": {
-    "message": "Αποστολή αρχείων στο Vortex, αυτόματη έναρξη, κλείσιμο της επιπλέον καρτέλας."
+    "message": "Στείλε στο Vortex και κλείσε την καρτέλα."
   },
   "presetBrowser": {
     "message": "Λήψεις μέσω προγράμματος περιήγησης"
   },
   "presetBrowserDesc": {
-    "message": "Αποθήκευση πραγματικών αρχείων στις Λήψεις, αυτόματη έναρξη."
+    "message": "Αποθήκευσε αρχεία με τον browser."
   },
   "presetMinimal": {
     "message": "Ελάχιστο"
   },
   "presetMinimalDesc": {
-    "message": "Μόνο ό,τι πατάτε: χωρίς αυτόματη έναρξη, χωρίς επιπλέον κουμπιά."
+    "message": "Ξεκίνα μόνο όταν πατήσεις."
   },
   "setSectionPresets": {
     "message": "Γρήγορη ρύθμιση"
@@ -2039,5 +2036,70 @@
   },
   "btnOpenModFiles": {
     "message": "Άνοιγμα καρτέλας Files"
+  },
+  "setShortAutoStartDownload": {
+    "message": "Ξεκίνα όταν ανοίγεις τη σελίδα ενός αρχείου."
+  },
+  "setShortAutoCloseTab": {
+    "message": "Μόνο Vortex. Κλείσε την προσωρινή καρτέλα μετά την αποστολή."
+  },
+  "setShortSkipRequirements": {
+    "message": "Πήγαινε κατευθείαν στο βήμα λήψης."
+  },
+  "setShortShowAlertsOnError": {
+    "message": "Εμφάνισε μήνυμα όταν δεν μπορεί να ξεκινήσει η λήψη."
+  },
+  "setShortHidePremiumUpsells": {
+    "message": "Κρύψε διαφημίσεις, προτάσεις Premium και την αντίστροφη μέτρηση."
+  },
+  "setShortHandleArchivedFiles": {
+    "message": "Πρόσθεσε κουμπιά λήψης στα αρχειοθετημένα αρχεία."
+  },
+  "setShortWabbajackImport": {
+    "message": "Βάλε σε σειρά τα αρχεία Nexus μιας λίστας .wabbajack (beta)."
+  },
+  "setShortHideDownloadPopup": {
+    "message": "Chrome / Edge: μην ανοίγεις το αναδυόμενο λήψεων κατά την εκτέλεση."
+  },
+  "setShortNDC_smallestFirst": {
+    "message": "Κατέβασε πρώτα τα μικρότερα αρχεία της συλλογής."
+  },
+  "setShortUseOfficialApi": {
+    "message": "Χρησιμοποίησε το τεκμηριωμένο API αντί για αναζήτηση στις σελίδες."
+  },
+  "setShortFollowUpdatePolicy": {
+    "message": "Χρησιμοποίησε νεότερα αρχεία μόνο όταν το επιτρέπει ο δημιουργός."
+  },
+  "setShortShowModActions": {
+    "message": "Εμφάνισε Endorse και Track. Δεν γίνεται αυτόματη αποστολή."
+  },
+  "setShortCloudflareFallback": {
+    "message": "Άνοιξε τη σελίδα αρχείου για να ολοκληρώσεις τον έλεγχο browser."
+  },
+  "setShortForceEnglish": {
+    "message": "Χρησιμοποίησε αγγλικά αντί για τη γλώσσα του browser."
+  },
+  "setShortDownloadFolder": {
+    "message": "Μόνο browser. Κενό σημαίνει τον φάκελο Λήψεις."
+  },
+  "setShortRequestTimeout": {
+    "message": "Πόσο να περιμένει για έναν σύνδεσμο λήψης."
+  },
+  "setShortCloseTabDelay": {
+    "message": "Μόνο Vortex. Αναμονή πριν κλείσει η προσωρινή καρτέλα."
+  },
+  "setShortNDC_downloadSpeed": {
+    "message": "Μόνο Vortex. Εκτίμηση της διάρκειας λήψης κάθε αρχείου."
+  },
+  "setShortNDC_pauseBetweenDownload": {
+    "message": "Μόνο Vortex. Πρόσθεσε αναμονή μεταξύ αρχείων."
+  },
+  "setHelpFor": {
+    "message": "Περισσότερες πληροφορίες: $1",
+    "placeholders": {
+      "setting": {
+        "content": "$1"
+      }
+    }
   }
 }

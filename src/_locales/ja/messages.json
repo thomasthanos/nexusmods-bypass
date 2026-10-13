@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "アーカイブ済みファイルのボタン"
-  },
+  },
   "btnPageSettings": {
     "message": "ページ設定"
   },
@@ -91,10 +91,10 @@
   },
   "bugCardText": {
     "message": "「バグを報告」ボタンは診断レポート全体をコピーし、内容が入力済みの GitHub Issue を開きます。"
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods を開く"
-  },
+  },
   "disclaimer": {
     "message": "Nexus Mods とは無関係です。ご自身の Nexus Mods アカウントが必要で、Premium 限定コンテンツは Premium 限定のままです。"
   },
@@ -461,25 +461,22 @@
     "message": "ダウンロード支援の設定"
   },
   "setSubtitle": {
-    "message": "変更は即座に保存されます。既定値に戻すとこのページが再読み込みされます。"
+    "message": "変更は自動保存されます。"
   },
   "setSectionFlow": {
-    "message": "ダウンロードの流れ"
+    "message": "ダウンロード"
   },
   "setSectionPacing": {
-    "message": "ファイルとペース"
+    "message": "コレクション"
   },
   "setSectionAdvanced": {
     "message": "詳細設定"
   },
   "setRestoreDefaults": {
-    "message": "既定値に戻して再読み込み"
-  },
-  "setNeedHelp": {
-    "message": "ダウンロードでお困りですか？"
+    "message": "既定値に戻す"
   },
   "setReportOnGithub": {
-    "message": "GitHub でバグを報告"
+    "message": "不具合を報告"
   },
   "setRestoreTitle": {
     "message": "既定値に戻す"
@@ -519,7 +516,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus が非表示にしているアーカイブ済みファイルに、Vortex とブラウザーのダウンロードボタンを追加します。"
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "ブラウザーのダウンロードフォルダー"
   },
@@ -1020,7 +1017,7 @@
     }
   },
   "setSectionLanguage": {
-    "message": "言語"
+    "message": "表示と言語"
   },
   "setForceEnglishLabel": {
     "message": "常に英語を使用"
@@ -1798,19 +1795,19 @@
     "message": "Vortex ユーザー"
   },
   "presetVortexDesc": {
-    "message": "ファイルを Vortex に送信し、自動で開始し、余分なタブを閉じます。"
+    "message": "Vortex に送り、タブを閉じます。"
   },
   "presetBrowser": {
     "message": "ブラウザのダウンロード"
   },
   "presetBrowserDesc": {
-    "message": "実際のファイルをダウンロードフォルダーに保存し、自動で開始します。"
+    "message": "ブラウザーでファイルを保存します。"
   },
   "presetMinimal": {
     "message": "最小"
   },
   "presetMinimalDesc": {
-    "message": "クリックしたものだけ:自動開始なし、追加ボタンなし。"
+    "message": "クリックした時のみ開始します。"
   },
   "setSectionPresets": {
     "message": "クイック設定"
@@ -1955,5 +1952,70 @@
   },
   "btnOpenModFiles": {
     "message": "Files タブを開く"
+  },
+  "setShortAutoStartDownload": {
+    "message": "ファイルページを開いたら開始します。"
+  },
+  "setShortAutoCloseTab": {
+    "message": "Vortex のみ。送信後に一時タブを閉じます。"
+  },
+  "setShortSkipRequirements": {
+    "message": "ダウンロード手順へ直接進みます。"
+  },
+  "setShortShowAlertsOnError": {
+    "message": "開始できない場合に通知します。"
+  },
+  "setShortHidePremiumUpsells": {
+    "message": "広告、Premium の案内、カウントダウンを隠します。"
+  },
+  "setShortHandleArchivedFiles": {
+    "message": "アーカイブ済みファイルにボタンを追加します。"
+  },
+  "setShortWabbajackImport": {
+    "message": ".wabbajack の Nexus ファイルをキューに追加します（ベータ）。"
+  },
+  "setShortHideDownloadPopup": {
+    "message": "Chrome / Edge：実行中はダウンロード画面を開きません。"
+  },
+  "setShortNDC_smallestFirst": {
+    "message": "小さいファイルからダウンロードします。"
+  },
+  "setShortUseOfficialApi": {
+    "message": "ページ検索の代わりに文書化された API を使います。"
+  },
+  "setShortFollowUpdatePolicy": {
+    "message": "作者が許可した場合のみ新しいファイルを使います。"
+  },
+  "setShortShowModActions": {
+    "message": "Endorse と Track を表示します。自動送信しません。"
+  },
+  "setShortCloudflareFallback": {
+    "message": "ファイルページを開き、ブラウザー確認を完了します。"
+  },
+  "setShortForceEnglish": {
+    "message": "ブラウザーの言語ではなく英語を使います。"
+  },
+  "setShortDownloadFolder": {
+    "message": "ブラウザーのみ。空欄ならダウンロードフォルダーです。"
+  },
+  "setShortRequestTimeout": {
+    "message": "ダウンロードリンクを待つ時間です。"
+  },
+  "setShortCloseTabDelay": {
+    "message": "Vortex のみ。タブを閉じる前に待機します。"
+  },
+  "setShortNDC_downloadSpeed": {
+    "message": "Vortex のみ。各ファイルの所要時間を推定します。"
+  },
+  "setShortNDC_pauseBetweenDownload": {
+    "message": "Vortex のみ。ファイル間に待機時間を追加します。"
+  },
+  "setHelpFor": {
+    "message": "詳細情報：$1",
+    "placeholders": {
+      "setting": {
+        "content": "$1"
+      }
+    }
   }
 }

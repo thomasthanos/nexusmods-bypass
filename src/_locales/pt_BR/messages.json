@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Botões de arquivos arquivados"
-  },
+  },
   "btnPageSettings": {
     "message": "Configurações da página"
   },
@@ -91,10 +91,10 @@
   },
   "bugCardText": {
     "message": "Cada botão \"Reportar bug\" copia um relatório completo e abre uma issue pré-preenchida no GitHub."
-  },
+  },
   "openNexusBtn": {
     "message": "Abrir Nexus Mods"
-  },
+  },
   "disclaimer": {
     "message": "Sem afiliação com o Nexus Mods. Você precisa da sua própria conta; conteúdo premium continua premium."
   },
@@ -531,25 +531,22 @@
     "message": "Configurações do assistente de download"
   },
   "setSubtitle": {
-    "message": "As alterações são salvas na hora. Restaurar padrões recarregará esta página."
+    "message": "As alterações são salvas automaticamente."
   },
   "setSectionFlow": {
-    "message": "Fluxo de download"
+    "message": "Downloads"
   },
   "setSectionPacing": {
-    "message": "Arquivos e ritmo"
+    "message": "Coleções"
   },
   "setSectionAdvanced": {
     "message": "Avançado"
   },
   "setRestoreDefaults": {
-    "message": "Restaurar padrões e recarregar"
-  },
-  "setNeedHelp": {
-    "message": "Precisa de ajuda com um download?"
+    "message": "Restaurar padrões"
   },
   "setReportOnGithub": {
-    "message": "Relatar um erro no GitHub"
+    "message": "Relatar um erro"
   },
   "setRestoreTitle": {
     "message": "Restaurar padrões"
@@ -589,7 +586,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Adiciona botões de download do Vortex e do navegador aos arquivos arquivados ocultados pelo Nexus."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Pasta de downloads do navegador"
   },
@@ -1079,7 +1076,7 @@
     }
   },
   "setSectionLanguage": {
-    "message": "Idioma"
+    "message": "Aparência e idioma"
   },
   "setForceEnglishLabel": {
     "message": "Sempre usar inglês"
@@ -1882,19 +1879,19 @@
     "message": "Usuário do Vortex"
   },
   "presetVortexDesc": {
-    "message": "Enviar arquivos ao Vortex, iniciar automaticamente, fechar a aba extra."
+    "message": "Enviar ao Vortex e fechar a aba."
   },
   "presetBrowser": {
     "message": "Downloads do navegador"
   },
   "presetBrowserDesc": {
-    "message": "Salvar arquivos reais na pasta Downloads, iniciar automaticamente."
+    "message": "Salvar arquivos com o navegador."
   },
   "presetMinimal": {
     "message": "Mínimo"
   },
   "presetMinimalDesc": {
-    "message": "Só o que você clicar: sem início automático, sem botões extras."
+    "message": "Iniciar só quando clicar."
   },
   "setSectionPresets": {
     "message": "Configuração rápida"
@@ -2039,5 +2036,70 @@
   },
   "btnOpenModFiles": {
     "message": "Abrir a aba Arquivos"
+  },
+  "setShortAutoStartDownload": {
+    "message": "Iniciar ao abrir a página de um arquivo."
+  },
+  "setShortAutoCloseTab": {
+    "message": "Só Vortex. Fechar a aba temporária após o envio."
+  },
+  "setShortSkipRequirements": {
+    "message": "Ir direto para o download."
+  },
+  "setShortShowAlertsOnError": {
+    "message": "Mostrar uma mensagem se não puder iniciar."
+  },
+  "setShortHidePremiumUpsells": {
+    "message": "Ocultar anúncios, ofertas Premium e contagem regressiva."
+  },
+  "setShortHandleArchivedFiles": {
+    "message": "Adicionar botões aos arquivos arquivados."
+  },
+  "setShortWabbajackImport": {
+    "message": "Enfileirar arquivos Nexus de uma lista .wabbajack (beta)."
+  },
+  "setShortHideDownloadPopup": {
+    "message": "Chrome / Edge: manter o pop-up fechado durante a execução."
+  },
+  "setShortNDC_smallestFirst": {
+    "message": "Baixar primeiro os arquivos menores."
+  },
+  "setShortUseOfficialApi": {
+    "message": "Usar a API documentada em vez de páginas."
+  },
+  "setShortFollowUpdatePolicy": {
+    "message": "Usar arquivos novos só quando o curador permitir."
+  },
+  "setShortShowModActions": {
+    "message": "Mostrar Endorse e Track. Sem envio automático."
+  },
+  "setShortCloudflareFallback": {
+    "message": "Abrir a página do arquivo para verificar o navegador."
+  },
+  "setShortForceEnglish": {
+    "message": "Usar inglês em vez do idioma do navegador."
+  },
+  "setShortDownloadFolder": {
+    "message": "Só navegador. Vazio significa a pasta Downloads."
+  },
+  "setShortRequestTimeout": {
+    "message": "Tempo de espera por um link de download."
+  },
+  "setShortCloseTabDelay": {
+    "message": "Só Vortex. Esperar antes de fechar a aba."
+  },
+  "setShortNDC_downloadSpeed": {
+    "message": "Só Vortex. Estimar a duração de cada arquivo."
+  },
+  "setShortNDC_pauseBetweenDownload": {
+    "message": "Só Vortex. Adicionar uma pausa entre arquivos."
+  },
+  "setHelpFor": {
+    "message": "Mais informações: $1",
+    "placeholders": {
+      "setting": {
+        "content": "$1"
+      }
+    }
   }
 }

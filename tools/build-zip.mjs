@@ -52,7 +52,8 @@ for (const check of [
   'manifest-diff-test.mjs',
   'nexus-api-test.cjs',
   'debug-view-test.cjs',
-  'ux-friendly-test.cjs'
+  'ux-friendly-test.cjs',
+  'settings-ui-test.cjs'
 ]) {
   const run = spawnSync(process.execPath, [join(root, 'tools', check)], { cwd: root, stdio: 'inherit' });
   if (run.status !== 0) fail(`${check} did not pass — package not built.`);

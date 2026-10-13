@@ -64,10 +64,95 @@
     if (NXTK.ADVANCED_SETTING_KEYS.includes(s.key)) s.advanced = true;
   }
 
+
+  const SETTING_GROUPS = [
+    { name: 'downloads', titleKey: 'setSectionFlow', title: 'Downloads', keys: ['AutoStartDownload', 'AutoCloseTab', 'SkipRequirements', 'HandleArchivedFiles', 'DownloadFolder'] },
+    { name: 'collections', titleKey: 'setSectionPacing', title: 'Collections', keys: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'] },
+    { name: 'appearance', titleKey: 'setSectionLanguage', title: 'Appearance & language', keys: ['HidePremiumUpsells', 'ShowAlertsOnError', 'ForceEnglish'] }
+  ];
+  const SHORT_COPY = {
+    "AutoStartDownload": [
+      "setShortAutoStartDownload",
+      "Start when you open a file page."
+    ],
+    "AutoCloseTab": [
+      "setShortAutoCloseTab",
+      "Vortex only. Close the temporary tab after sending."
+    ],
+    "SkipRequirements": [
+      "setShortSkipRequirements",
+      "Go straight to the download step."
+    ],
+    "ShowAlertsOnError": [
+      "setShortShowAlertsOnError",
+      "Show a message when a download cannot start."
+    ],
+    "HidePremiumUpsells": [
+      "setShortHidePremiumUpsells",
+      "Hide ads, upgrade panels and the download countdown."
+    ],
+    "HandleArchivedFiles": [
+      "setShortHandleArchivedFiles",
+      "Add download buttons to archived files."
+    ],
+    "WabbajackImport": [
+      "setShortWabbajackImport",
+      "Queue Nexus files from a .wabbajack modlist (beta)."
+    ],
+    "HideDownloadPopup": [
+      "setShortHideDownloadPopup",
+      "Chrome / Edge: keep the download bubble quiet during a run."
+    ],
+    "NDC_smallestFirst": [
+      "setShortNDC_smallestFirst",
+      "Download smaller collection files first."
+    ],
+    "UseOfficialApi": [
+      "setShortUseOfficialApi",
+      "Use the documented API instead of page lookups."
+    ],
+    "FollowUpdatePolicy": [
+      "setShortFollowUpdatePolicy",
+      "Use newer files only when the curator allows it."
+    ],
+    "ShowModActions": [
+      "setShortShowModActions",
+      "Show Endorse and Track. Nothing is sent automatically."
+    ],
+    "CloudflareFallback": [
+      "setShortCloudflareFallback",
+      "Open the file page to complete a browser check."
+    ],
+    "ForceEnglish": [
+      "setShortForceEnglish",
+      "Use English instead of your browser language."
+    ],
+    "DownloadFolder": [
+      "setShortDownloadFolder",
+      "Browser only. Empty means the Downloads folder."
+    ],
+    "RequestTimeout": [
+      "setShortRequestTimeout",
+      "How long to wait for a download link."
+    ],
+    "CloseTabDelay": [
+      "setShortCloseTabDelay",
+      "Vortex only. Wait before closing the temporary tab."
+    ],
+    "NDC_downloadSpeed": [
+      "setShortNDC_downloadSpeed",
+      "Vortex only. Estimate how long each file takes."
+    ],
+    "NDC_pauseBetweenDownload": [
+      "setShortNDC_pauseBetweenDownload",
+      "Vortex only. Add a gap between files."
+    ]
+  };
+
   const PRESETS_UI = [
-    { name: 'vortex', label: () => NXTK.t('presetVortex', null, 'Vortex user'), desc: () => NXTK.t('presetVortexDesc', null, 'Send files to Vortex, start automatically, close the extra tab.') },
-    { name: 'browser', label: () => NXTK.t('presetBrowser', null, 'Browser downloads'), desc: () => NXTK.t('presetBrowserDesc', null, 'Save real files to your Downloads folder, start automatically.') },
-    { name: 'minimal', label: () => NXTK.t('presetMinimal', null, 'Minimal'), desc: () => NXTK.t('presetMinimalDesc', null, 'Only what you click: no auto-start, no extra buttons.') }
+    { name: 'vortex', label: () => NXTK.t('presetVortex', null, 'Vortex user'), desc: () => NXTK.t('presetVortexDesc', null, 'Send to Vortex and close the tab.') },
+    { name: 'browser', label: () => NXTK.t('presetBrowser', null, 'Browser downloads'), desc: () => NXTK.t('presetBrowserDesc', null, 'Save files with your browser.') },
+    { name: 'minimal', label: () => NXTK.t('presetMinimal', null, 'Minimal'), desc: () => NXTK.t('presetMinimalDesc', null, 'Start only when you click.') }
   ];
 
   // UI.showSettingsModal in ui.js checks that the extension is still connected, then calls this.
@@ -79,31 +164,39 @@
 
     const text = (v) => (typeof v === 'function' ? v() : (v ?? ''));
     const buildRow = (s) => {
-      const copy = `<span class="nxtk-setting-copy"><span class="nxtk-setting-title">${escapeHtml(text(s.label))}</span><span class="nxtk-setting-desc">${escapeHtml(text(s.desc))}</span></span>`;
-      const timingTitle = `<span class="nxtk-setting-copy"><span class="nxtk-setting-title-row"><span class="nxtk-setting-title">${escapeHtml(text(s.label))}</span><span class="nxtk-setting-info-icon" data-tooltip="${escapeHtml(text(s.desc))}" aria-label="${escapeHtml(text(s.desc))}" tabindex="0">${svgIcon('info')}</span></span></span>`;
+      const inputId = `nxtk-setting-${s.key}`;
+      const summaryId = `${inputId}-summary`;
+      const helpId = `${inputId}-help`;
+      const title = text(s.label);
+      const [summaryKey, summaryFallback] = SHORT_COPY[s.key];
+      const summary = NXTK.t(summaryKey, null, summaryFallback);
+      const copy = `<div class="nxtk-setting-copy"><div class="nxtk-setting-title-row"><label class="nxtk-setting-title" for="${inputId}">${escapeHtml(title)}</label><button type="button" class="nxtk-setting-help-toggle" data-setting-help="${s.key}" aria-expanded="false" aria-controls="${helpId}" aria-label="${escapeHtml(NXTK.t('setHelpFor', [title], 'More information: ' + title))}">${svgIcon('info')}</button></div><span class="nxtk-setting-desc" id="${summaryId}">${escapeHtml(summary)}</span></div>`;
+      const help = `<p class="nxtk-setting-help" id="${helpId}" hidden>${escapeHtml(text(s.desc))}</p>`;
+      let control = '';
       if (s.type === 'bool') {
-        return `<div class="nxtk-setting-row" data-key="${s.key}"><label class="nxtk-setting-label"><span class="nxtk-toggle"><input type="checkbox" data-setting="${s.key}" ${cfg[s.key] ? 'checked' : ''}><span class="nxtk-toggle-track"></span></span>${copy}</label></div>`;
-      }
-      if (s.type === 'number' || s.type === 'decimal') {
+        control = `<span class="nxtk-toggle"><input id="${inputId}" type="checkbox" data-setting="${s.key}" aria-describedby="${summaryId}" ${cfg[s.key] ? 'checked' : ''}><span class="nxtk-toggle-track"></span></span>`;
+      } else if (s.type === 'number' || s.type === 'decimal') {
         const decimal = s.type === 'decimal' ? ' data-decimal="1"' : '';
         const scale = Number(s.scale) || 1;
         const scaleAttr = scale === 1 ? '' : ` data-scale="${scale}"`;
         const step = s.step ? ` step="${escapeHtml(s.step)}"` : '';
         const min = s.min === undefined ? 0 : s.min;
         const displayValue = Number(cfg[s.key]) / scale;
-        return `<div class="nxtk-setting-row nxtk-setting-row-field" data-key="${s.key}"><div class="nxtk-setting-label">${timingTitle}<span class="nxtk-setting-field"><input type="number" data-setting="${s.key}"${decimal}${scaleAttr}${step} value="${escapeHtml(displayValue)}" min="${escapeHtml(min)}"><span class="nxtk-setting-unit">${escapeHtml(text(s.unit))}</span></span></div></div>`;
-      }
-      if (s.type === 'text') {
+        control = `<span class="nxtk-setting-field"><input id="${inputId}" type="number" data-setting="${s.key}" aria-describedby="${summaryId}"${decimal}${scaleAttr}${step} value="${escapeHtml(displayValue)}" min="${escapeHtml(min)}"><span class="nxtk-setting-unit">${escapeHtml(text(s.unit))}</span></span>`;
+      } else if (s.type === 'text') {
         const maxLength = Number(s.maxLength) > 0 ? ` maxlength="${Number(s.maxLength)}"` : '';
-        return `<div class="nxtk-setting-row nxtk-setting-row-field" data-key="${s.key}"><div class="nxtk-setting-label">${timingTitle}<span class="nxtk-setting-field"><input type="text" data-setting="${s.key}" value="${escapeHtml(cfg[s.key] ?? '')}"${maxLength} spellcheck="false"></span></div></div>`;
+        control = `<span class="nxtk-setting-field"><input id="${inputId}" type="text" data-setting="${s.key}" aria-describedby="${summaryId}" value="${escapeHtml(cfg[s.key] ?? '')}"${maxLength} spellcheck="false"></span>`;
       }
-      return '';
+      if (!control) return '';
+      return `<div class="nxtk-setting-row${s.type === 'bool' ? '' : ' nxtk-setting-row-field'}" data-key="${s.key}"><div class="nxtk-setting-label">${copy}${control}</div>${help}</div>`;
     };
 
-    const isField = (s) => s.type === 'number' || s.type === 'decimal' || s.type === 'text';
-    const features = SETTINGS_UI.filter(s => s.type === 'bool' && !s.advanced && !s.group).map(buildRow).join('');
-    const language = SETTINGS_UI.filter(s => s.group === 'language').map(buildRow).join('');
-    const timing = SETTINGS_UI.filter(s => isField(s) && !s.advanced).map(buildRow).join('');
+    const grouped = SETTING_GROUPS.map((group) => {
+      const rows = group.keys.map((key) => SETTINGS_UI.find((s) => s.key === key)).map(buildRow).join('');
+      const importButton = group.name === 'collections'
+        ? `<button class="nxtk-btn nxtk-btn-secondary" id="nxtk-wj-import" ${cfg.WabbajackImport ? '' : 'hidden'}>${L('btnImportWabbajack', 'Import Wabbajack modlist')}</button>` : '';
+      return `<section class="nxtk-settings-section nxtk-settings-${group.name}" data-settings-group="${group.name}" aria-labelledby="nxtk-group-${group.name}"><h3 class="nxtk-settings-section-title" id="nxtk-group-${group.name}">${L(group.titleKey, group.title)}</h3><div class="nxtk-settings-rows">${rows}</div>${importButton}</section>`;
+    }).join('');
     const advanced = SETTINGS_UI.filter(s => s.advanced).map(buildRow).join('');
 
     const SETTING_INPUT_DEBOUNCE_MS = 400;
@@ -114,42 +207,22 @@
       ariaLabel: NXTK.t('setTitle', null, 'Download Helper Settings'),
       restoreFocus: true,
       // Flush pending edits before the dialog and its inputs leave the page.
-      beforeClose: () => {
-        for (const [target, timer] of pendingInputWrites) {
-          clearTimeout(timer);
-          if (target.isConnected) update(target, { commit: true });
-        }
-        pendingInputWrites.clear();
-      },
+      beforeClose: flushPendingInputs,
       html: `
       <div class="nxtk-modal-header">
         <div>
-          <div class="nxtk-modal-title">${L('setTitle', 'Download Helper Settings')}</div>
-          <div class="nxtk-modal-subtitle">${L('setSubtitle', 'Changes save instantly. Restore defaults will reload this page.')}</div>
+          <div class="nxtk-settings-heading"><div class="nxtk-modal-title">${L('setTitle', 'Download Helper Settings')}</div><span class="nxtk-settings-version-tag">v${escapeHtml(chrome.runtime.getManifest().version)}</span></div>
+          <div class="nxtk-modal-subtitle">${L('setSubtitle', 'Changes save automatically.')}</div>
         </div>
         <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
       </div>
       <div class="nxtk-modal-scroll">
-        <div class="nxtk-settings-col nxtk-settings-col-main">
-          ${presetsHtml}
-          <div class="nxtk-settings-section nxtk-settings-flow"><div class="nxtk-settings-section-title">${L('setSectionFlow', 'Download Flow')}</div><div class="nxtk-settings-rows">${features}</div></div>
-        </div>
-        <div class="nxtk-settings-col nxtk-settings-col-side">
-          <div class="nxtk-settings-section nxtk-settings-language"><div class="nxtk-settings-section-title">${L('setSectionLanguage', 'Language')}</div><div class="nxtk-settings-rows">${language}</div></div>
-          <div class="nxtk-settings-section nxtk-settings-pacing"><div class="nxtk-settings-section-title">${L('setSectionPacing', 'Files & Pacing')}</div><div class="nxtk-settings-rows">${timing}</div></div>
-          <div class="nxtk-settings-version">
-            <span class="nxtk-settings-version-name">${L('appName', 'NexusMods Bypass')}</span>
-            <span class="nxtk-settings-version-tag">v${escapeHtml(chrome.runtime.getManifest().version)}</span>
-          </div>
-        </div>
+        ${presetsHtml}
+        <div class="nxtk-settings-groups">${grouped}</div>
         <div class="nxtk-settings-advanced">
           <div class="nxtk-settings-advanced-bar">
             <button type="button" class="nxtk-settings-advanced-toggle" id="nxtk-advanced-toggle"
                     aria-expanded="false" aria-controls="nxtk-advanced-body">${svgIcon('chevronRight')} ${L('setSectionAdvanced', 'Advanced')}</button>
-            <div class="nxtk-settings-support">
-              <span>${L('setNeedHelp', 'Need help with a download?')}</span>
-              <button type="button" class="nxtk-settings-report" data-report-issue>${svgIcon('github')}<span data-report-label>${L('setReportOnGithub', 'Report a bug on GitHub')}</span></button>
-            </div>
           </div>
           <div class="nxtk-settings-advanced-body" id="nxtk-advanced-body" hidden>
             <div class="nxtk-settings-advanced-panel">${advanced}</div>
@@ -157,8 +230,8 @@
         </div>
       </div>
       <div class="nxtk-modal-footer">
-        <button class="nxtk-btn nxtk-btn-secondary" id="nxtk-wj-import" ${cfg.WabbajackImport ? '' : 'hidden'}>${L('btnImportWabbajack', 'Import Wabbajack modlist')}</button>
-        <button class="nxtk-btn nxtk-btn-secondary" data-reset>${L('setRestoreDefaults', 'Restore Defaults & Refresh')}</button>
+        <button class="nxtk-btn nxtk-btn-secondary" data-reset>${L('setRestoreDefaults', 'Restore defaults')}</button>
+        <button type="button" class="nxtk-settings-report" data-report-issue>${svgIcon('github')}<span data-report-label>${L('setReportOnGithub', 'Report a bug')}</span></button>
         <button class="nxtk-btn nxtk-btn-primary" data-close>${L('btnDone', 'Done')}</button>
       </div>
     `
@@ -194,18 +267,28 @@
       if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
       syncPresetState();
 
-      if (key === 'WabbajackImport') {
-        if (value) kit.preloadBundle('wabbajack');
-        for (const id of ['#nxtk-wj-import', '#nxtk-wj-deck-import', '#nxtk-wj-info']) {
-          const button = id === '#nxtk-wj-import' ? modal.querySelector(id) : document.querySelector(id);
-          if (button) button.hidden = !value;
-        }
-      }
+      if (key === 'WabbajackImport') syncImportControls();
 
       if (key === 'ForceEnglish') {
         NXTK.setForceEnglish(value);
         close();
         NexusExt.UI.showSettingsModal().catch(() => undefined);
+      }
+    }
+
+    function flushPendingInputs() {
+      for (const [target, timer] of pendingInputWrites) {
+        clearTimeout(timer);
+        if (target.isConnected) update(target, { commit: true });
+      }
+      pendingInputWrites.clear();
+    }
+
+    function syncImportControls() {
+      if (cfg.WabbajackImport) kit.preloadBundle('wabbajack');
+      for (const id of ['#nxtk-wj-import', '#nxtk-wj-deck-import', '#nxtk-wj-info']) {
+        const button = id === '#nxtk-wj-import' ? modal.querySelector(id) : document.querySelector(id);
+        if (button) button.hidden = !cfg.WabbajackImport;
       }
     }
 
@@ -220,6 +303,16 @@
       const note = modal.querySelector('#nxtk-preset-note');
       if (note) note.textContent = active ? '' : NXTK.t('presetCustom', null, 'Custom: your own mix of settings.');
     }
+
+    modal.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-setting-help]');
+      if (!button || !modal.contains(button)) return;
+      const detail = document.getElementById(button.getAttribute('aria-controls'));
+      if (!detail || !modal.contains(detail)) return;
+      const expanded = button.getAttribute('aria-expanded') !== 'true';
+      button.setAttribute('aria-expanded', String(expanded));
+      detail.hidden = !expanded;
+    });
 
     modal.addEventListener('change', e => {
       if (!e.target.dataset.setting) return;
@@ -236,17 +329,29 @@
         if (target.isConnected) update(target);
       }, SETTING_INPUT_DEBOUNCE_MS));
     });
-    modal.querySelectorAll('[data-preset]').forEach((button) => button.addEventListener('click', async () => {
-      const next = NXTK.applyPreset(cfg, button.dataset.preset);
-      for (const [key, value] of Object.entries(next)) {
-        if (cfg[key] === value) continue;
-        cfg[key] = value;
-        await NexusExt.Storage.patchSetting(key, value);
-      }
-      if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
-      // Shown again so every switch reflects the preset.
-      close();
-      NexusExt.UI.showSettingsModal().catch(() => undefined);
+    let presetWrites = Promise.resolve();
+    modal.querySelectorAll('[data-preset]').forEach((button) => button.addEventListener('click', () => {
+      // Commit an edit before applying a preset, without replacing the dialog or its focused node.
+      flushPendingInputs();
+      const name = button.dataset.preset;
+      const save = presetWrites.catch(() => undefined).then(async () => {
+        const next = NXTK.applyPreset(cfg, name);
+        // Only preset-owned keys: a field edited while these writes run must not be overwritten.
+        for (const key of Object.keys(NXTK.SETTING_PRESETS[name] || {})) {
+          if (cfg[key] === next[key]) continue;
+          cfg[key] = next[key];
+          await NexusExt.Storage.patchSetting(key, cfg[key]);
+        }
+        if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
+        if (!modal.isConnected) return;
+        modal.querySelectorAll('input[type="checkbox"][data-setting]').forEach((input) => {
+          input.checked = !!cfg[input.dataset.setting];
+        });
+        syncImportControls();
+        syncPresetState();
+      });
+      presetWrites = save;
+      kit.runUiTask(() => save, { context: 'Applying quick setup', title: NXTK.t('setTitle', null, 'Download Helper Settings') });
     }));
     modal.querySelectorAll('[data-report-issue]').forEach(b => b.addEventListener('click', () => copyReportAndOpenIssue(b)));
     modal.querySelector('#nxtk-wj-import')?.addEventListener('click', () => kit.withWabbajack(

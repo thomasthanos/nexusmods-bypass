@@ -19,7 +19,7 @@
   },
   "setHandleArchivedFilesLabel": {
     "message": "Arşivlenmiş dosya düğmeleri"
-  },
+  },
   "btnPageSettings": {
     "message": "Sayfa ayarları"
   },
@@ -91,10 +91,10 @@
   },
   "bugCardText": {
     "message": "Her \"Hata bildir\" düğmesi tam bir tanılama raporu kopyalar ve önceden doldurulmuş bir GitHub konusu açar."
-  },
+  },
   "openNexusBtn": {
     "message": "Nexus Mods'u aç"
-  },
+  },
   "disclaimer": {
     "message": "Nexus Mods ile bağlantılı değildir. Kendi Nexus Mods hesabınız gerekir; yalnızca Premium içerikler Premium olarak kalır."
   },
@@ -461,25 +461,22 @@
     "message": "İndirme yardımcısı ayarları"
   },
   "setSubtitle": {
-    "message": "Değişiklikler anında kaydedilir. Varsayılanları geri yüklemek bu sayfayı yeniden yükler."
+    "message": "Değişiklikler otomatik kaydedilir."
   },
   "setSectionFlow": {
-    "message": "İndirme akışı"
+    "message": "İndirmeler"
   },
   "setSectionPacing": {
-    "message": "Dosyalar ve hız"
+    "message": "Koleksiyonlar"
   },
   "setSectionAdvanced": {
     "message": "Gelişmiş"
   },
   "setRestoreDefaults": {
-    "message": "Varsayılanları geri yükle ve yenile"
-  },
-  "setNeedHelp": {
-    "message": "İndirme konusunda yardıma mı ihtiyacınız var?"
+    "message": "Varsayılanları yükle"
   },
   "setReportOnGithub": {
-    "message": "GitHub'da hata bildir"
+    "message": "Hata bildir"
   },
   "setRestoreTitle": {
     "message": "Varsayılanları geri yükle"
@@ -519,7 +516,7 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus gizlediğinde, arşivlenmiş dosya girişlerine Vortex ve tarayıcı indirme düğmeleri ekler."
-  },
+  },
   "setDownloadFolderLabel": {
     "message": "Tarayıcı indirme klasörü"
   },
@@ -1079,7 +1076,7 @@
     }
   },
   "setSectionLanguage": {
-    "message": "Dil"
+    "message": "Görünüm ve dil"
   },
   "setForceEnglishLabel": {
     "message": "Her zaman İngilizce kullan"
@@ -1882,19 +1879,19 @@
     "message": "Vortex kullanıcısı"
   },
   "presetVortexDesc": {
-    "message": "Dosyaları Vortex'e gönder, otomatik başlat, fazla sekmeyi kapat."
+    "message": "Vortex'e gönder ve sekmeyi kapat."
   },
   "presetBrowser": {
     "message": "Tarayıcı indirmeleri"
   },
   "presetBrowserDesc": {
-    "message": "Gerçek dosyaları İndirilenler'e kaydet, otomatik başlat."
+    "message": "Dosyaları tarayıcıyla kaydet."
   },
   "presetMinimal": {
     "message": "Minimal"
   },
   "presetMinimalDesc": {
-    "message": "Yalnızca tıkladıklarınız: otomatik başlatma yok, ek düğme yok."
+    "message": "Yalnızca tıklayınca başlat."
   },
   "setSectionPresets": {
     "message": "Hızlı kurulum"
@@ -2039,5 +2036,70 @@
   },
   "btnOpenModFiles": {
     "message": "Dosyalar sekmesini aç"
+  },
+  "setShortAutoStartDownload": {
+    "message": "Dosya sayfasını açınca başlat."
+  },
+  "setShortAutoCloseTab": {
+    "message": "Yalnızca Vortex. Gönderdikten sonra geçici sekmeyi kapat."
+  },
+  "setShortSkipRequirements": {
+    "message": "Doğrudan indirme adımına geç."
+  },
+  "setShortShowAlertsOnError": {
+    "message": "İndirme başlayamazsa mesaj göster."
+  },
+  "setShortHidePremiumUpsells": {
+    "message": "Reklamları, Premium tekliflerini ve geri sayımı gizle."
+  },
+  "setShortHandleArchivedFiles": {
+    "message": "Arşivlenmiş dosyalara düğmeler ekle."
+  },
+  "setShortWabbajackImport": {
+    "message": ".wabbajack listesindeki Nexus dosyalarını sıraya ekle (beta)."
+  },
+  "setShortHideDownloadPopup": {
+    "message": "Chrome / Edge: çalışırken indirme penceresini kapalı tut."
+  },
+  "setShortNDC_smallestFirst": {
+    "message": "Küçük dosyaları önce indir."
+  },
+  "setShortUseOfficialApi": {
+    "message": "Sayfalar yerine belgelenmiş API'yi kullan."
+  },
+  "setShortFollowUpdatePolicy": {
+    "message": "Yeni dosyaları yalnızca hazırlayıcı izin verirse kullan."
+  },
+  "setShortShowModActions": {
+    "message": "Endorse ve Track'i göster. Otomatik gönderim yapılmaz."
+  },
+  "setShortCloudflareFallback": {
+    "message": "Tarayıcı kontrolü için dosya sayfasını aç."
+  },
+  "setShortForceEnglish": {
+    "message": "Tarayıcı dili yerine İngilizce kullan."
+  },
+  "setShortDownloadFolder": {
+    "message": "Yalnızca tarayıcı. Boş alan İndirilenler klasörüdür."
+  },
+  "setShortRequestTimeout": {
+    "message": "İndirme bağlantısını bekleme süresi."
+  },
+  "setShortCloseTabDelay": {
+    "message": "Yalnızca Vortex. Sekmeyi kapatmadan önce bekle."
+  },
+  "setShortNDC_downloadSpeed": {
+    "message": "Yalnızca Vortex. Her dosyanın süresini tahmin et."
+  },
+  "setShortNDC_pauseBetweenDownload": {
+    "message": "Yalnızca Vortex. Dosyalar arasına bekleme ekle."
+  },
+  "setHelpFor": {
+    "message": "Daha fazla bilgi: $1",
+    "placeholders": {
+      "setting": {
+        "content": "$1"
+      }
+    }
   }
 }

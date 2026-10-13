@@ -1360,195 +1360,252 @@
   transform: translateX(18px);
 }
 
+/* Settings only: compact groups use their natural height, never a stretched sidebar. */
 #nxtk-settings-modal {
-  --nxtk-set-gap: 12px;
-  --nxtk-set-pad: 14px;
-  --nxtk-set-row-pad: 10px;
-  padding: clamp(10px, 2.5vh, 24px);
+  --nxtk-set-gap: 10px;
+  --nxtk-set-pad: 12px;
+  padding: 12px;
 }
 #nxtk-settings-modal .nxtk-modal-sm {
   box-sizing: border-box;
   width: min(940px, 100%);
-  max-height: calc(100dvh - 20px);
-  padding: clamp(16px, 2vh, 22px);
+  max-height: calc(100dvh - 24px);
+  padding: 16px;
+  border-radius: 20px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.12);
 }
+#nxtk-settings-modal .nxtk-modal::before { opacity: .25; }
+#nxtk-settings-modal .nxtk-modal-header,
+#nxtk-settings-modal .nxtk-modal-footer { flex-shrink: 0; }
+#nxtk-settings-modal .nxtk-modal-header {
+  flex-wrap: nowrap;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+#nxtk-settings-modal .nxtk-modal-header > div { flex: 1; min-width: 0; }
+#nxtk-settings-modal .nxtk-settings-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#nxtk-settings-modal .nxtk-modal-title { font-size: 18px; }
+#nxtk-settings-modal .nxtk-modal-subtitle { margin-top: 4px; font-size: 12px; }
+#nxtk-settings-modal .nxtk-modal-close { flex: none; }
 #nxtk-settings-modal .nxtk-modal-scroll {
   display: flex;
   flex-direction: column;
   gap: var(--nxtk-set-gap);
+  margin: 0 -6px;
+  padding: 0 6px 4px;
   scrollbar-gutter: stable;
 }
-#nxtk-settings-modal .nxtk-settings-col {
-  display: flex;
-  flex-direction: column;
+#nxtk-settings-modal .nxtk-settings-groups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
   gap: var(--nxtk-set-gap);
-  min-width: 0;
-}
-#nxtk-settings-modal .nxtk-settings-col-side > .nxtk-settings-section {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-}
-#nxtk-settings-modal .nxtk-settings-col-side .nxtk-settings-rows {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 #nxtk-settings-modal .nxtk-settings-section {
+  min-width: 0;
   margin: 0;
   padding: var(--nxtk-set-pad);
+  border-color: rgba(255,255,255,.09);
+  border-radius: 14px;
+  background: rgba(255,255,255,.025);
+}
+#nxtk-settings-modal .nxtk-settings-section::before { display: none; }
+#nxtk-settings-modal .nxtk-settings-section-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--nxtk-accent-hover);
 }
 #nxtk-settings-modal .nxtk-setting-row {
-  padding: var(--nxtk-set-row-pad) 0;
+  min-width: 0;
+  padding: 5px 0;
 }
-
-#nxtk-settings-modal .nxtk-settings-advanced {
+#nxtk-settings-modal .nxtk-setting-row:first-child { padding-top: 4px; }
+#nxtk-settings-modal .nxtk-setting-row:last-child { padding-bottom: 2px; }
+#nxtk-settings-modal .nxtk-setting-label {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 10px;
+  cursor: default;
+}
+#nxtk-settings-modal .nxtk-setting-copy {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 2px;
+}
+#nxtk-settings-modal .nxtk-setting-title-row { align-items: center; gap: 4px; }
+#nxtk-settings-modal .nxtk-setting-title {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+#nxtk-settings-modal .nxtk-setting-desc {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--nxtk-text-muted);
+  overflow-wrap: anywhere;
+}
+#nxtk-settings-modal .nxtk-setting-help-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--nxtk-text-muted);
+  cursor: pointer;
+}
+#nxtk-settings-modal .nxtk-setting-help-toggle svg {
+  width: 14px; height: 14px; fill: currentColor; pointer-events: none;
+}
+#nxtk-settings-modal .nxtk-setting-help-toggle:hover,
+#nxtk-settings-modal .nxtk-setting-help-toggle[aria-expanded="true"] {
+  color: var(--nxtk-accent-hover);
+  background: var(--nxtk-accent-soft);
+}
+#nxtk-settings-modal .nxtk-setting-help {
+  margin: 8px 0 2px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--nxtk-accent-border);
+  border-radius: 0 6px 6px 0;
+  background: rgba(0,0,0,.12);
+  color: var(--nxtk-text);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+#nxtk-settings-modal [hidden] { display: none !important; }
+#nxtk-settings-modal .nxtk-toggle { width: 42px; height: 24px; }
+#nxtk-settings-modal .nxtk-toggle input {
+  position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0;
+  opacity: 0; cursor: pointer;
+}
+#nxtk-settings-modal .nxtk-toggle input:checked + .nxtk-toggle-track { box-shadow: inset 0 1px 2px rgba(0,0,0,.2); }
+#nxtk-settings-modal button:focus-visible,
+#nxtk-settings-modal .nxtk-toggle input:focus-visible + .nxtk-toggle-track {
+  outline: 2px solid var(--nxtk-accent-hover);
+  outline-offset: 3px;
+}
+#nxtk-settings-modal .nxtk-setting-row-field .nxtk-setting-label { align-items: flex-start; flex-wrap: wrap; }
+#nxtk-settings-modal .nxtk-setting-row-field .nxtk-setting-copy { flex: 1 1 0; min-width: 0; }
+#nxtk-settings-modal .nxtk-setting-field {
+  flex: 0 1 auto; min-width: 0; max-width: 100%; margin-left: auto; padding-top: 3px;
+}
+#nxtk-settings-modal .nxtk-setting-field input {
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  min-width: 7ch;
+  width: auto;
+  max-width: min(12ch, 100%);
+  field-sizing: content;
+  padding: 6px 8px;
+}
+#nxtk-settings-modal .nxtk-setting-unit { font-size: 12px; overflow-wrap: anywhere; }
+#nxtk-settings-modal [data-key="DownloadFolder"] .nxtk-setting-field { width: 100%; margin: 2px 0 0; }
+#nxtk-settings-modal input[data-setting="DownloadFolder"] {
+  width: 100%; min-width: 0; max-width: 100%; text-align: left; padding: 7px 9px;
+}
+#nxtk-settings-modal .nxtk-preset-row {
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  margin: 0;
+  margin: 4px 0 0;
+}
+#nxtk-settings-modal .nxtk-preset { min-width: 0; gap: 3px; padding: 8px 10px; font-size: 13px; }
+#nxtk-settings-modal .nxtk-preset-title,
+#nxtk-settings-modal .nxtk-preset-desc { overflow-wrap: anywhere; }
+#nxtk-settings-modal .nxtk-preset-desc,
+#nxtk-settings-modal .nxtk-preset-note { font-size: 12px; line-height: 1.4; }
+#nxtk-settings-modal .nxtk-preset-note:empty { display: none; }
+#nxtk-settings-modal .nxtk-preset-note:not(:empty) { margin-top: 6px; }
+#nxtk-settings-modal .nxtk-settings-advanced { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+#nxtk-settings-modal .nxtk-settings-advanced-bar { display: flex; align-items: center; }
+#nxtk-settings-modal .nxtk-settings-advanced-toggle {
+  min-height: 32px;
+  padding: 6px 10px;
+  font: 600 13px/1.4 "SF Pro Text", "Inter", system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
 }
 #nxtk-settings-modal .nxtk-settings-advanced-body {
-  align-self: stretch;
-  display: grid;
-  grid-template-rows: 0fr;
-  margin: 0;
-  opacity: 0;
-  transition:
-    grid-template-rows 0.26s var(--nxtk-ease),
-    opacity 0.2s var(--nxtk-ease);
+  display: grid; grid-template-rows: 0fr; margin: 0; opacity: 0;
+  transition: grid-template-rows .2s var(--nxtk-ease), opacity .2s var(--nxtk-ease);
 }
-#nxtk-settings-modal .nxtk-settings-advanced-body.nxtk-open {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-#nxtk-settings-modal .nxtk-settings-advanced-body[hidden] {
-  display: none;
-}
-
+#nxtk-settings-modal .nxtk-settings-advanced-body.nxtk-open { grid-template-rows: 1fr; opacity: 1; }
 #nxtk-settings-modal .nxtk-settings-advanced-panel {
   box-sizing: border-box;
   min-height: 0;
   overflow: hidden;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
   gap: 0 20px;
-  padding: 4px var(--nxtk-set-pad) var(--nxtk-set-pad);
-  border: 1px solid var(--nxtk-border);
-  border-radius: var(--nxtk-radius-md);
-  background: var(--nxtk-glass-tint-soft);
+  padding: 8px var(--nxtk-set-pad) var(--nxtk-set-pad);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 14px;
+  background: rgba(255,255,255,.025);
 }
-#nxtk-settings-modal .nxtk-settings-advanced-body.nxtk-settled .nxtk-settings-advanced-panel {
-  overflow: visible;
-}
-#nxtk-settings-modal .nxtk-settings-advanced-panel .nxtk-setting-row {
-  border-top: none;
-}
-#nxtk-settings-modal .nxtk-settings-advanced-panel .nxtk-setting-row-field .nxtk-setting-label {
-  justify-content: center;
-  gap: 12px;
-}
-#nxtk-settings-modal .nxtk-settings-advanced-panel .nxtk-setting-field {
-  margin-left: 0;
-}
-
-#nxtk-settings-modal .nxtk-settings-advanced-bar {
-  display: flex;
-  align-items: center;
+#nxtk-settings-modal .nxtk-settings-advanced-body.nxtk-settled .nxtk-settings-advanced-panel { overflow: visible; }
+#nxtk-settings-modal .nxtk-settings-advanced-panel .nxtk-setting-row { border-top: none; }
+#nxtk-settings-modal .nxtk-modal-footer {
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  margin-top: 12px;
 }
-#nxtk-settings-modal .nxtk-settings-support { margin-top: 0; }
-#nxtk-settings-modal .nxtk-settings-version { margin-top: 0; }
-
+#nxtk-settings-modal .nxtk-btn {
+  min-height: 34px;
+  padding: 7px 11px;
+  font-size: 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+#nxtk-settings-modal .nxtk-settings-report {
+  padding: 7px 10px; min-height: 34px; font-size: 12px; white-space: normal; max-width: 100%;
+}
+#nxtk-settings-modal #nxtk-wj-import { margin-top: 10px; }
 @media (min-width: 760px) {
-  #nxtk-settings-modal {
-    --nxtk-set-gap: 9px;
-    --nxtk-set-pad: 11px;
-    --nxtk-set-row-pad: 4px;
-    padding: 10px;
+  #nxtk-settings-modal .nxtk-settings-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #nxtk-settings-modal .nxtk-settings-appearance { grid-column: 1 / -1; }
+  #nxtk-settings-modal .nxtk-settings-appearance .nxtk-settings-rows {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start;
   }
-  #nxtk-settings-modal .nxtk-modal-sm {
-    max-height: calc(100dvh - 20px);
-    padding: 12px 16px;
-  }
-  #nxtk-settings-modal .nxtk-modal-scroll {
-    display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
-    margin: 0 -5px;
-    padding: 0 5px 3px;
-  }
-  #nxtk-settings-modal .nxtk-settings-advanced {
-    grid-column: 1 / -1;
-  }
-  #nxtk-settings-modal .nxtk-modal-header {
-    gap: 10px;
-    padding-bottom: 8px;
-    margin-bottom: 8px;
-  }
-  #nxtk-settings-modal .nxtk-modal-title {
-    font-size: 18px;
-  }
-  #nxtk-settings-modal .nxtk-modal-subtitle {
-    margin-top: 3px;
-    font-size: 11.5px;
-  }
-  #nxtk-settings-modal .nxtk-modal-close {
-    width: 30px;
-    height: 30px;
-    font-size: 20px;
-  }
-  #nxtk-settings-modal .nxtk-settings-section-title {
-    margin-bottom: 8px;
-    font-size: 10px;
-  }
-  #nxtk-settings-modal .nxtk-setting-label {
-    gap: 10px;
-  }
-  #nxtk-settings-modal .nxtk-setting-copy {
-    gap: 1px;
-  }
-  #nxtk-settings-modal .nxtk-setting-title {
-    font-size: 12.5px;
-  }
-  #nxtk-settings-modal .nxtk-setting-desc {
-    font-size: 10.75px;
-    line-height: 1.35;
-  }
-  #nxtk-settings-modal .nxtk-setting-field input {
-    padding: 6px 8px;
-    font-size: 12px;
-  }
-  #nxtk-settings-modal .nxtk-setting-unit {
-    font-size: 10.5px;
-  }
-  #nxtk-settings-modal .nxtk-settings-advanced-toggle {
-    min-height: 24px;
-    padding: 3px 9px;
-    font-size: 10px;
-  }
-  #nxtk-settings-modal .nxtk-modal-footer {
-    padding-top: 8px;
-    margin-top: 8px;
-  }
-  #nxtk-settings-modal .nxtk-btn {
-    min-height: 34px;
-    padding: 8px 14px;
-    font-size: 12px;
-  }
-  #nxtk-settings-modal .nxtk-settings-support {
-    gap: 5px;
-    font-size: 10.5px;
-  }
-  #nxtk-settings-modal .nxtk-settings-version {
-    gap: 7px;
-    font-size: 10px;
-  }
+  #nxtk-settings-modal .nxtk-settings-appearance .nxtk-setting-row { border-top: none; padding-top: 4px; }
+  #nxtk-settings-modal .nxtk-preset-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #nxtk-settings-modal .nxtk-settings-advanced-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 400px) {
+  #nxtk-settings-modal { --nxtk-set-pad: 10px; padding: 8px; }
+  #nxtk-settings-modal .nxtk-modal-sm { max-height: calc(100dvh - 16px); padding: 12px; }
+  #nxtk-settings-modal .nxtk-modal-footer { gap: 6px; }
+  #nxtk-settings-modal .nxtk-modal-footer [data-reset] { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #nxtk-settings-modal .nxtk-modal,
+  #nxtk-settings-modal .nxtk-toggle-track,
+  #nxtk-settings-modal .nxtk-toggle-track::before,
+  #nxtk-settings-modal .nxtk-settings-advanced-body,
+  #nxtk-settings-modal .nxtk-settings-advanced-toggle svg { animation: none; transition: none; }
 }
 
 .nxtk-hidden { display: none !important; }
