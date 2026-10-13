@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "버그 신고 — 오류 보고서 복사"
-  },
   "popupFooter": {
     "message": "Nexus Mods 및 Vortex용 다운로드 도우미"
   },
@@ -705,9 +702,6 @@
   },
   "popupQueuesTitle": {
     "message": "백그라운드 다운로드"
-  },
-  "popupReloadFirst": {
-    "message": "페이지 설정을 열기 전에 Nexus Mods 페이지를 새로고침하세요."
   },
   "popupReportFull": {
     "message": "전체 보고서와 함께 GitHub가 열립니다 — 무슨 일이 있었는지만 적어 주세요."
@@ -1643,5 +1637,56 @@
   },
   "dbEnable": {
     "message": "디버그 로그 켜기"
+  },
+  "btnSendReportTip": {
+    "message": "문제를 설명하고 보고서를 확인한 뒤 보내세요",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "새 탭에서 디버그 로그 열기",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "완료: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "컬렉션 다운로드 중 브라우저 다운로드 팝업 숨기기",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Chrome과 Edge 전용. 파일마다 다운로드 버블이 열리지 않게 하고 종료, 중지, 오류 시 다시 켭니다.",
+    "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Vortex로 보내는 중…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "GitHub에 신고",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "미리 채운 GitHub 이슈를 엽니다. 링크에 담기지 않는 보고서는 먼저 클립보드에 복사됩니다.",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — 다시 시도 중 ($N$번째)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "$COUNT$개 파일을 Vortex로 넘겼습니다. Vortex 다운로드에서 모두 도착했는지 확인하고, 아니면 다시 다운로드로 다시 실행하세요.",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

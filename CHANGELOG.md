@@ -11,6 +11,35 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
+## 2026-10-13 — v3.0.1
+
+### Fixed
+- **Collection ETA** — the remaining time is now human-readable (`7d 8h`, `3h 12m`, `45m`, `30s`, units localized via `Intl`) and sane: per-file latency and large-file throughput are measured separately with a smoothed average, with the configured download speed as fallback. A 1975-file run that showed `17645:01:37` now estimates about half an hour.
+
+### Added
+- **Activity log** — `Completed` lines show the file size (`Completed: X (12.4 MB)`), and a date line appears when a run crosses midnight.
+- **Hide browser download popup during collection downloads** (default on, Chrome/Edge) — uses `chrome.downloads.setUiOptions` while a run is active and restores it when the run ends, stops or fails; new `downloads.ui` permission, omitted from the Firefox build.
+
+### Fixed (review and live testing)
+- **Vortex skip on the real files tab** (second live test): Nexus's buttons sit in nested shadow roots of `<mod-file-download file='{"id":…}'>` / `<mod-download-buttons main-file=…>` / `<mod-download-modal file=…>` and carry the file as JSON, not `file-id`; the file id and the component's signed Vortex API link are now read from there.
+- **Settings button vs. Nexus menus**: re-checked after every click, so an account menu (Sign out) that drops under it at 150 % makes it step aside, and it returns when the menu closes.
+- **Skip requirement screens now covers Vortex**: a *Mod manager download* rendered as a plain button (no link) is handled like a link, so Nexus's requirements modal no longer opens (live: SkyUI 12604).
+- **Nexus's requirements modal can be closed again**: its Close/Cancel buttons were taken as a download click; dismiss controls are now never intercepted, and the extension's overlay guard leaves Nexus dialogs (pointer and Escape) alone.
+- **Faster Vortex hand-off with feedback**: the button says *Sending to Vortex…* at once, and the nxm link is asked from GenerateDownloadUrl first instead of after loading the whole file page.
+- **Settings button**: smaller, icon-only below 1500 px width (label on hover/focus), moves above any page control it would cover and shrinks into the corner when there is no room (live: covered *Download all mods* at 150 %).
+- **Popup Page settings** opens the panel on the active Nexus tab, or a Nexus tab with `#nxtk-settings`, which opens it on load (it used to open the bare home page).
+- Popup Help buttons: invalid `font` shorthand fixed; the second button is now an honest *Report on GitHub* (it copies only an over-long report).
+- Collection log: sizes come from the worker for the file it finished (wrong on an adopted run before), no ETA on an adopted run, date line in the UI language.
+- Download bubble: not hidden for Vortex runs, checks coalesced (one storage pass per 0.5 s), restored after an extension update/reload.
+- `nmm=0` no longer counts as Vortex; Vortex selectors and words moved to `selectors.js` (13 languages).
+- Rate limit: *Backing off* is logged only when the run really waits, and Retry-After survives the resolve path.
+- A Vortex run ends by saying how many files were handed off and that Vortex must confirm them.
+- High zoom: fixed `min-width`s on menus and selects shrink with the viewport; menus open above the settings button.
+- The retry line is translated; unused locale keys and dead popup CSS removed.
+
+### Changed
+- **Popup Help & Bugs** — one solid primary *Send bug report* button and a two-column row of *Copy error report* / *Debug log* with icons, sentence case, tooltips and focus rings; 13 locales.
+
 ## 2026-10-12
 
 **Versions / tags:** tag `3.0.0` · **3.0.0** · **2.10.3** · **2.10.2** · tag `2.10.1` · **2.10.1** · **2.10.0** · **2.9.0** · **2.8.1** · **2.8.0**

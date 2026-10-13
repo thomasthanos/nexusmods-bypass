@@ -248,6 +248,7 @@
     ForceEnglish: false,
     NDC_downloadMethod: 0,
     NDC_smallestFirst: true,
+    HideDownloadPopup: true,
     WabbajackImport: false,
     // Official-API migration flags (docs/nexus-site-map.md). Off restores the pre-2.10 behaviour.
     UseOfficialApi: true,
@@ -545,6 +546,140 @@
     } catch (_) {
       return '';
     }
+  }
+
+  // Human-readable durations and sizes for the collection deck. Units come from Intl, so every UI
+  // language gets its own short forms ("7d 8h", "7 T. 8 Std.") without extra catalogue strings.
+  function uiLocale() {
+    try {
+      if (forceEnglish) return 'en';
+      return chrome?.i18n?.getUILanguage?.() || 'en';
+    } catch (_) {
+      return 'en';
+    }
+  }
+
+  function formatUnit(value, unit, locale) {
+    try {
+      return new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'narrow', maximumFractionDigits: 0 }).format(value);
+    } catch (_) {
+      return `${value}${{ day: 'd', hour: 'h', minute: 'm', second: 's' }[unit]}`;
+    }
+  }
+
+  // Two largest non-zero units: "7d 8h", "3h 12m", "45m", "30s".
+  function formatEta(totalSeconds, locale = uiLocale()) {
+    let rest = Math.max(0, Math.round(Number(totalSeconds) || 0));
+    const parts = [];
+    for (const [unit, size] of [['day', 86400], ['hour', 3600], ['minute', 60], ['second', 1]]) {
+      const amount = Math.floor(rest / size);
+      rest -= amount * size;
+      if (amount || (parts.length && parts.length < 2)) parts.push([unit, amount]);
+      if (parts.length === 2) break;
+    }
+    if (!parts.length) parts.push(['second', 0]);
+    // "45m 0s" reads as noise; drop a trailing zero.
+    if (parts.length === 2 && parts[1][1] === 0) parts.pop();
+    return parts.map(([unit, amount]) => formatUnit(amount, unit, locale)).join(' ');
+  }
+
+  function formatBytes(bytes, locale = uiLocale()) {
+    let value = Math.max(0, Number(bytes) || 0);
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let index = 0;
+    while (value >= 1024 && index < units.length - 1) { value /= 1024; index += 1; }
+    const digits = index === 0 || value >= 100 ? 0 : 1;
+    let number;
+    try {
+      number = new Intl.NumberFormat(locale, { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value);
+    } catch (_) {
+      number = value.toFixed(digits);
+    }
+    return `${number} ${units[index]}`;
+  }
+
+  // Remaining-time estimate for a collection queue. The old figure divided all bytes by all
+  // transfer time; with smallest-first ordering the first files are tiny and latency-bound, so the
+  // measured "speed" was a fraction of the real one and the estimate ran to years. Here each file
+  // costs a fixed latency (measured on small files) plus bytes over a throughput measured only on
+  // files large enough to show it, both smoothed (EMA). Until such a file has finished, the
+  // configured download speed stands in. Samples across pauses or rate-limit waits are discarded.
+  const ETA_LARGE_BYTES = 1024 * 1024;
+  function createQueueEta(sizesKb, { fallbackMBps = 3.2, now = () => Date.now(), alpha = 0.25 } = {}) {
+    const sizes = (Array.isArray(sizesKb) ? sizesKb : []).map((value) => (Number(value) > 0 ? Number(value) * 1024 : 0));
+    const known = sizes.filter((value) => value > 0);
+    const averageBytes = known.length ? known.reduce((sum, value) => sum + value, 0) / known.length : 0;
+    const sizeOf = (index) => (sizes[index] > 0 ? sizes[index] : averageBytes);
+    const ema = (previous, sample) => (previous === null ? sample : previous + alpha * (sample - previous));
+
+    let latency = null;
+    let rate = null;
+    let gap = null;
+    let startedAt = null;
+    let completedAt = null;
+    let spoiled = false;
+    let samples = 0;
+
+    return {
+      itemStarted() {
+        const at = now();
+        if (completedAt !== null && !spoiled) gap = ema(gap, (at - completedAt) / 1000);
+        startedAt = at;
+        completedAt = null;
+        spoiled = false;
+      },
+      itemCompleted(index) {
+        const at = now();
+        if (startedAt !== null && !spoiled) {
+          const seconds = Math.max(0.001, (at - startedAt) / 1000);
+          const size = sizeOf(index);
+          if (size >= ETA_LARGE_BYTES) {
+            const transfer = Math.max(seconds - (latency || 0), seconds * 0.25);
+            rate = ema(rate, size / transfer);
+          } else {
+            latency = ema(latency, seconds);
+          }
+          samples += 1;
+        }
+        startedAt = null;
+        completedAt = at;
+      },
+      spoil() {
+        spoiled = true;
+      },
+      // Zero means there is nothing honest to say yet.
+      remainingSeconds(index, total) {
+        if (!samples || !known.length) return 0;
+        const throughput = rate || Math.max(0.1, Number(fallbackMBps) || 3.2) * 1024 * 1024;
+        let seconds = 0;
+        for (let cursor = Math.max(0, index); cursor < total; cursor += 1) {
+          const size = sizeOf(cursor);
+          seconds += (latency || 0) + (size >= ETA_LARGE_BYTES || latency === null ? size / throughput : 0) + (gap || 0);
+        }
+        return seconds;
+      },
+      get state() {
+        return { latency, rate, gap, samples };
+      }
+    };
+  }
+
+  // Page settings deep link: any Nexus page with this hash opens the in-page settings once it loads.
+  const PAGE_SETTINGS_HASH = '#nxtk-settings';
+  function isNexusPageUrl(value) {
+    try {
+      const url = new URL(String(value || ''));
+      const host = url.hostname.toLowerCase();
+      // The content scripts run on www.nexusmods.com only (manifest content_scripts.matches).
+      return url.protocol === 'https:' && host === 'www.nexusmods.com';
+    } catch (_) {
+      return false;
+    }
+  }
+  function pageSettingsUrl(value) {
+    const base = isNexusPageUrl(value) ? new URL(String(value)) : new URL('https://www.nexusmods.com/');
+    base.hash = PAGE_SETTINGS_HASH;
+    return base.href;
   }
 
   // Bug-report relay (relay/ in the repository). The extension holds no secret: the relay owns the
@@ -945,6 +1080,13 @@
     sanitizeUrlForReport,
     sanitizeDiagnosticText,
     reportPagePath,
+    formatEta,
+    uiLocale,
+    PAGE_SETTINGS_HASH,
+    isNexusPageUrl,
+    pageSettingsUrl,
+    formatBytes,
+    createQueueEta,
     redactPersonalData,
     RELAY_ORIGIN,
     RELAY_CONFIGURED,

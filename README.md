@@ -72,6 +72,7 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 |---|---|
 | `storage` | Settings and local download history. |
 | `downloads` | Starting and tracking browser downloads. |
+| `downloads.ui` | Chrome/Edge only: hides the download bubble while a collection run is active (setting, on by default), restored when the run ends. |
 | `scripting` | Injecting the extension's packaged UI on Nexus pages as needed. |
 | `alarms` | Pacing the background queue. |
 | `https://www.nexusmods.com/*` | The only site the extension operates on. |

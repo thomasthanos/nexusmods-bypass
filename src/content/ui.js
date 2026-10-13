@@ -220,6 +220,14 @@ window.NexusExt = window.NexusExt || {};
     return false;
   }
 
+  const FOREIGN_DIALOG_TAGS = new Set(['DOWNLOAD-MODAL', 'MOD-DOWNLOAD-MODAL', 'DIALOG']);
+  function isForeignDialogEvent(event) {
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    return path.some((node) => node?.nodeType === 1
+      && !node.closest?.('.nxtk-modal-backdrop')
+      && (FOREIGN_DIALOG_TAGS.has(node.tagName) || node.getAttribute?.('role') === 'dialog' || node.getAttribute?.('aria-modal') === 'true'));
+  }
+
   function ensureModalInteractionGuard() {
     if (modalInteractionGuardBound) return;
     modalInteractionGuardBound = true;
@@ -230,6 +238,9 @@ window.NexusExt = window.NexusExt || {};
 
       const modal = backdrop.querySelector('.nxtk-modal');
       if (!modal) return;
+      // Nexus's own dialogs (the requirements modal, <dialog>) live outside ours; a click there is
+      // never ours to block, or their Close button stops working.
+      if (isForeignDialogEvent(event)) return;
 
       if (!modal.contains(event.target) && event.target !== backdrop) {
         event.preventDefault();
@@ -246,6 +257,7 @@ window.NexusExt = window.NexusExt || {};
     if (!backdrop) return;
     const modal = backdrop.querySelector('.nxtk-modal');
     if (!modal) return;
+    if (isForeignDialogEvent(event)) return;
     if (!modal.contains(event.target) || !canScrollModalTarget(event.target, modal, event.deltaY)) {
       event.preventDefault();
     }
@@ -278,6 +290,8 @@ window.NexusExt = window.NexusExt || {};
 
   function watchOverlayPresence() {
     if (!document.body) return;
+    // The lock exists only for the extension's own overlays, which are always appended to <body>, so
+    // direct children are enough; Nexus dialogs are deliberately left out (isForeignDialogEvent).
     new MutationObserver(syncOverlayScrollLock)
       .observe(document.body, { childList: true });
   }
@@ -296,13 +310,95 @@ window.NexusExt = window.NexusExt || {};
     const fab = document.createElement('button');
     fab.id = 'nxtk-settings-fab';
     fab.className = 'nxtk-settings-fab';
-    fab.innerHTML = `${svgIcon('settings')} NexusMods Bypass`;
+    fab.innerHTML = `${svgIcon('settings')}<span class="nxtk-fab-label">NexusMods Bypass</span>`;
+    fab.setAttribute('aria-label', 'NexusMods Bypass');
+    fab.title = NXTK.t('btnPageSettings', null, 'Page settings');
     fab.addEventListener('click', () => runUiTask(
       () => showSettingsModal(),
       { context: 'Opening page settings', title: NXTK.t('dlgCantOpenSettings', null, 'Could not open settings') }
     ));
     host.appendChild(fab);
     applyGlassLayers(fab);
+    watchFabOverlap(fab);
+  }
+
+  // The button floats over the page, so it must never sit on top of something the user needs to press
+  // (a file card's download buttons, the deck's "Download all mods"). When it would, it first moves up
+  // above that control; when there is no room it tucks into the edge until the pointer comes near.
+  const FAB_INTERACTIVE = 'a[href], button, [role="button"], input, select, textarea, summary, label, mod-file-download, download-modal';
+  function fabCoversControl(fab) {
+    const rect = fab.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const inset = 3;
+    const points = [
+      [rect.left + inset, rect.top + inset], [rect.right - inset, rect.top + inset],
+      [rect.left + inset, rect.bottom - inset], [rect.right - inset, rect.bottom - inset],
+      [rect.left + rect.width / 2, rect.top + rect.height / 2]
+    ];
+    for (const [x, y] of points) {
+      if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
+      for (const node of document.elementsFromPoint(x, y)) {
+        if (node === fab || fab.contains(node)) continue;
+        if (node.closest?.('#nxtk-extension-root, #nxtk-dropdown-portal, .nxtk-modal-backdrop, .nxtk-close-toast')) continue;
+        if (node === document.body || node === document.documentElement) break;
+        const control = node.closest?.(FAB_INTERACTIVE);
+        if (control && control.getBoundingClientRect().width > 0) return control;
+      }
+    }
+    return null;
+  }
+
+  function placeFab(fab) {
+    fab.style.removeProperty('bottom');
+    fab.classList.remove('nxtk-fab-tucked', 'nxtk-fab-hidden');
+    const baseBottom = parseFloat(getComputedStyle(fab).bottom) || 28;
+    let bottom = baseBottom;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const covered = fabCoversControl(fab);
+      if (!covered) return;
+      const above = innerHeight - covered.getBoundingClientRect().top + 10;
+      if (above <= bottom || above + fab.offsetHeight > innerHeight * 0.6) break;
+      bottom = above;
+      fab.style.bottom = `${Math.round(bottom)}px`;
+    }
+    if (fabCoversControl(fab)) {
+      fab.style.removeProperty('bottom');
+      fab.classList.add('nxtk-fab-tucked');
+      // Even the corner dot sits on a control (an open menu reaching the bottom of the window): step
+      // aside entirely until the next click or scroll re-checks.
+      if (fabCoversControl(fab)) fab.classList.add('nxtk-fab-hidden');
+    }
+  }
+
+  function watchFabOverlap(fab) {
+    let frame = 0;
+    const schedule = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (!fab.isConnected) return;
+        if (fab.matches(':hover, :focus-visible')) return;
+        placeFab(fab);
+      });
+    };
+    addEventListener('scroll', schedule, { passive: true, capture: true });
+    addEventListener('resize', schedule, { passive: true });
+    visualViewport?.addEventListener('resize', schedule, { passive: true });
+    // Nexus renders file cards and the deck late; a few re-checks while the page settles cover that.
+    for (const delay of [300, 1200, 3000, 6000]) setTimeout(schedule, delay);
+    // Menus Nexus opens on click (the account menu with Sign out, notifications) can drop down under the
+    // button, so every click re-checks once the menu has had time to open, and again after it closes.
+    document.addEventListener('click', (event) => {
+      if (fab.contains(event.target)) return;
+      setTimeout(schedule, 120);
+      setTimeout(schedule, 450);
+    }, true);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') setTimeout(schedule, 200);
+    }, true);
+    fab.addEventListener('pointerleave', schedule);
+    fab.addEventListener('blur', schedule);
+    kit.placeFab = () => placeFab(fab);
   }
 
   async function showSettingsModal() {
@@ -464,6 +560,7 @@ window.NexusExt = window.NexusExt || {};
       }
       // Only the dialog on top answers, so Escape on an alert does not also close what it sits on.
       if (getTopModalBackdrop() !== backdrop) return;
+      if (isForeignDialogEvent(event)) return;
       if (event.key === 'Escape') {
         close();
         return;

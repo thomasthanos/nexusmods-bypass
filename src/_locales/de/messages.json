@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "Fehler melden — kopiert den Bericht"
-  },
   "popupFooter": {
     "message": "Download-Helfer für Nexus Mods & Vortex"
   },
@@ -791,9 +788,6 @@
   },
   "popupQueuesTitle": {
     "message": "Downloads im Hintergrund"
-  },
-  "popupReloadFirst": {
-    "message": "Laden Sie die Nexus-Mods-Seite neu, bevor Sie die Seiteneinstellungen öffnen."
   },
   "popupReportFull": {
     "message": "GitHub wird mit dem vollständigen Bericht geöffnet – beschreiben Sie nur noch, was passiert ist."
@@ -1727,5 +1721,56 @@
   },
   "dbEnable": {
     "message": "Debug-Protokolle einschalten"
+  },
+  "btnSendReportTip": {
+    "message": "Problem beschreiben, bereinigten Bericht prüfen und senden",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Live-Debug-Protokoll in neuem Tab öffnen",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Abgeschlossen: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Download-Popup des Browsers bei Sammlungs-Downloads ausblenden",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Nur Chrome und Edge. Verhindert, dass sich die Download-Blase bei jeder Datei öffnet, und schaltet sie nach Ende, Stopp oder Fehler wieder ein.",
+    "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Wird an Vortex gesendet…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "Auf GitHub melden",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "Öffnet ein vorausgefülltes GitHub-Issue. Ist der Bericht zu lang für den Link, wird er zuerst in die Zwischenablage kopiert.",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — neuer Versuch ($N$)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "$COUNT$ Dateien an Vortex übergeben. Prüfe in den Vortex-Downloads, ob alle angekommen sind; sonst erneut mit „Erneut herunterladen“ starten.",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

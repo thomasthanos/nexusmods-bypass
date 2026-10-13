@@ -44,6 +44,8 @@ Sending goes to the maintainer's report relay (`nexusmods-bypass-relay.mariostha
 
 The `downloads` permission starts browser downloads and places files in the configured subfolder. It does not read the user's existing download history.
 
+The `downloads.ui` permission (Chrome and Edge only; Firefox builds omit it) lets the extension hide the browser download bubble while a collection download is running and turn it back on when the run finishes, stops or fails. It grants no access to download data.
+
 ## Scripting permission
 
 The `scripting` permission lets the extension add parts of its own packaged code — the collection downloader, the settings dialog, the bug report builder and the Wabbajack importer — to a Nexus Mods page the first time that page needs them, instead of loading them into every page. It is used only on nexusmods.com and only with files inside the extension package. It gives the extension no access it did not already have there, and nothing is fetched from anywhere else.

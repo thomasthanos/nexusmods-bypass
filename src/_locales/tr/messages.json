@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "Hata bildir — hata raporunu kopyalar"
-  },
   "popupFooter": {
     "message": "Nexus Mods ve Vortex için indirme yardımcısı"
   },
@@ -705,9 +702,6 @@
   },
   "popupQueuesTitle": {
     "message": "Arka plan indirmeleri"
-  },
-  "popupReloadFirst": {
-    "message": "Sayfa ayarlarını açmadan önce Nexus Mods sayfasını yenileyin."
   },
   "popupReportFull": {
     "message": "GitHub tam raporla açılıyor — yalnızca ne olduğunu yazmanız yeterli."
@@ -1727,5 +1721,56 @@
   },
   "dbEnable": {
     "message": "Hata ayıklama günlüklerini aç"
+  },
+  "btnSendReportTip": {
+    "message": "Sorunu açıklayın, raporu gözden geçirin ve gönderin",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Canlı hata ayıklama günlüğünü yeni sekmede aç",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Tamamlandı: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Koleksiyon indirmelerinde tarayıcı indirme açılır penceresini gizle",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Yalnızca Chrome ve Edge. İndirme balonunun her dosyada açılmasını önler; işlem bitince, durunca veya hata olunca geri açar.",
+    "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Vortex'e gönderiliyor…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "GitHub'da bildir",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "Önceden doldurulmuş bir GitHub issue açar. Bağlantıya sığmayan rapor önce panoya kopyalanır.",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — yeniden deneniyor ($N$. deneme)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "$COUNT$ dosya Vortex'e iletildi. Hepsinin geldiğini Vortex İndirmeler'de kontrol edin; gelmeyen varsa Yeniden indir ile tekrar çalıştırın.",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

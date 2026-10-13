@@ -228,6 +228,96 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
+  // nmm=1 asks for the mod-manager link; anything else (nmm=0, nmmx=1) does not.
+  function hrefWantsNmm(href) {
+    try {
+      return new URL(String(href || ''), location.href).searchParams.get('nmm') === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function controlLabel(node) {
+    return normalizeText([
+      node?.textContent,
+      node?.getAttribute?.('aria-label'),
+      node?.getAttribute?.('title')
+    ].filter(Boolean).join(' '));
+  }
+
+  function matchesAny(node, key) {
+    const list = globalThis.NexusSelectors?.SELECTORS?.[key] || [];
+    for (const selector of list) {
+      try {
+        if (node?.matches?.(selector) || node?.closest?.(selector)) return true;
+      } catch (_) {
+      }
+    }
+    return false;
+  }
+
+  function textIs(value, key, fallback) {
+    const Sel = globalThis.NexusSelectors;
+    return Sel ? Sel.textMatches(value, key) : fallback.some((phrase) => normalizeText(value).includes(phrase));
+  }
+
+  // Nexus's download web components carry the file as JSON, not as a file-id attribute:
+  // <mod-file-download file='{"id":…}' game-id>, <mod-download-buttons main-file='{"id":…}'> (header
+  // Vortex/Manual buttons) and <mod-download-modal file='{"id":…,"downloadUrl":…,"vortexDownloadUrl":…}'>.
+  const DOWNLOAD_MODAL_TAGS = new Set(['DOWNLOAD-MODAL', 'MOD-DOWNLOAD-MODAL']);
+  const DOWNLOAD_HOST_TAGS = new Set(['MOD-FILE-DOWNLOAD', 'MOD-DOWNLOAD-BUTTONS', 'MOD-DOWNLOAD-MODAL', 'DOWNLOAD-MODAL']);
+  function fileJsonOf(node) {
+    for (const name of ['file', 'main-file']) {
+      const raw = node?.getAttribute?.(name);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') return parsed;
+      } catch (_) {
+      }
+    }
+    return null;
+  }
+  function fileIdFromNode(node) {
+    if (!node || node.nodeType !== 1) return '';
+    const json = fileJsonOf(node);
+    const legacyCard = node.tagName === 'DT' || node.tagName === 'DD' || /^file-expander/.test(String(node.id || ''));
+    const id = node.getAttribute?.('file-id') || node.getAttribute?.('data-file-id') || node.dataset?.fileId
+      || json?.fileId || json?.id || json?.file_id
+      || (legacyCard ? node.getAttribute?.('data-id') || (node.tagName === 'DD' ? node.previousElementSibling?.getAttribute?.('data-id') : '') : '')
+      || String(node.id || '').match(/^file-expander-header-(\d+)$/)?.[1];
+    return /^\d{1,12}$/.test(String(id || '')) ? String(id) : '';
+  }
+  // The modal element a click belongs to: on the path, or held by the clicked button's host component.
+  function downloadModalFor(path) {
+    const direct = path.find((node) => DOWNLOAD_MODAL_TAGS.has(node?.tagName));
+    if (direct) return direct;
+    const host = path.find((node) => DOWNLOAD_HOST_TAGS.has(node?.tagName));
+    return host?.querySelector?.('mod-download-modal, download-modal')
+      || host?.shadowRoot?.querySelector?.('mod-download-modal, download-modal')
+      || null;
+  }
+
+  // A control that closes or cancels a dialog. The extension never takes these clicks.
+  function isDismissControl(node) {
+    if (!node) return false;
+    if (node.hasAttribute?.('data-close') || node.hasAttribute?.('data-dismiss') || node.hasAttribute?.('data-bs-dismiss')) return true;
+    if (/(^|[-_\s])close([-_\s]|$)/i.test(String(node.className?.baseVal ?? node.className ?? ''))) return true;
+    const label = controlLabel(node);
+    if (/^[×✕✖x]$/i.test(label)) return true;
+    return textIs(label, 'dismissAction', ['close', 'cancel']);
+  }
+
+  // Which kind of download a control without its own href asks for: 'nmm', 'manual' or '' (not one).
+  function classifyDownloadControl(node) {
+    if (!node || isDismissControl(node)) return '';
+    if (matchesAny(node, 'modManagerControl')) return 'nmm';
+    const label = controlLabel(node);
+    if (textIs(label, 'modManagerDownload', ['mod manager', 'vortex'])) return 'nmm';
+    if (textIs(label, 'manualDownload', ['manual download'])) return 'manual';
+    return '';
+  }
+
   function getCurrentFileId() {
     try {
       const fileId = new URLSearchParams(location.search).get('file_id') || '';
@@ -639,6 +729,14 @@ window.NexusExt = window.NexusExt || {};
     }
 
     if (isNMM && href) {
+      // The site's own Vortex button asks GenerateDownloadUrl for the nxm link; that small POST answers in
+      // well under a second, where loading the whole file page first took several. So it goes first, and
+      // the page is read only when it gives nothing.
+      const quick = await fetchGeneratedDownloadUrl(true);
+      const quickNxm = parseNxmDownloadLink(quick?.url);
+      if (quickNxm) return { url: quickNxm };
+      if (quick?.error && Errors.isBlocking(quick.error)) return { url: null, error: quick.error };
+
       const firstResponse = await fetchText(href, { context: 'Loading Vortex download page' });
       let latestError = firstResponse.error;
       Logger.info('Fetching NMM download URL');
@@ -683,12 +781,7 @@ window.NexusExt = window.NexusExt || {};
         }
       }
 
-      if (latestError && Errors.isBlocking(latestError)) return { url: null, error: latestError };
-
-      const generated = await fetchGeneratedDownloadUrl(true);
-      const generatedNxm = parseNxmDownloadLink(generated?.url);
-      if (generatedNxm) return { url: generatedNxm };
-      return { url: null, error: generated?.error || latestError || Errors.create('no_nmm_link') };
+      return { url: null, error: latestError || quick?.error || Errors.create('no_nmm_link') };
     }
 
     if (isNMM) {
@@ -1064,7 +1157,8 @@ window.NexusExt = window.NexusExt || {};
       return false;
     }
 
-    if (button) setButtonState(button, 'waiting');
+    // Feedback on the click itself: the hand-off needs one request before Vortex can be asked.
+    if (button) setButtonState(button, 'waiting', isNMM ? NXTK.t('btnStateSendingVortex', null, 'Sending to Vortex…') : '');
     Logger.debug('fileId', fileId, 'isNMM', isNMM);
 
     let result;
@@ -1104,7 +1198,7 @@ window.NexusExt = window.NexusExt || {};
       return false;
     }
 
-    if (button) setButtonState(button, isNMM ? 'waiting' : 'downloading');
+    if (button) setButtonState(button, isNMM ? 'waiting' : 'downloading', isNMM ? NXTK.t('btnStateSendingVortex', null, 'Sending to Vortex…') : '');
     let finalUrl = null;
     try {
       finalUrl = await normalizeDownloadUrl(result.url, isNMM);
@@ -1216,12 +1310,14 @@ window.NexusExt = window.NexusExt || {};
       noteFileClick(path);
 
       if (cfg.SkipRequirements && path.length) {
-        const modal = path.find(node => node?.tagName === 'DOWNLOAD-MODAL');
+        const modal = path.find((node) => DOWNLOAD_MODAL_TAGS.has(node?.tagName));
         if (modal) {
           const modalButton = path.find(node => node && (node.tagName === 'BUTTON' || node.tagName === 'A'));
-          if (modalButton) {
-            const buttonText = normalizeText(modalButton.textContent);
-            const isNMMModal = buttonText.includes('manager') || buttonText.includes('vortex') || modalButton.href?.includes('nmm=1');
+          // Only the modal's download buttons are taken. Close, Cancel and anything else is left to Nexus,
+          // which used to be swallowed here and started a download instead of closing the dialog.
+          if (modalButton && isModalDownloadAction(modalButton)) {
+            const isNMMModal = classifyDownloadControl(modalButton) === 'nmm'
+              || hrefWantsNmm(modalButton.href || modalButton.getAttribute?.('href'));
             const modalHref = resolveModalHref(modal, modalButton, isNMMModal);
 
             if (modalHref && !shouldPassThroughToNative(extractFileId(modalHref))) {
@@ -1247,13 +1343,27 @@ window.NexusExt = window.NexusExt || {};
       if (!element) return;
       if (element.closest(IGNORE_ANCESTORS)) return;
       const linkHref = element.href || element.getAttribute('href') || '';
-      if (!linkHref) return;
+      if (!linkHref) {
+        // Nexus's newer file cards render "Mod manager download" / "Manual download" as plain buttons
+        // that open the requirements modal in script. With Skip requirement screens on, those are taken
+        // the same way a link is, so the requirements step is skipped for Vortex as well as manual.
+        const synthesized = cfg.SkipRequirements ? hrefForHreflessControl(element, path) : null;
+        if (!synthesized || shouldPassThroughToNative(synthesized.fileId)) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        handleDownload(element, synthesized.fileId, synthesized.isNMM, synthesized.href)
+          .catch((cause) => handleError(
+            element,
+            Errors.fromException(cause, { context: 'Starting download' })
+          ));
+        return;
+      }
       if (!isDownloadHref(linkHref)) return;
       const fileId = extractFileId(linkHref);
       if (!fileId) return;
       if (shouldPassThroughToNative(fileId)) return;
       const hasRequirements = linkHref.includes('ModRequirementsPopUp') || linkHref.includes('tab=requirements');
-      const isNMM = linkHref.includes('nmm=1')|| linkHref.includes('&nmm') || element.closest('#action-nmm, #action-vortex') !== null;
+      const isNMM = hrefWantsNmm(linkHref) || matchesAny(element, 'modManagerControl');
       if (hasRequirements && !cfg.SkipRequirements) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -1284,9 +1394,9 @@ window.NexusExt = window.NexusExt || {};
     let lastFileClick = { id: '', at: 0 };
     function noteFileClick(path) {
       // A click inside the modal is the modal's own button; it must not replace the file it is for.
-      if (path.some((node) => node?.tagName === 'DOWNLOAD-MODAL')) return;
+      if (path.some((node) => DOWNLOAD_MODAL_TAGS.has(node?.tagName))) return;
       for (const node of path) {
-        const id = node?.getAttribute?.('file-id') || node?.dataset?.fileId
+        const id = fileIdFromNode(node)
           || (node?.tagName === 'A' ? extractFileId(node.href || node.getAttribute?.('href') || '') : '');
         if (/^\d{1,12}$/.test(String(id || ''))) {
           lastFileClick = { id: String(id), at: Date.now() };
@@ -1297,11 +1407,41 @@ window.NexusExt = window.NexusExt || {};
     function recentlyClickedFileId() {
       return Date.now() - lastFileClick.at < FILE_CLICK_MEMORY_MS ? lastFileClick.id : '';
     }
+    function isModalDownloadAction(button) {
+      if (isDismissControl(button)) return false;
+      if (classifyDownloadControl(button)) return true;
+      const href = button.href || button.getAttribute?.('href') || '';
+      if (href && isDownloadHref(href)) return true;
+      return textIs(controlLabel(button), 'downloadWord', ['download']);
+    }
+
+    // A file id for a control with no href: from its host element, or from the page's own file_id.
+    function hrefForHreflessControl(element, path) {
+      const kind = classifyDownloadControl(element);
+      if (!kind) return null;
+      let fileId = '';
+      for (const node of path) {
+        fileId = fileIdFromNode(node);
+        if (fileId) break;
+      }
+      // The component's modal names the file too, and its own signed API link when there is one.
+      const modal = downloadModalFor(path);
+      if (!fileId) fileId = fileIdFromNode(modal);
+      if (!fileId) fileId = String(new URLSearchParams(location.search).get('file_id') || '');
+      if (!/^\d{1,12}$/.test(fileId)) return null;
+      const page = getModPagePath();
+      if (!page) return null;
+      const isNMM = kind === 'nmm';
+      const modalFile = fileJsonOf(modal);
+      const picked = modalFile ? pickModalHref({ modalFileId: fileId, linksJson: JSON.stringify(modalFile), isNMM, base: page }) : '';
+      return { fileId, isNMM, href: picked || `${page}?tab=files&file_id=${fileId}${isNMM ? '&nmm=1' : ''}` };
+    }
+
     function resolveModalHref(modal, modalButton, isNMMModal) {
       return pickModalHref({
-        modalFileId: modal.getAttribute('file-id') || modal.getAttribute('data-file-id') || recentlyClickedFileId(),
+        modalFileId: fileIdFromNode(modal) || recentlyClickedFileId(),
         buttonHref: modalButton.href || modalButton.getAttribute?.('href') || '',
-        linksJson: modal.getAttribute('download-links'),
+        linksJson: modal.getAttribute('download-links') || modal.getAttribute('file'),
         isNMM: isNMMModal
       });
     }
@@ -1345,7 +1485,7 @@ window.NexusExt = window.NexusExt || {};
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
-  const SHADOW_HOST_SELECTOR = 'mod-file-download, mod-download-modal, download-modal';
+  const SHADOW_HOST_SELECTOR = 'mod-file-download, mod-download-buttons, mod-download-modal, download-modal';
 
   function getSearchRoots(root = document) {
     const roots = [root];
@@ -2125,6 +2265,10 @@ window.NexusExt = window.NexusExt || {};
   }
 
   window.NexusExt.NNW = {
+    hrefWantsNmm,
+    fileIdFromNode,
+    isDismissControl,
+    classifyDownloadControl,
     init,
     onNavigate,
     updateConfig,

@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "Segnala un bug — copia il report di errore"
-  },
   "popupFooter": {
     "message": "Assistente di download per Nexus Mods e Vortex"
   },
@@ -705,9 +702,6 @@
   },
   "popupQueuesTitle": {
     "message": "Download in background"
-  },
-  "popupReloadFirst": {
-    "message": "Ricarica la pagina di Nexus Mods prima di aprire le impostazioni della pagina."
   },
   "popupReportFull": {
     "message": "GitHub si apre con il report completo — descrivi solo cosa è successo."
@@ -1727,5 +1721,56 @@
   },
   "dbEnable": {
     "message": "Attiva i log di debug"
+  },
+  "btnSendReportTip": {
+    "message": "Descrivi il problema, controlla il report e invialo",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Apri il log di debug in una nuova scheda",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Completato: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Nascondi il popup dei download durante le collezioni",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Solo Chrome ed Edge. Evita che il fumetto dei download si apra per ogni file e lo ripristina a fine, arresto o errore.",
+    "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Invio a Vortex…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "Segnala su GitHub",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "Apre una issue GitHub precompilata. Un report troppo lungo per il link viene prima copiato negli appunti.",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — nuovo tentativo ($N$)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "$COUNT$ file inviati a Vortex. Controlla nei Download di Vortex che siano arrivati tutti; altrimenti riavvia con Riscarica.",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

@@ -311,7 +311,9 @@ const GECKO_MIN_VERSION = '140.0';
 // Every permission the package asks for, each one explained in README.md, PRIVACY.md and the store
 // listing. A new permission that shows a warning stops an update until the user accepts it, so one is
 // never added without changing this list on purpose.
-const EXPECTED_PERMISSIONS = ['storage', 'downloads', 'scripting', 'alarms'];
+const EXPECTED_PERMISSIONS = ['storage', 'downloads', 'downloads.ui', 'scripting', 'alarms'];
+// Chromium-only: Firefox has no downloads.setUiOptions and rejects the unknown permission.
+const CHROME_ONLY_PERMISSIONS = ['downloads.ui'];
 const EXPECTED_HOST_PERMISSIONS = ['https://www.nexusmods.com/*'];
 // Asked for only when the user sends a report or turns on automatic error reports (relay/README.md).
 const EXPECTED_OPTIONAL_HOST_PERMISSIONS = ['https://nexusmods-bypass-relay.mariosthanos3.workers.dev/*'];
@@ -333,6 +335,7 @@ assertPermissions(manifest);
 
 function toFirefoxManifest(source) {
   const firefox = JSON.parse(JSON.stringify(source));
+  firefox.permissions = (firefox.permissions || []).filter((name) => !CHROME_ONLY_PERMISSIONS.includes(name));
 
   firefox.browser_specific_settings = {
     gecko: {

@@ -438,3 +438,235 @@ test('every page shows the manifest version, and the debug page can turn logging
   expect(await page.evaluate(() => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_settings', (o) => r(o.nxtk_settings.DebugLogs))))).toBe(true);
   await page.close();
 });
+
+test('popup help tab: one solid primary, two compact secondaries, sentence case, tooltips', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  for (const width of [380]) { // the popup body is a fixed 380px
+    const page = await context.newPage();
+    await page.setViewportSize({ width, height: 600 });
+    await page.goto(`chrome-extension://${id}/popup/popup.html`);
+    await page.click('#tabHelp');
+    const primary = page.locator('#sendReport');
+    await expect(primary).toBeVisible();
+    const style = await primary.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { opacity: cs.opacity, transform: cs.textTransform, color: cs.color, bg: cs.backgroundColor, h: el.getBoundingClientRect().height };
+    });
+    expect(style.opacity).toBe('1');
+    expect(style.transform).toBe('none');
+    expect(style.color).toBe('rgb(29, 20, 9)');
+    const boxes = await Promise.all(['#reportBug', '#openDebugLog'].map((sel) => page.locator(sel).boundingBox()));
+    expect(Math.abs(boxes[0].y - boxes[1].y)).toBeLessThan(1);
+    expect(Math.abs(boxes[0].height - style.h)).toBeLessThan(1);
+    expect(boxes[0].x + boxes[0].width).toBeLessThanOrEqual(boxes[1].x);
+    for (const sel of ['#sendReport', '#reportBug', '#openDebugLog']) {
+      expect((await page.locator(sel).getAttribute('title')) || '').not.toBe('');
+      const overflow = await page.locator(sel).evaluate((el) => el.scrollWidth - el.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(1);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    await page.screenshot({ path: path.join(shotDir, `popup-help-${width}.png`) });
+    await page.close();
+  }
+});
+
+// Live report on SkyUI (12604): "Mod manager download" as a plain button still opened Nexus's
+// requirements modal, and that modal's Close button / Escape did nothing.
+test('Vortex button without href skips the requirements modal and says it is sending; modal Close and Escape reach Nexus', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  // Hold the link request so the in-between state can be seen.
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', async (route) => {
+    await new Promise((r) => setTimeout(r, 3000));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
+  });
+  await page.evaluate(() => {
+    const host = document.createElement('mod-file-download');
+    host.setAttribute('file-id', '35407');
+    const vortex = document.createElement('button');
+    vortex.id = 'fake-vortex';
+    vortex.innerHTML = '<span>Mod manager download</span>';
+    host.append(vortex);
+    document.body.append(host);
+    window.nativeOpened = 0;
+    vortex.addEventListener('click', () => { window.nativeOpened += 1; });
+
+    const modal = document.createElement('download-modal');
+    modal.setAttribute('file-id', '35407');
+    modal.setAttribute('download-links', JSON.stringify({ downloadUrl: '/skyrimspecialedition/mods/12604?tab=files&file_id=35407' }));
+    modal.tabIndex = -1;
+    const close = document.createElement('button');
+    close.id = 'fake-close';
+    close.textContent = 'Close';
+    modal.append(close);
+    document.body.append(modal);
+    window.closeClicks = 0;
+    window.escaped = 0;
+    close.addEventListener('click', () => { window.closeClicks += 1; });
+    modal.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.escaped += 1; });
+  });
+  const started = Date.now();
+  await page.click('#fake-vortex');
+  await expect(page.locator('#fake-vortex')).toHaveText(/Sending to Vortex/, { timeout: 1000 });
+  expect(Date.now() - started, 'feedback is immediate').toBeLessThan(1500);
+  expect(await page.evaluate(() => window.nativeOpened), 'Nexus never sees the click, so no modal').toBe(0);
+
+  await page.click('#fake-close');
+  expect(await page.evaluate(() => window.closeClicks), 'Close reaches Nexus').toBe(1);
+  await page.focus('download-modal');
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => window.escaped), 'Escape reaches Nexus').toBe(1);
+
+  // With an extension dialog open as well, a click inside Nexus's own dialog is still not blocked.
+  await page.click('#nxtk-settings-fab');
+  await expect(page.locator('.nxtk-modal').first()).toBeVisible({ timeout: 10000 });
+  const blocked = await page.evaluate(() => {
+    const close = document.getElementById('fake-close');
+    const event = new globalThis.PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true });
+    close.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(blocked, 'the overlay guard leaves Nexus dialogs alone').toBe(false);
+  await page.close();
+});
+
+test('settings button stays small at 125/150% zoom and never covers Download all mods', async () => {
+  for (const zoom of [1.25, 1.5]) {
+    const page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123', 1280, 720, zoom);
+    const deck = page.locator('#nxtk-control-deck');
+    await expect(deck).toBeVisible({ timeout: 30000 });
+    const fab = page.locator('#nxtk-settings-fab');
+    await expect(fab).toBeVisible();
+    const label = await fab.locator('.nxtk-fab-label').evaluate((el) => el.getBoundingClientRect().width);
+    expect(label, 'icon only at this width').toBeLessThan(2);
+    const button = page.locator('#nxtk-dl-all');
+    for (let step = 0; step < 6; step += 1) {
+      await button.scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, step * 60);
+      await page.waitForTimeout(250);
+      const covered = await page.evaluate(() => {
+        const target = document.getElementById('nxtk-dl-all');
+        const fabEl = document.getElementById('nxtk-settings-fab');
+        const a = target.getBoundingClientRect();
+        const b = fabEl.getBoundingClientRect();
+        if (fabEl.classList.contains('nxtk-fab-tucked')) return false;
+        return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      });
+      expect(covered, `zoom ${zoom}, step ${step}: the FAB sits on Download all mods`).toBe(false);
+    }
+    await page.screenshot({ path: path.join(shotDir, `fab-deck-${Math.round(zoom * 100)}.png`) });
+    await page.close();
+  }
+});
+
+test('popup Page settings deep link opens the in-page settings and drops the hash', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1#nxtk-settings', 1280, 800, 1);
+  await expect(page.locator('.nxtk-modal').first()).toBeVisible({ timeout: 20000 });
+  expect(new URL(page.url()).hash).toBe('');
+  await page.close();
+});
+
+// Nexus's real markup (2026): the file card is <mod-file-download file='{"id":…}'> whose shadow root holds
+// <mod-download-modal file='{…downloadUrl, vortexDownloadUrl}'>, whose own shadow root renders the
+// "Mod manager download" button; the header Vortex button lives in <mod-download-buttons main-file=…>.
+// No file-id attribute anywhere, which is why the first fix missed the live page.
+test('real Nexus web components: Vortex buttons in nested shadow roots skip the requirements modal', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  const asked = [];
+  const hold = async (route) => {
+    asked.push({ url: route.request().url(), body: route.request().postData() || '' });
+    await new Promise((r) => setTimeout(r, 3000));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
+  };
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', hold);
+  await page.route('**/api/files/**', hold);
+  await page.evaluate(() => {
+    window.nativeOpened = 0;
+    const build = (hostTag, hostAttrs, label, id, fileId = 35407) => {
+      const host = document.createElement(hostTag);
+      for (const [k, v] of Object.entries(hostAttrs)) host.setAttribute(k, v);
+      const outer = host.attachShadow({ mode: 'open' });
+      const modal = document.createElement('mod-download-modal');
+      modal.setAttribute('file', JSON.stringify({ id: fileId, name: 'SkyUI', downloadUrl: `https://www.nexusmods.com/api/files/${fileId}?game=1704`, vortexDownloadUrl: `https://www.nexusmods.com/api/files/${fileId}?game=1704&nmm=1` }));
+      outer.append(modal);
+      const inner = modal.attachShadow({ mode: 'open' });
+      const button = document.createElement('button');
+      button.id = id;
+      button.innerHTML = `<span>${label}</span>`;
+      // Nexus opens its requirements modal from the button's own handler.
+      button.addEventListener('click', () => { window.nativeOpened += 1; });
+      inner.append(button);
+      document.body.append(host);
+      return host;
+    };
+    build('mod-file-download', { file: JSON.stringify({ id: 35407 }), 'game-id': '1704' }, 'Mod manager download', 'real-card-vortex');
+    // A different file: one click per file is the dedupe rule, so the same id twice would be ignored.
+    build('mod-download-buttons', { 'main-file': JSON.stringify({ id: 35408 }), 'game-id': '1704' }, 'Vortex', 'real-header-vortex', 35408);
+  });
+  const button = (id) => page.locator(`mod-file-download, mod-download-buttons`).locator(`#${id}`);
+  for (const id of ['real-card-vortex', 'real-header-vortex']) {
+    await button(id).click();
+    await expect(button(id)).toHaveText(/Sending to Vortex/, { timeout: 1000 });
+    await page.waitForTimeout(3500);
+    // The stub answers without a link, so the extension shows its error dialog; close it.
+    for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    }
+  }
+  expect(await page.evaluate(() => window.nativeOpened), 'Nexus never opened its modal').toBe(0);
+  expect(asked.length, 'the link was requested').toBeGreaterThan(0);
+  for (const { url, body } of asked) {
+    // Either the component's signed Vortex API link or the generator, always for the clicked file, as Vortex.
+    if (url.includes('/api/files/')) {
+      expect(url).toMatch(/\/api\/files\/3540[78]/);
+      expect(new URL(url).searchParams.get('nmm')).toBe('1');
+    } else {
+      expect(new URLSearchParams(body).get('fid')).toMatch(/^3540[78]$/);
+      expect(new URLSearchParams(body).get('nmm')).toBe('1');
+    }
+  }
+  await page.close();
+});
+
+test('settings button steps aside when a Nexus menu (account / Sign out) drops under it at 150%', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604', 1280, 720, 1.5);
+  const fab = page.locator('#nxtk-settings-fab');
+  await expect(fab).toBeVisible({ timeout: 20000 });
+  await page.evaluate(() => {
+    const toggle = document.createElement('button');
+    toggle.id = 'fake-account';
+    toggle.textContent = 'Account';
+    toggle.style.cssText = 'position:fixed;top:4px;right:4px;z-index:50';
+    const menu = document.createElement('div');
+    menu.id = 'fake-menu';
+    menu.style.cssText = 'position:fixed;top:40px;right:0;bottom:0;width:260px;background:#222;z-index:50;display:none;flex-direction:column;justify-content:flex-end';
+    menu.innerHTML = '<a href="/a">Profile</a><a href="/b">Settings</a><a href="https://users.nexusmods.com/auth/sign_out" style="display:block;padding:12px">Sign out</a>';
+    toggle.addEventListener('click', () => { menu.style.display = menu.style.display === 'none' ? 'flex' : 'none'; });
+    document.body.append(toggle, menu);
+  });
+  // Away from the page's own links, so only the menu can be under the button.
+  await page.evaluate(() => { document.querySelector('#mainContent, main, body > div')?.setAttribute('style', 'display:none'); });
+  await page.evaluate(() => globalThis.dispatchEvent(new Event('resize')));
+  await page.waitForTimeout(400);
+  await expect(fab, 'visible before the menu opens').toBeVisible();
+  await page.click('#fake-account');
+  await page.waitForTimeout(1000);
+  const covered = await page.evaluate(() => {
+    const fabEl = document.getElementById('nxtk-settings-fab');
+    if (getComputedStyle(fabEl).visibility === 'hidden') return false;
+    const b = fabEl.getBoundingClientRect();
+    return Array.from(document.querySelectorAll('#fake-menu a')).some((a) => {
+      const r = a.getBoundingClientRect();
+      return r.left < b.right && b.left < r.right && r.top < b.bottom && b.top < r.bottom;
+    });
+  });
+  expect(covered, 'the FAB sits on the account menu').toBe(false);
+  await page.click('#fake-account');
+  await page.waitForTimeout(700);
+  await expect(fab, 'and comes back when the menu closes').toBeVisible();
+  await page.close();
+});

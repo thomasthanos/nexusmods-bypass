@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "Report a bug — copies error report"
-  },
   "popupFooter": {
     "message": "Download helper for Nexus Mods & Vortex"
   },
@@ -1007,10 +1004,6 @@
   "popupQueuesTitle": {
     "message": "Background downloads",
     "description": "Popup heading above the collection and modlist runs the background worker is still running."
-  },
-  "popupReloadFirst": {
-    "message": "Reload the Nexus Mods page before opening page settings.",
-    "description": "Popup status."
   },
   "popupReportFull": {
     "message": "GitHub opens with the full report — just describe what happened.",
@@ -2054,5 +2047,56 @@
   "dbEnable": {
     "message": "Turn on debug logs",
     "description": "Debug log page."
+  },
+  "btnSendReportTip": {
+    "message": "Describe the problem, review the redacted report, then send it",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Open the live debug log in a new tab",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Completed: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Hide the browser download popup during collection downloads",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Chrome and Edge only. Keeps the download bubble from opening for every file while a collection run is active, and turns it back on when the run ends, stops or fails.",
+    "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Sending to Vortex…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "Report on GitHub",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "Opens a prefilled GitHub issue. A report too long for the link is copied to your clipboard first.",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — retrying (attempt $N$)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "Handed $COUNT$ files to Vortex. Check Vortex's Downloads that each one arrived; if some did not, run again with Redownload.",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

@@ -94,17 +94,22 @@
       </div>
 
       <div class="popup-tab-panel" id="panelHelp" role="tabpanel" aria-labelledby="tabHelp" hidden>
-        <button class="popup-btn popup-bug-btn nxtk-btn nxtk-btn-primary" id="sendReport" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
-          <span data-i18n="btnSendReport">Send bug report</span>
-        </button>
-        <button class="popup-btn popup-bug-btn nxtk-btn nxtk-btn-secondary" id="reportBug">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17a6.002 6.002 0 0 0-2.84 0L8.41 3 7 4.41l1.62 2.63C7.88 7.55 7.26 8.22 6.81 9H4v2h2.09A5.98 5.98 0 0 0 6 12v1H4v2h2v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-1h2v-2h-2v-1c0-.34-.03-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>
-          <span data-i18n="btnReportBug">Report a bug — copies error report</span>
-        </button>
-        <button class="popup-btn nxtk-btn nxtk-btn-secondary" id="openDebugLog" type="button">
-          <span data-i18n="btnDebugLog">Debug log</span>
-        </button>
+        <div class="popup-help-actions">
+          <button class="popup-help-primary" id="sendReport" type="button" title="Describe the problem, review the redacted report, then send it" data-i18n-title="btnSendReportTip">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+            <span data-i18n="btnSendReport">Send bug report</span>
+          </button>
+          <div class="popup-help-row">
+            <button class="popup-help-secondary" id="reportBug" type="button" title="Opens a prefilled GitHub issue. A report too long for the link is copied to your clipboard first." data-i18n-title="btnGithubReportTip">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>
+              <span data-i18n="btnGithubReport">Report on GitHub</span>
+            </button>
+            <button class="popup-help-secondary" id="openDebugLog" type="button" title="Open the live debug log in a new tab" data-i18n-title="btnDebugLogTip">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h10v2H4zm0 6h16v2H4zm14-6h2v2h-2z"/></svg>
+              <span data-i18n="btnDebugLog">Debug log</span>
+            </button>
+          </div>
+        </div>
 
         <section class="popup-help" id="popupHelp">
           <h2 class="popup-help-title">

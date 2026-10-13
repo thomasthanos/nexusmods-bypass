@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "Сообщить об ошибке — копирует отчёт"
-  },
   "popupFooter": {
     "message": "Помощник загрузок для Nexus Mods и Vortex"
   },
@@ -877,9 +874,6 @@
   },
   "popupQueuesTitle": {
     "message": "Фоновые загрузки"
-  },
-  "popupReloadFirst": {
-    "message": "Обновите страницу Nexus Mods, прежде чем открывать настройки."
   },
   "popupReportFull": {
     "message": "GitHub откроется с полным отчётом — просто опишите, что произошло."
@@ -1895,5 +1889,56 @@
   },
   "dbEnable": {
     "message": "Включить журналы отладки"
+  },
+  "btnSendReportTip": {
+    "message": "Опишите проблему, проверьте отчёт и отправьте его",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Открыть журнал отладки в новой вкладке",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Завершено: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Скрывать окно загрузок браузера при скачивании коллекций",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Только Chrome и Edge. Не даёт панели загрузок открываться на каждый файл и включает её снова по завершении, остановке или ошибке.",
+    "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Отправка в Vortex…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "Сообщить на GitHub",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "Открывает заполненный issue на GitHub. Слишком длинный для ссылки отчёт сначала копируется в буфер обмена.",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — повтор (попытка $N$)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "Передано в Vortex файлов: $COUNT$. Проверьте в загрузках Vortex, что все пришли; если нет — запустите снова с «Скачать заново».",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

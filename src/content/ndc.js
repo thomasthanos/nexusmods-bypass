@@ -45,68 +45,8 @@ window.NexusExt = window.NexusExt || {};
       : `${minutes}:${pad(secs)}`;
   };
 
-  // A remaining-time figure is only worth showing if it is measured, so each finished file
-  // contributes two samples: how long its bytes took, and the gap before the next one
-  // started. That gap is the link resolve — a mod page fetch plus a POST — and on a queue
-  // of small files it is a real share of the total, so leaving it out would read low.
-  // Samples taken across a pause or a rate-limit wait are thrown away rather than averaged
-  // in, because that time says nothing about how fast the remaining files will arrive.
-  function createQueueEta(sizesKb) {
-    const sizes = sizesKb.map((value) => (Number(value) > 0 ? Number(value) : 0));
-    const known = sizes.filter((value) => value > 0);
-    const averageKb = known.length
-      ? known.reduce((sum, value) => sum + value, 0) / known.length
-      : 0;
-    const sizeOf = (index) => (sizes[index] > 0 ? sizes[index] : averageKb);
+  // The estimate lives in shared.js (NXTK.createQueueEta) so it can be tested offline.
 
-    let bytes = 0;
-    let transferMs = 0;
-    let overheadMs = 0;
-    let samples = 0;
-    let gaps = 0;
-    // null rather than 0: a timestamp is a valid value that must not read as "not set".
-    let startedAt = null;
-    let completedAt = null;
-    let spoiled = false;
-
-    return {
-      itemStarted() {
-        const now = Date.now();
-        if (completedAt !== null && !spoiled) {
-          overheadMs += now - completedAt;
-          gaps += 1;
-        }
-        startedAt = now;
-        completedAt = null;
-        spoiled = false;
-      },
-      itemCompleted(index) {
-        const now = Date.now();
-        if (startedAt !== null && !spoiled && sizeOf(index) > 0) {
-          transferMs += now - startedAt;
-          bytes += sizeOf(index) * 1024;
-          samples += 1;
-        }
-        startedAt = null;
-        completedAt = now;
-      },
-      spoil() {
-        spoiled = true;
-      },
-      // Zero means there is nothing honest to say yet.
-      remainingSeconds(index, total) {
-        if (!samples || transferMs <= 0 || !averageKb) return 0;
-        const bytesPerSecond = bytes / (transferMs / 1000);
-        if (!(bytesPerSecond > 0)) return 0;
-
-        let remainingBytes = 0;
-        for (let cursor = index; cursor < total; cursor += 1) remainingBytes += sizeOf(cursor) * 1024;
-        const remainingFiles = Math.max(0, total - index);
-        const perFileOverhead = gaps ? overheadMs / gaps / 1000 : 0;
-        return remainingBytes / bytesPerSecond + remainingFiles * perFileOverhead;
-      }
-    };
-  }
 
   const escapeHtml = NXTK.escapeHtml;
   const T = (key, fallback) => NXTK.t(key, null, fallback);
@@ -264,7 +204,8 @@ window.NexusExt = window.NexusExt || {};
     async acquireRunClaim() {
       const reply = await NexusExt.Storage.sendDownloadCommand('NDC_RUN_CLAIM', {
         gameId: this.gameId,
-        collectionId: this.collectionId
+        collectionId: this.collectionId,
+        method: this.claimMethod()
       });
       if (!reply?.ok) return { granted: true };
       if (!reply.value?.granted) return { granted: false, reason: reply.value?.reason || 'lease' };
@@ -273,10 +214,15 @@ window.NexusExt = window.NexusExt || {};
       this.claimTimer = setInterval(() => {
         NexusExt.Storage.sendDownloadCommand('NDC_RUN_CLAIM', {
           gameId: this.gameId,
-          collectionId: this.collectionId
+          collectionId: this.collectionId,
+          method: this.claimMethod()
         }).catch?.(() => undefined);
       }, 15000);
       return { granted: true };
+    }
+
+    claimMethod() {
+      return this.downloadMethod === DOWNLOAD_METHOD_BROWSER ? 'browser' : 'vortex';
     }
 
     releaseRunClaim() {
@@ -488,7 +434,7 @@ window.NexusExt = window.NexusExt || {};
         });
         downloadUrl = resolved?.url || '';
         if (!downloadUrl && resolved?.error) {
-          return { downloadUrl: '', text, error: resolved.error };
+          return { downloadUrl: '', text, rateLimit: resolved.rateLimit || pageResponse.rateLimit, error: resolved.error };
         }
       }
       return {
@@ -605,10 +551,13 @@ window.NexusExt = window.NexusExt || {};
         result.error = error;
 
         if (error.code === 'rate_limited') {
-          const waitSeconds = this.noteRateLimited(result.rateLimit?.retryAfterSeconds);
+          // The resolve path (getDownloadUrl) passes only the error on, so Retry-After rides on it too.
+          const waitSeconds = this.noteRateLimited(result.rateLimit?.retryAfterSeconds ?? error.retryAfterSeconds);
+          // The shared limit is recorded either way; the next file waits it out (waitOutRateLimit) and
+          // says so. "Backing off" is only logged when this attempt really is about to wait.
+          if (attempt >= attempts) return result;
           this.ui.logText(TS('logBackingOff', [formatDuration(waitSeconds)],
             `Nexus Mods is rate limiting requests. Backing off ${formatDuration(waitSeconds)}.`), 'info');
-          if (attempt >= attempts) return result;
           await this.waitOutRateLimit();
           if (this.isStopped()) return result;
           continue;
@@ -779,7 +728,10 @@ window.NexusExt = window.NexusExt || {};
         let waitTimer = null;
         let waitRow = null;
         const queueTotal = sizesKb.length || fallbackQueueTotal;
-        const eta = sizesKb.length ? createQueueEta(sizesKb) : null;
+        let adopted = false;
+        let eta = sizesKb.length
+          ? NXTK.createQueueEta(sizesKb, { fallbackMBps: this.resolveDownloadSpeed().speed })
+          : null;
 
         const stopWaitCountdown = () => {
           clearInterval(waitTimer);
@@ -924,7 +876,13 @@ window.NexusExt = window.NexusExt || {};
             } else if (message.itemState === 'complete') {
               eta?.itemCompleted(queueIndex - 1);
               this.ui.setTimeLeft?.(eta ? eta.remainingSeconds(queueIndex, queueTotal) : 0);
-              this.ui.logText(TS('logCompleted', [name], `Completed: ${name}`), 'info');
+              // The worker names the size of the file it finished. The page's own list is only a fallback
+              // for an older worker, and never for an adopted job, whose numbering is not this tab's.
+              const sizeKb = Number(message.itemSizeKb)
+                || (adopted ? 0 : Number(sizesKb[queueIndex - 1]) || 0);
+              this.ui.logText(sizeKb > 0
+                ? TS('logCompletedSize', [name, NXTK.formatBytes(sizeKb * 1024)], `Completed: ${name} (${NXTK.formatBytes(sizeKb * 1024)})`)
+                : TS('logCompleted', [name], `Completed: ${name}`), 'info');
             } else if (message.itemState === 'retrying') {
               eta?.spoil();
               this.ui.logText(TS('logRetryingInterrupted', [name], `Retrying interrupted download: ${name}`), 'info');
@@ -1000,6 +958,11 @@ window.NexusExt = window.NexusExt || {};
           }
           this.backgroundJobId = reply.value.jobId;
           if (!reply.value.adopted) return;
+          // An adopted job numbers its own item list, so this tab's sizes no longer line up: no estimate
+          // is better than a wrong one.
+          adopted = true;
+          eta = null;
+          this.ui.setTimeLeft?.(0);
           this.ui.logText(T('logReconnectedAdopted', 'Reconnected to the download already running in the background.'), 'info');
           const queueIndex = Math.min(
             Number(reply.value.index) || 0,
@@ -1184,6 +1147,7 @@ window.NexusExt = window.NexusExt || {};
         const failedDownload = [];
         const skipped = [];
         let cloudflareStrikes = 0;
+        let handedOffCount = 0;
         let forceStop = false;
 
         for (const [index, mod] of mods.entries()) {
@@ -1213,7 +1177,7 @@ window.NexusExt = window.NexusExt || {};
 
         const downloadResult = await this.fetchDownloadLinkWithRetry(mod, {
           onAttemptFailed: (error, attempt) => this.ui.log(
-            `[${modNumber}] ${escapeHtml(error.code)} — retrying (attempt ${attempt + 1}) ${`<a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`}`,
+            `[${modNumber}] ${escapeHtml(TS('logRetryingAttempt', [error.code, String(attempt + 1)], `${error.code} — retrying (attempt ${attempt + 1})`))} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`,
             'info'
           )
         });
@@ -1275,6 +1239,7 @@ window.NexusExt = window.NexusExt || {};
           this.ui.incrementProgress();
           NXTK.bumpTotalDownloads?.();
           handedOff = true;
+          handedOffCount += 1;
 
           if (history) {
             history = await this.recordHistoryEntry(type, historyEntryId(mod));
@@ -1365,6 +1330,12 @@ window.NexusExt = window.NexusExt || {};
 
       this.logSkippedSummary(skipped);
       if (skipped.length && outcome === 'finished') outcome = 'partial';
+      // The browser cannot tell whether Vortex accepted an nxm:// link (or is installed at all), so a
+      // hand-off is recorded as sent, not as downloaded. Say so, with the way to resend.
+      if (handedOffCount > 0) {
+        this.ui.logText(TS('logVortexHandoffSummary', [String(handedOffCount)],
+          `Handed ${handedOffCount} files to Vortex. Check Vortex's Downloads that each one arrived; if some did not, run again with Redownload.`), 'info');
+      }
 
       if (failedDownload.length) {
         if (outcome === 'finished') outcome = 'partial';

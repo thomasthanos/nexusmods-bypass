@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "__MSG_appDesc__",
   "default_locale": "en",
   "homepage_url": "https://github.com/thomasthanos/nexusmods-bypass",
   "permissions": [
     "storage",
     "downloads",
+    "downloads.ui",
     "scripting",
     "alarms"
   ],

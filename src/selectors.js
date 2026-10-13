@@ -33,7 +33,11 @@
     slowDownloadButton: Object.freeze(['#slowDownloadButton', 'button[data-nxtk-slow-bound]']),
     premiumBanner: Object.freeze(['.bg-nexus-premium-gradient', '[class*="premium-gradient"]']),
     collectionColumn: Object.freeze(['#mainContent .next-container', '#mainContent [class*="container"]', 'main']),
-    collectionFeatured: Object.freeze(['#section .wrap > #featured', '#featured'])
+    collectionFeatured: Object.freeze(['#section .wrap > #featured', '#featured']),
+    // The Vortex / mod-manager control on a file card, by id, before any text check.
+    modManagerControl: Object.freeze(['#action-nmm', '#action-vortex', '[data-e2e-id*="mod-manager" i]', '[data-e2e-id*="vortex" i]']),
+    // The custom elements that wrap a file's download controls (and their requirements modal).
+    fileDownloadHost: Object.freeze(['mod-file-download', 'mod-download-buttons', 'mod-download-modal', 'download-modal'])
   });
 
   /** @type {Readonly<Record<string, readonly string[]>>} */
@@ -42,6 +46,30 @@
       'slow download', 'langsamer download', 'langsamer herunterladen', 'téléchargement lent',
       'descarga lenta', 'download lento', 'pobieranie wolne', 'wolne pobieranie', 'медленная загрузка',
       'yavaş indirme', 'αργή λήψη', '低速ダウンロード', '저속 다운로드', '慢速下载'
+    ]),
+    // A mod-manager (Vortex) download control.
+    modManagerDownload: Object.freeze([
+      'mod manager', 'vortex', 'mod-manager', 'modmanager', 'gestionnaire de mods', 'gestor de mods',
+      'gerenciador de mods', 'menedżer modów', 'менеджер модов', 'mod yöneticisi', 'διαχειριστή mod',
+      'διαχειριστής mod', 'mod マネージャー', 'モッドマネージャー', '모드 관리자', '模组管理器'
+    ]),
+    // A manual (browser) download control.
+    manualDownload: Object.freeze([
+      'manual download', 'manueller download', 'manuell herunterladen', 'téléchargement manuel',
+      'descarga manual', 'download manuale', 'download manual', 'pobieranie ręczne', 'ręczne pobieranie',
+      'ручная загрузка', 'ручное скачивание', 'manuel indirme', 'χειροκίνητη λήψη', '手動ダウンロード',
+      '수동 다운로드', '手动下载'
+    ]),
+    // Any download wording, for a requirements-modal button that is neither of the two above.
+    downloadWord: Object.freeze([
+      'download', 'herunterladen', 'télécharger', 'descargar', 'baixar', 'scarica', 'pobierz', 'скачать',
+      'загрузить', 'indir', 'λήψη', 'ダウンロード', '다운로드', '下载'
+    ]),
+    // Controls that dismiss a dialog. These must always reach the page untouched.
+    dismissAction: Object.freeze([
+      'close', 'cancel', 'dismiss', 'schließen', 'abbrechen', 'fermer', 'annuler', 'cerrar', 'cancelar',
+      'fechar', 'chiudi', 'annulla', 'zamknij', 'anuluj', 'закрыть', 'отмена', 'kapat', 'iptal',
+      'κλείσιμο', 'ακύρωση', '閉じる', 'キャンセル', '닫기', '취소', '关闭', '取消'
     ]),
     slowCardHint: Object.freeze([
       'wait more', 'delay before each download', 'throttled downloads'

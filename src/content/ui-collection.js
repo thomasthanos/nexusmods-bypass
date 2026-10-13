@@ -1066,7 +1066,18 @@
 
     const MAX_LOG_ROWS = 300;
     let logScrollFrame = 0;
+    let lastLogDay = '';
     const appendLogRow = (type, applyMessage) => {
+      // A long run crosses midnight; a date line keeps the bare clock times unambiguous.
+      const now = new Date();
+      const day = now.toDateString();
+      if (lastLogDay && day !== lastLogDay) {
+        const divider = document.createElement('div');
+        divider.className = 'nxtk-log-row nxtk-log-day';
+        divider.textContent = `— ${now.toLocaleDateString(NXTK.uiLocale?.() || undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })} —`;
+        logContainer.appendChild(divider);
+      }
+      lastLogDay = day;
       const row = document.createElement('div');
       row.className = 'nxtk-log-row';
       if (type === 'error') row.classList.add('nxtk-log-error');
@@ -1074,7 +1085,7 @@
 
       const time = document.createElement('span');
       time.className = 'nxtk-log-time';
-      time.textContent = `[${new Date().toLocaleTimeString()}]`;
+      time.textContent = `[${now.toLocaleTimeString(NXTK.uiLocale?.() || undefined)}]`;
       const message = document.createElement('span');
       message.className = 'nxtk-log-msg';
       applyMessage(message);
@@ -1127,8 +1138,8 @@
         return;
       }
       row.hidden = false;
-      row.textContent = NXTK.t('deckTimeLeft', [formatDuration(value)],
-        `About ${formatDuration(value)} left`);
+      const label = NXTK.formatEta ? NXTK.formatEta(value) : formatDuration(value);
+      row.textContent = NXTK.t('deckTimeLeft', [label], `About ${label} left`);
     };
 
     const setRunState = (runState) => {

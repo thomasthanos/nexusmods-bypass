@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "Αναφορά σφάλματος — αντιγράφει το report"
-  },
   "popupFooter": {
     "message": "Βοηθός λήψεων για Nexus Mods & Vortex"
   },
@@ -791,9 +788,6 @@
   },
   "popupQueuesTitle": {
     "message": "Λήψεις στο παρασκήνιο"
-  },
-  "popupReloadFirst": {
-    "message": "Ανανεώστε τη σελίδα Nexus Mods πριν ανοίξετε τις ρυθμίσεις σελίδας."
   },
   "popupReportFull": {
     "message": "Το GitHub ανοίγει με την πλήρη αναφορά — απλώς περιγράψτε τι συνέβη."
@@ -1727,5 +1721,56 @@
   },
   "dbEnable": {
     "message": "Ενεργοποίηση αρχείων αποσφαλμάτωσης"
+  },
+  "btnSendReportTip": {
+    "message": "Περιγράψτε το πρόβλημα, ελέγξτε την αναφορά και στείλτε την",
+    "description": "UI string."
+  },
+  "btnDebugLogTip": {
+    "message": "Άνοιγμα του ζωντανού αρχείου καταγραφής σε νέα καρτέλα",
+    "description": "UI string."
+  },
+  "logCompletedSize": {
+    "message": "Ολοκληρώθηκε: $NAME$ ($SIZE$)",
+    "description": "Activity log: file finished, with size.",
+    "placeholders": {
+      "name": { "content": "$1" },
+      "size": { "content": "$2" }
+    }
+  },
+  "setHideDownloadPopupLabel": {
+    "message": "Απόκρυψη αναδυόμενου παραθύρου λήψεων κατά τις λήψεις συλλογών",
+    "description": "UI string."
+  },
+  "setHideDownloadPopupDesc": {
+    "message": "Μόνο Chrome και Edge. Δεν αφήνει το παράθυρο λήψεων να ανοίγει για κάθε αρχείο όσο τρέχει μια συλλογή και το επαναφέρει όταν τελειώσει, σταματήσει ή αποτύχει.",
+    "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Αποστολή στο Vortex…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "Αναφορά στο GitHub",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "Ανοίγει ένα συμπληρωμένο GitHub issue. Αν η αναφορά δεν χωράει στον σύνδεσμο, αντιγράφεται πρώτα στο πρόχειρο.",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — νέα προσπάθεια ($N$)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "Στάλθηκαν $COUNT$ αρχεία στο Vortex. Ελέγξτε στις Λήψεις του Vortex ότι έφτασαν όλα· αν όχι, ξανατρέξτε με Επανάληψη λήψης.",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }
