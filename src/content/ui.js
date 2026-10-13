@@ -350,7 +350,7 @@ window.NexusExt = window.NexusExt || {};
 
   function placeFab(fab) {
     fab.style.removeProperty('bottom');
-    fab.classList.remove('nxtk-fab-tucked');
+    fab.classList.remove('nxtk-fab-tucked', 'nxtk-fab-hidden');
     const baseBottom = parseFloat(getComputedStyle(fab).bottom) || 28;
     let bottom = baseBottom;
     for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -364,6 +364,9 @@ window.NexusExt = window.NexusExt || {};
     if (fabCoversControl(fab)) {
       fab.style.removeProperty('bottom');
       fab.classList.add('nxtk-fab-tucked');
+      // Even the corner dot sits on a control (an open menu reaching the bottom of the window): step
+      // aside entirely until the next click or scroll re-checks.
+      if (fabCoversControl(fab)) fab.classList.add('nxtk-fab-hidden');
     }
   }
 
@@ -383,6 +386,16 @@ window.NexusExt = window.NexusExt || {};
     visualViewport?.addEventListener('resize', schedule, { passive: true });
     // Nexus renders file cards and the deck late; a few re-checks while the page settles cover that.
     for (const delay of [300, 1200, 3000, 6000]) setTimeout(schedule, delay);
+    // Menus Nexus opens on click (the account menu with Sign out, notifications) can drop down under the
+    // button, so every click re-checks once the menu has had time to open, and again after it closes.
+    document.addEventListener('click', (event) => {
+      if (fab.contains(event.target)) return;
+      setTimeout(schedule, 120);
+      setTimeout(schedule, 450);
+    }, true);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') setTimeout(schedule, 200);
+    }, true);
     fab.addEventListener('pointerleave', schedule);
     fab.addEventListener('blur', schedule);
     kit.placeFab = () => placeFab(fab);

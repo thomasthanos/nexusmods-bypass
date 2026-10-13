@@ -261,6 +261,43 @@ window.NexusExt = window.NexusExt || {};
     return Sel ? Sel.textMatches(value, key) : fallback.some((phrase) => normalizeText(value).includes(phrase));
   }
 
+  // Nexus's download web components carry the file as JSON, not as a file-id attribute:
+  // <mod-file-download file='{"id":…}' game-id>, <mod-download-buttons main-file='{"id":…}'> (header
+  // Vortex/Manual buttons) and <mod-download-modal file='{"id":…,"downloadUrl":…,"vortexDownloadUrl":…}'>.
+  const DOWNLOAD_MODAL_TAGS = new Set(['DOWNLOAD-MODAL', 'MOD-DOWNLOAD-MODAL']);
+  const DOWNLOAD_HOST_TAGS = new Set(['MOD-FILE-DOWNLOAD', 'MOD-DOWNLOAD-BUTTONS', 'MOD-DOWNLOAD-MODAL', 'DOWNLOAD-MODAL']);
+  function fileJsonOf(node) {
+    for (const name of ['file', 'main-file']) {
+      const raw = node?.getAttribute?.(name);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') return parsed;
+      } catch (_) {
+      }
+    }
+    return null;
+  }
+  function fileIdFromNode(node) {
+    if (!node || node.nodeType !== 1) return '';
+    const json = fileJsonOf(node);
+    const legacyCard = node.tagName === 'DT' || node.tagName === 'DD' || /^file-expander/.test(String(node.id || ''));
+    const id = node.getAttribute?.('file-id') || node.getAttribute?.('data-file-id') || node.dataset?.fileId
+      || json?.fileId || json?.id || json?.file_id
+      || (legacyCard ? node.getAttribute?.('data-id') || (node.tagName === 'DD' ? node.previousElementSibling?.getAttribute?.('data-id') : '') : '')
+      || String(node.id || '').match(/^file-expander-header-(\d+)$/)?.[1];
+    return /^\d{1,12}$/.test(String(id || '')) ? String(id) : '';
+  }
+  // The modal element a click belongs to: on the path, or held by the clicked button's host component.
+  function downloadModalFor(path) {
+    const direct = path.find((node) => DOWNLOAD_MODAL_TAGS.has(node?.tagName));
+    if (direct) return direct;
+    const host = path.find((node) => DOWNLOAD_HOST_TAGS.has(node?.tagName));
+    return host?.querySelector?.('mod-download-modal, download-modal')
+      || host?.shadowRoot?.querySelector?.('mod-download-modal, download-modal')
+      || null;
+  }
+
   // A control that closes or cancels a dialog. The extension never takes these clicks.
   function isDismissControl(node) {
     if (!node) return false;
@@ -1273,7 +1310,7 @@ window.NexusExt = window.NexusExt || {};
       noteFileClick(path);
 
       if (cfg.SkipRequirements && path.length) {
-        const modal = path.find(node => node?.tagName === 'DOWNLOAD-MODAL');
+        const modal = path.find((node) => DOWNLOAD_MODAL_TAGS.has(node?.tagName));
         if (modal) {
           const modalButton = path.find(node => node && (node.tagName === 'BUTTON' || node.tagName === 'A'));
           // Only the modal's download buttons are taken. Close, Cancel and anything else is left to Nexus,
@@ -1357,9 +1394,9 @@ window.NexusExt = window.NexusExt || {};
     let lastFileClick = { id: '', at: 0 };
     function noteFileClick(path) {
       // A click inside the modal is the modal's own button; it must not replace the file it is for.
-      if (path.some((node) => node?.tagName === 'DOWNLOAD-MODAL')) return;
+      if (path.some((node) => DOWNLOAD_MODAL_TAGS.has(node?.tagName))) return;
       for (const node of path) {
-        const id = node?.getAttribute?.('file-id') || node?.dataset?.fileId
+        const id = fileIdFromNode(node)
           || (node?.tagName === 'A' ? extractFileId(node.href || node.getAttribute?.('href') || '') : '');
         if (/^\d{1,12}$/.test(String(id || ''))) {
           lastFileClick = { id: String(id), at: Date.now() };
@@ -1384,28 +1421,27 @@ window.NexusExt = window.NexusExt || {};
       if (!kind) return null;
       let fileId = '';
       for (const node of path) {
-        const legacyCard = node?.tagName === 'DT' || node?.tagName === 'DD' || /^file-expander/.test(String(node?.id || ''));
-        const id = node?.getAttribute?.('file-id') || node?.getAttribute?.('data-file-id') || node?.dataset?.fileId
-          || (legacyCard ? node.getAttribute?.('data-id') || (node.tagName === 'DD' ? node.previousElementSibling?.getAttribute?.('data-id') : '') : '')
-          || String(node?.id || '').match(/^file-expander-header-(\d+)$/)?.[1];
-        if (/^\d{1,12}$/.test(String(id || ''))) {
-          fileId = String(id);
-          break;
-        }
+        fileId = fileIdFromNode(node);
+        if (fileId) break;
       }
+      // The component's modal names the file too, and its own signed API link when there is one.
+      const modal = downloadModalFor(path);
+      if (!fileId) fileId = fileIdFromNode(modal);
       if (!fileId) fileId = String(new URLSearchParams(location.search).get('file_id') || '');
       if (!/^\d{1,12}$/.test(fileId)) return null;
       const page = getModPagePath();
       if (!page) return null;
       const isNMM = kind === 'nmm';
-      return { fileId, isNMM, href: `${page}?tab=files&file_id=${fileId}${isNMM ? '&nmm=1' : ''}` };
+      const modalFile = fileJsonOf(modal);
+      const picked = modalFile ? pickModalHref({ modalFileId: fileId, linksJson: JSON.stringify(modalFile), isNMM, base: page }) : '';
+      return { fileId, isNMM, href: picked || `${page}?tab=files&file_id=${fileId}${isNMM ? '&nmm=1' : ''}` };
     }
 
     function resolveModalHref(modal, modalButton, isNMMModal) {
       return pickModalHref({
-        modalFileId: modal.getAttribute('file-id') || modal.getAttribute('data-file-id') || recentlyClickedFileId(),
+        modalFileId: fileIdFromNode(modal) || recentlyClickedFileId(),
         buttonHref: modalButton.href || modalButton.getAttribute?.('href') || '',
-        linksJson: modal.getAttribute('download-links'),
+        linksJson: modal.getAttribute('download-links') || modal.getAttribute('file'),
         isNMM: isNMMModal
       });
     }
@@ -1449,7 +1485,7 @@ window.NexusExt = window.NexusExt || {};
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
-  const SHADOW_HOST_SELECTOR = 'mod-file-download, mod-download-modal, download-modal';
+  const SHADOW_HOST_SELECTOR = 'mod-file-download, mod-download-buttons, mod-download-modal, download-modal';
 
   function getSearchRoots(root = document) {
     const roots = [root];
@@ -2230,6 +2266,7 @@ window.NexusExt = window.NexusExt || {};
 
   window.NexusExt.NNW = {
     hrefWantsNmm,
+    fileIdFromNode,
     isDismissControl,
     classifyDownloadControl,
     init,

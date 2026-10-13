@@ -233,6 +233,7 @@
 .nxtk-settings-fab.nxtk-fab-tucked { right: 6px; bottom: 6px; opacity: .45; transform: scale(.72); transform-origin: 100% 100%; }
 .nxtk-settings-fab.nxtk-fab-tucked:hover,
 .nxtk-settings-fab.nxtk-fab-tucked:focus-visible { opacity: 1; transform: none; }
+.nxtk-settings-fab.nxtk-fab-hidden { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
 @media (prefers-reduced-motion: reduce) { .nxtk-settings-fab, .nxtk-settings-fab .nxtk-fab-label { transition: none; } }
 
 .nxtk-deck {

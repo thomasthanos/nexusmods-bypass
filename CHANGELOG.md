@@ -21,6 +21,8 @@ the repository before NexusMods Bypass was split out (2026-08-24) are folded int
 - **Hide browser download popup during collection downloads** (default on, Chrome/Edge) — uses `chrome.downloads.setUiOptions` while a run is active and restores it when the run ends, stops or fails; new `downloads.ui` permission, omitted from the Firefox build.
 
 ### Fixed (review and live testing)
+- **Vortex skip on the real files tab** (second live test): Nexus's buttons sit in nested shadow roots of `<mod-file-download file='{"id":…}'>` / `<mod-download-buttons main-file=…>` / `<mod-download-modal file=…>` and carry the file as JSON, not `file-id`; the file id and the component's signed Vortex API link are now read from there.
+- **Settings button vs. Nexus menus**: re-checked after every click, so an account menu (Sign out) that drops under it at 150 % makes it step aside, and it returns when the menu closes.
 - **Skip requirement screens now covers Vortex**: a *Mod manager download* rendered as a plain button (no link) is handled like a link, so Nexus's requirements modal no longer opens (live: SkyUI 12604).
 - **Nexus's requirements modal can be closed again**: its Close/Cancel buttons were taken as a download click; dismiss controls are now never intercepted, and the extension's overlay guard leaves Nexus dialogs (pointer and Escape) alone.
 - **Faster Vortex hand-off with feedback**: the button says *Sending to Vortex…* at once, and the nxm link is asked from GenerateDownloadUrl first instead of after loading the whole file page.

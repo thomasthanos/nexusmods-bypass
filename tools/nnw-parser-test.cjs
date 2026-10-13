@@ -360,6 +360,13 @@ function controlClassificationTests() {
     matches: (selector) => (extra.id ? selector === `#${extra.id}` : false),
     closest: () => null
   });
+  // Nexus's components carry the file as JSON (live SkyUI markup), not as file-id.
+  const el = (tagName, attrs) => ({ nodeType: 1, tagName, id: '', dataset: {}, getAttribute: (n) => attrs[n] ?? null });
+  assert.equal(api.fileIdFromNode(el('MOD-FILE-DOWNLOAD', { file: '{"id":35407,"name":"SkyUI"}' })), '35407');
+  assert.equal(api.fileIdFromNode(el('MOD-DOWNLOAD-BUTTONS', { 'main-file': '{"id":35408}' })), '35408');
+  assert.equal(api.fileIdFromNode(el('MOD-DOWNLOAD-MODAL', { file: '{"fileId":7}' })), '7');
+  assert.equal(api.fileIdFromNode(el('DOWNLOAD-MODAL', { 'file-id': '9' })), '9');
+  assert.equal(api.fileIdFromNode(el('MOD-FILE-DOWNLOAD', { file: 'not json' })), '');
   assert.equal(api.hrefWantsNmm('/x/mods/1?tab=files&file_id=2&nmm=1'), true);
   assert.equal(api.hrefWantsNmm('/x/mods/1?tab=files&file_id=2&nmm=0'), false, 'nmm=0 is not Vortex');
   assert.equal(api.hrefWantsNmm('/x/mods/1?file_id=2&nmmx=1'), false);

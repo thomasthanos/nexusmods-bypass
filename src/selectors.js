@@ -37,7 +37,7 @@
     // The Vortex / mod-manager control on a file card, by id, before any text check.
     modManagerControl: Object.freeze(['#action-nmm', '#action-vortex', '[data-e2e-id*="mod-manager" i]', '[data-e2e-id*="vortex" i]']),
     // The custom elements that wrap a file's download controls (and their requirements modal).
-    fileDownloadHost: Object.freeze(['mod-file-download', 'mod-download-modal', 'download-modal'])
+    fileDownloadHost: Object.freeze(['mod-file-download', 'mod-download-buttons', 'mod-download-modal', 'download-modal'])
   });
 
   /** @type {Readonly<Record<string, readonly string[]>>} */
