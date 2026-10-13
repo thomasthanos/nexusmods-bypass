@@ -342,27 +342,47 @@
     return String(linkUserId) !== String(pageUserId);
   }
 
-  // Resolves true when the page loses focus or is hidden within the timeout, which is what happens
-  // when the OS hands an nxm:// link to Vortex (or Chrome shows its "Open Vortex?" prompt and the
-  // user accepts). Resolves false otherwise. Targets are injectable for tests.
-  function waitForProtocolHandoff({ win = globalThis.window, doc = globalThis.document, timeoutMs = 4000 } = {}) {
+  // Whether the first nxm:// hand-off visibly reached another program. Chrome's own "Open xdg-open?"
+  // / "Open Vortex?" prompt also blurs the page, and both answers give the focus back, so a blur alone
+  // proves nothing: cancelling the prompt must not read as "Vortex opened".
+  //   - the page going hidden (another window took over the screen) -> true
+  //   - the page losing focus and staying unfocused for maxMs (Vortex holds the focus) -> true
+  //   - focus coming back after a blur (prompt answered either way, or dismissed) -> false
+  //   - nothing within timeoutMs -> false
+  // false means "unknown", and the caller asks the user once. Targets are injectable for tests.
+  function waitForProtocolHandoff({
+    win = globalThis.window,
+    doc = globalThis.document,
+    timeoutMs = 4000,
+    maxMs = 15000
+  } = {}) {
     return new Promise((resolve) => {
       let done = false;
+      let blurTimer = null;
       const finish = (value) => {
         if (done) return;
         done = true;
         clearTimeout(timer);
+        clearTimeout(blurTimer);
         win?.removeEventListener?.('blur', onBlur);
+        win?.removeEventListener?.('focus', onFocus);
         doc?.removeEventListener?.('visibilitychange', onVisibility);
         resolve(value);
       };
-      const onBlur = () => finish(true);
+      const onBlur = () => {
+        clearTimeout(timer);
+        clearTimeout(blurTimer);
+        blurTimer = setTimeout(() => finish(true), Math.max(0, maxMs));
+      };
+      const onFocus = () => { if (blurTimer) finish(false); };
       const onVisibility = () => { if (doc?.visibilityState === 'hidden') finish(true); };
       const timer = setTimeout(() => finish(false), timeoutMs);
       win?.addEventListener?.('blur', onBlur);
+      win?.addEventListener?.('focus', onFocus);
       doc?.addEventListener?.('visibilitychange', onVisibility);
     });
   }
+
 
   // What a browser-download interrupt reason means for a retry. chrome.downloads names the reason
   // (InterruptReason); Firefox uses the same strings. Transient network/server hiccups are retried

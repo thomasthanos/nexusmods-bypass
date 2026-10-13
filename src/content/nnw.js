@@ -869,12 +869,52 @@ window.NexusExt = window.NexusExt || {};
     return decodedUrl;
   }
 
+  // The text node that carries a control's visible label. Nexus's controls put an icon wrapper (a
+  // <span> around an <svg>) before the label, keep the label as a bare text node, or render it inside
+  // the element's own shadow root, so "the first span" was the wrong target on the real page and the
+  // state text never showed. The longest non-blank text node, outside svg/style/script, is the label.
+  function findButtonLabelNode(button) {
+    let best = null;
+    const visit = (root, depth) => {
+      if (!root || depth > 4) return;
+      for (const node of root.childNodes || []) {
+        if (node.nodeType === 3) {
+          const text = node.nodeValue.trim();
+          if (text && (!best || text.length > best.nodeValue.trim().length)) best = node;
+        } else if (node.nodeType === 1 && !/^(svg|style|script|template)$/i.test(node.tagName)) {
+          if (node.getAttribute?.('aria-hidden') === 'true' && !node.textContent.trim()) continue;
+          visit(node, depth + 1);
+          if (node.shadowRoot) visit(node.shadowRoot, depth + 1);
+        }
+      }
+    };
+    visit(button, 0);
+    if (button?.shadowRoot) visit(button.shadowRoot, 0);
+    return best;
+  }
+
+  function applyButtonLabel(button, text) {
+    const original = button._nxtkOriginalButtonState;
+    let node = original?.labelNode;
+    if (!node || !node.isConnected) {
+      node = findButtonLabelNode(button);
+      if (original) original.labelNode = node;
+    }
+    if (node) {
+      if (node.nodeValue !== text) node.nodeValue = text;
+    } else {
+      button.textContent = text;
+    }
+    button.setAttribute?.('aria-label', text);
+  }
+
   function setButtonState(button, state, message) {
-    const textElement = button.querySelector('span.flex-label, span') || button;
     if (!button._nxtkOriginalButtonState) {
+      const labelNode = findButtonLabelNode(button);
       button._nxtkOriginalButtonState = {
-        textElement,
-        text: textElement.innerText,
+        labelNode,
+        text: labelNode ? labelNode.nodeValue : button.textContent,
+        ariaLabel: button.getAttribute?.('aria-label') ?? null,
         color: button.style.color
       };
     }
@@ -885,14 +925,34 @@ window.NexusExt = window.NexusExt || {};
       error: { text: message || NXTK.t('btnStateError', null, 'Error'), color: '#e04040' }
     };
     const config = stateConfig[state] || stateConfig.error;
-    textElement.innerText = config.text;
+    const original = button._nxtkOriginalButtonState;
+    original.stateText = config.text;
+    applyButtonLabel(button, config.text);
     button.style.color = config.color;
+    // A framework re-render puts its own label back; keep ours until the state is restored.
+    if (!original.observer && typeof MutationObserver === 'function') {
+      original.observer = new MutationObserver(() => {
+        const current = button._nxtkOriginalButtonState;
+        if (!current) return;
+        const node = current.labelNode;
+        if (!node || !node.isConnected || node.nodeValue !== current.stateText) {
+          applyButtonLabel(button, current.stateText);
+        }
+      });
+      const options = { childList: true, subtree: true, characterData: true };
+      original.observer.observe(button, options);
+      if (button.shadowRoot) original.observer.observe(button.shadowRoot, options);
+    }
   }
 
   function restoreButtonState(button) {
     const original = button?._nxtkOriginalButtonState;
     if (!original) return;
-    if (original.textElement?.isConnected) original.textElement.innerText = original.text;
+    original.observer?.disconnect();
+    if (original.labelNode?.isConnected) original.labelNode.nodeValue = original.text;
+    else if (!original.labelNode) button.textContent = original.text;
+    if (original.ariaLabel === null) button.removeAttribute?.('aria-label');
+    else button.setAttribute?.('aria-label', original.ariaLabel);
     button.style.color = original.color;
     delete button._nxtkOriginalButtonState;
   }
@@ -1065,6 +1125,8 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function handleError(btn, error, { onRetry = null } = {}) {
+    btn?._nxtkStatusToast?.dismiss();
+    if (btn) delete btn._nxtkStatusToast;
     const normalized = Errors.normalize(error);
     const shown = Errors.displayText ? Errors.displayText(normalized) : {
       message: normalized.userMessage,
@@ -1117,6 +1179,9 @@ window.NexusExt = window.NexusExt || {};
     };
   }
 
+  // How long "Sent to Vortex" stays on the button and in the status toast.
+  const SENT_STATE_MS = 2500;
+
   async function runDownload(options) {
     const claim = claimDownload(options?.fileId, options?.isNMM);
     if (!claim) {
@@ -1160,6 +1225,12 @@ window.NexusExt = window.NexusExt || {};
     // Feedback on the click itself: the hand-off needs one request before Vortex can be asked.
     if (button) setButtonState(button, 'waiting', isNMM ? NXTK.t('btnStateSendingVortex', null, 'Sending to Vortex…') : '');
     Logger.debug('fileId', fileId, 'isNMM', isNMM);
+    // Also announced in a status toast: visible (and read out) even where the control's own label
+    // cannot be changed.
+    const statusToast = button && isNMM
+      ? NexusExt.UI?.showStatusToast?.(NXTK.t('btnStateSendingVortex', null, 'Sending to Vortex…'))
+      : null;
+    if (statusToast) button._nxtkStatusToast = statusToast;
 
     let result;
     try {
@@ -1234,11 +1305,12 @@ window.NexusExt = window.NexusExt || {};
         });
         return false;
       }
+      statusToast?.update(NXTK.t('toastSentToVortex', null, 'Sent to Vortex'), SENT_STATE_MS);
       if (button) {
         setButtonState(button, 'sent');
         setTimeout(() => {
           if (attemptId === downloadAttemptSequence && button.isConnected) restoreButtonState(button);
-        }, 2500);
+        }, SENT_STATE_MS);
       }
     } else if (!await startManagedFileDownload(finalUrl, fileId)) {
       handleError(button, Errors.create('request_failed', {
