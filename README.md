@@ -138,5 +138,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/nexus-site-map.md](docs/nexus-site
 Source-available under the repository [licence](LICENSE); the name, `src/icons/` and `internal/` are excluded. `src/content/nnw.js` is [GPL-3.0-or-later](src/LICENSE-GPL-3.0-or-later.txt), based on [Nexus No Wait ++](https://github.com/torkelicious/nexus-no-wait-pp) — see [third-party notices](THIRD-PARTY-NOTICES.md).
 
 <p align="center">
-  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasT. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
 </p>

@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="104" viewBox="0 0 1200 104" role="img" aria-labelledby="t"><title id="t">NexusMods Bypass by ThomasThanos. Not affiliated with Nexus Mods.</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="92" viewBox="0 0 1200 92" role="img" aria-labelledby="t d">
+  <title id="t">Built with care by ThomasT</title>
+  <desc id="d">Not affiliated with, endorsed by, or connected to Nexus Mods.</desc>
   <style>text { font-family: "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif; }
     .sheen { animation: glassSweep 10s ease-in-out infinite; }
     @keyframes glassSweep {
@@ -14,12 +16,18 @@
     <linearGradient id="tile" x2=".7" y2="1"><stop stop-color="#d3ae7d" stop-opacity=".38"/><stop offset=".5" stop-color="#644a32" stop-opacity=".6"/><stop offset="1" stop-color="#261e19" stop-opacity=".95"/></linearGradient>
     <linearGradient id="accent" x2="0" y2="1"><stop stop-color="#ffe4b9"/><stop offset=".5" stop-color="#eaa14c"/><stop offset="1" stop-color="#9c652b"/></linearGradient>
     <linearGradient id="glass-reflection" x2="1" y2=".3"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-    <clipPath id="glass-clip"><rect x="1" y="1" width="1198" height="102" rx="24"/></clipPath>
-
+    <clipPath id="glass-clip"><rect x="1" y="1" width="1198" height="90" rx="20"/></clipPath>
   </defs>
-  <rect x=".75" y=".75" width="1198.5" height="102.5" rx="24" fill="url(#face)" stroke="url(#edge)" stroke-width="1.5"/>
+  <rect x=".75" y=".75" width="1198.5" height="90.5" rx="20" fill="url(#face)" stroke="url(#edge)" stroke-width="1.5"/>
   <path d="M24 2H1176" stroke="#fff" stroke-opacity=".12" stroke-linecap="round"/>
-  <g clip-path="url(#glass-clip)"><path class="sheen" d="M-170 0H-90L14 104H-66Z" fill="url(#glass-reflection)"/></g>
-  <text x="600" y="46" font-size="20" font-weight="700" fill="#f4f5f8">Built with care by <tspan fill="#f2b974">ThomasThanos</tspan></text>
-  <text x="600" y="74" font-size="13.5" fill="#b8b9c3">Not affiliated with, endorsed by, or connected to Nexus Mods.</text>
+  <g clip-path="url(#glass-clip)"><path class="sheen" d="M-170 0H-90L2 92H-78Z" fill="url(#glass-reflection)"/></g>
+  <g aria-hidden="true">
+    <rect x="500" y="18" width="44" height="44" rx="14" fill="#0c0d12" fill-opacity=".65"/>
+    <rect x="500" y="14" width="44" height="44" rx="14" fill="url(#tile)" stroke="url(#edge)" stroke-width="1.2"/>
+    <path d="M512 16H532" stroke="#fff1d8" stroke-opacity=".24" stroke-linecap="round"/>
+    <text x="522" y="43" font-size="18" font-weight="700" letter-spacing="-.7" fill="#ffe4b9">TT</text>
+  </g>
+  <text x="558" y="30" text-anchor="start" style="text-anchor:start" font-size="15" fill="#b8b9c3">Built with care by</text>
+  <text x="558" y="55" text-anchor="start" style="text-anchor:start" font-size="26" font-weight="700" letter-spacing="-.5" fill="#f2b974">ThomasT</text>
+  <text x="600" y="79" font-size="13.5" fill="#b8b9c3">Not affiliated with, endorsed by, or connected to Nexus Mods.</text>
 </svg>
