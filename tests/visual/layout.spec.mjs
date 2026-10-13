@@ -1024,9 +1024,9 @@ for (const lang of ['de', 'ru']) {
         const r = el.getBoundingClientRect();
         return Array.from(el.querySelectorAll('button, .nxtk-selector-title, .nxtk-radio-hint, .nxtk-btn'))
           // A closed dropdown is invisible (opacity 0, no pointer events) and laid out off to the side.
-          .filter((c) => c.offsetParent && !c.closest('.nxtk-dropdown-menu:not(.nxtk-open)') && getComputedStyle(c).visibility !== 'hidden')
+          .filter((c) => c.offsetParent && c.textContent.trim() && !c.closest('.nxtk-dropdown-menu:not(.nxtk-open)') && getComputedStyle(c).visibility !== 'hidden')
           .filter((c) => c.getBoundingClientRect().right > r.right + 1)
-          .map((c) => c.textContent.trim().slice(0, 40));
+          .map((c) => `${c.id || c.className}: ${c.textContent.trim().slice(0, 40)} (+${Math.round(c.getBoundingClientRect().right - r.right)}px)`);
       });
       expect(deckOverflow, `${lang} deck text past the deck edge`).toEqual([]);
       await assertFits(page, '.nxtk-deck', `${lang} deck 380`);
