@@ -9,7 +9,7 @@
     "message": "ダウンロードを自動的に開始"
   },
   "setAutoCloseTabLabel": {
-    "message": "Vortex のタブを閉じる"
+    "message": "Vortex に送信後、余分なタブを閉じる"
   },
   "toggleSkipReq": {
     "message": "必須MOD画面をスキップ"
@@ -279,7 +279,7 @@
     "message": "Vortex に送信"
   },
   "deckMethodVortexHint": {
-    "message": "Vortex のキューへワンクリックで渡すのに最適です。"
+    "message": "各ファイルを Vortex のダウンロードキューに直接送ります。"
   },
   "deckMethodBrowser": {
     "message": "ブラウザーでダウンロード"
@@ -494,7 +494,7 @@
     "message": "ダウンロードを自動的に開始"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Nexus のファイルダウンロードページを開いたとき、追加のクリックなしで Vortex への受け渡しまたはブラウザーダウンロードを開始します。"
+    "message": "Nexus のファイルページを開くと、追加のクリックなしで(Vortex またはブラウザへ)ダウンロードを開始します。"
   },
   "setAutoCloseTabDesc": {
     "message": "Vortex にリンクを送信した後、下記の遅延時間が過ぎたら一時的な Nexus タブを閉じます。"
@@ -542,13 +542,13 @@
     "message": "Nexus のダウンロード速度"
   },
   "setDownloadSpeedDesc": {
-    "message": "Vortex モードのみ。ブラウザーは Vortex 内部の転送を観測できないため、この値で各ファイルの所要時間を見積もり、受け渡しの間隔を調整します。実際に出ている速度を設定してください。低すぎると、キューが必要以上に長く待機します。"
+    "message": "Vortex のみ。ブラウザからは Vortex のダウンロードが見えないため、各ファイルにかかる時間を見積もり、その分待ってから次を送ります。実際の速度を設定してください。"
   },
   "setPauseBetweenModsLabel": {
     "message": "MOD 間の待機時間"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Vortex モードのみ。上記の見積もりに加算されます。0 にするとサイズに基づく見積もりを無効にし、Vortex 自身にキュー管理させます。ただし受け渡しの間には常に 2 秒の間隔が残ります。"
+    "message": "Vortex のみ。ファイル間の追加待機で、上の見積もりに加算されます。0 にすると見積もりを止め、Vortex 自身にキューを任せます。2 秒の間隔は常に残ります。"
   },
   "dlgHistoryTitle": {
     "message": "ダウンロード済みの MOD が見つかりました"
@@ -1184,10 +1184,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Cloudflare フォールバック"
+    "message": "Nexus がブラウザ確認を求めたらファイルページを開く"
   },
   "setCloudflareFallbackDesc": {
-    "message": "バックグラウンドでのダウンロード時にブラウザの確認が必要な場合、失敗させずにページを開いて完了できるようにします。"
+    "message": "Nexus がリンクの代わりに「人間であることの確認」ページを表示した場合、確認を通過できるようファイルページを開きます。タブが勝手に切り替わることがあるのはこのためです。"
   },
   "tabControls": {
     "message": "コントロール",
@@ -1743,5 +1743,208 @@
   },
   "noticeVortexNotOpenedDetail": {
     "message": "何も起きなかった場合は、Vortex がインストールされ nxm:// リンクを処理するよう設定されているか確認し（ブラウザーの確認を許可して）、もう一度ボタンをクリックしてください。"
+  },
+  "summarySent": {
+    "message": "送信済み"
+  },
+  "summarySkipped": {
+    "message": "スキップ"
+  },
+  "summaryFailed": {
+    "message": "失敗"
+  },
+  "summaryAccount": {
+    "message": "Nexus アカウント"
+  },
+  "btnRetryIn": {
+    "message": "$1 後に再試行",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "btnOpenFilePage": {
+    "message": "ファイルページを開く"
+  },
+  "btnUseBrowserDownload": {
+    "message": "ブラウザでダウンロード"
+  },
+  "btnRetryNow": {
+    "message": "今すぐ再試行"
+  },
+  "noticeSwitchedToBrowserTitle": {
+    "message": "ブラウザのダウンロードに切り替えました"
+  },
+  "noticeSwitchedToBrowserDetail": {
+    "message": "コレクションは実際のファイルをダウンロードフォルダーに保存するようになりました。単体のファイルはファイルページで「手動ダウンロード」を使ってください。設定でいつでも戻せます。"
+  },
+  "noticeVortexKeepsFailingTitle": {
+    "message": "Vortex がファイルを受け取っていません"
+  },
+  "noticeVortexKeepsFailingDetail": {
+    "message": "2 回続けて Vortex が開いた様子がありませんでした。ブラウザのダウンロードを使うか、Vortex がインストールされているか確認してください。"
+  },
+  "btnUseBrowserDownloads": {
+    "message": "ブラウザのダウンロードを使う"
+  },
+  "btnVortexInstallGuide": {
+    "message": "Vortex インストールガイド"
+  },
+  "logVortexOpenRemembered": {
+    "message": "Vortex は確認済みのため、再度は確認しません。"
+  },
+  "presetVortex": {
+    "message": "Vortex ユーザー"
+  },
+  "presetVortexDesc": {
+    "message": "ファイルを Vortex に送信し、自動で開始し、余分なタブを閉じます。"
+  },
+  "presetBrowser": {
+    "message": "ブラウザのダウンロード"
+  },
+  "presetBrowserDesc": {
+    "message": "実際のファイルをダウンロードフォルダーに保存し、自動で開始します。"
+  },
+  "presetMinimal": {
+    "message": "最小"
+  },
+  "presetMinimalDesc": {
+    "message": "クリックしたものだけ:自動開始なし、追加ボタンなし。"
+  },
+  "setSectionPresets": {
+    "message": "クイック設定"
+  },
+  "presetCustom": {
+    "message": "カスタム:独自の設定の組み合わせです。"
+  },
+  "summaryTitle": {
+    "message": "実行結果"
+  },
+  "summaryCounts": {
+    "message": "送信 $1 · スキップ $2 · 失敗 $3",
+    "placeholders": {
+      "sent": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryAccountLine": {
+    "message": "リンクは Nexus アカウント #$1 用に署名されました。Vortex でも同じアカウントを使ってください。",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      }
+    }
+  },
+  "summaryCopy": {
+    "message": "リストをコピー"
+  },
+  "summaryOpenFailed": {
+    "message": "失敗したページを開く"
+  },
+  "summaryRetryFailed": {
+    "message": "失敗分を再試行"
+  },
+  "summaryCopied": {
+    "message": "コピーしました"
+  },
+  "summaryCopyFailed": {
+    "message": "コピーに失敗しました"
+  },
+  "historyViewTitle": {
+    "message": "このコレクションのダウンロード履歴"
+  },
+  "historyViewSent": {
+    "message": "Vortex に送信済み"
+  },
+  "historyViewDownloaded": {
+    "message": "ダウンロード済み"
+  },
+  "historyViewMissing": {
+    "message": "未ダウンロード"
+  },
+  "historyViewHelp": {
+    "message": "「Vortex に送信済み」のファイルはスキップされません。ブラウザからは Vortex が受け取ったか分からないためです。再送信しても安全で、Vortex は既にあるファイルをスキップします。"
+  },
+  "historyViewClear": {
+    "message": "履歴を消去"
+  },
+  "historyViewResend": {
+    "message": "未取得分を再送信 ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "deckHistoryView": {
+    "message": "ダウンロード履歴"
+  },
+  "deckHistoryViewHint": {
+    "message": "送信済み・ダウンロード済み・未取得分の再送信"
+  },
+  "setupSaved": {
+    "message": "保存しました。Nexus Mods のファイルページを開いて試してください。"
+  },
+  "setupSaveFailed": {
+    "message": "保存できませんでした。Nexus ページの設定ボタンからもう一度お試しください。"
+  },
+  "setupTesting": {
+    "message": "ブラウザに Vortex を開くよう依頼中… 確認が表示されたら許可してください。"
+  },
+  "setupTestOk": {
+    "message": "Vortex が開きました。準備完了です。"
+  },
+  "setupTestUnsure": {
+    "message": "Vortex が開いたか判断できませんでした。"
+  },
+  "setupTestFailed": {
+    "message": "Vortex が開きませんでした。Vortex をインストールして nxm:// リンクを処理させる(Vortex の設定 → ダウンロード)か、上でブラウザのダウンロードを選んでください。"
+  },
+  "setupTitle": {
+    "message": "30 秒でセットアップ"
+  },
+  "setupSubtitle": {
+    "message": "質問は 3 つ。すべて後から設定で変更できます。"
+  },
+  "setupQVortex": {
+    "message": "Vortex を使っていますか?"
+  },
+  "setupVortexYes": {
+    "message": "はい、ファイルを Vortex に送る"
+  },
+  "setupVortexNo": {
+    "message": "いいえ、ブラウザでファイルを保存する"
+  },
+  "setupQFolder": {
+    "message": "ダウンロードフォルダー(ブラウザのダウンロード内)"
+  },
+  "setupFolderHint": {
+    "message": "空欄ならダウンロードフォルダーに直接保存します。"
+  },
+  "setupQCloseTab": {
+    "message": "ファイルを Vortex に送った後、余分な Nexus タブを閉じる"
+  },
+  "setupSave": {
+    "message": "保存"
+  },
+  "setupTestVortex": {
+    "message": "Vortex をテスト"
+  },
+  "setupAskOpened": {
+    "message": "Vortex は開きましたか?"
+  },
+  "dlgVortexOpenedYesShort": {
+    "message": "はい"
+  },
+  "dlgVortexOpenedNoShort": {
+    "message": "いいえ"
   }
 }

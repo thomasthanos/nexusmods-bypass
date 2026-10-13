@@ -393,3 +393,20 @@ html, body { overflow-x: hidden; }
 img { max-width: 100%; height: auto; }
 .btn { min-height: 40px; }
 * { overflow-wrap: break-word; }
+
+/* First-run setup (3.1.0) */
+.setup { margin: calc(28px * var(--s)) 0; padding: calc(22px * var(--s)); text-align: left; }
+.setup h2 { margin: 0 0 6px; }
+.setup-sub { margin: 0 0 14px; opacity: .8; }
+.setup-form { display: grid; gap: 14px; }
+.setup-q { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+.setup-q legend, .setup-field > span { font-weight: 600; margin-bottom: 4px; }
+.setup-choice, .setup-check { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.setup-field input { padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.25); color: inherit; max-width: 360px; }
+.setup-field small { opacity: .7; }
+.setup-actions, .setup-ask { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn-secondary { background: transparent; border: 1px solid rgba(255,255,255,.25); color: inherit; }
+.setup-status { font-size: .95em; }
+.setup-status.ok { color: #3dbb5e; }
+.setup-status.warn { color: #e0a040; }
+[hidden] { display: none !important; }

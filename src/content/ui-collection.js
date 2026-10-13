@@ -586,7 +586,7 @@
         <div class="nxtk-modal-header">
           <div>
             <div class="nxtk-modal-title">${L('deckMethodVortex', 'Send to Vortex')}</div>
-            <div class="nxtk-modal-subtitle">${L('deckMethodVortexHint', 'Best for one-click handoff into your Vortex queue.')}</div>
+            <div class="nxtk-modal-subtitle">${L('deckMethodVortexHint', 'Sends each file straight to your Vortex download queue.')}</div>
           </div>
           <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
         </div>
@@ -599,7 +599,7 @@
           <div class="nxtk-history-grid">
             <button type="button" class="nxtk-history-option nxtk-history-option-accent" data-close="vortex">
               <span class="nxtk-history-option-title">${L('deckMethodVortex', 'Send to Vortex')}</span>
-              <span class="nxtk-history-option-text">${L('deckMethodVortexHint', 'Best for one-click handoff into your Vortex queue.')}</span>
+              <span class="nxtk-history-option-text">${L('deckMethodVortexHint', 'Sends each file straight to your Vortex download queue.')}</span>
             </button>
             <button type="button" class="nxtk-history-option" data-close="browser">
               <span class="nxtk-history-option-title">${L('deckMethodBrowser', 'Browser Download')}</span>
@@ -641,6 +641,118 @@
       `
       });
       modal.querySelector('[data-close="yes"]')?.focus();
+    });
+  }
+
+  // End-of-run card: sent / skipped (with reasons) / failed, the account the links were for, and
+  // Retry failed, Copy list, Open failed pages.
+  const MAX_PAGES_OPENED = 10;
+  function showRunSummary(summary, { onRetryFailed = null } = {}) {
+    const { sent = [], skipped = [], failed = [], account = '' } = summary || {};
+    const item = (entry, note) => {
+      const name = escapeHtml(entry.name);
+      const link = entry.pageUrl && NXTK.isSafeNexusPageUrl(entry.pageUrl)
+        ? `<a href="${escapeHtml(entry.pageUrl)}" target="_blank" rel="noopener noreferrer">${name}</a>`
+        : name;
+      return `<li>${link}${note ? ` <span class="nxtk-summary-note">${escapeHtml(note)}</span>` : ''}</li>`;
+    };
+    const section = (cls, title, entries, note) => entries.length
+      ? `<details class="nxtk-summary-section ${cls}" ${cls === 'nxtk-summary-failed' ? 'open' : ''}><summary><span class="nxtk-summary-count">${entries.length}</span> ${escapeHtml(title)}</summary><ul>${entries.map((e) => item(e, note(e))).join('')}</ul></details>`
+      : '';
+    const failedPages = failed.map((e) => e.pageUrl).filter((url) => url && NXTK.isSafeNexusPageUrl(url));
+    return new Promise((resolve) => {
+      const { modal, close } = openModal({
+        id: 'nxtk-run-summary-modal',
+        className: 'nxtk-modal nxtk-modal-sm nxtk-run-summary-modal',
+        onClose: (choice) => resolve(choice || 'close'),
+        html: `
+        <div class="nxtk-modal-header">
+          <div>
+            <div class="nxtk-modal-title">${L('summaryTitle', 'Run summary')}</div>
+            <div class="nxtk-modal-subtitle">${escapeHtml(NXTK.t('summaryCounts', [String(sent.length), String(skipped.length), String(failed.length)], `${sent.length} sent · ${skipped.length} skipped · ${failed.length} failed`))}</div>
+          </div>
+          <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
+        </div>
+        <div class="nxtk-summary-body">
+          ${section('nxtk-summary-failed', NXTK.t('summaryFailed', null, 'Failed'), failed, (e) => e.code)}
+          ${section('nxtk-summary-skipped', NXTK.t('summarySkipped', null, 'Skipped'), skipped, (e) => e.reason)}
+          ${section('nxtk-summary-sent', NXTK.t('summarySent', null, 'Sent'), sent, () => '')}
+          ${account ? `<div class="nxtk-summary-account">${escapeHtml(NXTK.t('summaryAccountLine', [account], `Links were signed for Nexus account #${account}. Vortex must use the same account.`))}</div>` : ''}
+        </div>
+        <div class="nxtk-modal-footer">
+          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-summary-copy>${L('summaryCopy', 'Copy list')}</button>
+          ${failedPages.length ? `<button type="button" class="nxtk-btn nxtk-btn-secondary" data-summary-open>${L('summaryOpenFailed', 'Open failed pages')}</button>` : ''}
+          ${failed.length && onRetryFailed ? `<button type="button" class="nxtk-btn nxtk-btn-primary" data-summary-retry>${L('summaryRetryFailed', 'Retry failed')}</button>` : `<button type="button" class="nxtk-btn nxtk-btn-primary" data-close>${L('btnDone', 'Done')}</button>`}
+        </div>`
+      });
+      const copyButton = modal.querySelector('[data-summary-copy]');
+      copyButton?.addEventListener('click', async () => {
+        const text = NXTK.formatRunSummaryText(summary, (key, fallback) => NXTK.t(key, null, fallback));
+        try {
+          await navigator.clipboard.writeText(text);
+          copyButton.textContent = NXTK.t('summaryCopied', null, 'Copied');
+        } catch (_) {
+          copyButton.textContent = NXTK.t('summaryCopyFailed', null, 'Copy failed');
+        }
+      });
+      modal.querySelector('[data-summary-open]')?.addEventListener('click', () => {
+        for (const url of failedPages.slice(0, MAX_PAGES_OPENED)) window.open(url, '_blank', 'noopener');
+      });
+      modal.querySelector('[data-summary-retry]')?.addEventListener('click', () => {
+        close('retry');
+        Promise.resolve().then(onRetryFailed).catch(() => undefined);
+      });
+      modal.querySelector('[data-summary-retry], [data-close].nxtk-btn')?.focus();
+    });
+  }
+
+  // Per-collection history: how many files were downloaded, how many only sent to Vortex, with
+  // "Resend missing" and "Clear".
+  async function showHistoryView(ndc, { onResend = null } = {}) {
+    const history = await NexusExt.Storage.getHistory();
+    const collection = history?.[ndc.gameId]?.[ndc.collectionId] || {};
+    const idOf = (mod) => mod.historyId || mod.fileId || mod.file?.fileId;
+    const all = ndc.mods?.all || [];
+    const stats = NXTK.summarizeCollectionHistory(collection, 'all', all.map(idOf));
+    return new Promise((resolve) => {
+      const { modal, close } = openModal({
+        id: 'nxtk-history-view-modal',
+        className: 'nxtk-modal nxtk-modal-sm nxtk-history-view-modal',
+        onClose: (choice) => resolve(choice || 'close'),
+        html: `
+        <div class="nxtk-modal-header">
+          <div class="nxtk-modal-title">${L('historyViewTitle', 'Download history for this collection')}</div>
+          <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
+        </div>
+        <div class="nxtk-history-stats">
+          <div class="nxtk-history-stat"><span class="nxtk-history-stat-num" id="nxtk-hv-sent">${stats.sent}</span><span>${L('historyViewSent', 'Sent to Vortex')}</span></div>
+          <div class="nxtk-history-stat"><span class="nxtk-history-stat-num" id="nxtk-hv-downloaded">${stats.downloaded}</span><span>${L('historyViewDownloaded', 'Downloaded')}</span></div>
+          <div class="nxtk-history-stat"><span class="nxtk-history-stat-num" id="nxtk-hv-missing">${stats.missing.length}</span><span>${L('historyViewMissing', 'Not downloaded yet')}</span></div>
+        </div>
+        <div class="nxtk-history-text nxtk-history-view-help">${L('historyViewHelp', '"Sent to Vortex" files are not skipped: the browser cannot see whether Vortex got them. Resending is safe, Vortex skips files it already has.')}</div>
+        <div class="nxtk-modal-footer">
+          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-history-clear>${L('historyViewClear', 'Clear history')}</button>
+          <button type="button" class="nxtk-btn nxtk-btn-primary" data-history-resend ${stats.missing.length ? '' : 'disabled'}>${escapeHtml(NXTK.t('historyViewResend', [String(stats.missing.length)], `Resend missing (${stats.missing.length})`))}</button>
+        </div>`
+      });
+      modal.querySelector('[data-history-clear]')?.addEventListener('click', async () => {
+        const types = ['all', 'mandatory', 'optional'];
+        for (const type of [...types, ...types.map((t) => NXTK.vortexSentType(t))]) {
+          await NexusExt.Storage.clearHistoryType({ gameId: ndc.gameId, collectionId: ndc.collectionId, type });
+        }
+        modal.querySelector('#nxtk-hv-sent').textContent = '0';
+        modal.querySelector('#nxtk-hv-downloaded').textContent = '0';
+        modal.querySelector('#nxtk-hv-missing').textContent = String(all.length);
+        const resend = modal.querySelector('[data-history-resend]');
+        resend.disabled = !all.length;
+        resend.textContent = NXTK.t('historyViewResend', [String(all.length)], `Resend missing (${all.length})`);
+        stats.missing = all.map(idOf);
+      });
+      modal.querySelector('[data-history-resend]')?.addEventListener('click', () => {
+        const missing = new Set(stats.missing);
+        close('resend');
+        onResend?.(all.filter((mod) => missing.has(idOf(mod))));
+      });
     });
   }
 
@@ -858,7 +970,7 @@
               <input type="radio" name="nxtk-dl-method" value="${DOWNLOAD_METHOD_VORTEX}">
               <span class="nxtk-radio-copy">
                 <span class="nxtk-radio-title">${L('deckMethodVortex', 'Send to Vortex')}</span>
-                <span class="nxtk-radio-hint">${L('deckMethodVortexHint', 'Best for one-click handoff into your Vortex queue.')}</span>
+                <span class="nxtk-radio-hint">${L('deckMethodVortexHint', 'Sends each file straight to your Vortex download queue.')}</span>
               </span>
               ${svgIcon('vortex')}
             </label>`;
@@ -922,6 +1034,12 @@
                     <span class="nxtk-selector-copy">
                       <span class="nxtk-selector-title">${L('deckSelectMods', 'Select mods to download')}</span>
                       <span class="nxtk-selector-hint">${L('deckSelectModsHint', 'Manual pick list')}</span>
+                    </span>
+                  </button>
+                  <button class="nxtk-selector-item" id="nxtk-history-view">
+                    <span class="nxtk-selector-copy">
+                      <span class="nxtk-selector-title">${L('deckHistoryView', 'Download history')}</span>
+                      <span class="nxtk-selector-hint">${L('deckHistoryViewHint', 'Sent, downloaded, resend missing')}</span>
                     </span>
                   </button>
                   <button class="nxtk-selector-item" id="nxtk-update-collection">
@@ -1067,6 +1185,17 @@
     $('#nxtk-dl-optional').addEventListener('click', () => startCollectionDownload(ndc.mods.optional, 'optional'));
     $('#nxtk-select-mods').addEventListener('click', () => { menuController?.close(); showSelectModsModal(ndc); });
     $('#nxtk-update-collection').addEventListener('click', () => { menuController?.close(); showUpdateModal(ndc); });
+    $('#nxtk-history-view').addEventListener('click', () => {
+      menuController?.close();
+      showHistoryView(ndc, {
+        onResend: (mods) => {
+          if (!mods.length) return;
+          // Only the missing files are queued, so the "downloaded mods found" question is not asked again.
+          ndc.skipHistoryPromptOnce = true;
+          startCollectionDownload(mods, 'all');
+        }
+      });
+    });
 
     $('#nxtk-play-pause').addEventListener('click', () => {
       if (ndc.runStatus === STATUS_STOPPED || ndc.runStatus === STATUS_FINISHED) return;
@@ -2005,6 +2134,6 @@
     closeAll: closeAllDropdownMenus,
     cleanupOrphanedPortals
   };
-  Object.assign(window.NexusExt.UI, { createControlDeck, showVortexHandoffModal, showVortexOpenedModal, showHistoryDecisionModal, confirmLargeRun });
+  Object.assign(window.NexusExt.UI, { createControlDeck, showVortexHandoffModal, showVortexOpenedModal, showRunSummary, showHistoryView, showHistoryDecisionModal, confirmLargeRun });
   kit.collection = { createControlDeck, disposeControlDeck, deckRunIsActive };
 })();

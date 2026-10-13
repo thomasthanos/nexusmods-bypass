@@ -9,7 +9,7 @@
     "message": "Автоматически начинать загрузки"
   },
   "setAutoCloseTabLabel": {
-    "message": "Закрывать вкладки Vortex"
+    "message": "Закрывать лишнюю вкладку после отправки в Vortex"
   },
   "toggleSkipReq": {
     "message": "Пропускать экраны требований"
@@ -279,7 +279,7 @@
     "message": "Отправить в Vortex"
   },
   "deckMethodVortexHint": {
-    "message": "Лучший вариант для передачи в очередь Vortex одним щелчком."
+    "message": "Отправляет каждый файл прямо в очередь загрузок Vortex."
   },
   "deckMethodBrowser": {
     "message": "Загрузка через браузер"
@@ -634,7 +634,7 @@
     "message": "Начинать загрузки автоматически"
   },
   "setAutoStartDownloadDesc": {
-    "message": "При открытии страницы файла Nexus загрузка или передача в Vortex начинается без дополнительного щелчка."
+    "message": "При открытии страницы файла Nexus загрузка начинается (в Vortex или браузер) без лишнего клика."
   },
   "setAutoCloseTabDesc": {
     "message": "После отправки ссылки в Vortex закрывает временную вкладку Nexus по истечении задержки ниже."
@@ -682,13 +682,13 @@
     "message": "Ваша скорость загрузки в Nexus"
   },
   "setDownloadSpeedDesc": {
-    "message": "Только в режиме Vortex. Браузер не видит передачу внутри Vortex, поэтому это значение оценивает длительность и распределяет передачи. Укажите реальную скорость — заниженная заставит очередь ждать дольше необходимого."
+    "message": "Только Vortex. Браузер не видит загрузки Vortex, поэтому оценивает, сколько качается каждый файл, и ждёт столько же перед отправкой следующего. Укажите вашу реальную скорость."
   },
   "setPauseBetweenModsLabel": {
     "message": "Пауза между модами"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Только в режиме Vortex. Добавляется к оценке выше. Установите 0, чтобы отключить оценку по размеру и позволить Vortex самому ставить файлы в очередь; пауза в 2 секунды между передачами сохраняется всегда."
+    "message": "Только Vortex. Дополнительное ожидание между файлами, прибавляется к оценке выше. 0 отключает оценку, и Vortex сам ставит файлы в очередь; пауза в 2 секунды остаётся всегда."
   },
   "dlgHistoryTitle": {
     "message": "Найдены скачанные моды"
@@ -1412,10 +1412,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Запасной путь Cloudflare"
+    "message": "Открывать страницу файла, когда Nexus просит проверку браузера"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Если при фоновом скачивании требуется проверка браузера, открывает страницу для её прохождения вместо отмены."
+    "message": "Если Nexus показывает страницу «подтвердите, что вы человек» вместо ссылки, открывается страница файла, чтобы вы прошли проверку. Поэтому вкладка иногда меняется сама."
   },
   "tabControls": {
     "message": "Управление",
@@ -1995,5 +1995,208 @@
   },
   "noticeVortexNotOpenedDetail": {
     "message": "Если ничего не произошло, проверьте, что Vortex установлен и настроен на ссылки nxm:// (и разрешите запрос браузера), затем снова нажмите кнопку."
+  },
+  "summarySent": {
+    "message": "Отправлено"
+  },
+  "summarySkipped": {
+    "message": "Пропущено"
+  },
+  "summaryFailed": {
+    "message": "Ошибки"
+  },
+  "summaryAccount": {
+    "message": "Аккаунт Nexus"
+  },
+  "btnRetryIn": {
+    "message": "Повтор через $1",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "btnOpenFilePage": {
+    "message": "Открыть страницу файла"
+  },
+  "btnUseBrowserDownload": {
+    "message": "Скачать через браузер"
+  },
+  "btnRetryNow": {
+    "message": "Повторить сейчас"
+  },
+  "noticeSwitchedToBrowserTitle": {
+    "message": "Переключено на загрузку через браузер"
+  },
+  "noticeSwitchedToBrowserDetail": {
+    "message": "Коллекции теперь сохраняют настоящие файлы в папку «Загрузки». Для отдельных файлов используйте «Ручная загрузка» на странице файла. Вернуть можно в настройках."
+  },
+  "noticeVortexKeepsFailingTitle": {
+    "message": "Vortex не принимает файлы"
+  },
+  "noticeVortexKeepsFailingDetail": {
+    "message": "Дважды подряд не было признаков того, что Vortex открылся. Используйте загрузку через браузер или проверьте, установлен ли Vortex."
+  },
+  "btnUseBrowserDownloads": {
+    "message": "Загружать через браузер"
+  },
+  "btnVortexInstallGuide": {
+    "message": "Инструкция по установке Vortex"
+  },
+  "logVortexOpenRemembered": {
+    "message": "Vortex уже был подтверждён, поэтому вопрос не задаётся."
+  },
+  "presetVortex": {
+    "message": "Пользователь Vortex"
+  },
+  "presetVortexDesc": {
+    "message": "Отправлять файлы в Vortex, запускать автоматически, закрывать лишнюю вкладку."
+  },
+  "presetBrowser": {
+    "message": "Загрузка через браузер"
+  },
+  "presetBrowserDesc": {
+    "message": "Сохранять настоящие файлы в «Загрузки», запускать автоматически."
+  },
+  "presetMinimal": {
+    "message": "Минимум"
+  },
+  "presetMinimalDesc": {
+    "message": "Только то, что вы нажмёте: без автозапуска и лишних кнопок."
+  },
+  "setSectionPresets": {
+    "message": "Быстрая настройка"
+  },
+  "presetCustom": {
+    "message": "Свои: ваш собственный набор настроек."
+  },
+  "summaryTitle": {
+    "message": "Итоги"
+  },
+  "summaryCounts": {
+    "message": "Отправлено: $1 · пропущено: $2 · ошибок: $3",
+    "placeholders": {
+      "sent": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryAccountLine": {
+    "message": "Ссылки подписаны для аккаунта Nexus №$1. Vortex должен использовать тот же аккаунт.",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      }
+    }
+  },
+  "summaryCopy": {
+    "message": "Копировать список"
+  },
+  "summaryOpenFailed": {
+    "message": "Открыть страницы с ошибками"
+  },
+  "summaryRetryFailed": {
+    "message": "Повторить неудачные"
+  },
+  "summaryCopied": {
+    "message": "Скопировано"
+  },
+  "summaryCopyFailed": {
+    "message": "Не удалось скопировать"
+  },
+  "historyViewTitle": {
+    "message": "История загрузок этой коллекции"
+  },
+  "historyViewSent": {
+    "message": "Отправлено в Vortex"
+  },
+  "historyViewDownloaded": {
+    "message": "Скачано"
+  },
+  "historyViewMissing": {
+    "message": "Ещё не скачано"
+  },
+  "historyViewHelp": {
+    "message": "Файлы «Отправлено в Vortex» не пропускаются: браузер не видит, получил ли их Vortex. Повторная отправка безопасна, Vortex пропускает уже имеющиеся файлы."
+  },
+  "historyViewClear": {
+    "message": "Очистить историю"
+  },
+  "historyViewResend": {
+    "message": "Отправить недостающие ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "deckHistoryView": {
+    "message": "История загрузок"
+  },
+  "deckHistoryViewHint": {
+    "message": "Отправлено, скачано, отправить недостающие"
+  },
+  "setupSaved": {
+    "message": "Сохранено. Откройте любую страницу файла Nexus Mods, чтобы попробовать."
+  },
+  "setupSaveFailed": {
+    "message": "Не удалось сохранить. Попробуйте снова через кнопку настроек на странице Nexus."
+  },
+  "setupTesting": {
+    "message": "Просим браузер открыть Vortex… разрешите запрос, если он появится."
+  },
+  "setupTestOk": {
+    "message": "Vortex открылся. Всё готово."
+  },
+  "setupTestUnsure": {
+    "message": "Не удалось понять, открылся ли Vortex."
+  },
+  "setupTestFailed": {
+    "message": "Vortex не открылся. Установите Vortex и разрешите ему обрабатывать ссылки nxm:// (Настройки Vortex → Загрузки) или выберите выше загрузку через браузер."
+  },
+  "setupTitle": {
+    "message": "Настройка за 30 секунд"
+  },
+  "setupSubtitle": {
+    "message": "Три вопроса. Всё можно изменить позже в настройках."
+  },
+  "setupQVortex": {
+    "message": "Вы пользуетесь Vortex?"
+  },
+  "setupVortexYes": {
+    "message": "Да, отправлять файлы в Vortex"
+  },
+  "setupVortexNo": {
+    "message": "Нет, сохранять файлы через браузер"
+  },
+  "setupQFolder": {
+    "message": "Папка загрузки (внутри «Загрузок» браузера)"
+  },
+  "setupFolderHint": {
+    "message": "Оставьте пустым, чтобы сохранять прямо в «Загрузки»."
+  },
+  "setupQCloseTab": {
+    "message": "Закрывать лишнюю вкладку Nexus после отправки файла в Vortex"
+  },
+  "setupSave": {
+    "message": "Сохранить"
+  },
+  "setupTestVortex": {
+    "message": "Проверить Vortex"
+  },
+  "setupAskOpened": {
+    "message": "Vortex открылся?"
+  },
+  "dlgVortexOpenedYesShort": {
+    "message": "Да"
+  },
+  "dlgVortexOpenedNoShort": {
+    "message": "Нет"
   }
 }

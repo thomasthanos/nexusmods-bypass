@@ -9,7 +9,7 @@
     "message": "Démarrer les téléchargements automatiquement"
   },
   "setAutoCloseTabLabel": {
-    "message": "Fermer les onglets Vortex"
+    "message": "Fermer l'onglet en trop après l'envoi à Vortex"
   },
   "toggleSkipReq": {
     "message": "Ignorer les écrans d'exigences"
@@ -279,7 +279,7 @@
     "message": "Envoyer vers Vortex"
   },
   "deckMethodVortexHint": {
-    "message": "Idéal pour un transfert en un clic vers votre file Vortex."
+    "message": "Envoie chaque fichier directement dans votre file de téléchargement Vortex."
   },
   "deckMethodBrowser": {
     "message": "Téléchargement par navigateur"
@@ -564,7 +564,7 @@
     "message": "Démarrer les téléchargements automatiquement"
   },
   "setAutoStartDownloadDesc": {
-    "message": "À l'ouverture d'une page de téléchargement Nexus, lance le transfert Vortex ou le téléchargement navigateur sans clic supplémentaire."
+    "message": "Quand vous ouvrez une page de fichier Nexus, le téléchargement démarre (vers Vortex ou le navigateur) sans autre clic."
   },
   "setAutoCloseTabDesc": {
     "message": "Après l'envoi d'un lien Vortex, ferme l'onglet Nexus temporaire après le délai ci-dessous."
@@ -612,13 +612,13 @@
     "message": "Votre vitesse de téléchargement Nexus"
   },
   "setDownloadSpeedDesc": {
-    "message": "Mode Vortex uniquement. Le navigateur ne voit pas le transfert dans Vortex ; cette valeur estime la durée et espace les transferts. Indiquez la vitesse réellement observée — trop basse, la file attend inutilement."
+    "message": "Vortex uniquement. Le navigateur ne voit pas les téléchargements de Vortex : on estime donc la durée de chaque fichier et on attend autant avant d'envoyer le suivant. Indiquez votre vitesse réelle."
   },
   "setPauseBetweenModsLabel": {
     "message": "Pause entre les mods"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Mode Vortex uniquement. S'ajoute à l'estimation ci-dessus. Mettez 0 pour désactiver l'estimation de taille et laisser Vortex mettre les fichiers en file d'attente ; un intervalle de 2 secondes entre les transmissions est toujours conservé."
+    "message": "Vortex uniquement. Attente supplémentaire entre les fichiers, ajoutée à l'estimation ci-dessus. 0 désactive l'estimation et laisse Vortex mettre les fichiers en file lui-même ; un écart de 2 secondes est toujours conservé."
   },
   "dlgHistoryTitle": {
     "message": "Mods déjà téléchargés détectés"
@@ -1260,10 +1260,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Solution de secours Cloudflare"
+    "message": "Ouvrir la page du fichier quand Nexus demande une vérification du navigateur"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Si un téléchargement en arrière-plan nécessite une vérification, ouvre la page pour la valider au lieu d'échouer."
+    "message": "Si Nexus affiche une page « vérifiez que vous êtes humain » au lieu d'un lien, la page du fichier s'ouvre pour que vous passiez la vérification. C'est pourquoi l'onglet change parfois tout seul."
   },
   "tabControls": {
     "message": "Contrôles",
@@ -1827,5 +1827,208 @@
   },
   "noticeVortexNotOpenedDetail": {
     "message": "S’il ne s’est rien passé, vérifiez que Vortex est installé et configuré pour les liens nxm:// (et autorisez l’invite du navigateur), puis recliquez sur le bouton."
+  },
+  "summarySent": {
+    "message": "Envoyés"
+  },
+  "summarySkipped": {
+    "message": "Ignorés"
+  },
+  "summaryFailed": {
+    "message": "Échecs"
+  },
+  "summaryAccount": {
+    "message": "Compte Nexus"
+  },
+  "btnRetryIn": {
+    "message": "Réessayer dans $1",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "btnOpenFilePage": {
+    "message": "Ouvrir la page du fichier"
+  },
+  "btnUseBrowserDownload": {
+    "message": "Utiliser le téléchargement du navigateur"
+  },
+  "btnRetryNow": {
+    "message": "Réessayer maintenant"
+  },
+  "noticeSwitchedToBrowserTitle": {
+    "message": "Passage aux téléchargements du navigateur"
+  },
+  "noticeSwitchedToBrowserDetail": {
+    "message": "Les collections enregistrent désormais de vrais fichiers dans votre dossier Téléchargements. Sur une page de fichier, utilisez « Téléchargement manuel » pour les fichiers seuls. Vous pouvez revenir en arrière dans les paramètres."
+  },
+  "noticeVortexKeepsFailingTitle": {
+    "message": "Vortex ne récupère pas les fichiers"
+  },
+  "noticeVortexKeepsFailingDetail": {
+    "message": "Deux fois de suite, rien n'a indiqué que Vortex s'était ouvert. Utilisez plutôt les téléchargements du navigateur, ou vérifiez que Vortex est installé."
+  },
+  "btnUseBrowserDownloads": {
+    "message": "Utiliser les téléchargements du navigateur"
+  },
+  "btnVortexInstallGuide": {
+    "message": "Guide d'installation de Vortex"
+  },
+  "logVortexOpenRemembered": {
+    "message": "Vortex a déjà été confirmé, la question n'est donc plus posée."
+  },
+  "presetVortex": {
+    "message": "Utilisateur Vortex"
+  },
+  "presetVortexDesc": {
+    "message": "Envoyer les fichiers à Vortex, démarrer automatiquement, fermer l'onglet en trop."
+  },
+  "presetBrowser": {
+    "message": "Téléchargements du navigateur"
+  },
+  "presetBrowserDesc": {
+    "message": "Enregistrer de vrais fichiers dans Téléchargements, démarrer automatiquement."
+  },
+  "presetMinimal": {
+    "message": "Minimal"
+  },
+  "presetMinimalDesc": {
+    "message": "Seulement ce que vous cliquez : pas de démarrage auto, pas de boutons en plus."
+  },
+  "setSectionPresets": {
+    "message": "Configuration rapide"
+  },
+  "presetCustom": {
+    "message": "Personnalisé : votre propre combinaison de paramètres."
+  },
+  "summaryTitle": {
+    "message": "Résumé"
+  },
+  "summaryCounts": {
+    "message": "$1 envoyés · $2 ignorés · $3 échecs",
+    "placeholders": {
+      "sent": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryAccountLine": {
+    "message": "Les liens ont été signés pour le compte Nexus n°$1. Vortex doit utiliser le même compte.",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      }
+    }
+  },
+  "summaryCopy": {
+    "message": "Copier la liste"
+  },
+  "summaryOpenFailed": {
+    "message": "Ouvrir les pages en échec"
+  },
+  "summaryRetryFailed": {
+    "message": "Réessayer les échecs"
+  },
+  "summaryCopied": {
+    "message": "Copié"
+  },
+  "summaryCopyFailed": {
+    "message": "Échec de la copie"
+  },
+  "historyViewTitle": {
+    "message": "Historique de téléchargement de cette collection"
+  },
+  "historyViewSent": {
+    "message": "Envoyés à Vortex"
+  },
+  "historyViewDownloaded": {
+    "message": "Téléchargés"
+  },
+  "historyViewMissing": {
+    "message": "Pas encore téléchargés"
+  },
+  "historyViewHelp": {
+    "message": "Les fichiers « Envoyés à Vortex » ne sont pas ignorés : le navigateur ne peut pas voir si Vortex les a reçus. Les renvoyer est sans risque, Vortex ignore ceux qu'il a déjà."
+  },
+  "historyViewClear": {
+    "message": "Effacer l'historique"
+  },
+  "historyViewResend": {
+    "message": "Renvoyer les manquants ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "deckHistoryView": {
+    "message": "Historique de téléchargement"
+  },
+  "deckHistoryViewHint": {
+    "message": "Envoyés, téléchargés, renvoyer les manquants"
+  },
+  "setupSaved": {
+    "message": "Enregistré. Ouvrez n'importe quelle page de fichier Nexus Mods pour essayer."
+  },
+  "setupSaveFailed": {
+    "message": "Impossible d'enregistrer. Réessayez via le bouton des paramètres sur une page Nexus."
+  },
+  "setupTesting": {
+    "message": "Demande au navigateur d'ouvrir Vortex… acceptez l'invite si elle apparaît."
+  },
+  "setupTestOk": {
+    "message": "Vortex s'est ouvert. Tout est prêt."
+  },
+  "setupTestUnsure": {
+    "message": "Impossible de savoir si Vortex s'est ouvert."
+  },
+  "setupTestFailed": {
+    "message": "Vortex ne s'est pas ouvert. Installez Vortex et laissez-le gérer les liens nxm:// (Paramètres de Vortex → Téléchargements), ou choisissez les téléchargements du navigateur ci-dessus."
+  },
+  "setupTitle": {
+    "message": "Prêt en 30 secondes"
+  },
+  "setupSubtitle": {
+    "message": "Trois questions. Tout reste modifiable plus tard dans les paramètres."
+  },
+  "setupQVortex": {
+    "message": "Utilisez-vous Vortex ?"
+  },
+  "setupVortexYes": {
+    "message": "Oui, envoyer les fichiers à Vortex"
+  },
+  "setupVortexNo": {
+    "message": "Non, enregistrer les fichiers avec mon navigateur"
+  },
+  "setupQFolder": {
+    "message": "Dossier de téléchargement (dans les Téléchargements du navigateur)"
+  },
+  "setupFolderHint": {
+    "message": "Laissez vide pour enregistrer directement dans Téléchargements."
+  },
+  "setupQCloseTab": {
+    "message": "Fermer l'onglet Nexus en trop après l'envoi d'un fichier à Vortex"
+  },
+  "setupSave": {
+    "message": "Enregistrer"
+  },
+  "setupTestVortex": {
+    "message": "Tester Vortex"
+  },
+  "setupAskOpened": {
+    "message": "Vortex s'est-il ouvert ?"
+  },
+  "dlgVortexOpenedYesShort": {
+    "message": "Oui"
+  },
+  "dlgVortexOpenedNoShort": {
+    "message": "Non"
   }
 }

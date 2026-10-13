@@ -9,7 +9,7 @@
     "message": "Iniciar descargas automáticamente"
   },
   "setAutoCloseTabLabel": {
-    "message": "Cerrar pestañas de Vortex"
+    "message": "Cerrar la pestaña extra tras enviar a Vortex"
   },
   "toggleSkipReq": {
     "message": "Omitir pantallas de requisitos"
@@ -279,7 +279,7 @@
     "message": "Enviar a Vortex"
   },
   "deckMethodVortexHint": {
-    "message": "Ideal para pasar con un clic a tu cola de Vortex."
+    "message": "Envía cada archivo directamente a tu cola de descargas de Vortex."
   },
   "deckMethodBrowser": {
     "message": "Descarga por navegador"
@@ -564,7 +564,7 @@
     "message": "Iniciar descargas automáticamente"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Al abrir una página de descarga de Nexus, inicia el traspaso a Vortex o la descarga del navegador sin otro clic."
+    "message": "Al abrir la página de un archivo de Nexus, la descarga empieza (a Vortex o al navegador) sin otro clic."
   },
   "setAutoCloseTabDesc": {
     "message": "Tras enviar un enlace a Vortex, cierra la pestaña temporal de Nexus tras el retardo indicado."
@@ -612,13 +612,13 @@
     "message": "Tu velocidad de descarga en Nexus"
   },
   "setDownloadSpeedDesc": {
-    "message": "Solo en modo Vortex. El navegador no ve la transferencia dentro de Vortex, así que esto estima la duración y espacia las entregas. Ponlo en la velocidad que realmente ves: si es muy baja, la cola espera mucho más de lo necesario."
+    "message": "Solo Vortex. El navegador no ve las descargas de Vortex, así que se estima cuánto tarda cada archivo y se espera ese tiempo antes de enviar el siguiente. Pon la velocidad que realmente tienes."
   },
   "setPauseBetweenModsLabel": {
     "message": "Pausa entre mods"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Solo en modo Vortex. Se suma a la estimación anterior. Ponlo en 0 para desactivar la estimación de tamaño y dejar que Vortex ponga los archivos en cola; siempre se mantiene una pausa de 2 segundos entre entregas."
+    "message": "Solo Vortex. Espera extra entre archivos, sumada a la estimación de arriba. 0 desactiva la estimación y deja que Vortex ponga los archivos en cola; siempre quedan 2 segundos de separación."
   },
   "dlgHistoryTitle": {
     "message": "Se encontraron mods descargados"
@@ -1260,10 +1260,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Alternativa para Cloudflare"
+    "message": "Abrir la página del archivo cuando Nexus pida una verificación del navegador"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Si una descarga en segundo plano pide verificación, abre la página para que la completes en lugar de fallar."
+    "message": "Si Nexus muestra una página de «verifica que eres humano» en lugar de un enlace, se abre la página del archivo para que pases la verificación. Por eso la pestaña a veces cambia sola."
   },
   "tabControls": {
     "message": "Controles",
@@ -1827,5 +1827,208 @@
   },
   "noticeVortexNotOpenedDetail": {
     "message": "Si no pasó nada, comprueba que Vortex está instalado y configurado para los enlaces nxm:// (y permite el aviso del navegador); luego vuelve a pulsar el botón."
+  },
+  "summarySent": {
+    "message": "Enviados"
+  },
+  "summarySkipped": {
+    "message": "Omitidos"
+  },
+  "summaryFailed": {
+    "message": "Fallidos"
+  },
+  "summaryAccount": {
+    "message": "Cuenta de Nexus"
+  },
+  "btnRetryIn": {
+    "message": "Reintentar en $1",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "btnOpenFilePage": {
+    "message": "Abrir página del archivo"
+  },
+  "btnUseBrowserDownload": {
+    "message": "Usar descarga del navegador"
+  },
+  "btnRetryNow": {
+    "message": "Reintentar ahora"
+  },
+  "noticeSwitchedToBrowserTitle": {
+    "message": "Cambiado a descargas del navegador"
+  },
+  "noticeSwitchedToBrowserDetail": {
+    "message": "Las colecciones ahora guardan archivos reales en tu carpeta de Descargas. En la página de un archivo, usa «Descarga manual» para archivos sueltos. Puedes volver atrás en los ajustes."
+  },
+  "noticeVortexKeepsFailingTitle": {
+    "message": "Vortex no está recibiendo los archivos"
+  },
+  "noticeVortexKeepsFailingDetail": {
+    "message": "Dos veces seguidas no hubo señal de que Vortex se abriera. Usa las descargas del navegador o comprueba que Vortex esté instalado."
+  },
+  "btnUseBrowserDownloads": {
+    "message": "Usar descargas del navegador"
+  },
+  "btnVortexInstallGuide": {
+    "message": "Guía de instalación de Vortex"
+  },
+  "logVortexOpenRemembered": {
+    "message": "Vortex ya se confirmó antes, así que no se vuelve a preguntar."
+  },
+  "presetVortex": {
+    "message": "Usuario de Vortex"
+  },
+  "presetVortexDesc": {
+    "message": "Enviar archivos a Vortex, empezar automáticamente, cerrar la pestaña extra."
+  },
+  "presetBrowser": {
+    "message": "Descargas del navegador"
+  },
+  "presetBrowserDesc": {
+    "message": "Guardar archivos reales en Descargas, empezar automáticamente."
+  },
+  "presetMinimal": {
+    "message": "Mínimo"
+  },
+  "presetMinimalDesc": {
+    "message": "Solo lo que pulses: sin inicio automático ni botones extra."
+  },
+  "setSectionPresets": {
+    "message": "Configuración rápida"
+  },
+  "presetCustom": {
+    "message": "Personalizado: tu propia combinación de ajustes."
+  },
+  "summaryTitle": {
+    "message": "Resumen"
+  },
+  "summaryCounts": {
+    "message": "$1 enviados · $2 omitidos · $3 fallidos",
+    "placeholders": {
+      "sent": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryAccountLine": {
+    "message": "Los enlaces se firmaron para la cuenta de Nexus n.º $1. Vortex debe usar la misma cuenta.",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      }
+    }
+  },
+  "summaryCopy": {
+    "message": "Copiar lista"
+  },
+  "summaryOpenFailed": {
+    "message": "Abrir páginas fallidas"
+  },
+  "summaryRetryFailed": {
+    "message": "Reintentar fallidos"
+  },
+  "summaryCopied": {
+    "message": "Copiado"
+  },
+  "summaryCopyFailed": {
+    "message": "Error al copiar"
+  },
+  "historyViewTitle": {
+    "message": "Historial de descargas de esta colección"
+  },
+  "historyViewSent": {
+    "message": "Enviados a Vortex"
+  },
+  "historyViewDownloaded": {
+    "message": "Descargados"
+  },
+  "historyViewMissing": {
+    "message": "Aún sin descargar"
+  },
+  "historyViewHelp": {
+    "message": "Los archivos «Enviados a Vortex» no se omiten: el navegador no puede ver si Vortex los recibió. Reenviar es seguro, Vortex omite los que ya tiene."
+  },
+  "historyViewClear": {
+    "message": "Borrar historial"
+  },
+  "historyViewResend": {
+    "message": "Reenviar faltantes ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "deckHistoryView": {
+    "message": "Historial de descargas"
+  },
+  "deckHistoryViewHint": {
+    "message": "Enviados, descargados, reenviar faltantes"
+  },
+  "setupSaved": {
+    "message": "Guardado. Abre cualquier página de archivo de Nexus Mods para probarlo."
+  },
+  "setupSaveFailed": {
+    "message": "No se pudo guardar. Inténtalo de nuevo desde el botón de ajustes en una página de Nexus."
+  },
+  "setupTesting": {
+    "message": "Pidiendo al navegador que abra Vortex… permite el aviso si aparece."
+  },
+  "setupTestOk": {
+    "message": "Vortex se abrió. Todo listo."
+  },
+  "setupTestUnsure": {
+    "message": "No se pudo saber si Vortex se abrió."
+  },
+  "setupTestFailed": {
+    "message": "Vortex no se abrió. Instala Vortex y deja que gestione los enlaces nxm:// (Ajustes de Vortex → Descargas), o elige descargas del navegador arriba."
+  },
+  "setupTitle": {
+    "message": "Listo en 30 segundos"
+  },
+  "setupSubtitle": {
+    "message": "Tres preguntas. Puedes cambiarlo todo después en los ajustes."
+  },
+  "setupQVortex": {
+    "message": "¿Usas Vortex?"
+  },
+  "setupVortexYes": {
+    "message": "Sí, enviar archivos a Vortex"
+  },
+  "setupVortexNo": {
+    "message": "No, guardar archivos con mi navegador"
+  },
+  "setupQFolder": {
+    "message": "Carpeta de descarga (dentro de Descargas del navegador)"
+  },
+  "setupFolderHint": {
+    "message": "Déjalo vacío para guardar directamente en Descargas."
+  },
+  "setupQCloseTab": {
+    "message": "Cerrar la pestaña extra de Nexus tras enviar un archivo a Vortex"
+  },
+  "setupSave": {
+    "message": "Guardar"
+  },
+  "setupTestVortex": {
+    "message": "Probar Vortex"
+  },
+  "setupAskOpened": {
+    "message": "¿Se abrió Vortex?"
+  },
+  "dlgVortexOpenedYesShort": {
+    "message": "Sí"
+  },
+  "dlgVortexOpenedNoShort": {
+    "message": "No"
   }
 }

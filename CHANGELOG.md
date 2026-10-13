@@ -11,6 +11,22 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
+## 2026-10-13 — v3.1.0
+
+### Friendlier setup and errors (feat/ux-friendly)
+- **First-run setup** — the welcome page asks three questions (Vortex or browser downloads, download folder, close the extra tab) and saves them. A **Test Vortex** button sends the harmless `nxm://premium` link and checks whether Vortex opened, asking "Did Vortex open?" when it cannot tell.
+- **Settings presets** — "Quick setup" offers *Vortex user*, *Browser downloads* and *Minimal*; a mix shows as *Custom*. Technical settings (timeouts, Vortex speed/pause, official API, browser check) sit under **Advanced**. Presets never change pacing.
+- **Error dialogs with actions** — *Sign in*, *Open file page*, *Retry in m:ss* (counts down on a rate limit, then *Retry now*) and *Use browser download*, chosen from the error.
+- **Run summary** — a collection run ends with a card: sent, skipped (with reasons) and failed, plus *Retry failed*, *Copy list*, *Open failed pages* (up to 10) and the Nexus account the links were signed for.
+- **Collection download history** — a deck menu entry shows *Sent to Vortex* / *Downloaded* / *Not downloaded yet*, with *Resend missing* and *Clear history*.
+- **Vortex keeps failing** — after two hand-offs in a row with no sign of Vortex, a toast offers browser downloads and the Vortex install guide.
+- **"Did Vortex open?" is remembered** — a yes (or Vortex visibly opening) is stored per browser profile; the question comes back only after a no or a failed hand-off.
+- **Plain language** — settings and messages no longer say hand-off, NMM or fallback; descriptions are one plain sentence or two. All 13 languages updated.
+
+### Fixed
+- **"Vortex didn't open?" never appeared after cancelling Chrome's "Open Vortex?" prompt** — Chrome does not always fire a window `focus` event when its own dialog closes, so the blur looked permanent and counted as "opened". The watcher now also polls `document.hasFocus()` and treats a click or key press in the page as "back here"; a blur only counts as opened after 8 s. A failed hand-off also cancels the pending auto-close, so the hint and the button stay.
+- **"Vortex hand-off:" debug lines were lost** — the debug log was batched for 2 s, so a tab that closed or left right after the hand-off dropped them. Hand-off lines and errors are now written at once, and the batch is flushed on `pagehide` / when the page is hidden.
+
 ## 2026-10-13 — v3.0.1
 
 ### Vortex hand-off (feat/vortex-handoff)
