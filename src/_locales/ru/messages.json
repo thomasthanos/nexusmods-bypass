@@ -2198,5 +2198,14 @@
   },
   "dlgVortexOpenedNoShort": {
     "message": "Нет"
+  },
+  "noticeFileMissingTitle": {
+    "message": "Этот файл недоступен"
+  },
+  "noticeFileMissingDetail": {
+    "message": "По данным Nexus, файла нет: он удалён или скрыт, либо ссылка неверна. Выберите другой файл на вкладке «Файлы» мода."
+  },
+  "btnOpenModFiles": {
+    "message": "Открыть вкладку «Файлы»"
   }
 }

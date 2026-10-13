@@ -1946,5 +1946,14 @@
   },
   "dlgVortexOpenedNoShort": {
     "message": "いいえ"
+  },
+  "noticeFileMissingTitle": {
+    "message": "このファイルは利用できません"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Nexus によるとこのファイルは存在しません(削除・非表示、またはリンクの誤り)。MOD の Files タブで別のファイルを選んでください。"
+  },
+  "btnOpenModFiles": {
+    "message": "Files タブを開く"
   }
 }

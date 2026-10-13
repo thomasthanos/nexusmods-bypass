@@ -1946,5 +1946,14 @@
   },
   "dlgVortexOpenedNoShort": {
     "message": "否"
+  },
+  "noticeFileMissingTitle": {
+    "message": "此文件不可用"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Nexus 显示该文件不存在:已被删除或隐藏,或链接有误。请在模组的“文件”标签页选择其他文件。"
+  },
+  "btnOpenModFiles": {
+    "message": "打开“文件”标签页"
   }
 }

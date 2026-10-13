@@ -1946,5 +1946,14 @@
   },
   "dlgVortexOpenedNoShort": {
     "message": "아니요"
+  },
+  "noticeFileMissingTitle": {
+    "message": "이 파일은 사용할 수 없습니다"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Nexus에 따르면 파일이 없습니다. 삭제되었거나 숨겨졌거나 링크가 잘못되었습니다. 모드의 Files 탭에서 다른 파일을 고르세요."
+  },
+  "btnOpenModFiles": {
+    "message": "Files 탭 열기"
   }
 }

@@ -2030,5 +2030,14 @@
   },
   "dlgVortexOpenedNoShort": {
     "message": "Όχι"
+  },
+  "noticeFileMissingTitle": {
+    "message": "Αυτό το αρχείο δεν είναι διαθέσιμο"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Το Nexus λέει ότι το αρχείο δεν υπάρχει: αφαιρέθηκε ή κρύφτηκε, ή ο σύνδεσμος είναι λάθος. Επιλέξτε άλλο αρχείο στην καρτέλα Files του mod."
+  },
+  "btnOpenModFiles": {
+    "message": "Άνοιγμα καρτέλας Files"
   }
 }

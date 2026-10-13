@@ -2198,5 +2198,14 @@
   },
   "dlgVortexOpenedNoShort": {
     "message": "Nie"
+  },
+  "noticeFileMissingTitle": {
+    "message": "Ten plik jest niedostępny"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Według Nexus plik nie istnieje: został usunięty lub ukryty albo link jest błędny. Wybierz inny plik w zakładce Pliki moda."
+  },
+  "btnOpenModFiles": {
+    "message": "Otwórz zakładkę Pliki"
   }
 }

@@ -21,6 +21,10 @@ the repository before NexusMods Bypass was split out (2026-08-24) are folded int
 - **Collection download history** — a deck menu entry shows *Sent to Vortex* / *Downloaded* / *Not downloaded yet*, with *Resend missing* and *Clear history*.
 - **Vortex keeps failing** — after two hand-offs in a row with no sign of Vortex, a toast offers browser downloads and the Vortex install guide.
 - **"Did Vortex open?" is remembered** — a yes (or Vortex visibly opening) is stored per browser profile; the question comes back only after a no or a failed hand-off.
+- **Browser runs get the summary card too** — sent, skipped (including files already downloaded) and failed, built from the background queue's per-file events; *Retry failed* queues only the failed files.
+- **Quick setup follows changes live** — changing a setting updates the highlighted preset and the "Custom" note at once.
+- **Missing files** — a file page Nexus shows as "Object not found" (removed, hidden or a wrong link) gets a notice with *Open the Files tab* instead of a page-change warning; the page-check warning for a real change is a plain sentence, with the selector list kept for the report.
+- **Collection menu actions** run after the menu closes, and a failure to open the mod picker or the update check shows an error instead of nothing.
 - **Plain language** — settings and messages no longer say hand-off, NMM or fallback; descriptions are one plain sentence or two. All 13 languages updated.
 
 ### Fixed

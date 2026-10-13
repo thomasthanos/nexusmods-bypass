@@ -2030,5 +2030,14 @@
   },
   "dlgVortexOpenedNoShort": {
     "message": "No"
+  },
+  "noticeFileMissingTitle": {
+    "message": "Este archivo no está disponible"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Nexus dice que el archivo no existe: se eliminó u ocultó, o el enlace es incorrecto. Elige otro archivo en la pestaña Archivos del mod."
+  },
+  "btnOpenModFiles": {
+    "message": "Abrir la pestaña Archivos"
   }
 }

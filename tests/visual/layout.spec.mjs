@@ -855,6 +855,13 @@ test('settings: quick-setup presets apply and technical settings sit under Advan
   await expect.poll(async () => (await read('nxtk_settings')).NDC_downloadMethod).toBe(1);
   expect((await read('nxtk_settings')).AutoCloseTab).toBe(false);
   await expect(page.locator('.nxtk-modal [data-preset="browser"]')).toHaveClass(/nxtk-preset-active/, { timeout: 10000 });
+  // The note and the highlight follow a change at once, without reopening.
+  await page.locator('.nxtk-modal [data-setting="AutoStartDownload"]').evaluate((el) => { el.checked = !el.checked; el.dispatchEvent(new Event('change', { bubbles: true })); });
+  await expect(page.locator('#nxtk-preset-note')).toContainText(/Custom/);
+  await expect(page.locator('.nxtk-modal .nxtk-preset-active')).toHaveCount(0);
+  await page.locator('.nxtk-modal [data-setting="AutoStartDownload"]').evaluate((el) => { el.checked = !el.checked; el.dispatchEvent(new Event('change', { bubbles: true })); });
+  await expect(page.locator('#nxtk-preset-note')).toHaveText('');
+  await expect(page.locator('.nxtk-modal [data-preset="browser"]')).toHaveClass(/nxtk-preset-active/);
   await page.waitForTimeout(600);
   await assertFits(page, '.nxtk-modal', 'presets');
   await page.locator('#nxtk-advanced-toggle').click();

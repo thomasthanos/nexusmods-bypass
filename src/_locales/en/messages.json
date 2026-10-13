@@ -2372,5 +2372,14 @@
   },
   "dlgVortexOpenedNoShort": {
     "message": "No"
+  },
+  "noticeFileMissingTitle": {
+    "message": "This file is not available"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Nexus says the file does not exist: it was removed or hidden, or the link is wrong. Pick another file on the mod's Files tab."
+  },
+  "btnOpenModFiles": {
+    "message": "Open the Files tab"
   }
 }

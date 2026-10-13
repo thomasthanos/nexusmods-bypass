@@ -2030,5 +2030,14 @@
   },
   "dlgVortexOpenedNoShort": {
     "message": "Hayır"
+  },
+  "noticeFileMissingTitle": {
+    "message": "Bu dosya kullanılamıyor"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Nexus'a göre dosya yok: kaldırılmış ya da gizlenmiş veya bağlantı hatalı. Modun Dosyalar sekmesinden başka bir dosya seçin."
+  },
+  "btnOpenModFiles": {
+    "message": "Dosyalar sekmesini aç"
   }
 }
