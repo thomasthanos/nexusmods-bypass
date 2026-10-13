@@ -1683,65 +1683,65 @@
     }
   },
   "logVortexHandoffSummary": {
-    "message": "$COUNT$ 個のファイルを Vortex に渡しました。Vortex のダウンロードですべて届いたか確認し、足りなければ再ダウンロードで再実行してください。",
+    "message": "$COUNT$ 個のファイルを Vortex に渡しました。Vortex のダウンロードタブを確認してください。足りないものがあれば、もう一度実行するだけです。送信済みファイルは「ダウンロード済み」ではなく「送信済み」として記録され、Vortex は既にあるファイルをスキップするため、足りないものだけが再ダウンロードされます。",
     "description": "UI string.",
     "placeholders": {
       "count": { "content": "$1" }
     }
   },
   "logLinkExpired": {
-    "message": "Link expired before it could be sent to Vortex."
+    "message": "Vortex に送る前にリンクの有効期限が切れました。"
   },
   "logLinkExpiredRefetch": {
-    "message": "Link expired, fetching a new one."
+    "message": "リンクの有効期限が切れました。新しいリンクを取得しています。"
   },
   "logVortexAccountMismatch": {
-    "message": "These links are signed for Nexus account #$LINK$, but this page is signed in as #$PAGE$. Vortex rejects links for another account: sign Vortex and the browser into the same Nexus account.",
+    "message": "これらのリンクは Nexus アカウント #$LINK$ 用に署名されていますが、このページは #$PAGE$ でサインインしています。Vortex は別アカウントのリンクを拒否します。Vortex とブラウザーを同じ Nexus アカウントでサインインしてください。",
     "placeholders": {
       "link": { "content": "$1" },
       "page": { "content": "$2" }
     }
   },
   "logVortexAccountNote": {
-    "message": "Links are signed for Nexus account #$ID$. Vortex must be signed into the same account, or it rejects them as \"Invalid download links\".",
+    "message": "リンクは Nexus アカウント #$ID$ 用に署名されています。Vortex も同じアカウントでサインインしていないと「Invalid download links」として拒否されます。",
     "placeholders": {
       "id": { "content": "$1" }
     }
   },
   "logVortexOpened": {
-    "message": "Vortex picked up the first link; sending the rest."
+    "message": "Vortex が最初のリンクを受け取りました。残りを送信します。"
   },
   "logVortexNotOpened": {
-    "message": "Vortex did not open, so the rest were not sent. Start Vortex (and allow nxm:// links in the browser prompt), then run again."
+    "message": "Vortex が開かなかったため、残りは送信していません。Vortex を起動し（ブラウザーの確認で nxm:// リンクを許可して）、もう一度実行してください。"
   },
   "logVortexCollectionTip": {
-    "message": "Tip: for a whole collection, start it in Vortex (\"Download collection in Vortex\") so Vortex installs it with its rules; then send the files it asks for from here."
+    "message": "ヒント: コレクション全体は Vortex で開始すると（「Download collection in Vortex」）、Vortex がそのルールでインストールします。その後、要求されたファイルをここから送ってください。"
   },
   "logResendingVortex": {
-    "message": "Sent to Vortex before; sending again (Vortex skips files it already has)"
+    "message": "以前 Vortex に送信済み。再送します（Vortex は既にあるファイルをスキップします）"
   },
   "dlgVortexCollectionTip": {
-    "message": "For a whole collection, starting it in Vortex (\"Download collection in Vortex\") is recommended: Vortex installs it with the collection's rules. Use this to send the files it asks for."
+    "message": "コレクション全体は Vortex で開始することをおすすめします（「Download collection in Vortex」）。Vortex がコレクションのルールでインストールします。これは Vortex が要求するファイルを送るために使ってください。"
   },
   "dlgVortexOpenedTitle": {
-    "message": "Did Vortex open?"
+    "message": "Vortex は開きましたか？"
   },
   "dlgVortexOpenedLead": {
-    "message": "The first file was sent to Vortex. Did it show up in Vortex's Downloads?"
+    "message": "最初のファイルを Vortex に送りました。Vortex のダウンロードに表示されましたか？"
   },
   "dlgVortexOpenedHelp": {
-    "message": "If the browser asked to open Vortex, allow it. If nothing happened, stop here so the rest are not sent into the void."
+    "message": "ブラウザーが Vortex を開くか確認してきたら許可してください。何も起きなかった場合は、残りが無駄に送られないようここで停止してください。"
   },
   "dlgVortexOpenedNo": {
-    "message": "No, stop"
+    "message": "いいえ、停止"
   },
   "dlgVortexOpenedYes": {
-    "message": "Yes, send the rest"
+    "message": "はい、残りを送信"
   },
   "noticeVortexNotOpenedTitle": {
-    "message": "Vortex didn't open?"
+    "message": "Vortex が開きませんでしたか？"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again."
+    "message": "何も起きなかった場合は、Vortex がインストールされ nxm:// リンクを処理するよう設定されているか確認し（ブラウザーの確認を許可して）、もう一度ボタンをクリックしてください。"
   }
 }

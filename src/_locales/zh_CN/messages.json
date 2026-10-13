@@ -1683,65 +1683,65 @@
     }
   },
   "logVortexHandoffSummary": {
-    "message": "已将 $COUNT$ 个文件交给 Vortex。请在 Vortex 的下载中确认全部到达；如有缺失，请用“重新下载”再次运行。",
+    "message": "已将 $COUNT$ 个文件交给 Vortex。请查看 Vortex 的下载标签页。如有缺失，直接再次运行即可：已发送的文件记为“已发送”而非“已下载”，而 Vortex 会跳过已有的文件，因此只会重新下载缺失的文件。",
     "description": "UI string.",
     "placeholders": {
       "count": { "content": "$1" }
     }
   },
   "logLinkExpired": {
-    "message": "Link expired before it could be sent to Vortex."
+    "message": "链接在发送到 Vortex 之前已过期。"
   },
   "logLinkExpiredRefetch": {
-    "message": "Link expired, fetching a new one."
+    "message": "链接已过期，正在获取新链接。"
   },
   "logVortexAccountMismatch": {
-    "message": "These links are signed for Nexus account #$LINK$, but this page is signed in as #$PAGE$. Vortex rejects links for another account: sign Vortex and the browser into the same Nexus account.",
+    "message": "这些链接是为 Nexus 账号 #$LINK$ 签名的，但此页面登录的是 #$PAGE$。Vortex 会拒绝其他账号的链接：请让 Vortex 和浏览器登录同一个 Nexus 账号。",
     "placeholders": {
       "link": { "content": "$1" },
       "page": { "content": "$2" }
     }
   },
   "logVortexAccountNote": {
-    "message": "Links are signed for Nexus account #$ID$. Vortex must be signed into the same account, or it rejects them as \"Invalid download links\".",
+    "message": "链接是为 Nexus 账号 #$ID$ 签名的。Vortex 必须登录同一账号，否则会以“Invalid download links”拒绝。",
     "placeholders": {
       "id": { "content": "$1" }
     }
   },
   "logVortexOpened": {
-    "message": "Vortex picked up the first link; sending the rest."
+    "message": "Vortex 已接收第一个链接；正在发送其余链接。"
   },
   "logVortexNotOpened": {
-    "message": "Vortex did not open, so the rest were not sent. Start Vortex (and allow nxm:// links in the browser prompt), then run again."
+    "message": "Vortex 没有打开，因此其余文件未发送。请启动 Vortex（并在浏览器提示中允许 nxm:// 链接），然后重新运行。"
   },
   "logVortexCollectionTip": {
-    "message": "Tip: for a whole collection, start it in Vortex (\"Download collection in Vortex\") so Vortex installs it with its rules; then send the files it asks for from here."
+    "message": "提示：整个合集请在 Vortex 中开始（“Download collection in Vortex”），让 Vortex 按其规则安装；然后从这里发送它请求的文件。"
   },
   "logResendingVortex": {
-    "message": "Sent to Vortex before; sending again (Vortex skips files it already has)"
+    "message": "之前已发送到 Vortex；正在重新发送（Vortex 会跳过已有的文件）"
   },
   "dlgVortexCollectionTip": {
-    "message": "For a whole collection, starting it in Vortex (\"Download collection in Vortex\") is recommended: Vortex installs it with the collection's rules. Use this to send the files it asks for."
+    "message": "整个合集建议在 Vortex 中开始（“Download collection in Vortex”）：Vortex 会按合集的规则安装。用这里来发送它请求的文件。"
   },
   "dlgVortexOpenedTitle": {
-    "message": "Did Vortex open?"
+    "message": "Vortex 打开了吗？"
   },
   "dlgVortexOpenedLead": {
-    "message": "The first file was sent to Vortex. Did it show up in Vortex's Downloads?"
+    "message": "第一个文件已发送到 Vortex。它出现在 Vortex 的下载中了吗？"
   },
   "dlgVortexOpenedHelp": {
-    "message": "If the browser asked to open Vortex, allow it. If nothing happened, stop here so the rest are not sent into the void."
+    "message": "如果浏览器询问是否打开 Vortex，请允许。如果什么都没发生，请在此停止，以免其余文件白白发送。"
   },
   "dlgVortexOpenedNo": {
-    "message": "No, stop"
+    "message": "否，停止"
   },
   "dlgVortexOpenedYes": {
-    "message": "Yes, send the rest"
+    "message": "是，发送其余文件"
   },
   "noticeVortexNotOpenedTitle": {
-    "message": "Vortex didn't open?"
+    "message": "Vortex 没有打开？"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again."
+    "message": "如果什么都没发生，请检查 Vortex 是否已安装并设置为处理 nxm:// 链接（并允许浏览器提示），然后再次点击按钮。"
   }
 }

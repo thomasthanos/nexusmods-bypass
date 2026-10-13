@@ -1767,65 +1767,65 @@
     }
   },
   "logVortexHandoffSummary": {
-    "message": "$COUNT$ Dateien an Vortex übergeben. Prüfe in den Vortex-Downloads, ob alle angekommen sind; sonst erneut mit „Erneut herunterladen“ starten.",
+    "message": "$COUNT$ Dateien an Vortex übergeben. Prüfe den Downloads-Tab von Vortex. Falls welche fehlen, starte einfach erneut: Gesendete Dateien gelten als „gesendet“, nicht als „heruntergeladen“, und Vortex überspringt vorhandene Dateien, sodass nur die fehlenden erneut geladen werden.",
     "description": "UI string.",
     "placeholders": {
       "count": { "content": "$1" }
     }
   },
   "logLinkExpired": {
-    "message": "Link expired before it could be sent to Vortex."
+    "message": "Link abgelaufen, bevor er an Vortex gesendet werden konnte."
   },
   "logLinkExpiredRefetch": {
-    "message": "Link expired, fetching a new one."
+    "message": "Link abgelaufen, ein neuer wird abgerufen."
   },
   "logVortexAccountMismatch": {
-    "message": "These links are signed for Nexus account #$LINK$, but this page is signed in as #$PAGE$. Vortex rejects links for another account: sign Vortex and the browser into the same Nexus account.",
+    "message": "Diese Links sind für das Nexus-Konto #$LINK$ signiert, diese Seite ist aber als #$PAGE$ angemeldet. Vortex lehnt Links für ein anderes Konto ab: Melde Vortex und den Browser mit demselben Nexus-Konto an.",
     "placeholders": {
       "link": { "content": "$1" },
       "page": { "content": "$2" }
     }
   },
   "logVortexAccountNote": {
-    "message": "Links are signed for Nexus account #$ID$. Vortex must be signed into the same account, or it rejects them as \"Invalid download links\".",
+    "message": "Die Links sind für das Nexus-Konto #$ID$ signiert. Vortex muss mit demselben Konto angemeldet sein, sonst lehnt es sie als „Invalid download links“ ab.",
     "placeholders": {
       "id": { "content": "$1" }
     }
   },
   "logVortexOpened": {
-    "message": "Vortex picked up the first link; sending the rest."
+    "message": "Vortex hat den ersten Link übernommen; der Rest wird gesendet."
   },
   "logVortexNotOpened": {
-    "message": "Vortex did not open, so the rest were not sent. Start Vortex (and allow nxm:// links in the browser prompt), then run again."
+    "message": "Vortex hat sich nicht geöffnet, daher wurde der Rest nicht gesendet. Starte Vortex (und erlaube nxm://-Links in der Browser-Abfrage) und starte dann erneut."
   },
   "logVortexCollectionTip": {
-    "message": "Tip: for a whole collection, start it in Vortex (\"Download collection in Vortex\") so Vortex installs it with its rules; then send the files it asks for from here."
+    "message": "Tipp: Starte eine ganze Collection in Vortex („Download collection in Vortex“), damit Vortex sie mit ihren Regeln installiert; sende dann von hier die Dateien, nach denen es fragt."
   },
   "logResendingVortex": {
-    "message": "Sent to Vortex before; sending again (Vortex skips files it already has)"
+    "message": "Schon einmal an Vortex gesendet; wird erneut gesendet (Vortex überspringt vorhandene Dateien)"
   },
   "dlgVortexCollectionTip": {
-    "message": "For a whole collection, starting it in Vortex (\"Download collection in Vortex\") is recommended: Vortex installs it with the collection's rules. Use this to send the files it asks for."
+    "message": "Für eine ganze Collection wird empfohlen, sie in Vortex zu starten („Download collection in Vortex“): Vortex installiert sie mit den Regeln der Collection. Nutze dies, um die Dateien zu senden, nach denen es fragt."
   },
   "dlgVortexOpenedTitle": {
-    "message": "Did Vortex open?"
+    "message": "Hat sich Vortex geöffnet?"
   },
   "dlgVortexOpenedLead": {
-    "message": "The first file was sent to Vortex. Did it show up in Vortex's Downloads?"
+    "message": "Die erste Datei wurde an Vortex gesendet. Ist sie in den Downloads von Vortex aufgetaucht?"
   },
   "dlgVortexOpenedHelp": {
-    "message": "If the browser asked to open Vortex, allow it. If nothing happened, stop here so the rest are not sent into the void."
+    "message": "Wenn der Browser gefragt hat, ob Vortex geöffnet werden soll, erlaube es. Wenn nichts passiert ist, stoppe hier, damit der Rest nicht ins Leere geht."
   },
   "dlgVortexOpenedNo": {
-    "message": "No, stop"
+    "message": "Nein, stoppen"
   },
   "dlgVortexOpenedYes": {
-    "message": "Yes, send the rest"
+    "message": "Ja, Rest senden"
   },
   "noticeVortexNotOpenedTitle": {
-    "message": "Vortex didn't open?"
+    "message": "Vortex hat sich nicht geöffnet?"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again."
+    "message": "Wenn nichts passiert ist, prüfe, ob Vortex installiert und für nxm://-Links eingerichtet ist (und erlaube die Browser-Abfrage), und klicke dann erneut auf den Button."
   }
 }
