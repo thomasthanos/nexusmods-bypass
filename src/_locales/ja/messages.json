@@ -9,7 +9,7 @@
     "message": "ダウンロードを自動的に開始"
   },
   "setAutoCloseTabLabel": {
-    "message": "Vortex に送信後、余分なタブを閉じる"
+    "message": "追加の Nexus タブを閉じる"
   },
   "toggleSkipReq": {
     "message": "必須MOD画面をスキップ"
@@ -18,7 +18,7 @@
     "message": "広告と Premium パネルを非表示"
   },
   "setHandleArchivedFilesLabel": {
-    "message": "アーカイブ済みファイルのボタン"
+    "message": "古いファイルのダウンロードボタン"
   },
   "btnPageSettings": {
     "message": "ページ設定"
@@ -491,61 +491,61 @@
     "message": "ダウンロードを自動的に開始"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Nexus のファイルページを開くと、追加のクリックなしで(Vortex またはブラウザへ)ダウンロードを開始します。"
+    "message": "Nexus のファイルページで、選んだファイルのダウンロードを追加クリックなしで開始します。MOD ページの全ファイルをまとめてダウンロードする機能ではありません。"
   },
   "setAutoCloseTabDesc": {
-    "message": "Vortex にリンクを送信した後、下記の遅延時間が過ぎたら一時的な Nexus タブを閉じます。"
+    "message": "自動で開始したファイルを Vortex に送った後、一時的な Nexus タブを閉じます。ダウンロードの完了までは待ちません。タブを残したい場合はオフにしてください。"
   },
   "setSkipRequirementsLabel": {
     "message": "必須MOD画面をスキップ"
   },
   "setSkipRequirementsDesc": {
-    "message": "Nexus の必須MODポップアップを通過し、直接ダウンロード手順へ進みます。"
+    "message": "必要な他の MOD を表示する Nexus の画面をスキップし、ダウンロードへ進みます。必要な MOD は自分でインストールする場合があります。自動ではダウンロードされません。"
   },
   "setShowAlertsOnErrorLabel": {
     "message": "エラーのポップアップを表示"
   },
   "setShowAlertsOnErrorDesc": {
-    "message": "Nexus が利用可能なダウンロードリンクを返さないとき、分かりやすいメッセージを表示します。"
+    "message": "ダウンロードを開始できないときに、続行に使える操作とメッセージを表示します。オフにすると表示を隠しますが、問題の原因は解決しません。"
   },
   "setHidePremiumUpsellsLabel": {
     "message": "広告と Premium パネルを非表示"
   },
   "setHidePremiumUpsellsDesc": {
-    "message": "広告やプレミアムバナーを非表示にします。また、ダウンロード時の5秒間のカウントダウンをスキップします。"
+    "message": "Nexus の広告と Premium の案内を隠し、ダウンロード前のカウントダウンをスキップします。Premium アカウントや Premium のダウンロード速度は付与されません。"
   },
   "setHandleArchivedFilesDesc": {
-    "message": "Nexus が非表示にしているアーカイブ済みファイルに、Vortex とブラウザーのダウンロードボタンを追加します。"
+    "message": "Nexus のアーカイブに移された古いファイルにダウンロードボタンを追加します。削除されたファイルの復元や、アクセス制限の解除は行いません。"
   },
   "setDownloadFolderLabel": {
     "message": "ブラウザーのダウンロードフォルダー"
   },
   "setDownloadFolderDesc": {
-    "message": "ブラウザーのダウンロードフォルダー内のサブフォルダー（Browser Download モード用）。空欄にすると「ダウンロード」に直接保存されます。一部の Mod マネージャーはこのフォルダーしか監視せず、サブフォルダーの中を見ません。Vortex 経由のダウンロードは Vortex が処理するため影響ありません。"
+    "message": "ブラウザーのダウンロードフォルダー内に作るサブフォルダー名です。例えば NexusMods と入力すると「ダウンロード/NexusMods」に保存します。空欄ならダウンロードフォルダーに直接保存します。Vortex の保存先は変わりません。"
   },
   "setRequestTimeoutLabel": {
-    "message": "ダウンロード要求のタイムアウト"
+    "message": "ダウンロードリンクの待ち時間"
   },
   "setRequestTimeoutDesc": {
-    "message": "Nexus がダウンロードリンクを返すのを拡張機能が待つ時間です。"
+    "message": "Nexus からダウンロードリンクを取得するための待ち時間です。ファイル全体のダウンロード時間ではありません。応答が遅く、時間切れが続く場合だけ増やしてください。"
   },
   "setCloseTabDelayLabel": {
     "message": "タブを閉じるまでの遅延"
   },
   "setCloseTabDelayDesc": {
-    "message": "自動開始され、タブを閉じる Vortex のダウンロードにのみ適用されます。Vortex がリンクを取りこぼす場合は長くしてください。"
+    "message": "自動で開始する Vortex ダウンロードのみ。Vortex が開いてから一時的な Nexus タブを閉じるまでの秒数です。Vortex がリンクを受け取れない場合は長くしてみてください。"
   },
   "setDownloadSpeedLabel": {
-    "message": "Nexus のダウンロード速度"
+    "message": "Vortex に表示されるダウンロード速度"
   },
   "setDownloadSpeedDesc": {
-    "message": "Vortex のみ。ブラウザからは Vortex のダウンロードが見えないため、各ファイルにかかる時間を見積もり、その分待ってから次を送ります。実際の速度を設定してください。"
+    "message": "Vortex のみ。Vortex に実際に表示されるダウンロード速度を MB/s で入力してください。ブラウザーから Vortex の進捗が見えないため、次のファイルを送る時刻の推定に使います。ダウンロード速度を上げたり制限したりする設定ではありません。"
   },
   "setPauseBetweenModsLabel": {
     "message": "MOD 間の待機時間"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Vortex のみ。ファイル間の追加待機で、上の見積もりに加算されます。0 にすると見積もりを止め、Vortex 自身にキューを任せます。2 秒の間隔は常に残ります。"
+    "message": "Vortex のみ。次のファイルを送る前に、推定ダウンロード時間に追加する秒数です。0 にすると推定を省略し、キュー管理を Vortex に任せます。それでも最低 2 秒の間隔は残ります。"
   },
   "dlgHistoryTitle": {
     "message": "ダウンロード済みの MOD が見つかりました"
@@ -1023,7 +1023,7 @@
     "message": "常に英語を使用"
   },
   "setForceEnglishDesc": {
-    "message": "ブラウザーが他の言語に設定されていても、この拡張機能を英語で表示します。英語で書かれたガイドを参照するときに便利です。ブラウザーの拡張機能一覧に表示される名前は、引き続きブラウザーの言語に従います。"
+    "message": "ブラウザーの言語ではなく英語で拡張機能を表示します。ブラウザーや Nexus の言語は変更しません。拡張機能一覧の名前は引き続きブラウザーの言語に従います。"
   },
   "supportEntryTitle": {
     "message": "プロジェクトを支援"
@@ -1181,10 +1181,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Nexus がブラウザ確認を求めたらファイルページを開く"
+    "message": "ブラウザー確認のページを開く"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Nexus がリンクの代わりに「人間であることの確認」ページを表示した場合、確認を通過できるようファイルページを開きます。タブが勝手に切り替わることがあるのはこのためです。"
+    "message": "Nexus が人間であることの確認を求めた場合、ファイルページを開いて自分でブラウザー確認を完了できるようにします。確認を回避する機能ではありません。このため現在のタブでページが切り替わる場合があります。"
   },
   "tabControls": {
     "message": "コントロール",
@@ -1201,7 +1201,7 @@
     "message": "Wabbajack モッドリスト読み込み（ベータ）"
   },
   "setWabbajackImportDesc": {
-    "message": ".wabbajackファイルを読み込み、NexusのMODをキューに追加します。外部ファイルや未対応のゲームはスキップされます。"
+    "message": ".wabbajack リストのインポートボタンを表示します。対応する Nexus ファイルをブラウザーのダウンロードキューに追加しますが、自動インストールはしません。他サイトのファイルや未対応ゲームのファイルは一覧に示してスキップします。"
   },
   "btnImportWabbajack": {
     "message": "Wabbajack モッドリストを読み込む"
@@ -1258,7 +1258,7 @@
     "message": "小さいファイルから"
   },
   "setSmallestFirstDesc": {
-    "message": "コレクションのダウンロードを小さいファイルから始めます。リストの大半が早く終わり、大きなファイルが残りを待たせません。サイズが表示されていないファイルは最後になります。"
+    "message": "小さいファイルからダウンロードし、より多くのファイルを早く完了させます。サイズ不明のファイルは最後になります。順序を変えるだけで、通信速度は変わりません。"
   },
   "logSmallestFirst": {
     "message": "小さいファイルから順にダウンロードします。"
@@ -1358,22 +1358,22 @@
     "message": "後で"
   },
   "setUseOfficialApiLabel": {
-    "message": "公式 Nexus API を使う"
+    "message": "Nexus 公式 API を使う"
   },
   "setUseOfficialApiDesc": {
-    "message": "コレクション・MOD・ファイルの情報を、キャッシュとレート制限処理付きで公式ドキュメントの Nexus Mods API から取得します。オフにすると従来のページ読み取りを使います。"
+    "message": "Nexus の公式 API（ファイルやコレクションの情報を直接取得する仕組み）を使います。更新ルールと Endorse/Track ボタンには必要です。問題がある場合に古いページ読み取り方式を試すときだけオフにしてください。"
   },
   "setFollowUpdatePolicyLabel": {
-    "message": "キュレーターの更新ポリシーに従う"
+    "message": "コレクションのバージョンルール"
   },
   "setFollowUpdatePolicyDesc": {
-    "message": "コレクションが MOD の新しいバージョンを許可している場合、記載のファイルではなく同じダウンロードの最新ファイルを取得します。特定バージョンに固定された MOD は変更しません。"
+    "message": "オン：各ファイルのルールに従います。Exact は指定されたファイル、Latest は最新版を使います。Prefer Exact は指定されたファイルが利用できる間はそのまま使い、利用できなくなった場合だけ置き換えます。オフ：リストのファイルを使います。公式 Nexus API が必要で、インストール済み MOD の更新は行いません。"
   },
   "setShowModActionsLabel": {
-    "message": "推薦・トラッキングボタン"
+    "message": "いいね・ウォッチのボタンを表示"
   },
   "setShowModActionsDesc": {
-    "message": "コレクションの MOD 一覧に推薦・トラッキングボタンを表示します。クリックするまで何も送信されません。"
+    "message": "コレクションの MOD にボタンを表示します。Endorse は「いいね」、Track は Nexus のウォッチリストへの追加です。クリックするまで操作は行いません。ダウンロード後、Endorse が可能になるまで待つ必要がある場合があります。公式 Nexus API が必要です。"
   },
   "logUpdatePolicyApplied": {
     "message": "コレクションが更新を許可している $1 件の MOD に新しいファイルを使用します。"
@@ -1385,16 +1385,16 @@
     "message": "更新あり"
   },
   "btnEndorse": {
-    "message": "推薦"
+    "message": "いいね"
   },
   "btnEndorsed": {
-    "message": "推薦済み"
+    "message": "いいね済み"
   },
   "btnTrack": {
-    "message": "トラッキング"
+    "message": "ウォッチ"
   },
   "btnTracked": {
-    "message": "トラッキング中"
+    "message": "ウォッチ中"
   },
   "modActionFailed": {
     "message": "Nexus に受け付けられませんでした: $1"
@@ -1652,11 +1652,11 @@
     }
   },
   "setHideDownloadPopupLabel": {
-    "message": "コレクションのダウンロード中はブラウザーのダウンロード表示を隠す",
+    "message": "コレクションのダウンロード画面を隠す",
     "description": "UI string."
   },
   "setHideDownloadPopupDesc": {
-    "message": "Chrome と Edge のみ。ファイルごとにダウンロードバブルが開くのを防ぎ、終了・停止・失敗時に元に戻します。",
+    "message": "Chrome と Edge のみ。コレクションの各ファイルでダウンロードのポップアップが開くのを防ぎます。完了、停止、失敗したときに元に戻します。ダウンロード自体は通常どおり続きます。",
     "description": "UI string."
   },
   "btnStateSendingVortex": {
@@ -1969,7 +1969,7 @@
     "message": "広告、Premium の案内、カウントダウンを隠します。"
   },
   "setShortHandleArchivedFiles": {
-    "message": "アーカイブ済みファイルにボタンを追加します。"
+    "message": "Nexus アーカイブ内の古いファイルにボタンを追加します。"
   },
   "setShortWabbajackImport": {
     "message": ".wabbajack の Nexus ファイルをキューに追加します（ベータ）。"
@@ -1981,16 +1981,16 @@
     "message": "小さいファイルからダウンロードします。"
   },
   "setShortUseOfficialApi": {
-    "message": "ページ検索の代わりに文書化された API を使います。"
+    "message": "Nexus の情報を取得する推奨方式です。"
   },
   "setShortFollowUpdatePolicy": {
-    "message": "作者が許可した場合のみ新しいファイルを使います。"
+    "message": "コレクション作者のバージョン指定に従います。"
   },
   "setShortShowModActions": {
-    "message": "Endorse と Track を表示します。自動送信しません。"
+    "message": "いいね・ウォッチはクリックした時のみ行います。"
   },
   "setShortCloudflareFallback": {
-    "message": "ファイルページを開き、ブラウザー確認を完了します。"
+    "message": "確認は自分で行います。回避する機能ではありません。"
   },
   "setShortForceEnglish": {
     "message": "ブラウザーの言語ではなく英語を使います。"
@@ -1999,13 +1999,13 @@
     "message": "ブラウザーのみ。空欄ならダウンロードフォルダーです。"
   },
   "setShortRequestTimeout": {
-    "message": "ダウンロードリンクを待つ時間です。"
+    "message": "ファイル全体ではなくリンクを待つ時間です。"
   },
   "setShortCloseTabDelay": {
     "message": "Vortex のみ。タブを閉じる前に待機します。"
   },
   "setShortNDC_downloadSpeed": {
-    "message": "Vortex のみ。各ファイルの所要時間を推定します。"
+    "message": "待ち時間の推定用で、速度制限ではありません。"
   },
   "setShortNDC_pauseBetweenDownload": {
     "message": "Vortex のみ。ファイル間に待機時間を追加します。"

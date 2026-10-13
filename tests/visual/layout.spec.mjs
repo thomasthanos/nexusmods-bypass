@@ -443,7 +443,7 @@ test('every page shows the manifest version, and the debug page can turn logging
   await page.close();
 });
 
-test('popup help tab: one solid primary, two compact secondaries, sentence case, tooltips', async () => {
+test('popup controls and help: raised actions, compact layout, sentence case, tooltips', async () => {
   let [worker] = context.serviceWorkers();
   if (!worker) worker = await context.waitForEvent('serviceworker');
   const id = new URL(worker.url()).host;
@@ -451,12 +451,23 @@ test('popup help tab: one solid primary, two compact secondaries, sentence case,
     const page = await context.newPage();
     await page.setViewportSize({ width, height: 600 });
     await page.goto(`chrome-extension://${id}/popup/popup.html`);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(page.locator('#openSettings')).toBeVisible();
+    await page.screenshot({ path: path.join(shotDir, `popup-controls-${width}.png`) });
+    for (const sel of ['#openSettings', '#goToNexus']) {
+      const surface = await page.locator(sel).evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return { background: cs.backgroundImage, shadow: cs.boxShadow };
+      });
+      expect(surface.background, `${sel} has a lit surface`).toContain('linear-gradient');
+      expect(surface.shadow, `${sel} has depth`).not.toBe('none');
+    }
     await page.click('#tabHelp');
     const primary = page.locator('#sendReport');
     await expect(primary).toBeVisible();
     const style = await primary.evaluate((el) => {
       const cs = getComputedStyle(el);
-      return { opacity: cs.opacity, transform: cs.textTransform, color: cs.color, bg: cs.backgroundColor, h: el.getBoundingClientRect().height };
+      return { opacity: cs.opacity, transform: cs.textTransform, color: cs.color, h: el.getBoundingClientRect().height };
     });
     expect(style.opacity).toBe('1');
     expect(style.transform).toBe('none');
@@ -467,6 +478,12 @@ test('popup help tab: one solid primary, two compact secondaries, sentence case,
     expect(boxes[0].x + boxes[0].width).toBeLessThanOrEqual(boxes[1].x);
     for (const sel of ['#sendReport', '#reportBug', '#openDebugLog']) {
       expect((await page.locator(sel).getAttribute('title')) || '').not.toBe('');
+      const surface = await page.locator(sel).evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return { background: cs.backgroundImage, shadow: cs.boxShadow };
+      });
+      expect(surface.background, `${sel} has a lit surface`).toContain('linear-gradient');
+      expect(surface.shadow, `${sel} has depth`).not.toBe('none');
       const overflow = await page.locator(sel).evaluate((el) => el.scrollWidth - el.clientWidth);
       expect(overflow).toBeLessThanOrEqual(1);
     }
@@ -474,6 +491,38 @@ test('popup help tab: one solid primary, two compact secondaries, sentence case,
     await page.screenshot({ path: path.join(shotDir, `popup-help-${width}.png`) });
     await page.close();
   }
+});
+
+test('popup raised actions retain keyboard focus and reduced-motion press feedback', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 380, height: 600 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`chrome-extension://${new URL(worker.url()).host}/popup/popup.html`);
+  await page.locator('#tabControls').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#tabHelp')).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#sendReport')).toBeFocused();
+  for (const sel of ['#sendReport', '#reportBug', '#openDebugLog']) {
+    const button = page.locator(sel);
+    await expect(button).toBeFocused();
+    expect(await button.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('solid');
+    expect(await button.evaluate((el) => parseFloat(getComputedStyle(el).outlineWidth))).toBeGreaterThanOrEqual(2);
+    const position = await button.boundingBox();
+    await page.mouse.move(position.x + position.width / 2, position.y + position.height / 2);
+    const raisedShadow = await button.evaluate((el) => getComputedStyle(el).boxShadow);
+    await page.mouse.down();
+    const pressedShadow = await button.evaluate((el) => getComputedStyle(el).boxShadow);
+    // Release outside the button: check feedback without sending reports or opening tabs.
+    await page.mouse.move(1, 1);
+    await page.mouse.up();
+    expect(pressedShadow).not.toBe(raisedShadow);
+    expect(await button.evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
+    await page.keyboard.press('Tab');
+  }
+  await page.close();
 });
 
 // Live report on SkyUI (12604): "Mod manager download" as a plain button still opened Nexus's

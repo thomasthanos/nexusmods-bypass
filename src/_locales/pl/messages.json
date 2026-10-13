@@ -9,7 +9,7 @@
     "message": "Automatycznie rozpoczynaj pobieranie"
   },
   "setAutoCloseTabLabel": {
-    "message": "Zamknij dodatkową kartę po wysłaniu do Vortex"
+    "message": "Zamykaj dodatkową kartę Nexus"
   },
   "toggleSkipReq": {
     "message": "Pomijaj ekrany wymagań"
@@ -18,7 +18,7 @@
     "message": "Ukryj reklamy i panele Premium"
   },
   "setHandleArchivedFilesLabel": {
-    "message": "Przyciski plików archiwalnych"
+    "message": "Przyciski dla starszych wersji plików"
   },
   "btnPageSettings": {
     "message": "Ustawienia strony"
@@ -491,61 +491,61 @@
     "message": "Automatycznie rozpoczynaj pobieranie"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Po otwarciu strony pliku Nexus pobieranie startuje (do Vortex lub przeglądarki) bez dodatkowego kliknięcia."
+    "message": "Na stronie pliku Nexus rozpoczyna pobieranie wybranego pliku bez kolejnego kliknięcia. Nie pobiera wszystkich plików ze strony moda."
   },
   "setAutoCloseTabDesc": {
-    "message": "Po wysłaniu linku do Vortex zamyka tymczasową kartę Nexus po opóźnieniu ustawionym poniżej."
+    "message": "Zamyka tymczasową kartę Nexus po wysłaniu do Vortex pliku uruchomionego automatycznie. Nie czeka na zakończenie pobierania. Wyłącz, jeśli chcesz pozostawić kartę otwartą."
   },
   "setSkipRequirementsLabel": {
     "message": "Pomijaj ekrany wymagań"
   },
   "setSkipRequirementsDesc": {
-    "message": "Pomija wyskakujące okna wymagań Nexus i przechodzi wprost do kroku pobierania."
+    "message": "Pomija okna Nexus z listą innych wymaganych modów i przechodzi do pobierania. Te wymagania może trzeba będzie zainstalować samodzielnie; nie są pobierane automatycznie."
   },
   "setShowAlertsOnErrorLabel": {
     "message": "Pokazuj okna błędów"
   },
   "setShowAlertsOnErrorDesc": {
-    "message": "Pokazuje czytelny komunikat, gdy Nexus nie zwróci użytecznego linku do pobrania."
+    "message": "Pokazuje komunikat, gdy pobieranie nie może się rozpocząć, oraz dostępne działania. Wyłączenie ukrywa komunikaty, ale nie usuwa przyczyny problemu."
   },
   "setHidePremiumUpsellsLabel": {
     "message": "Ukryj reklamy i panele Premium"
   },
   "setHidePremiumUpsellsDesc": {
-    "message": "Ukrywa reklamy i banery Premium. Pomija również 5-sekundowe odliczanie przy pobieraniu."
+    "message": "Ukrywa reklamy i oferty Premium na Nexus oraz pomija odliczanie przed pobraniem. Nie daje konta Premium ani prędkości pobierania Premium."
   },
   "setHandleArchivedFilesDesc": {
-    "message": "Dodaje przyciski pobierania Vortex i przeglądarki do wpisów plików archiwalnych, gdy Nexus je ukrywa."
+    "message": "Dodaje przyciski do starszych wersji plików przeniesionych do archiwum Nexus. Nie przywraca usuniętych plików i nie odblokowuje treści z ograniczonym dostępem."
   },
   "setDownloadFolderLabel": {
     "message": "Folder pobierania przeglądarki"
   },
   "setDownloadFolderDesc": {
-    "message": "Podfolder w katalogu Pobrane przeglądarki, dla trybu Browser Download. Zostaw puste, aby zapisywać bezpośrednio w Pobranych — niektóre menedżery modów obserwują tylko ten folder i nie zaglądają do podfolderów. Pobierania przez Vortex obsługuje Vortex i nie są objęte."
+    "message": "Nazwa podfolderu w folderze Pobrane przeglądarki. Na przykład NexusMods zapisuje w Pobrane/NexusMods. Pozostaw puste, aby zapisywać bezpośrednio w Pobrane. Nie zmienia folderu plików Vortex."
   },
   "setRequestTimeoutLabel": {
-    "message": "Limit czasu żądania pobierania"
+    "message": "Czas oczekiwania na link"
   },
   "setRequestTimeoutDesc": {
-    "message": "Jak długo rozszerzenie czeka, aż Nexus zwróci link do pobrania, zanim zrezygnuje."
+    "message": "Czas oczekiwania na link Nexus, nie na pobranie całego pliku. Zwiększ tylko wtedy, gdy wolne odpowiedzi często przekraczają limit czasu."
   },
   "setCloseTabDelayLabel": {
     "message": "Opóźnienie zamknięcia karty"
   },
   "setCloseTabDelayDesc": {
-    "message": "Dotyczy tylko automatycznie uruchomionych pobrań Vortex, które zamykają swoją kartę. Zwiększ, jeśli Vortex gubi linki."
+    "message": "Tylko dla pobrań Vortex rozpoczynanych automatycznie. Sekundy oczekiwania przed zamknięciem tymczasowej karty Nexus po otwarciu Vortex. Zwiększ opóźnienie, jeśli Vortex nie odbiera linków."
   },
   "setDownloadSpeedLabel": {
-    "message": "Twoja prędkość pobierania z Nexus"
+    "message": "Prędkość widoczna w Vortex"
   },
   "setDownloadSpeedDesc": {
-    "message": "Tylko Vortex. Przeglądarka nie widzi pobrań Vortex, więc szacuje, ile trwa każdy plik, i czeka tyle przed wysłaniem następnego. Ustaw prędkość, którą naprawdę masz."
+    "message": "Tylko Vortex. Wpisz rzeczywistą prędkość widoczną w Vortex, w MB/s. Rozszerzenie szacuje, kiedy wysłać kolejny plik, bo przeglądarka nie widzi postępu Vortex. Nie zwiększa ani nie ogranicza prędkości pobierania."
   },
   "setPauseBetweenModsLabel": {
     "message": "Przerwa między modami"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Tylko Vortex. Dodatkowe czekanie między plikami, doliczane do powyższego szacunku. 0 wyłącza szacunek i pozwala Vortex samemu kolejkować pliki; zawsze zostaje 2 sekundy przerwy."
+    "message": "Tylko Vortex. Dodatkowe sekundy doliczane do szacowanego czasu pobierania przed kolejnym plikiem. Przy 0 szacowanie jest wyłączone, a Vortex sam zarządza kolejką; pozostaje co najmniej 2 sekundy odstępu."
   },
   "dlgHistoryTitle": {
     "message": "Znaleziono pobrane mody"
@@ -1200,7 +1200,7 @@
     "message": "Zawsze używaj angielskiego"
   },
   "setForceEnglishDesc": {
-    "message": "Wyświetla to rozszerzenie po angielsku, nawet gdy przeglądarka jest ustawiona na inny język. Przydatne przy korzystaniu z poradników po angielsku. Nazwa rozszerzenia na liście przeglądarki nadal zależy od języka przeglądarki."
+    "message": "Wyświetla rozszerzenie po angielsku zamiast w języku przeglądarki. Nie zmienia języka przeglądarki ani Nexus. Nazwa na liście rozszerzeń nadal odpowiada językowi przeglądarki."
   },
   "supportEntryTitle": {
     "message": "Wesprzyj projekt"
@@ -1409,10 +1409,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Otwórz stronę pliku, gdy Nexus prosi o weryfikację przeglądarki"
+    "message": "Otwórz stronę do weryfikacji przeglądarki"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Jeśli Nexus pokaże stronę „potwierdź, że jesteś człowiekiem” zamiast linku, otwiera się strona pliku, aby można było przejść weryfikację. Dlatego karta czasem zmienia się sama."
+    "message": "Jeśli Nexus prosi o potwierdzenie, że jesteś człowiekiem, otwiera stronę pliku, aby można było samodzielnie przejść weryfikację przeglądarki. Nie omija weryfikacji. Dlatego bieżąca karta może zmienić stronę."
   },
   "tabControls": {
     "message": "Sterowanie",
@@ -1429,7 +1429,7 @@
     "message": "Import listy Wabbajack (beta)"
   },
   "setWabbajackImportDesc": {
-    "message": "Czyta plik .wabbajack i dodaje do kolejki modyfikacje z Nexus. Zewnętrzne pliki i nieznane gry są pomijane."
+    "message": "Pokazuje przycisk importowania list .wabbajack. Obsługiwane pliki Nexus trafiają do kolejki pobierania przez przeglądarkę, nie automatycznej instalacji. Pliki z innych stron lub nieznanych gier są wymieniane i pomijane."
   },
   "btnImportWabbajack": {
     "message": "Importuj listę Wabbajack"
@@ -1486,7 +1486,7 @@
     "message": "Najpierw najmniejsze pliki"
   },
   "setSmallestFirstDesc": {
-    "message": "Pobieranie kolekcji zaczyna się od najmniejszych plików, więc większość listy kończy się wcześnie, a duży plik nie wstrzymuje reszty. Pliki bez podanego rozmiaru trafiają na koniec."
+    "message": "Najpierw pobiera mniejsze pliki kolekcji, by więcej pobrań szybko się zakończyło. Pliki o nieznanym rozmiarze trafiają na koniec. Zmienia kolejność, nie prędkość połączenia."
   },
   "logSmallestFirst": {
     "message": "Najpierw pobierane są najmniejsze pliki."
@@ -1610,22 +1610,22 @@
     "message": "Później"
   },
   "setUseOfficialApiLabel": {
-    "message": "Używaj oficjalnego API Nexus"
+    "message": "Oficjalny dostęp do Nexus (API)"
   },
   "setUseOfficialApiDesc": {
-    "message": "Odczytuj dane kolekcji, modów i plików z udokumentowanego API Nexus Mods, z pamięcią podręczną i obsługą limitów. Wyłącz, aby używać starszych odczytów ze strony."
+    "message": "Korzysta z oficjalnego API Nexus, czyli bezpośredniego źródła danych o plikach i kolekcjach. Pozostaw włączone dla reguł aktualizacji i przycisków Endorse/Track. Wyłącz tylko, aby przy problemach spróbować starszego odczytu stron."
   },
   "setFollowUpdatePolicyLabel": {
-    "message": "Stosuj zasady aktualizacji kuratora"
+    "message": "Reguły wersji plików kolekcji"
   },
   "setFollowUpdatePolicyDesc": {
-    "message": "Gdy kolekcja dopuszcza nowsze wersje moda, pobierany jest najnowszy plik tego pobrania zamiast wymienionego. Mody przypięte do konkretnej wersji nigdy się nie zmieniają."
+    "message": "Włączone: stosuje regułę każdego pliku. Exact zachowuje plik z listy; Latest wybiera najnowszą wersję; Prefer Exact zachowuje wskazany plik, dopóki jest dostępny, i zastępuje go dopiero, gdy go brakuje. Wyłączone: używa plików z listy. Wymaga oficjalnego API Nexus; nie aktualizuje zainstalowanych modów."
   },
   "setShowModActionsLabel": {
-    "message": "Przyciski polecania i śledzenia"
+    "message": "Pokaż przyciski Lubię to i Obserwuj"
   },
   "setShowModActionsDesc": {
-    "message": "Pokazuje przyciski polecania i śledzenia na liście modów kolekcji. Nic nie jest wysyłane, dopóki nie klikniesz."
+    "message": "Pokazuje przyciski przy modach kolekcji. Endorse to Lubię to; Track dodaje mod do listy obserwowanych na Nexus. Nic nie dzieje się bez kliknięcia. Nexus może wymagać odczekania po pobraniu przed Endorse. Wymaga oficjalnego API Nexus."
   },
   "logUpdatePolicyApplied": {
     "message": "Używam nowszych plików dla $1 modów, które kolekcja pozwala aktualizować."
@@ -1637,16 +1637,16 @@
     "message": "Dostępna aktualizacja"
   },
   "btnEndorse": {
-    "message": "Poleć"
+    "message": "Lubię to"
   },
   "btnEndorsed": {
-    "message": "Polecono"
+    "message": "Polubiono"
   },
   "btnTrack": {
-    "message": "Śledź"
+    "message": "Obserwuj"
   },
   "btnTracked": {
-    "message": "Śledzony"
+    "message": "Obserwujesz"
   },
   "modActionFailed": {
     "message": "Nexus tego nie przyjął: $1"
@@ -1904,11 +1904,11 @@
     }
   },
   "setHideDownloadPopupLabel": {
-    "message": "Ukryj okno pobierania przeglądarki podczas pobierania kolekcji",
+    "message": "Ukryj okno pobierania przy kolekcjach",
     "description": "UI string."
   },
   "setHideDownloadPopupDesc": {
-    "message": "Tylko Chrome i Edge. Nie pozwala, by dymek pobierania otwierał się przy każdym pliku, i przywraca go po zakończeniu, zatrzymaniu lub błędzie.",
+    "message": "Tylko Chrome i Edge. Okno pobierania nie otwiera się przy każdym pliku kolekcji. Jest przywracane po zakończeniu, zatrzymaniu lub błędzie; pobieranie nadal działa normalnie.",
     "description": "UI string."
   },
   "btnStateSendingVortex": {
@@ -2221,7 +2221,7 @@
     "message": "Ukryj reklamy, oferty Premium i odliczanie."
   },
   "setShortHandleArchivedFiles": {
-    "message": "Dodaj przyciski do zarchiwizowanych plików."
+    "message": "Dodaje przyciski do starszych plików w archiwum Nexus."
   },
   "setShortWabbajackImport": {
     "message": "Dodaj pliki Nexus z listy .wabbajack do kolejki (beta)."
@@ -2233,16 +2233,16 @@
     "message": "Najpierw pobierz mniejsze pliki."
   },
   "setShortUseOfficialApi": {
-    "message": "Używaj udokumentowanego API zamiast stron."
+    "message": "Zalecany sposób pobierania informacji z Nexus."
   },
   "setShortFollowUpdatePolicy": {
-    "message": "Używaj nowych plików tylko za zgodą autora kolekcji."
+    "message": "Stosuje wybór wersji dokonany przez autora kolekcji."
   },
   "setShortShowModActions": {
-    "message": "Pokaż Endorse i Track. Bez automatycznego wysyłania."
+    "message": "Polubienie i obserwowanie tylko po kliknięciu."
   },
   "setShortCloudflareFallback": {
-    "message": "Otwórz stronę pliku, aby zweryfikować przeglądarkę."
+    "message": "Weryfikację wykonujesz samodzielnie; nie jest omijana."
   },
   "setShortForceEnglish": {
     "message": "Używaj angielskiego zamiast języka przeglądarki."
@@ -2251,13 +2251,13 @@
     "message": "Tylko przeglądarka. Puste pole oznacza Pobrane."
   },
   "setShortRequestTimeout": {
-    "message": "Czas oczekiwania na link pobierania."
+    "message": "Oczekiwanie na link, nie na cały plik."
   },
   "setShortCloseTabDelay": {
     "message": "Tylko Vortex. Poczekaj przed zamknięciem karty."
   },
   "setShortNDC_downloadSpeed": {
-    "message": "Tylko Vortex. Oszacuj czas pobierania każdego pliku."
+    "message": "Szacuje czas oczekiwania, nie ogranicza prędkości."
   },
   "setShortNDC_pauseBetweenDownload": {
     "message": "Tylko Vortex. Dodaj przerwę między plikami."

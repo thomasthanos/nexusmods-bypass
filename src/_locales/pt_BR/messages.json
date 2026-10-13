@@ -9,7 +9,7 @@
     "message": "Iniciar downloads automaticamente"
   },
   "setAutoCloseTabLabel": {
-    "message": "Fechar a aba extra depois de enviar ao Vortex"
+    "message": "Fechar a aba extra do Nexus"
   },
   "toggleSkipReq": {
     "message": "Pular telas de requisitos"
@@ -18,7 +18,7 @@
     "message": "Ocultar anúncios e painéis premium"
   },
   "setHandleArchivedFilesLabel": {
-    "message": "Botões de arquivos arquivados"
+    "message": "Botões para versões antigas"
   },
   "btnPageSettings": {
     "message": "Configurações da página"
@@ -561,61 +561,61 @@
     "message": "Iniciar downloads automaticamente"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Ao abrir a página de um arquivo do Nexus, o download começa (no Vortex ou no navegador) sem outro clique."
+    "message": "Na página de um arquivo Nexus, inicia o arquivo escolhido sem outro clique. Não baixa todos os arquivos da página de um mod."
   },
   "setAutoCloseTabDesc": {
-    "message": "Após enviar um link ao Vortex, fecha a aba temporária do Nexus após o atraso abaixo."
+    "message": "Fecha a aba Nexus temporária após enviar ao Vortex um arquivo iniciado automaticamente. Não espera o download terminar. Desative para manter a aba aberta."
   },
   "setSkipRequirementsLabel": {
     "message": "Pular telas de requisitos"
   },
   "setSkipRequirementsDesc": {
-    "message": "Ignora os pop-ups de requisitos do Nexus e vai direto para o download."
+    "message": "Pula as janelas Nexus que mostram outros mods necessários e continua o download. Talvez você precise instalar esses requisitos por conta própria; eles não são baixados automaticamente."
   },
   "setShowAlertsOnErrorLabel": {
     "message": "Mostrar avisos de erro"
   },
   "setShowAlertsOnErrorDesc": {
-    "message": "Mostra uma mensagem clara quando o Nexus não retorna um link utilizável."
+    "message": "Mostra uma mensagem quando um download não pode iniciar, com ações disponíveis para continuar. Desativar oculta as mensagens, mas não resolve o problema."
   },
   "setHidePremiumUpsellsLabel": {
     "message": "Ocultar anúncios e painéis Premium"
   },
   "setHidePremiumUpsellsDesc": {
-    "message": "Oculta anúncios e banners Premium. Também ignora a contagem regressiva de 5 segundos nos downloads."
+    "message": "Oculta anúncios e ofertas Premium no Nexus e pula a contagem regressiva. Não dá uma conta Premium nem velocidades de download Premium."
   },
   "setHandleArchivedFilesDesc": {
-    "message": "Adiciona botões de download do Vortex e do navegador aos arquivos arquivados ocultados pelo Nexus."
+    "message": "Adiciona botões a versões antigas movidas para o arquivo do Nexus. Não recupera arquivos excluídos nem libera conteúdo restrito."
   },
   "setDownloadFolderLabel": {
     "message": "Pasta de downloads do navegador"
   },
   "setDownloadFolderDesc": {
-    "message": "Subpasta dentro da pasta Downloads do navegador, para o modo Browser Download. Deixe em branco para salvar direto em Downloads — alguns gerenciadores de mods observam apenas essa pasta e não olham dentro de subpastas. Os downloads pelo Vortex são tratados pelo Vortex e não são afetados."
+    "message": "Nome de uma subpasta dentro de Downloads do navegador. Por exemplo, NexusMods salva em Downloads/NexusMods. Deixe vazio para usar Downloads diretamente. Não muda onde o Vortex salva arquivos."
   },
   "setRequestTimeoutLabel": {
-    "message": "Tempo limite da solicitação"
+    "message": "Espera por um link de download"
   },
   "setRequestTimeoutDesc": {
-    "message": "Quanto tempo a extensão espera pelo link do Nexus antes de desistir."
+    "message": "Tempo para obter um link Nexus, não para baixar o arquivo inteiro. Aumente só se respostas lentas ultrapassarem o limite com frequência."
   },
   "setCloseTabDelayLabel": {
     "message": "Atraso para fechar a aba"
   },
   "setCloseTabDelayDesc": {
-    "message": "Aplica-se apenas a downloads do Vortex iniciados automaticamente que fecham a aba. Aumente se o Vortex perder links."
+    "message": "Só para downloads Vortex iniciados automaticamente. Segundos de espera antes de fechar a aba Nexus temporária após o Vortex abrir. Tente um atraso maior se o Vortex perder links."
   },
   "setDownloadSpeedLabel": {
-    "message": "Sua velocidade de download no Nexus"
+    "message": "Velocidade mostrada no Vortex"
   },
   "setDownloadSpeedDesc": {
-    "message": "Só Vortex. O navegador não vê os downloads do Vortex, então estima quanto cada arquivo demora e espera esse tempo antes de enviar o próximo. Defina a velocidade que você realmente tem."
+    "message": "Só Vortex. Informe a velocidade que você realmente vê no Vortex, em MB/s. A extensão estima quando enviar o próximo arquivo, pois o navegador não vê o progresso do Vortex. Não aumenta nem limita sua velocidade de download."
   },
   "setPauseBetweenModsLabel": {
     "message": "Pausa entre mods"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Só Vortex. Espera extra entre arquivos, somada à estimativa acima. 0 desliga a estimativa e deixa o Vortex enfileirar os arquivos sozinho; sempre fica um intervalo de 2 segundos."
+    "message": "Só Vortex. Segundos extras somados ao tempo estimado antes de enviar o próximo arquivo. Com 0, a estimativa é desativada e o Vortex gerencia a fila; permanece um intervalo mínimo de 2 segundos."
   },
   "dlgHistoryTitle": {
     "message": "Mods baixados encontrados"
@@ -1082,7 +1082,7 @@
     "message": "Sempre usar inglês"
   },
   "setForceEnglishDesc": {
-    "message": "Exibe esta extensão em inglês mesmo que seu navegador esteja em outro idioma. Útil ao seguir guias escritos em inglês. O nome da extensão na lista do navegador continua seguindo o idioma do navegador."
+    "message": "Mostra a extensão em inglês em vez do idioma do navegador. Não muda o idioma do navegador ou do Nexus. O nome na lista de extensões ainda segue o idioma do navegador."
   },
   "supportEntryTitle": {
     "message": "Apoie o projeto"
@@ -1257,10 +1257,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Abrir a página do arquivo quando o Nexus pedir uma verificação do navegador"
+    "message": "Abrir a página para verificar o navegador"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Se o Nexus mostrar uma página \"verifique que você é humano\" em vez de um link, a página do arquivo é aberta para você passar na verificação. Por isso a aba às vezes muda sozinha."
+    "message": "Se o Nexus pedir para verificar que você é humano, abre a página do arquivo para você concluir a verificação do navegador. Não pula a verificação. Por isso a aba atual pode mudar de página."
   },
   "tabControls": {
     "message": "Controles",
@@ -1277,7 +1277,7 @@
     "message": "Importar modlist do Wabbajack (beta)"
   },
   "setWabbajackImportDesc": {
-    "message": "Lê um arquivo .wabbajack para enfileirar seus mods do Nexus. Arquivos externos e jogos desconhecidos são ignorados."
+    "message": "Mostra um botão para importar listas .wabbajack. Enfileira arquivos Nexus compatíveis para baixar pelo navegador, não para instalar automaticamente. Arquivos de outros sites ou jogos desconhecidos são listados e ignorados."
   },
   "btnImportWabbajack": {
     "message": "Importar modlist do Wabbajack"
@@ -1334,7 +1334,7 @@
     "message": "Arquivos menores primeiro"
   },
   "setSmallestFirstDesc": {
-    "message": "Os downloads de coleções começam pelos arquivos menores, assim a maior parte da lista termina cedo e um arquivo grande não atrasa o resto. Arquivos sem tamanho informado ficam por último."
+    "message": "Baixa primeiro os arquivos menores para concluir mais downloads cedo. Os de tamanho desconhecido ficam por último. Muda a ordem, não a velocidade da sua conexão."
   },
   "logSmallestFirst": {
     "message": "Baixando primeiro os arquivos menores."
@@ -1442,22 +1442,22 @@
     "message": "Mais tarde"
   },
   "setUseOfficialApiLabel": {
-    "message": "Usar a API oficial do Nexus"
+    "message": "Acesso oficial ao Nexus (API)"
   },
   "setUseOfficialApiDesc": {
-    "message": "Ler detalhes de coleções, mods e arquivos pela API documentada do Nexus Mods, com cache e controle de limites. Desative para usar as consultas antigas pela página."
+    "message": "Usa a API oficial do Nexus, sua interface direta para informações de arquivos e coleções. Mantenha ativa para regras de atualização e Endorse/Track. Desative só para testar a leitura antiga de páginas se algo falhar."
   },
   "setFollowUpdatePolicyLabel": {
-    "message": "Seguir a política de atualização do curador"
+    "message": "Regras de versões da coleção"
   },
   "setFollowUpdatePolicyDesc": {
-    "message": "Quando uma coleção permite versões mais novas de um mod, baixa o arquivo mais recente daquele download em vez do listado. Mods fixados em uma versão exata nunca mudam."
+    "message": "Ativado: segue a regra de cada arquivo. Exact mantém o arquivo listado; Latest escolhe a versão mais recente; Prefer Exact mantém o listado enquanto disponível e só o substitui quando indisponível. Desativado: usa os arquivos listados. Requer a API oficial Nexus; não atualiza mods instalados."
   },
   "setShowModActionsLabel": {
-    "message": "Botões de endossar e acompanhar"
+    "message": "Mostrar botões Gostei e Acompanhar"
   },
   "setShowModActionsDesc": {
-    "message": "Mostra botões de endossar e acompanhar na lista de mods da coleção. Nada é enviado até você clicar em um."
+    "message": "Mostra botões junto aos mods. Endorse é um Gostei; Track adiciona o mod à sua lista de acompanhamento Nexus. Nada acontece sem um clique. O Nexus pode exigir uma espera após baixar antes de permitir Endorse. Requer a API oficial Nexus."
   },
   "logUpdatePolicyApplied": {
     "message": "Usando arquivos mais novos para $1 mods que a coleção permite atualizar."
@@ -1469,10 +1469,10 @@
     "message": "Atualização disponível"
   },
   "btnEndorse": {
-    "message": "Endossar"
+    "message": "Gostei"
   },
   "btnEndorsed": {
-    "message": "Endossado"
+    "message": "Você curtiu"
   },
   "btnTrack": {
     "message": "Acompanhar"
@@ -1736,11 +1736,11 @@
     }
   },
   "setHideDownloadPopupLabel": {
-    "message": "Ocultar o pop-up de downloads do navegador durante coleções",
+    "message": "Ocultar pop-ups de downloads de coleções",
     "description": "UI string."
   },
   "setHideDownloadPopupDesc": {
-    "message": "Somente Chrome e Edge. Impede que o balão de downloads abra a cada arquivo e o restaura ao terminar, parar ou falhar.",
+    "message": "Só Chrome e Edge. Evita abrir o pop-up de downloads para cada arquivo da coleção. Ele é restaurado ao terminar, parar ou falhar a execução; os downloads continuam normalmente.",
     "description": "UI string."
   },
   "btnStateSendingVortex": {
@@ -2053,7 +2053,7 @@
     "message": "Ocultar anúncios, ofertas Premium e contagem regressiva."
   },
   "setShortHandleArchivedFiles": {
-    "message": "Adicionar botões aos arquivos arquivados."
+    "message": "Adiciona botões a versões antigas no arquivo do Nexus."
   },
   "setShortWabbajackImport": {
     "message": "Enfileirar arquivos Nexus de uma lista .wabbajack (beta)."
@@ -2065,16 +2065,16 @@
     "message": "Baixar primeiro os arquivos menores."
   },
   "setShortUseOfficialApi": {
-    "message": "Usar a API documentada em vez de páginas."
+    "message": "Forma recomendada de obter informações do Nexus."
   },
   "setShortFollowUpdatePolicy": {
-    "message": "Usar arquivos novos só quando o curador permitir."
+    "message": "Segue as versões escolhidas pelo criador da coleção."
   },
   "setShortShowModActions": {
-    "message": "Mostrar Endorse e Track. Sem envio automático."
+    "message": "Gostei e acompanhamento só quando você clicar."
   },
   "setShortCloudflareFallback": {
-    "message": "Abrir a página do arquivo para verificar o navegador."
+    "message": "Você conclui a verificação; ela não é contornada."
   },
   "setShortForceEnglish": {
     "message": "Usar inglês em vez do idioma do navegador."
@@ -2083,13 +2083,13 @@
     "message": "Só navegador. Vazio significa a pasta Downloads."
   },
   "setShortRequestTimeout": {
-    "message": "Tempo de espera por um link de download."
+    "message": "Espera pelo link, não pelo arquivo inteiro."
   },
   "setShortCloseTabDelay": {
     "message": "Só Vortex. Esperar antes de fechar a aba."
   },
   "setShortNDC_downloadSpeed": {
-    "message": "Só Vortex. Estimar a duração de cada arquivo."
+    "message": "Estima a espera, não limita a velocidade."
   },
   "setShortNDC_pauseBetweenDownload": {
     "message": "Só Vortex. Adicionar uma pausa entre arquivos."

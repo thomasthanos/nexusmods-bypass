@@ -9,7 +9,7 @@
     "message": "İndirmeleri otomatik başlat"
   },
   "setAutoCloseTabLabel": {
-    "message": "Vortex'e gönderdikten sonra fazla sekmeyi kapat"
+    "message": "Ek Nexus sekmesini kapat"
   },
   "toggleSkipReq": {
     "message": "Gereksinim ekranlarını atla"
@@ -18,7 +18,7 @@
     "message": "Reklamları ve Premium panellerini gizle"
   },
   "setHandleArchivedFilesLabel": {
-    "message": "Arşivlenmiş dosya düğmeleri"
+    "message": "Eski dosya sürümleri için düğmeler"
   },
   "btnPageSettings": {
     "message": "Sayfa ayarları"
@@ -491,61 +491,61 @@
     "message": "İndirmeleri otomatik başlat"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Bir Nexus dosya sayfasını açtığınızda indirme (Vortex'e veya tarayıcıya) ek tıklama olmadan başlar."
+    "message": "Nexus dosya sayfasında seçilen dosyayı ek tıklama olmadan indirmeye başlar. Bir mod sayfasındaki tüm dosyaları indirmez."
   },
   "setAutoCloseTabDesc": {
-    "message": "Vortex'e bir bağlantı gönderildikten sonra, aşağıdaki gecikmenin ardından geçici Nexus sekmesini kapatır."
+    "message": "Otomatik başlayan bir dosya Vortex'e gönderildikten sonra geçici Nexus sekmesini kapatır. İndirmenin bitmesini beklemez. Sekmeyi açık tutmak istiyorsan kapat."
   },
   "setSkipRequirementsLabel": {
     "message": "Gereksinim ekranlarını atla"
   },
   "setSkipRequirementsDesc": {
-    "message": "Nexus gereksinim pencerelerini geçip doğrudan indirme adımına gider."
+    "message": "Dosyanın gerektirdiği diğer modları listeleyen Nexus pencerelerini atlar ve indirmeye devam eder. Bu gereksinimleri kendin kurman gerekebilir; otomatik indirilmezler."
   },
   "setShowAlertsOnErrorLabel": {
     "message": "Hata pencerelerini göster"
   },
   "setShowAlertsOnErrorDesc": {
-    "message": "Nexus kullanılabilir bir indirme bağlantısı döndürmediğinde net bir mesaj gösterir."
+    "message": "İndirme başlayamazsa devam etmek için kullanılabilecek işlemlerle birlikte bir mesaj gösterir. Kapatmak mesajları gizler, sorunun nedenini çözmez."
   },
   "setHidePremiumUpsellsLabel": {
     "message": "Reklamları ve Premium panellerini gizle"
   },
   "setHidePremiumUpsellsDesc": {
-    "message": "Reklamları ve Premium banner'ları gizler. Ayrıca indirmelerdeki 5 saniyelik geri sayımı atlar."
+    "message": "Nexus reklamlarını ve Premium tekliflerini gizler, indirme geri sayımını atlar. Premium hesap veya Premium indirme hızı sağlamaz."
   },
   "setHandleArchivedFilesDesc": {
-    "message": "Nexus gizlediğinde, arşivlenmiş dosya girişlerine Vortex ve tarayıcı indirme düğmeleri ekler."
+    "message": "Nexus arşivine taşınmış eski dosya sürümlerine indirme düğmeleri ekler. Silinen dosyaları geri getirmez veya kısıtlı içeriği açmaz."
   },
   "setDownloadFolderLabel": {
     "message": "Tarayıcı indirme klasörü"
   },
   "setDownloadFolderDesc": {
-    "message": "Tarayıcının İndirilenler klasörü içindeki alt klasör (Browser Download modu için). Doğrudan İndirilenler klasörüne kaydetmek için boş bırakın — bazı mod yöneticileri yalnızca bu klasörü izler ve alt klasörlere bakmaz. Vortex indirmelerini Vortex yönetir ve bundan etkilenmez."
+    "message": "Tarayıcının İndirilenler klasöründeki bir alt klasörün adı. Örneğin NexusMods, İndirilenler/NexusMods içine kaydeder. Doğrudan İndirilenler için boş bırak. Vortex'in dosyaları kaydettiği yeri değiştirmez."
   },
   "setRequestTimeoutLabel": {
-    "message": "İndirme isteği zaman aşımı"
+    "message": "İndirme bağlantısını bekleme süresi"
   },
   "setRequestTimeoutDesc": {
-    "message": "Eklentinin, Nexus'un bir indirme bağlantısı döndürmesini vazgeçmeden önce ne kadar bekleyeceği."
+    "message": "Nexus'tan indirme bağlantısı alma süresi; tüm dosyayı indirme süresi değil. Yalnızca yavaş yanıtlar sık sık zaman aşımına uğruyorsa artır."
   },
   "setCloseTabDelayLabel": {
     "message": "Sekme kapatma gecikmesi"
   },
   "setCloseTabDelayDesc": {
-    "message": "Yalnızca kendi sekmesini kapatan, otomatik başlatılmış Vortex indirmeleri için geçerlidir. Vortex bağlantıları kaçırıyorsa artırın."
+    "message": "Yalnızca otomatik başlayan Vortex indirmeleri için. Vortex açıldıktan sonra geçici Nexus sekmesini kapatmadan önce beklenecek saniye. Vortex bağlantıları kaçırıyorsa daha uzun süre dene."
   },
   "setDownloadSpeedLabel": {
-    "message": "Nexus indirme hızınız"
+    "message": "Vortex'te görünen indirme hızı"
   },
   "setDownloadSpeedDesc": {
-    "message": "Yalnızca Vortex. Tarayıcı Vortex'in indirmelerini göremez; bu yüzden her dosyanın ne kadar süreceği tahmin edilir ve sonrakini göndermeden önce o kadar beklenir. Gerçek hızınızı girin."
+    "message": "Yalnızca Vortex. Vortex'te gerçekten gördüğün indirme hızını MB/s olarak gir. Tarayıcı Vortex'in ilerlemesini göremediği için eklenti sonraki dosyanın gönderim zamanını tahmin eder. İndirme hızını artırmaz veya sınırlamaz."
   },
   "setPauseBetweenModsLabel": {
     "message": "Modlar arası bekleme"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Yalnızca Vortex. Dosyalar arasında yukarıdaki tahmine eklenen ek bekleme. 0 tahmini kapatır ve dosyaları Vortex'in kendisinin sıraya almasına izin verir; 2 saniyelik ara her zaman kalır."
+    "message": "Yalnızca Vortex. Sonraki dosyayı göndermeden önce tahmini indirme süresine eklenecek saniye. 0 ile tahmin kapatılır ve sırayı Vortex yönetir; en az 2 saniyelik aralık korunur."
   },
   "dlgHistoryTitle": {
     "message": "İndirilmiş modlar bulundu"
@@ -1082,7 +1082,7 @@
     "message": "Her zaman İngilizce kullan"
   },
   "setForceEnglishDesc": {
-    "message": "Tarayıcınız başka bir dile ayarlı olsa bile bu eklentiyi İngilizce gösterir. İngilizce yazılmış rehberleri takip ederken kullanışlıdır. Tarayıcı listesindeki eklenti adı yine tarayıcı dilini izler."
+    "message": "Eklentiyi tarayıcı dili yerine İngilizce gösterir. Tarayıcı veya Nexus dilini değiştirmez. Eklenti listesindeki ad yine tarayıcı dilini izler."
   },
   "supportEntryTitle": {
     "message": "Projeye destek ol"
@@ -1257,10 +1257,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Nexus tarayıcı doğrulaması istediğinde dosya sayfasını aç"
+    "message": "Tarayıcı kontrolü için sayfayı aç"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Nexus bağlantı yerine \"insan olduğunuzu doğrulayın\" sayfası gösterirse, doğrulamayı geçebilmeniz için dosya sayfası açılır. Sekmenin bazen kendiliğinden değişmesinin nedeni budur."
+    "message": "Nexus insan olduğunu doğrulamanı isterse tarayıcı kontrolünü kendin tamamlaman için dosya sayfasını açar. Kontrolü atlatmaz. Bu yüzden mevcut sekmedeki sayfa değişebilir."
   },
   "tabControls": {
     "message": "Kontroller",
@@ -1277,7 +1277,7 @@
     "message": "Wabbajack mod listesi içe aktarma (beta)"
   },
   "setWabbajackImportDesc": {
-    "message": ".wabbajack dosyasını okuyarak Nexus modlarını sıraya ekler. Harici dosyalar ve bilinmeyen oyunlar atlanır."
+    "message": ".wabbajack mod listeleri için içe aktarma düğmesi gösterir. Desteklenen Nexus dosyalarını tarayıcıyla indirme sırasına ekler; otomatik kurmaz. Başka sitelerden veya tanınmayan oyunlardan gelen dosyalar listelenip atlanır."
   },
   "btnImportWabbajack": {
     "message": "Wabbajack mod listesi içe aktar"
@@ -1334,7 +1334,7 @@
     "message": "Önce en küçük dosyalar"
   },
   "setSmallestFirstDesc": {
-    "message": "Koleksiyon indirmeleri en küçük dosyalarla başlar; listenin çoğu erken biter ve büyük bir dosya diğerlerini bekletmez. Boyutu belirtilmeyen dosyalar en sona kalır."
+    "message": "Daha fazla indirme erken bitsin diye küçük koleksiyon dosyalarını önce indirir. Boyutu bilinmeyen dosyalar en sona gider. Sırayı değiştirir, bağlantı hızını değil."
   },
   "logSmallestFirst": {
     "message": "Önce en küçük dosyalar indiriliyor."
@@ -1442,22 +1442,22 @@
     "message": "Sonra"
   },
   "setUseOfficialApiLabel": {
-    "message": "Resmî Nexus API'sini kullan"
+    "message": "Resmi Nexus bağlantısı (API)"
   },
   "setUseOfficialApiDesc": {
-    "message": "Koleksiyon, mod ve dosya bilgilerini önbellek ve istek sınırı yönetimiyle belgelenmiş Nexus Mods API'sinden oku. Eski sayfa tabanlı sorgular için kapat."
+    "message": "Nexus'un dosya ve koleksiyon verilerini doğrudan sunan resmi API'sini kullanır. Güncelleme kuralları ve Endorse/Track için açık tut. Yalnızca sorun yaşarsan eski sayfa okuma yöntemini denemek için kapat."
   },
   "setFollowUpdatePolicyLabel": {
-    "message": "Küratörün güncelleme kuralını izle"
+    "message": "Koleksiyon dosyalarının sürüm kuralları"
   },
   "setFollowUpdatePolicyDesc": {
-    "message": "Bir koleksiyon bir modun daha yeni sürümlerine izin veriyorsa, listelenen yerine o indirmenin en yeni dosyası indirilir. Belirli bir sürüme sabitlenmiş modlar asla değişmez."
+    "message": "Açık: her dosyanın kuralını izler. Exact listedeki dosyayı korur; Latest en yeni sürümü seçer; Prefer Exact listedeki dosyayı erişilebilir olduğu sürece korur, yalnızca erişilemezse değiştirir. Kapalı: listedeki dosyaları kullanır. Resmi Nexus API'si gerekir; kurulu modları güncellemez."
   },
   "setShowModActionsLabel": {
-    "message": "Onayla ve takip et düğmeleri"
+    "message": "Beğen ve Takip et düğmelerini göster"
   },
   "setShowModActionsDesc": {
-    "message": "Koleksiyon mod listesinde onayla ve takip et düğmelerini gösterir. Birine tıklayana kadar hiçbir şey gönderilmez."
+    "message": "Koleksiyon modlarının yanında düğmeler gösterir. Endorse bir Beğen işlemidir; Track modu Nexus takip listene ekler. Tıklamadan hiçbir işlem yapılmaz. Nexus, Endorse için indirmeden sonra beklemeni isteyebilir. Resmi Nexus API'si gerekir."
   },
   "logUpdatePolicyApplied": {
     "message": "Koleksiyonun güncellenmesine izin verdiği $1 mod için daha yeni dosyalar kullanılıyor."
@@ -1469,10 +1469,10 @@
     "message": "Güncelleme var"
   },
   "btnEndorse": {
-    "message": "Onayla"
+    "message": "Beğen"
   },
   "btnEndorsed": {
-    "message": "Onaylandı"
+    "message": "Beğenildi"
   },
   "btnTrack": {
     "message": "Takip et"
@@ -1736,11 +1736,11 @@
     }
   },
   "setHideDownloadPopupLabel": {
-    "message": "Koleksiyon indirmelerinde tarayıcı indirme açılır penceresini gizle",
+    "message": "Koleksiyon indirirken açılır pencereyi gizle",
     "description": "UI string."
   },
   "setHideDownloadPopupDesc": {
-    "message": "Yalnızca Chrome ve Edge. İndirme balonunun her dosyada açılmasını önler; işlem bitince, durunca veya hata olunca geri açar.",
+    "message": "Yalnızca Chrome ve Edge. Koleksiyondaki her dosya için indirme penceresinin açılmasını önler. İşlem bitince, durunca veya hata verince yeniden etkinleşir; indirmeler normal devam eder.",
     "description": "UI string."
   },
   "btnStateSendingVortex": {
@@ -2053,7 +2053,7 @@
     "message": "Reklamları, Premium tekliflerini ve geri sayımı gizle."
   },
   "setShortHandleArchivedFiles": {
-    "message": "Arşivlenmiş dosyalara düğmeler ekle."
+    "message": "Nexus arşivindeki eski dosyalara düğmeler ekler."
   },
   "setShortWabbajackImport": {
     "message": ".wabbajack listesindeki Nexus dosyalarını sıraya ekle (beta)."
@@ -2065,16 +2065,16 @@
     "message": "Küçük dosyaları önce indir."
   },
   "setShortUseOfficialApi": {
-    "message": "Sayfalar yerine belgelenmiş API'yi kullan."
+    "message": "Nexus dosya bilgileri için önerilen yöntem."
   },
   "setShortFollowUpdatePolicy": {
-    "message": "Yeni dosyaları yalnızca hazırlayıcı izin verirse kullan."
+    "message": "Koleksiyon hazırlayıcısının sürüm seçimlerini izler."
   },
   "setShortShowModActions": {
-    "message": "Endorse ve Track'i göster. Otomatik gönderim yapılmaz."
+    "message": "Beğenme ve takip yalnızca tıklayınca gerçekleşir."
   },
   "setShortCloudflareFallback": {
-    "message": "Tarayıcı kontrolü için dosya sayfasını aç."
+    "message": "Kontrolü kendin tamamlarsın; kontrol atlatılmaz."
   },
   "setShortForceEnglish": {
     "message": "Tarayıcı dili yerine İngilizce kullan."
@@ -2083,13 +2083,13 @@
     "message": "Yalnızca tarayıcı. Boş alan İndirilenler klasörüdür."
   },
   "setShortRequestTimeout": {
-    "message": "İndirme bağlantısını bekleme süresi."
+    "message": "Tüm dosya için değil, bağlantı için bekleme."
   },
   "setShortCloseTabDelay": {
     "message": "Yalnızca Vortex. Sekmeyi kapatmadan önce bekle."
   },
   "setShortNDC_downloadSpeed": {
-    "message": "Yalnızca Vortex. Her dosyanın süresini tahmin et."
+    "message": "Bekleme süresini tahmin eder, hızı sınırlamaz."
   },
   "setShortNDC_pauseBetweenDownload": {
     "message": "Yalnızca Vortex. Dosyalar arasına bekleme ekle."

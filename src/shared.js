@@ -10,7 +10,7 @@
   const GITHUB_REPO_URL = 'https://github.com/thomasthanos/nexusmods-bypass';
   const ISSUE_NEW_URL = `${GITHUB_REPO_URL}/issues/new`;
   const REPORT_ISSUE_URL = `${GITHUB_REPO_URL}/issues/new/choose`;
-  const TROUBLESHOOTING_URL = `${GITHUB_REPO_URL}#-troubleshooting`;
+  const TROUBLESHOOTING_URL = `${GITHUB_REPO_URL}#troubleshooting`;
   // Each store issues its own extension id, so the id is what says where a copy came from —
   // and that is the only listing where its rating can be left. The browser running it says
   // nothing: Edge installs from the Chrome Web Store just as happily as from its own.

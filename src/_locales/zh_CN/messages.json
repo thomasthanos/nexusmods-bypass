@@ -9,7 +9,7 @@
     "message": "自动开始下载"
   },
   "setAutoCloseTabLabel": {
-    "message": "发送到 Vortex 后关闭多余的标签页"
+    "message": "关闭额外的 Nexus 标签页"
   },
   "toggleSkipReq": {
     "message": "跳过前置要求页面"
@@ -18,7 +18,7 @@
     "message": "隐藏广告和高级版推广"
   },
   "setHandleArchivedFilesLabel": {
-    "message": "已归档文件按钮"
+    "message": "旧版文件的下载按钮"
   },
   "btnPageSettings": {
     "message": "页面设置"
@@ -526,61 +526,61 @@
     "message": "自动开始下载"
   },
   "setAutoStartDownloadDesc": {
-    "message": "打开 Nexus 文件页面时,无需再次点击即开始下载(到 Vortex 或浏览器)。"
+    "message": "在 Nexus 文件页面上，无需再次点击就开始下载所选文件。不会下载整个模组页面上的所有文件。"
   },
   "setAutoCloseTabDesc": {
-    "message": "发送 Vortex 链接后，按下方延迟关闭临时的 Nexus 标签页。"
+    "message": "将自动开始的文件发送给 Vortex 后，关闭临时 Nexus 标签页。无需等到文件下载完成。如果想保留标签页，请关闭此选项。"
   },
   "setSkipRequirementsLabel": {
     "message": "跳过依赖项界面"
   },
   "setSkipRequirementsDesc": {
-    "message": "跳过 Nexus 的依赖项弹窗，直接进入下载步骤。"
+    "message": "跳过 Nexus 显示所需其他模组的窗口，继续下载。这些前置模组可能仍需要你自行安装，不会自动下载。"
   },
   "setShowAlertsOnErrorLabel": {
     "message": "显示错误弹窗"
   },
   "setShowAlertsOnErrorDesc": {
-    "message": "当 Nexus 未返回可用下载链接时显示明确提示。"
+    "message": "无法开始下载时，显示提示以及可用的继续操作。关闭此选项只会隐藏提示，不会解决问题的原因。"
   },
   "setHidePremiumUpsellsLabel": {
     "message": "隐藏广告和 Premium 面板"
   },
   "setHidePremiumUpsellsDesc": {
-    "message": "隐藏广告和高级版横幅。同时跳过下载时的5秒倒计时。"
+    "message": "隐藏 Nexus 广告和 Premium 升级提示，并跳过下载倒计时。不会获得 Premium 账户或 Premium 下载速度。"
   },
   "setHandleArchivedFilesDesc": {
-    "message": "当 Nexus 隐藏归档文件时，为其添加 Vortex 与浏览器下载按钮。"
+    "message": "为 Nexus 已移入归档的旧版文件添加下载按钮。不会恢复已删除文件，也不会解除内容访问限制。"
   },
   "setDownloadFolderLabel": {
     "message": "浏览器下载文件夹"
   },
   "setDownloadFolderDesc": {
-    "message": "浏览器下载目录中的子文件夹，用于 Browser Download 模式。留空可直接保存到「下载」文件夹——某些 Mod 管理器只监视该文件夹，不会查看子文件夹。通过 Vortex 的下载由 Vortex 处理，不受影响。"
+    "message": "浏览器下载文件夹内的子文件夹名称。例如填入 NexusMods，会保存到下载/NexusMods。留空则直接保存到下载文件夹。不会更改 Vortex 的保存位置。"
   },
   "setRequestTimeoutLabel": {
-    "message": "下载请求超时"
+    "message": "等待下载链接的时间"
   },
   "setRequestTimeoutDesc": {
-    "message": "扩展等待 Nexus 返回下载链接的时长，超时即放弃。"
+    "message": "等待 Nexus 返回下载链接的时间，不是下载整个文件的时间。仅在响应过慢、经常超时时增加。"
   },
   "setCloseTabDelayLabel": {
     "message": "关闭标签页延迟"
   },
   "setCloseTabDelayDesc": {
-    "message": "仅适用于自动开始并关闭标签页的 Vortex 下载。若 Vortex 漏掉链接，请调大此值。"
+    "message": "仅适用于自动开始的 Vortex 下载。Vortex 打开后，关闭临时 Nexus 标签页前等待的秒数。如果 Vortex 收不到链接，可尝试增加此时间。"
   },
   "setDownloadSpeedLabel": {
-    "message": "你的 Nexus 下载速度"
+    "message": "Vortex 显示的下载速度"
   },
   "setDownloadSpeedDesc": {
-    "message": "仅 Vortex。浏览器看不到 Vortex 的下载,所以会估算每个文件需要多久,并等待相应时间再发送下一个。请设置为你的实际速度。"
+    "message": "仅适用于 Vortex。输入 Vortex 中实际显示的下载速度，单位为 MB/s。浏览器无法查看 Vortex 的进度，因此扩展用此数值估算何时发送下一个文件。不会提高或限制下载速度。"
   },
   "setPauseBetweenModsLabel": {
     "message": "模组之间的暂停"
   },
   "setPauseBetweenModsDesc": {
-    "message": "仅 Vortex。文件之间的额外等待,会加到上面的估算上。设为 0 则关闭估算,让 Vortex 自己排队;始终保留 2 秒间隔。"
+    "message": "仅适用于 Vortex。发送下一个文件前，在预计下载时间之外额外等待的秒数。设为 0 时不再估算，由 Vortex 管理队列，但仍保留至少 2 秒的间隔。"
   },
   "dlgHistoryTitle": {
     "message": "发现已下载的模组"
@@ -1023,7 +1023,7 @@
     "message": "始终使用英语"
   },
   "setForceEnglishDesc": {
-    "message": "即使浏览器设置为其他语言，也以英语显示此扩展。在参照英文教程时很有用。浏览器扩展列表中的名称仍会跟随浏览器语言。"
+    "message": "用英语显示扩展，而不是浏览器语言。不会更改浏览器或 Nexus 的语言。扩展列表中的名称仍然使用浏览器语言。"
   },
   "supportEntryTitle": {
     "message": "支持这个项目"
@@ -1181,10 +1181,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Nexus 要求浏览器验证时打开文件页面"
+    "message": "打开浏览器验证页面"
   },
   "setCloudflareFallbackDesc": {
-    "message": "如果 Nexus 显示“验证你是人类”页面而不是下载链接,会打开文件页面让你完成验证。这就是标签页有时会自行切换的原因。"
+    "message": "如果 Nexus 要求确认你是真人，会打开文件页面，让你自己完成浏览器验证。不会绕过验证。因此当前标签页可能切换页面。"
   },
   "tabControls": {
     "message": "控制",
@@ -1201,7 +1201,7 @@
     "message": "Wabbajack 模组列表导入（测试版）"
   },
   "setWabbajackImportDesc": {
-    "message": "读取 .wabbajack 文件以将 Nexus 模组排入队列。外部文件和未知游戏将被跳过。"
+    "message": "显示 .wabbajack 列表导入按钮。将支持的 Nexus 文件加入浏览器下载队列，不会自动安装。来自其他网站或不支持游戏的文件会列出并跳过。"
   },
   "btnImportWabbajack": {
     "message": "导入 Wabbajack 模组列表"
@@ -1258,7 +1258,7 @@
     "message": "小文件优先"
   },
   "setSmallestFirstDesc": {
-    "message": "合集下载从最小的文件开始，大部分列表会更早完成，大文件也不会拖住其余文件。未标明大小的文件排在最后。"
+    "message": "优先下载合集中的小文件，让更多下载尽早完成。大小未知的文件放在最后。只改变队列顺序，不会提高网速。"
   },
   "logSmallestFirst": {
     "message": "正在优先下载最小的文件。"
@@ -1358,22 +1358,22 @@
     "message": "稍后"
   },
   "setUseOfficialApiLabel": {
-    "message": "使用官方 Nexus API"
+    "message": "使用 Nexus 官方 API"
   },
   "setUseOfficialApiDesc": {
-    "message": "通过有文档的 Nexus Mods API 读取合集、模组和文件信息，并带缓存和速率限制处理。关闭后使用旧的基于页面的读取方式。"
+    "message": "使用 Nexus 官方 API，即直接获取文件和合集信息的接口。合集更新规则和 Endorse/Track 按钮需要它。仅在遇到问题、想尝试旧的页面读取方式时关闭。"
   },
   "setFollowUpdatePolicyLabel": {
-    "message": "遵循策展人的更新策略"
+    "message": "合集文件版本规则"
   },
   "setFollowUpdatePolicyDesc": {
-    "message": "当合集允许某个模组使用更新版本时，下载该下载项的最新文件而非列出的文件。固定到确切版本的模组不会改变。"
+    "message": "开启：遵循每个文件的规则。Exact 使用指定文件；Latest 选择最新版本；Prefer Exact 在指定文件仍可用时保留它，仅在不可用时替换。关闭：使用列表中的文件。需要 Nexus 官方 API，不会更新已安装的模组。"
   },
   "setShowModActionsLabel": {
-    "message": "认可和追踪按钮"
+    "message": "显示点赞和关注按钮"
   },
   "setShowModActionsDesc": {
-    "message": "在合集模组列表中显示认可和追踪按钮。在你点击之前不会发送任何内容。"
+    "message": "在合集模组旁显示按钮。Endorse 是点赞；Track 将模组加入 Nexus 关注列表。点击前不会执行任何操作。下载后可能需要等待才能 Endorse。需要 Nexus 官方 API。"
   },
   "logUpdatePolicyApplied": {
     "message": "对合集允许更新的 $1 个模组使用更新的文件。"
@@ -1385,16 +1385,16 @@
     "message": "有可用更新"
   },
   "btnEndorse": {
-    "message": "认可"
+    "message": "点赞"
   },
   "btnEndorsed": {
-    "message": "已认可"
+    "message": "已点赞"
   },
   "btnTrack": {
-    "message": "追踪"
+    "message": "关注"
   },
   "btnTracked": {
-    "message": "已追踪"
+    "message": "已关注"
   },
   "modActionFailed": {
     "message": "Nexus 未接受此操作：$1"
@@ -1652,11 +1652,11 @@
     }
   },
   "setHideDownloadPopupLabel": {
-    "message": "下载合集时隐藏浏览器下载弹窗",
+    "message": "隐藏合集下载弹窗",
     "description": "UI string."
   },
   "setHideDownloadPopupDesc": {
-    "message": "仅限 Chrome 和 Edge。合集下载期间不再为每个文件弹出下载气泡，结束、停止或出错时恢复。",
+    "message": "仅适用于 Chrome 和 Edge。下载合集时，不为每个文件弹出下载窗口。完成、停止或失败后恢复原状，下载本身仍会正常进行。",
     "description": "UI string."
   },
   "btnStateSendingVortex": {
@@ -1969,7 +1969,7 @@
     "message": "隐藏广告、Premium 推广和倒计时。"
   },
   "setShortHandleArchivedFiles": {
-    "message": "为已归档文件添加下载按钮。"
+    "message": "为 Nexus 归档中的旧版文件添加按钮。"
   },
   "setShortWabbajackImport": {
     "message": "将 .wabbajack 中的 Nexus 文件加入队列（测试版）。"
@@ -1981,16 +1981,16 @@
     "message": "优先下载小文件。"
   },
   "setShortUseOfficialApi": {
-    "message": "使用有文档的 API，而非查找页面。"
+    "message": "获取 Nexus 文件信息的推荐方式。"
   },
   "setShortFollowUpdatePolicy": {
-    "message": "仅在合集作者允许时使用较新的文件。"
+    "message": "遵循合集作者选择的版本规则。"
   },
   "setShortShowModActions": {
-    "message": "显示 Endorse 和 Track，不会自动发送。"
+    "message": "仅在点击时点赞或关注。"
   },
   "setShortCloudflareFallback": {
-    "message": "打开文件页面以完成浏览器验证。"
+    "message": "由你自己完成验证，不会绕过。"
   },
   "setShortForceEnglish": {
     "message": "使用英语，而非浏览器语言。"
@@ -1999,13 +1999,13 @@
     "message": "仅限浏览器。留空则使用下载文件夹。"
   },
   "setShortRequestTimeout": {
-    "message": "等待下载链接的时间。"
+    "message": "等待链接，而非下载整个文件。"
   },
   "setShortCloseTabDelay": {
     "message": "仅限 Vortex。关闭标签页前等待。"
   },
   "setShortNDC_downloadSpeed": {
-    "message": "仅限 Vortex。估算每个文件所需时间。"
+    "message": "用于估算等待时间，不限制速度。"
   },
   "setShortNDC_pauseBetweenDownload": {
     "message": "仅限 Vortex。在文件之间增加间隔。"

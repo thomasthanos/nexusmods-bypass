@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const { JSDOM } = require('jsdom');
 
 const SETTINGS_KEY = 'nxtk_settings';
 const ERROR_LOG_KEY = 'nxtk_error_log';
@@ -349,7 +350,27 @@ async function storeReviewTests() {
   }
 
   const { NXTK } = loadShared();
-  assert.match(NXTK.TROUBLESHOOTING_URL, /nexusmods-bypass#-troubleshooting$/, 'blocking errors point at the docs');
+  const docsUrl = new URL(NXTK.TROUBLESHOOTING_URL);
+  assert.equal(docsUrl.origin, 'https://github.com');
+  assert.equal(docsUrl.pathname, '/thomasthanos/nexusmods-bypass');
+  // The README's raw HTML anchors/details are rendered by GitHub. Follow the actual
+  // exported link, not a hardcoded fragment that can outlive the documentation.
+  const dom = new JSDOM(fs.readFileSync('README.md', 'utf8'));
+  try {
+    for (const hash of [docsUrl.hash, '#-troubleshooting']) {
+      const name = decodeURIComponent(hash.slice(1));
+      const target = dom.window.document.getElementById(name)
+        || [...dom.window.document.querySelectorAll('a[name]')].find((el) => el.name === name);
+      assert.ok(target, `${hash} resolves to a README anchor, including links in older installs`);
+      let section = target.nextElementSibling;
+      while (section?.tagName === 'A') section = section.nextElementSibling;
+      assert.equal(section?.tagName, 'DETAILS', 'the link lands at the quick-fix section');
+      assert.ok(section.open, 'quick-fix topics are visible without first expanding the section');
+      assert.match(section.querySelector('summary').textContent, /Quick fixes/);
+    }
+  } finally {
+    dom.window.close();
+  }
 }
 
 // The ask is periodic now, which is the kind of thing that turns into a nag if the rules

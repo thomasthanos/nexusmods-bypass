@@ -49,7 +49,86 @@ function fixture(locale = 'en') {
   return { w, store, modal, close: () => { observers.forEach((o) => o.disconnect()); dom.window.close(); } };
 }
 
+async function settingsRegressionTests() {
+  const failures = [];
+  const cases = [
+    ['latest manual choice wins during a delayed preset', async (f) => {
+      const send = f.w.chrome.runtime.sendMessage;
+      let release;
+      f.w.chrome.runtime.sendMessage = (message, callback) => {
+        if (message.type === 'SETTINGS_PATCH' && 'NDC_downloadMethod' in message.payload.patch && !release) {
+          release = () => send(message, callback);
+        } else send(message, callback);
+      };
+      f.modal().querySelector('[data-preset="browser"]').click();
+      await tick();
+      assert.ok(release, 'the first preset write is held in flight');
+      const input = f.modal().querySelector('[data-setting="AutoCloseTab"]');
+      input.checked = true;
+      input.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+      release();
+      await tick();
+      assert.equal(f.store.nxtk_settings.AutoCloseTab, true, 'later manual choice stays saved');
+      assert.equal(input.checked, true, 'later manual choice stays visible');
+      assert.match(f.modal().querySelector('#nxtk-preset-note').textContent, /Custom/);
+    }],
+    ['rejected save restores the saved value and shows an explanation', async (f) => {
+      const send = f.w.chrome.runtime.sendMessage;
+      f.w.chrome.runtime.sendMessage = (message, callback) => message.type === 'SETTINGS_PATCH'
+        ? callback({ ok: false, error: 'write-rejected' }) : send(message, callback);
+      const input = f.modal().querySelector('[data-setting="AutoStartDownload"]');
+      input.checked = false;
+      input.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+      await tick();
+      assert.equal(input.checked, true, 'unsaved switch rolls back');
+      assert.equal((f.store.nxtk_settings || f.w.NXTK.DEFAULTS).AutoStartDownload, true);
+      const alert = f.w.document.querySelector('[role="alertdialog"]');
+      assert.ok(alert, 'write failure is visible');
+      assert.match(alert.textContent, /could not be saved/i);
+    }],
+    ['rejected reset leaves settings open and unchanged', async (f) => {
+      const send = f.w.chrome.runtime.sendMessage;
+      f.w.chrome.runtime.sendMessage = (message, callback) => message.type === 'SETTINGS_RESET'
+        ? callback({ ok: false, error: 'reset-rejected' }) : send(message, callback);
+      f.modal().querySelector('[data-reset]').click();
+      await tick();
+      f.w.document.querySelector('#nxtk-confirm-modal [data-close="confirm"]').click();
+      await tick();
+      assert.ok(f.modal(), 'failed reset must not close settings or reload');
+      assert.equal(f.store.nxtk_settings.DownloadFolder, 'Custom-folder');
+      assert.ok(f.w.document.querySelector('[role="alertdialog"]'), 'reset failure is visible');
+    }],
+    ['cancel and Escape restore focus to Restore defaults', async (f) => {
+      const button = f.modal().querySelector('[data-reset]');
+      for (const cancel of ['button', 'Escape']) {
+        button.focus();
+        button.click();
+        await tick();
+        const confirm = f.w.document.querySelector('#nxtk-confirm-modal');
+        if (cancel === 'button') confirm.querySelector('[data-close="cancel"]').click();
+        else f.w.document.activeElement.dispatchEvent(new f.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await tick();
+        assert.equal(f.w.document.activeElement, button, `${cancel} returns focus to the opener`);
+      }
+    }]
+  ];
+  for (const [name, run] of cases) {
+    const f = fixture();
+    try {
+      f.store.nxtk_settings = { ...f.w.NXTK.DEFAULTS, DownloadFolder: 'Custom-folder' };
+      await f.w.NexusExt.UIKit.settings.open();
+      await run(f);
+      console.log(`Settings regression OK: ${name}`);
+    } catch (error) {
+      console.error(`Settings regression FAILED: ${name}: ${error.message}`);
+      failures.push(name);
+    } finally { f.close(); }
+  }
+  assert.equal(failures.length, 0, failures.join('; '));
+}
+
 (async () => {
+  await settingsRegressionTests();
   const f = fixture();
   const { w, store, modal } = f;
   const find = (selector) => modal().querySelector(selector);

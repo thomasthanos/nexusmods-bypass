@@ -9,7 +9,7 @@
     "message": "다운로드 자동 시작"
   },
   "setAutoCloseTabLabel": {
-    "message": "Vortex로 보낸 뒤 추가 탭 닫기"
+    "message": "추가 Nexus 탭 닫기"
   },
   "toggleSkipReq": {
     "message": "필수 항목 화면 건너뛰기"
@@ -18,7 +18,7 @@
     "message": "광고 및 Premium 패널 숨기기"
   },
   "setHandleArchivedFilesLabel": {
-    "message": "보관된 파일 버튼"
+    "message": "이전 파일 버전 다운로드 버튼"
   },
   "btnPageSettings": {
     "message": "페이지 설정"
@@ -491,61 +491,61 @@
     "message": "다운로드 자동 시작"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Nexus 파일 페이지를 열면 추가 클릭 없이 (Vortex 또는 브라우저로) 다운로드를 시작합니다."
+    "message": "Nexus 파일 페이지에서 선택한 파일을 추가 클릭 없이 다운로드합니다. 모드 페이지의 모든 파일을 한꺼번에 다운로드하는 기능은 아닙니다."
   },
   "setAutoCloseTabDesc": {
-    "message": "Vortex로 링크를 보낸 뒤 아래 지연 시간이 지나면 임시 Nexus 탭을 닫습니다."
+    "message": "자동으로 시작한 파일을 Vortex에 보낸 뒤 임시 Nexus 탭을 닫습니다. 다운로드가 끝날 때까지 기다리지 않습니다. 탭을 열어 두려면 끄세요."
   },
   "setSkipRequirementsLabel": {
     "message": "필수 항목 화면 건너뛰기"
   },
   "setSkipRequirementsDesc": {
-    "message": "Nexus의 필수 항목 팝업을 지나 바로 다운로드 단계로 이동합니다."
+    "message": "필요한 다른 모드를 안내하는 Nexus 창을 건너뛰고 다운로드를 계속합니다. 필요한 모드는 직접 설치해야 할 수 있으며, 자동으로 다운로드하지 않습니다."
   },
   "setShowAlertsOnErrorLabel": {
     "message": "오류 팝업 표시"
   },
   "setShowAlertsOnErrorDesc": {
-    "message": "Nexus가 사용 가능한 다운로드 링크를 반환하지 않을 때 명확한 메시지를 표시합니다."
+    "message": "다운로드를 시작할 수 없으면 계속 진행할 수 있는 작업과 메시지를 표시합니다. 끄면 메시지만 숨기며 문제의 원인을 해결하지는 않습니다."
   },
   "setHidePremiumUpsellsLabel": {
     "message": "광고 및 Premium 패널 숨기기"
   },
   "setHidePremiumUpsellsDesc": {
-    "message": "광고 및 프리미엄 배너를 숨깁니다. 또한 다운로드 시 5초 카운트다운을 건너뜁니다."
+    "message": "Nexus 광고와 Premium 가입 안내를 숨기고 다운로드 카운트다운을 건너뜁니다. Premium 계정이나 Premium 다운로드 속도를 제공하지는 않습니다."
   },
   "setHandleArchivedFilesDesc": {
-    "message": "Nexus가 숨기는 보관된 파일 항목에 Vortex 및 브라우저 다운로드 버튼을 추가합니다."
+    "message": "Nexus 보관함으로 옮겨진 이전 파일 버전에 다운로드 버튼을 추가합니다. 삭제된 파일을 복원하거나 접근 제한을 해제하지는 않습니다."
   },
   "setDownloadFolderLabel": {
     "message": "브라우저 다운로드 폴더"
   },
   "setDownloadFolderDesc": {
-    "message": "브라우저 다운로드 폴더 안의 하위 폴더입니다(Browser Download 모드용). 비워 두면 다운로드 폴더에 바로 저장됩니다 — 일부 모드 관리자는 이 폴더만 감시하고 하위 폴더는 보지 않습니다. Vortex 다운로드는 Vortex가 처리하므로 영향이 없습니다."
+    "message": "브라우저 다운로드 폴더 안에 만들 하위 폴더 이름입니다. 예를 들어 NexusMods를 입력하면 다운로드/NexusMods에 저장합니다. 비워 두면 다운로드 폴더에 바로 저장합니다. Vortex 저장 위치는 바꾸지 않습니다."
   },
   "setRequestTimeoutLabel": {
-    "message": "다운로드 요청 제한 시간"
+    "message": "다운로드 링크 대기 시간"
   },
   "setRequestTimeoutDesc": {
-    "message": "확장 프로그램이 Nexus의 다운로드 링크 응답을 기다리는 시간입니다."
+    "message": "Nexus 다운로드 링크를 받을 때까지 기다리는 시간이며, 파일 전체를 다운로드하는 시간은 아닙니다. 응답이 느려 시간 초과가 자주 발생할 때만 늘리세요."
   },
   "setCloseTabDelayLabel": {
     "message": "탭 닫기 지연"
   },
   "setCloseTabDelayDesc": {
-    "message": "자동으로 시작되어 탭을 닫는 Vortex 다운로드에만 적용됩니다. Vortex가 링크를 놓치면 값을 늘리세요."
+    "message": "자동으로 시작한 Vortex 다운로드에만 적용됩니다. Vortex가 열린 뒤 임시 Nexus 탭을 닫기까지 기다리는 초 단위 시간입니다. Vortex가 링크를 놓치면 더 길게 설정해 보세요."
   },
   "setDownloadSpeedLabel": {
-    "message": "내 Nexus 다운로드 속도"
+    "message": "Vortex에 표시되는 다운로드 속도"
   },
   "setDownloadSpeedDesc": {
-    "message": "Vortex 전용. 브라우저는 Vortex의 다운로드를 볼 수 없어서 파일마다 걸리는 시간을 추정하고 그만큼 기다린 뒤 다음 파일을 보냅니다. 실제 속도로 설정하세요."
+    "message": "Vortex 전용입니다. Vortex에서 실제로 보이는 다운로드 속도를 MB/s로 입력하세요. 브라우저는 Vortex 진행 상황을 볼 수 없어서 이 값으로 다음 파일을 보낼 시점을 추정합니다. 다운로드 속도를 높이거나 제한하지는 않습니다."
   },
   "setPauseBetweenModsLabel": {
     "message": "모드 사이 대기"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Vortex 전용. 파일 사이의 추가 대기 시간으로, 위의 추정치에 더해집니다. 0이면 추정을 끄고 Vortex가 직접 대기열에 넣게 합니다. 2초 간격은 항상 유지됩니다."
+    "message": "Vortex 전용입니다. 다음 파일을 보내기 전에 예상 다운로드 시간에 추가할 초 단위 대기 시간입니다. 0이면 추정을 생략하고 Vortex가 대기열을 관리합니다. 그래도 최소 2초 간격은 유지됩니다."
   },
   "dlgHistoryTitle": {
     "message": "다운로드된 모드를 찾았습니다"
@@ -1023,7 +1023,7 @@
     "message": "항상 영어 사용"
   },
   "setForceEnglishDesc": {
-    "message": "브라우저가 다른 언어로 설정되어 있어도 이 확장 프로그램을 영어로 표시합니다. 영어로 작성된 가이드를 따를 때 유용합니다. 브라우저 목록에 표시되는 확장 프로그램 이름은 계속 브라우저 언어를 따릅니다."
+    "message": "브라우저 언어 대신 영어로 확장 프로그램을 표시합니다. 브라우저나 Nexus의 언어는 바꾸지 않습니다. 확장 프로그램 목록의 이름은 계속 브라우저 언어를 따릅니다."
   },
   "supportEntryTitle": {
     "message": "프로젝트 후원"
@@ -1181,10 +1181,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Nexus가 브라우저 확인을 요구하면 파일 페이지 열기"
+    "message": "브라우저 확인용 페이지 열기"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Nexus가 링크 대신 \"사람인지 확인\" 페이지를 보여 주면 확인을 통과할 수 있도록 파일 페이지를 엽니다. 탭이 가끔 저절로 바뀌는 이유입니다."
+    "message": "Nexus가 사람인지 확인하도록 요청하면 파일 페이지를 열어 직접 브라우저 확인을 완료할 수 있게 합니다. 확인 절차를 우회하지는 않습니다. 이 때문에 현재 탭의 페이지가 바뀔 수 있습니다."
   },
   "tabControls": {
     "message": "제어",
@@ -1201,7 +1201,7 @@
     "message": "Wabbajack 모드리스트 가져오기 (베타)"
   },
   "setWabbajackImportDesc": {
-    "message": ".wabbajack 파일을 읽어 Nexus 모드를 대기열에 추가합니다. 외부 파일과 알 수 없는 게임은 건너뜁니다."
+    "message": ".wabbajack 목록 가져오기 버튼을 표시합니다. 지원되는 Nexus 파일을 브라우저 다운로드 대기열에 넣지만 자동 설치는 하지 않습니다. 다른 사이트나 지원하지 않는 게임의 파일은 목록에 표시하고 건너뜁니다."
   },
   "btnImportWabbajack": {
     "message": "Wabbajack 모드리스트 가져오기"
@@ -1258,7 +1258,7 @@
     "message": "작은 파일 먼저"
   },
   "setSmallestFirstDesc": {
-    "message": "컬렉션 다운로드를 가장 작은 파일부터 시작합니다. 목록 대부분이 일찍 끝나고 큰 파일 하나가 나머지를 막지 않습니다. 크기가 표시되지 않은 파일은 마지막에 받습니다."
+    "message": "작은 컬렉션 파일부터 다운로드하여 더 많은 파일이 일찍 완료되게 합니다. 크기를 알 수 없는 파일은 마지막에 받습니다. 순서만 바꾸며 인터넷 속도를 높이지는 않습니다."
   },
   "logSmallestFirst": {
     "message": "가장 작은 파일부터 다운로드합니다."
@@ -1358,22 +1358,22 @@
     "message": "나중에"
   },
   "setUseOfficialApiLabel": {
-    "message": "공식 Nexus API 사용"
+    "message": "Nexus 공식 API 사용"
   },
   "setUseOfficialApiDesc": {
-    "message": "캐시와 요청 제한 처리를 갖춘 공식 문서화된 Nexus Mods API에서 컬렉션, 모드, 파일 정보를 읽습니다. 끄면 이전의 페이지 기반 조회를 사용합니다."
+    "message": "Nexus 공식 API, 즉 파일과 컬렉션 정보를 직접 받는 방식을 사용합니다. 업데이트 규칙과 Endorse/Track 버튼에 필요합니다. 문제가 있을 때 기존 페이지 읽기 방식을 시험하려는 경우에만 끄세요."
   },
   "setFollowUpdatePolicyLabel": {
-    "message": "큐레이터 업데이트 정책 따르기"
+    "message": "컬렉션 파일 버전 규칙"
   },
   "setFollowUpdatePolicyDesc": {
-    "message": "컬렉션이 모드의 새 버전을 허용하면 목록의 파일 대신 해당 다운로드의 최신 파일을 받습니다. 정확한 버전으로 고정된 모드는 바뀌지 않습니다."
+    "message": "켜짐: 각 파일의 규칙을 따릅니다. Exact는 지정된 파일을 유지하고 Latest는 최신 버전을 선택합니다. Prefer Exact는 지정된 파일을 이용할 수 있는 동안 유지하고, 이용할 수 없을 때만 대체합니다. 꺼짐: 목록의 파일을 사용합니다. Nexus 공식 API가 필요하며 설치된 모드를 업데이트하지는 않습니다."
   },
   "setShowModActionsLabel": {
-    "message": "추천 및 추적 버튼"
+    "message": "좋아요 및 관심 등록 버튼 표시"
   },
   "setShowModActionsDesc": {
-    "message": "컬렉션 모드 목록에 추천 및 추적 버튼을 표시합니다. 버튼을 누르기 전에는 아무것도 전송되지 않습니다."
+    "message": "컬렉션 모드 옆에 버튼을 표시합니다. Endorse는 좋아요이고 Track은 Nexus 관심 목록에 모드를 추가하는 기능입니다. 클릭하기 전에는 아무 작업도 하지 않습니다. 다운로드 후 Endorse가 허용될 때까지 기다려야 할 수 있습니다. Nexus 공식 API가 필요합니다."
   },
   "logUpdatePolicyApplied": {
     "message": "컬렉션이 업데이트를 허용한 모드 $1개에 최신 파일을 사용합니다."
@@ -1385,16 +1385,16 @@
     "message": "업데이트 있음"
   },
   "btnEndorse": {
-    "message": "추천"
+    "message": "좋아요"
   },
   "btnEndorsed": {
-    "message": "추천함"
+    "message": "좋아요 표시됨"
   },
   "btnTrack": {
-    "message": "추적"
+    "message": "관심 등록"
   },
   "btnTracked": {
-    "message": "추적 중"
+    "message": "관심 등록됨"
   },
   "modActionFailed": {
     "message": "Nexus가 받아들이지 않았습니다: $1"
@@ -1652,11 +1652,11 @@
     }
   },
   "setHideDownloadPopupLabel": {
-    "message": "컬렉션 다운로드 중 브라우저 다운로드 팝업 숨기기",
+    "message": "컬렉션 다운로드 팝업 숨기기",
     "description": "UI string."
   },
   "setHideDownloadPopupDesc": {
-    "message": "Chrome과 Edge 전용. 파일마다 다운로드 버블이 열리지 않게 하고 종료, 중지, 오류 시 다시 켭니다.",
+    "message": "Chrome과 Edge 전용입니다. 컬렉션의 파일마다 다운로드 팝업이 열리지 않게 합니다. 작업이 완료되거나 중지되거나 실패하면 원래대로 되돌립니다. 다운로드 자체는 정상적으로 계속됩니다.",
     "description": "UI string."
   },
   "btnStateSendingVortex": {
@@ -1969,7 +1969,7 @@
     "message": "광고, Premium 안내 및 카운트다운을 숨깁니다."
   },
   "setShortHandleArchivedFiles": {
-    "message": "보관된 파일에 다운로드 버튼을 추가합니다."
+    "message": "Nexus 보관함의 이전 파일에 버튼을 추가합니다."
   },
   "setShortWabbajackImport": {
     "message": ".wabbajack의 Nexus 파일을 대기열에 추가합니다(베타)."
@@ -1981,16 +1981,16 @@
     "message": "작은 파일부터 다운로드합니다."
   },
   "setShortUseOfficialApi": {
-    "message": "페이지 조회 대신 문서화된 API를 사용합니다."
+    "message": "Nexus 정보를 받는 권장 방식입니다."
   },
   "setShortFollowUpdatePolicy": {
-    "message": "제작자가 허용할 때만 최신 파일을 사용합니다."
+    "message": "컬렉션 제작자의 버전 선택을 따릅니다."
   },
   "setShortShowModActions": {
-    "message": "Endorse와 Track을 표시합니다. 자동 전송하지 않습니다."
+    "message": "좋아요와 관심 등록은 클릭할 때만 실행합니다."
   },
   "setShortCloudflareFallback": {
-    "message": "파일 페이지를 열어 브라우저 확인을 완료합니다."
+    "message": "직접 확인하며, 확인 절차를 우회하지 않습니다."
   },
   "setShortForceEnglish": {
     "message": "브라우저 언어 대신 영어를 사용합니다."
@@ -1999,13 +1999,13 @@
     "message": "브라우저 전용. 비우면 다운로드 폴더입니다."
   },
   "setShortRequestTimeout": {
-    "message": "다운로드 링크를 기다리는 시간입니다."
+    "message": "파일 전체가 아닌 링크를 기다리는 시간입니다."
   },
   "setShortCloseTabDelay": {
     "message": "Vortex 전용. 임시 탭을 닫기 전에 기다립니다."
   },
   "setShortNDC_downloadSpeed": {
-    "message": "Vortex 전용. 각 파일의 소요 시간을 추정합니다."
+    "message": "대기 시간 추정용이며 속도 제한이 아닙니다."
   },
   "setShortNDC_pauseBetweenDownload": {
     "message": "Vortex 전용. 파일 사이에 대기 시간을 추가합니다."

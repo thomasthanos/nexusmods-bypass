@@ -14,6 +14,12 @@ html, body {
 }
 
 .popup {
+  --popup-action-light: #f4c47e;
+  --popup-action-amber: #dfa04e;
+  --popup-action-base: #bc7a30;
+  --popup-action-ink: #1d1409;
+  --popup-action-glass: #2d2e38;
+  --popup-action-glass-base: #1a1b24;
   --popup-panel-min-h: 233px;
   --popup-view-max-h: 572px;
   position: relative;
@@ -163,8 +169,10 @@ html, body {
   margin-bottom: 10px;
   padding: 3px;
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(0, 0, 0, 0.12));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .popup-tab-indicator {
@@ -176,9 +184,11 @@ html, body {
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.04));
   box-shadow:
-    inset 0 0 0 1px rgba(217, 143, 64, 0.24),
-    0 2px 8px rgba(0, 0, 0, 0.22);
-  transition: transform 0.28s var(--nxtk-ease);
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(217, 143, 64, 0.3),
+    0 2px 5px rgba(0, 0, 0, 0.22);
+  transition: transform 0.18s var(--nxtk-ease);
   pointer-events: none;
 }
 
@@ -229,6 +239,12 @@ html, body {
   color: var(--nxtk-text-bright);
 }
 
+.popup-tab:focus-visible {
+  outline: 2px solid var(--nxtk-accent);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
 .popup-tab-panel[hidden] { display: none; }
 
 .popup-tab-panel {
@@ -253,8 +269,11 @@ html, body {
   border-radius: var(--nxtk-radius-sm);
   cursor: pointer;
   position: relative;
-  background: rgba(255, 255, 255, 0.035);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.055);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.075),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.055),
+    0 2px 4px rgba(0, 0, 0, 0.12);
   transition: background 0.18s var(--nxtk-ease), box-shadow 0.18s var(--nxtk-ease);
 }
 
@@ -291,24 +310,85 @@ html, body {
 .popup-help-primary,
 .popup-help-secondary {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  min-height: 36px; padding: 8px 12px; border-radius: 8px;
+  min-height: 36px; padding: 8px 12px; border-radius: 10px;
   font-family: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.2; letter-spacing: 0; text-transform: none;
-  cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+  cursor: pointer;
 }
 .popup-help-primary svg, .popup-help-secondary svg { width: 15px; height: 15px; flex: none; fill: currentColor; }
-.popup-help-primary {
-  width: 100%; color: #1d1409; background: var(--nxtk-accent, #d98f40); border: 1px solid transparent;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, .18) inset, 0 2px 8px rgba(0, 0, 0, .25);
-}
-.popup-help-primary:hover { background: #e9a457; }
-.popup-help-primary:active { background: #c47d32; }
-.popup-help-secondary {
-  min-width: 0; color: var(--nxtk-text); background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .12);
-}
+.popup-help-primary { width: 100%; }
+.popup-help-secondary { min-width: 0; }
 .popup-help-secondary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.popup-help-secondary:hover { color: var(--nxtk-text-bright); background: rgba(255, 255, 255, .08); border-color: rgba(217, 143, 64, .55); }
-.popup-help-primary:focus-visible, .popup-help-secondary:focus-visible { outline: 2px solid var(--nxtk-accent, #d98f40); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .popup-help-primary, .popup-help-secondary { transition: none; } }
+
+/* Local raised surfaces: leave the shared report/onboarding buttons untouched. */
+.popup-help-primary,
+.popup-help-secondary,
+.popup-actions .popup-btn {
+  border: 1px solid rgba(255, 255, 255, .14);
+  transition: transform .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.popup-actions .popup-btn::before,
+.popup-actions .popup-btn::after { display: none; }
+
+.popup-help-primary,
+.popup-actions .nxtk-btn-primary {
+  color: var(--popup-action-ink);
+  border-color: rgba(248, 205, 144, .55);
+  background: linear-gradient(180deg, var(--popup-action-light) 0%, var(--popup-action-amber) 44%, var(--popup-action-base) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .6),
+    inset 0 -1px 0 rgba(82, 43, 6, .4),
+    0 2px 0 rgba(75, 43, 17, .65),
+    0 4px 10px rgba(0, 0, 0, .28);
+}
+.popup-help-primary:hover,
+.popup-actions .nxtk-btn-primary:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 223, 177, .8);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .7),
+    inset 0 -1px 0 rgba(82, 43, 6, .4),
+    0 3px 0 rgba(75, 43, 17, .65),
+    0 6px 14px rgba(217, 143, 64, .18);
+}
+.popup-help-secondary,
+.popup-actions .nxtk-btn-secondary {
+  color: var(--nxtk-text);
+  background: linear-gradient(180deg, var(--popup-action-glass), var(--popup-action-glass-base));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .14),
+    inset 0 -1px 0 rgba(0, 0, 0, .4),
+    0 2px 0 rgba(0, 0, 0, .25),
+    0 4px 8px rgba(0, 0, 0, .2);
+}
+.popup-help-secondary:hover,
+.popup-actions .nxtk-btn-secondary:hover {
+  transform: translateY(-1px);
+  color: var(--nxtk-text-bright);
+  border-color: rgba(217, 143, 64, .5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .22),
+    inset 0 -1px 0 rgba(0, 0, 0, .4),
+    0 3px 0 rgba(0, 0, 0, .25),
+    0 5px 10px rgba(0, 0, 0, .25);
+}
+.popup-help-primary:active,
+.popup-help-secondary:active,
+.popup-actions .popup-btn:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, .26),
+    inset 0 -1px 0 rgba(255, 255, 255, .08),
+    0 1px 2px rgba(0, 0, 0, .2);
+}
+.popup-help-primary:focus-visible,
+.popup-help-secondary:focus-visible,
+.popup-actions .popup-btn:focus-visible {
+  outline: 2px solid var(--nxtk-accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .popup-help-primary, .popup-help-secondary, .popup-actions .popup-btn { transition: none; }
+}
 
 .popup-btn {
   display: flex;

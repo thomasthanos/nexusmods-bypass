@@ -89,7 +89,9 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 - **Automatic error reports**: anonymous, off by default.
 </details>
 
-<details>
+<a name="troubleshooting"></a>
+<a name="-troubleshooting"></a>
+<details open>
 <summary><b>🧭 Quick fixes</b> — <sub>common problems and what to try</sub></summary>
 
 <details>
