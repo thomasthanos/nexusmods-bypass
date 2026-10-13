@@ -51,10 +51,10 @@ On first install, the welcome page asks three setup questions and has a **Test V
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
-<h3 align="center">Reference</h3>
+## Reference
 
 <details>
-<summary><b>⚙️ Settings</b> — <sub>what each Page settings group controls</sub></summary>
+<summary><strong>Settings</strong> — Preferences and presets</summary>
 
 - **Quick setup:** presets *Vortex user*, *Browser downloads* and *Minimal* (a mix shows as *Custom*).
 - **Download flow:** auto-start, close the extra tab after sending to Vortex, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first.
@@ -65,7 +65,7 @@ On first install, the welcome page asks three setup questions and has a **Test V
 </details>
 
 <details>
-<summary><b>🛡️ Privacy &amp; permissions</b> — <sub>what stays local and why each permission is needed</sub></summary>
+<summary><strong>Privacy &amp; permissions</strong> — Local data and access</summary>
 
 Settings, history and logs stay in local extension storage; no analytics or accounts. Reports are opt-in and show the exact redacted JSON first. Details: [PRIVACY.md](PRIVACY.md).
 
@@ -82,7 +82,7 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 
 <a id="bugs"></a>
 <details>
-<summary><b>🐞 Bug reports &amp; debug log</b> — <sub>send a redacted report or record a live log</sub></summary>
+<summary><strong>Bug reports &amp; debug log</strong> — Reports and diagnostics</summary>
 
 - **Send bug report** (popup → Help & Bugs): describe it, review the redacted JSON, then send through the [relay](relay/README.md), save/copy it, or open a prefilled [GitHub issue](https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose).
 - **Debug log** (Help & Bugs → Debug log): opt-in live log with filters, search and export.
@@ -92,7 +92,9 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 <a name="troubleshooting"></a>
 <a name="-troubleshooting"></a>
 <details open>
-<summary><b>🧭 Quick fixes</b> — <sub>common problems and what to try</sub></summary>
+<summary><strong>Quick fixes</strong> — Common download problems</summary>
+
+<blockquote>
 
 <details>
 <summary><b>Downloads do not start</b></summary>
@@ -117,10 +119,12 @@ Rate limits pause the queue temporarily; it resumes automatically. Keep the coll
 
 Choose **Skip Downloaded** when the history dialog appears. Cleared history cannot identify files already on disk.
 </details>
+
+</blockquote>
 </details>
 
 <details>
-<summary><b>🛠️ For developers</b> — <sub>build, lint and test commands</sub></summary>
+<summary><strong>For developers</strong> — Build and test</summary>
 
 ```sh
 npm ci && npm run lint
