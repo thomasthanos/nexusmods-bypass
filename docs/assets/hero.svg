@@ -1,40 +1,72 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="290" viewBox="0 0 1200 290" role="img" aria-labelledby="t d">
-  <title id="t">NexusMods Bypass</title>
-  <desc id="d">Queue Nexus Mods collections, skip repetitive steps, and resume your queue in Chrome, Firefox and Edge.</desc>
-  <style>
-    text { font-family: 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif; }
-    .h1 { font-size: 54px; font-weight: 750; fill: #f1f4ff; letter-spacing: -1.5px; text-anchor: middle; }
-    .h1 tspan { fill: #f0a24d; }
-    .sub { font-size: 18px; fill: #9aa3c7; text-anchor: middle; }
-    .chip { font-size: 13.5px; font-weight: 600; fill: #dfe3ff; }
-    .glow-a { animation: drift-a 14s ease-in-out infinite alternate; }
-    .glow-b { animation: drift-b 17s ease-in-out infinite alternate; }
-    .halo { transform-box: fill-box; transform-origin: center; animation: pulse 4.5s ease-in-out infinite; }
-    .arrow { animation: drop 2.4s ease-in-out infinite; }
-    .dot { transform-box: fill-box; transform-origin: center; animation: pulse 2.6s ease-in-out infinite; }
-    .rise { animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }
-    @keyframes drift-a { to { transform: translate(90px, 30px); } }
-    @keyframes drift-b { to { transform: translate(-110px, -26px); } }
-    @keyframes pulse { 0%, 100% { transform: scale(.92); opacity: .65; } 50% { transform: scale(1.06); opacity: 1; } }
-    @keyframes drop { 0%, 100% { transform: translateY(-3px); } 50% { transform: translateY(4px); } }
-    @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
-    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
-  </style>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="300" viewBox="0 0 1100 300" role="img" aria-labelledby="title description">
+  <title id="title">NexusMods Bypass</title>
+  <desc id="description">Queue Nexus Mods collections, skip repetitive steps, and resume your queue in Chrome, Firefox and Edge.</desc>
   <defs>
-    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#151c31"/><stop offset="1" stop-color="#0e1325"/></linearGradient>
-    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#aab4ff" stop-opacity=".26"/><stop offset="1" stop-color="#aab4ff" stop-opacity=".07"/></linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#f0a24d"/><stop offset=".5" stop-color="#8b83ff"/><stop offset="1" stop-color="#45c8e6"/></linearGradient>
-    <radialGradient id="glowA"><stop stop-color="#f0a24d" stop-opacity=".35"/><stop offset="1" stop-color="#f0a24d" stop-opacity="0"/></radialGradient>
-    <radialGradient id="glowB"><stop stop-color="#8b83ff" stop-opacity=".32"/><stop offset="1" stop-color="#8b83ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="surface" x2="1" y2="1">
+      <stop stop-color="#242932"/><stop offset=".52" stop-color="#131722"/><stop offset="1" stop-color="#27201c"/>
+    </linearGradient>
+    <linearGradient id="rim" x2=".8" y2="1">
+      <stop stop-color="#f4e5d4" stop-opacity=".55"/><stop offset=".45" stop-color="#b9bfd1" stop-opacity=".1"/><stop offset="1" stop-color="#eaa14c" stop-opacity=".38"/>
+    </linearGradient>
+    <linearGradient id="tile" x2=".7" y2="1">
+      <stop stop-color="#d3ae7d" stop-opacity=".38"/><stop offset=".45" stop-color="#644a32" stop-opacity=".6"/><stop offset="1" stop-color="#261e19" stop-opacity=".95"/>
+    </linearGradient>
+    <linearGradient id="depth" x2="0" y2="1">
+      <stop stop-color="#80562f"/><stop offset="1" stop-color="#251e19"/>
+    </linearGradient>
+    <linearGradient id="arrow" x2="0" y2="1">
+      <stop stop-color="#fff7e9"/><stop offset="1" stop-color="#eaa14c"/>
+    </linearGradient>
+    <linearGradient id="reflection" x2="1" y2=".3">
+      <stop stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="warmth">
+      <stop stop-color="#eaa14c" stop-opacity=".2"/><stop offset="1" stop-color="#eaa14c" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="panel"><rect x="1" y="1" width="1098" height="298" rx="28"/></clipPath>
+    <clipPath id="tile-clip"><rect x="62" y="68" width="144" height="144" rx="38"/></clipPath>
   </defs>
-  <rect x=".75" y=".75" width="1198.5" height="288.5" rx="28" fill="url(#face)" stroke="url(#edge)" stroke-width="1.5"/>
-  <ellipse class="glow-a" cx="300" cy="90" rx="320" ry="160" fill="url(#glowA)"/>
-  <ellipse class="glow-b" cx="920" cy="240" rx="340" ry="170" fill="url(#glowB)"/>
-  <circle class="halo" cx="600" cy="92" r="46" fill="#f0a24d" fill-opacity=".10" stroke="#f0a24d" stroke-opacity=".45" stroke-width="1.5"/>
-  <rect x="566" y="58" width="68" height="68" rx="18" fill="#f0a24d"/>
-  <g class="arrow" fill="none" stroke="#231b11" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M600 72v30m-13-13 13 13 13-13M584 112h32"/></g>
-  <text x="600" y="200" class="h1">NexusMods <tspan>Bypass</tspan></text>
-  <text x="600" y="240" class="sub">Queue Nexus Mods collections, skip repetitive steps, and resume your queue.</text>
-  <rect x="520" y="262" width="160" height="3" rx="1.5" fill="url(#accent)"/>
-  
+  <style>
+    text { font-family: "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif; }
+    .download-arrow { animation: arrive 6s cubic-bezier(.4,0,.2,1) infinite; }
+    .reflection { animation: polish 6s ease-in-out infinite; }
+    @keyframes arrive {
+      0%, 12%, 72%, 100% { transform: translateY(0); }
+      34% { transform: translateY(10px); }
+      48% { transform: translateY(-3px); }
+      60% { transform: translateY(0); }
+    }
+    @keyframes polish {
+      0%, 12% { transform: translateX(-170px); opacity: 0; }
+      18% { opacity: 1; }
+      56% { transform: translateX(170px); opacity: 1; }
+      64%, 100% { transform: translateX(170px); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .download-arrow, .reflection { animation: none; }
+      .reflection { opacity: 0; }
+    }
+  </style>
+  <rect x="1" y="1" width="1098" height="298" rx="28" fill="url(#surface)" stroke="url(#rim)" stroke-width="2"/>
+  <g clip-path="url(#panel)">
+    <ellipse cx="138" cy="154" rx="265" ry="210" fill="url(#warmth)"/>
+    <path d="M24 2H1076" stroke="#fff" stroke-opacity=".15"/>
+    <ellipse cx="134" cy="226" rx="86" ry="12" fill="#000" fill-opacity=".25"/>
+    <rect x="62" y="77" width="144" height="144" rx="38" fill="url(#depth)" stroke="#eaa14c" stroke-opacity=".25"/>
+    <rect x="62" y="68" width="144" height="144" rx="38" fill="url(#tile)" stroke="url(#rim)" stroke-width="1.5"/>
+    <path d="M83 80Q88 77 102 77H166" fill="none" stroke="#fff1d8" stroke-opacity=".25" stroke-linecap="round"/>
+    <g clip-path="url(#tile-clip)">
+      <path class="reflection" d="M57 67H93L182 213H146Z" fill="url(#reflection)"/>
+    </g>
+    <g class="download-arrow">
+      <path d="M126 104H142V138H160L134 164L108 138H126Z" fill="#000" fill-opacity=".24" transform="translate(0 3)"/>
+      <path d="M126 104H142V138H160L134 164L108 138H126Z" fill="url(#arrow)"/>
+    </g>
+    <path d="M108 174H160" stroke="#fff1d8" stroke-width="6" stroke-linecap="round"/>
+    <path d="M240 67V230" stroke="#f4f5f8" stroke-opacity=".1"/>
+    <text x="276" y="115" font-size="43" font-weight="700" letter-spacing="-1.1" fill="#f4f5f8">NexusMods Bypass</text>
+    <text x="278" y="158" font-size="22" fill="#e0d7cd">Queue Nexus Mods collections, skip repetitive steps,</text>
+    <text x="278" y="191" font-size="22" fill="#e0d7cd">and resume your queue.</text>
+    <text x="278" y="235" font-size="16" fill="#b8b9c3">Chrome / Firefox / Edge</text>
+  </g>
 </svg>
