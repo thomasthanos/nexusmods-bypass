@@ -1683,65 +1683,65 @@
     }
   },
   "logVortexHandoffSummary": {
-    "message": "$COUNT$개 파일을 Vortex로 넘겼습니다. Vortex 다운로드에서 모두 도착했는지 확인하고, 아니면 다시 다운로드로 다시 실행하세요.",
+    "message": "파일 $COUNT$개를 Vortex로 넘겼습니다. Vortex의 다운로드 탭을 확인하세요. 빠진 것이 있으면 다시 실행하면 됩니다. 보낸 파일은 \"다운로드됨\"이 아닌 \"보냄\"으로 기록되고 Vortex는 이미 있는 파일을 건너뛰므로 빠진 파일만 다시 받습니다.",
     "description": "UI string.",
     "placeholders": {
       "count": { "content": "$1" }
     }
   },
   "logLinkExpired": {
-    "message": "Link expired before it could be sent to Vortex."
+    "message": "Vortex로 보내기 전에 링크가 만료되었습니다."
   },
   "logLinkExpiredRefetch": {
-    "message": "Link expired, fetching a new one."
+    "message": "링크가 만료되어 새 링크를 가져오는 중입니다."
   },
   "logVortexAccountMismatch": {
-    "message": "These links are signed for Nexus account #$LINK$, but this page is signed in as #$PAGE$. Vortex rejects links for another account: sign Vortex and the browser into the same Nexus account.",
+    "message": "이 링크는 Nexus 계정 #$LINK$용으로 서명되었지만 이 페이지는 #$PAGE$로 로그인되어 있습니다. Vortex는 다른 계정의 링크를 거부합니다. Vortex와 브라우저를 같은 Nexus 계정으로 로그인하세요.",
     "placeholders": {
       "link": { "content": "$1" },
       "page": { "content": "$2" }
     }
   },
   "logVortexAccountNote": {
-    "message": "Links are signed for Nexus account #$ID$. Vortex must be signed into the same account, or it rejects them as \"Invalid download links\".",
+    "message": "링크가 Nexus 계정 #$ID$용으로 서명되었습니다. Vortex도 같은 계정으로 로그인해야 하며, 그렇지 않으면 \"Invalid download links\"로 거부됩니다.",
     "placeholders": {
       "id": { "content": "$1" }
     }
   },
   "logVortexOpened": {
-    "message": "Vortex picked up the first link; sending the rest."
+    "message": "Vortex가 첫 번째 링크를 받았습니다. 나머지를 보냅니다."
   },
   "logVortexNotOpened": {
-    "message": "Vortex did not open, so the rest were not sent. Start Vortex (and allow nxm:// links in the browser prompt), then run again."
+    "message": "Vortex가 열리지 않아 나머지는 보내지 않았습니다. Vortex를 실행하고(브라우저 확인 창에서 nxm:// 링크를 허용한 뒤) 다시 시작하세요."
   },
   "logVortexCollectionTip": {
-    "message": "Tip: for a whole collection, start it in Vortex (\"Download collection in Vortex\") so Vortex installs it with its rules; then send the files it asks for from here."
+    "message": "팁: 컬렉션 전체는 Vortex에서 시작하세요(\"Download collection in Vortex\"). Vortex가 규칙에 맞게 설치합니다. 그런 다음 요청하는 파일을 여기서 보내세요."
   },
   "logResendingVortex": {
-    "message": "Sent to Vortex before; sending again (Vortex skips files it already has)"
+    "message": "이전에 Vortex로 보냄. 다시 보냅니다(Vortex는 이미 있는 파일을 건너뜁니다)"
   },
   "dlgVortexCollectionTip": {
-    "message": "For a whole collection, starting it in Vortex (\"Download collection in Vortex\") is recommended: Vortex installs it with the collection's rules. Use this to send the files it asks for."
+    "message": "컬렉션 전체는 Vortex에서 시작하는 것을 권장합니다(\"Download collection in Vortex\"). Vortex가 컬렉션 규칙에 맞게 설치합니다. 이 기능은 Vortex가 요청하는 파일을 보내는 데 사용하세요."
   },
   "dlgVortexOpenedTitle": {
-    "message": "Did Vortex open?"
+    "message": "Vortex가 열렸나요?"
   },
   "dlgVortexOpenedLead": {
-    "message": "The first file was sent to Vortex. Did it show up in Vortex's Downloads?"
+    "message": "첫 번째 파일을 Vortex로 보냈습니다. Vortex의 다운로드에 나타났나요?"
   },
   "dlgVortexOpenedHelp": {
-    "message": "If the browser asked to open Vortex, allow it. If nothing happened, stop here so the rest are not sent into the void."
+    "message": "브라우저가 Vortex를 열지 물으면 허용하세요. 아무 일도 없었다면 나머지가 허공으로 보내지지 않도록 여기서 멈추세요."
   },
   "dlgVortexOpenedNo": {
-    "message": "No, stop"
+    "message": "아니요, 중지"
   },
   "dlgVortexOpenedYes": {
-    "message": "Yes, send the rest"
+    "message": "예, 나머지 보내기"
   },
   "noticeVortexNotOpenedTitle": {
-    "message": "Vortex didn't open?"
+    "message": "Vortex가 열리지 않았나요?"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again."
+    "message": "아무 일도 없었다면 Vortex가 설치되어 있고 nxm:// 링크를 처리하도록 설정되어 있는지 확인하고(브라우저 확인 창을 허용한 뒤) 버튼을 다시 클릭하세요."
   }
 }

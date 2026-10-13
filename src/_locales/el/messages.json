@@ -1767,65 +1767,65 @@
     }
   },
   "logVortexHandoffSummary": {
-    "message": "Στάλθηκαν $COUNT$ αρχεία στο Vortex. Ελέγξτε στις Λήψεις του Vortex ότι έφτασαν όλα· αν όχι, ξανατρέξτε με Επανάληψη λήψης.",
+    "message": "Στάλθηκαν $COUNT$ αρχεία στο Vortex. Ελέγξτε την καρτέλα Λήψεις του Vortex. Αν λείπουν κάποια, απλώς ξεκινήστε ξανά: τα αρχεία κρατιούνται ως «σταλμένα», όχι «κατεβασμένα», και το Vortex παραλείπει όσα ήδη έχει, οπότε κατεβαίνουν ξανά μόνο τα ελλιπή.",
     "description": "UI string.",
     "placeholders": {
       "count": { "content": "$1" }
     }
   },
   "logLinkExpired": {
-    "message": "Link expired before it could be sent to Vortex."
+    "message": "Ο σύνδεσμος έληξε πριν σταλεί στο Vortex."
   },
   "logLinkExpiredRefetch": {
-    "message": "Link expired, fetching a new one."
+    "message": "Ο σύνδεσμος έληξε, λήψη νέου."
   },
   "logVortexAccountMismatch": {
-    "message": "These links are signed for Nexus account #$LINK$, but this page is signed in as #$PAGE$. Vortex rejects links for another account: sign Vortex and the browser into the same Nexus account.",
+    "message": "Αυτοί οι σύνδεσμοι είναι υπογεγραμμένοι για τον λογαριασμό Nexus #$LINK$, αλλά αυτή η σελίδα είναι συνδεδεμένη ως #$PAGE$. Το Vortex απορρίπτει συνδέσμους άλλου λογαριασμού: συνδέστε το Vortex και τον browser στον ίδιο λογαριασμό Nexus.",
     "placeholders": {
       "link": { "content": "$1" },
       "page": { "content": "$2" }
     }
   },
   "logVortexAccountNote": {
-    "message": "Links are signed for Nexus account #$ID$. Vortex must be signed into the same account, or it rejects them as \"Invalid download links\".",
+    "message": "Οι σύνδεσμοι είναι υπογεγραμμένοι για τον λογαριασμό Nexus #$ID$. Το Vortex πρέπει να είναι συνδεδεμένο στον ίδιο λογαριασμό, αλλιώς τους απορρίπτει ως «Invalid download links».",
     "placeholders": {
       "id": { "content": "$1" }
     }
   },
   "logVortexOpened": {
-    "message": "Vortex picked up the first link; sending the rest."
+    "message": "Το Vortex πήρε τον πρώτο σύνδεσμο· αποστολή των υπολοίπων."
   },
   "logVortexNotOpened": {
-    "message": "Vortex did not open, so the rest were not sent. Start Vortex (and allow nxm:// links in the browser prompt), then run again."
+    "message": "Το Vortex δεν άνοιξε, οπότε τα υπόλοιπα δεν στάλθηκαν. Ανοίξτε το Vortex (και επιτρέψτε τους συνδέσμους nxm:// στο μήνυμα του browser) και ξεκινήστε ξανά."
   },
   "logVortexCollectionTip": {
-    "message": "Tip: for a whole collection, start it in Vortex (\"Download collection in Vortex\") so Vortex installs it with its rules; then send the files it asks for from here."
+    "message": "Συμβουλή: για ολόκληρη συλλογή, ξεκινήστε την στο Vortex («Download collection in Vortex») ώστε να την εγκαταστήσει με τους κανόνες της· μετά στείλτε από εδώ τα αρχεία που ζητά."
   },
   "logResendingVortex": {
-    "message": "Sent to Vortex before; sending again (Vortex skips files it already has)"
+    "message": "Είχε σταλεί ήδη στο Vortex· αποστέλλεται ξανά (το Vortex παραλείπει αρχεία που ήδη έχει)"
   },
   "dlgVortexCollectionTip": {
-    "message": "For a whole collection, starting it in Vortex (\"Download collection in Vortex\") is recommended: Vortex installs it with the collection's rules. Use this to send the files it asks for."
+    "message": "Για ολόκληρη συλλογή προτείνεται να την ξεκινήσετε στο Vortex («Download collection in Vortex»): το Vortex την εγκαθιστά με τους κανόνες της συλλογής. Χρησιμοποιήστε αυτό για να στείλετε τα αρχεία που ζητά."
   },
   "dlgVortexOpenedTitle": {
-    "message": "Did Vortex open?"
+    "message": "Άνοιξε το Vortex;"
   },
   "dlgVortexOpenedLead": {
-    "message": "The first file was sent to Vortex. Did it show up in Vortex's Downloads?"
+    "message": "Το πρώτο αρχείο στάλθηκε στο Vortex. Εμφανίστηκε στις Λήψεις του Vortex;"
   },
   "dlgVortexOpenedHelp": {
-    "message": "If the browser asked to open Vortex, allow it. If nothing happened, stop here so the rest are not sent into the void."
+    "message": "Αν ο browser ρώτησε για άνοιγμα του Vortex, επιτρέψτε το. Αν δεν έγινε τίποτα, σταματήστε εδώ για να μη σταλούν τα υπόλοιπα στο κενό."
   },
   "dlgVortexOpenedNo": {
-    "message": "No, stop"
+    "message": "Όχι, διακοπή"
   },
   "dlgVortexOpenedYes": {
-    "message": "Yes, send the rest"
+    "message": "Ναι, στείλε τα υπόλοιπα"
   },
   "noticeVortexNotOpenedTitle": {
-    "message": "Vortex didn't open?"
+    "message": "Δεν άνοιξε το Vortex;"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again."
+    "message": "Αν δεν έγινε τίποτα, ελέγξτε ότι το Vortex είναι εγκατεστημένο και ορισμένο για συνδέσμους nxm:// (και επιτρέψτε το μήνυμα του browser), και πατήστε ξανά το κουμπί."
   }
 }
