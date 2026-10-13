@@ -1,5 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="84" height="28" viewBox="0 0 84 28" role="img" aria-labelledby="t"><title id="t">Firefox</title>
-  <rect x=".75" y=".75" width="82.5" height="26.5" rx="13.25" fill="#151c31" stroke="#ff7139" stroke-opacity=".55" stroke-width="1.2"/>
+  <style>text { font-family: "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif; }
+    .sheen { animation: glassSweep 10s ease-in-out infinite; }
+    @keyframes glassSweep {
+      0%, 8% { transform: translateX(0); opacity: 0; }
+      18% { opacity: .45; }
+      62% { transform: translateX(264px); opacity: .45; }
+      70%, 100% { transform: translateX(264px); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } .sheen { opacity: 0; } }</style>
+  <defs>
+    <linearGradient id="face" x2=".7" y2="1"><stop stop-color="#30343d"/><stop offset=".48" stop-color="#191c25"/><stop offset="1" stop-color="#24201e"/></linearGradient>
+    <linearGradient id="edge" x2=".8" y2="1"><stop stop-color="#f4e5d4" stop-opacity=".48"/><stop offset=".45" stop-color="#b9bfd1" stop-opacity=".1"/><stop offset="1" stop-color="#eaa14c" stop-opacity=".32"/></linearGradient>
+    <linearGradient id="tile" x2=".7" y2="1"><stop stop-color="#d3ae7d" stop-opacity=".38"/><stop offset=".5" stop-color="#644a32" stop-opacity=".6"/><stop offset="1" stop-color="#261e19" stop-opacity=".95"/></linearGradient>
+    <linearGradient id="accent" x2="0" y2="1"><stop stop-color="#ffe4b9"/><stop offset=".5" stop-color="#eaa14c"/><stop offset="1" stop-color="#9c652b"/></linearGradient>
+    <linearGradient id="glass-reflection" x2="1" y2=".3"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <clipPath id="glass-clip"><rect x="1" y="1" width="82" height="26" rx="13"/></clipPath>
+
+  </defs>
+
+  <rect x=".75" y="2.25" width="82.5" height="25" rx="12.5" fill="#080a0f" fill-opacity=".7"/>
+  <rect x=".75" y=".75" width="82.5" height="25" rx="12.5" fill="url(#face)" stroke="url(#edge)" stroke-width="1.2"/>
+  <path d="M12 2H72" stroke="#fff" stroke-opacity=".2" stroke-linecap="round"/>
+  <rect x="6" y="4" width="20" height="20" rx="7" fill="#ff7139" fill-opacity=".1"/>
+  <g clip-path="url(#glass-clip)"><path class="sheen" d="M-170 0H-90L-62 28H-142Z" fill="url(#glass-reflection)"/></g>
   <g transform="translate(9 6) scale(0.5)" fill="none" stroke="#ff7139" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10h20l-2 16H8zM11 10V8a5 5 0 0 1 10 0v2"/></g>
-  <text x="29" y="18.2" font-family="Segoe UI,Arial,sans-serif" font-size="11.5" font-weight="600" fill="#e6e9ff">Firefox</text>
+  <text x="29" y="18.2" font-family="Segoe UI,Arial,sans-serif" font-size="11.5" font-weight="600" fill="#f4f5f8">Firefox</text>
 </svg>

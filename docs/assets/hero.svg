@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="300" viewBox="0 0 1100 300" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="240" viewBox="0 0 1100 240" role="img" aria-labelledby="title description">
   <title id="title">NexusMods Bypass</title>
   <desc id="description">Queue Nexus Mods collections, skip repetitive steps, and resume your queue in Chrome, Firefox and Edge.</desc>
   <defs>
@@ -23,7 +23,7 @@
     <radialGradient id="warmth">
       <stop stop-color="#eaa14c" stop-opacity=".2"/><stop offset="1" stop-color="#eaa14c" stop-opacity="0"/>
     </radialGradient>
-    <clipPath id="panel"><rect x="1" y="1" width="1098" height="298" rx="28"/></clipPath>
+    <clipPath id="panel"><rect x="1" y="1" width="1098" height="238" rx="28"/></clipPath>
     <clipPath id="tile-clip"><rect x="62" y="68" width="144" height="144" rx="38"/></clipPath>
   </defs>
   <style>
@@ -47,10 +47,11 @@
       .reflection { opacity: 0; }
     }
   </style>
-  <rect x="1" y="1" width="1098" height="298" rx="28" fill="url(#surface)" stroke="url(#rim)" stroke-width="2"/>
+  <rect x="1" y="1" width="1098" height="238" rx="28" fill="url(#surface)" stroke="url(#rim)" stroke-width="2"/>
   <g clip-path="url(#panel)">
-    <ellipse cx="138" cy="154" rx="265" ry="210" fill="url(#warmth)"/>
+    <ellipse cx="138" cy="124" rx="265" ry="210" fill="url(#warmth)"/>
     <path d="M24 2H1076" stroke="#fff" stroke-opacity=".15"/>
+    <g transform="translate(0 -30)">
     <ellipse cx="134" cy="226" rx="86" ry="12" fill="#000" fill-opacity=".25"/>
     <rect x="62" y="77" width="144" height="144" rx="38" fill="url(#depth)" stroke="#eaa14c" stroke-opacity=".25"/>
     <rect x="62" y="68" width="144" height="144" rx="38" fill="url(#tile)" stroke="url(#rim)" stroke-width="1.5"/>
@@ -63,10 +64,10 @@
       <path d="M126 104H142V138H160L134 164L108 138H126Z" fill="url(#arrow)"/>
     </g>
     <path d="M108 174H160" stroke="#fff1d8" stroke-width="6" stroke-linecap="round"/>
-    <path d="M240 67V230" stroke="#f4f5f8" stroke-opacity=".1"/>
-    <text x="276" y="115" font-size="43" font-weight="700" letter-spacing="-1.1" fill="#f4f5f8">NexusMods Bypass</text>
-    <text x="278" y="158" font-size="22" fill="#e0d7cd">Queue Nexus Mods collections, skip repetitive steps,</text>
-    <text x="278" y="191" font-size="22" fill="#e0d7cd">and resume your queue.</text>
-    <text x="278" y="235" font-size="16" fill="#b8b9c3">Chrome / Firefox / Edge</text>
+    </g>
+    <path d="M232 37V201" stroke="#f4f5f8" stroke-opacity=".1"/>
+    <text x="262" y="102" font-size="54" font-weight="700" letter-spacing="-1.1" fill="#f4f5f8">NexusMods Bypass</text>
+    <text x="264" y="151" font-size="22" fill="#e0d7cd">Queue Nexus Mods collections, skip repetitive steps, and resume your queue.</text>
+    <text x="264" y="194" font-size="16" fill="#b8b9c3">Chrome / Firefox / Edge</text>
   </g>
 </svg>

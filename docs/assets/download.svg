@@ -1,9 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="380" height="64" viewBox="0 0 380 64" role="img" aria-labelledby="t"><title id="t">Download the latest release</title>
-  <style>text { font-family: 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif; } .s { animation: shine 5s ease-in-out infinite; } @keyframes shine { 0%,60% { transform: translateX(-160px); } 100% { transform: translateX(560px); } } @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }</style>
-  <defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f6b25e"/><stop offset="1" stop-color="#e2893a"/></linearGradient>
-  <linearGradient id="sh" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-  <clipPath id="c"><rect width="380" height="64" rx="18"/></clipPath></defs>
-  <g clip-path="url(#c)"><rect width="380" height="64" fill="url(#b)"/><rect class="s" x="0" y="0" width="120" height="64" fill="url(#sh)"/></g>
+  <style>text { font-family: "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif; }
+    .sheen { animation: glassSweep 10s ease-in-out infinite; }
+    @keyframes glassSweep {
+      0%, 8% { transform: translateX(0); opacity: 0; }
+      18% { opacity: .45; }
+      62% { transform: translateX(560px); opacity: .45; }
+      70%, 100% { transform: translateX(560px); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } .sheen { opacity: 0; } }</style>
+  <defs>
+    <linearGradient id="face" x2=".7" y2="1"><stop stop-color="#30343d"/><stop offset=".48" stop-color="#191c25"/><stop offset="1" stop-color="#24201e"/></linearGradient>
+    <linearGradient id="edge" x2=".8" y2="1"><stop stop-color="#f4e5d4" stop-opacity=".48"/><stop offset=".45" stop-color="#b9bfd1" stop-opacity=".1"/><stop offset="1" stop-color="#eaa14c" stop-opacity=".32"/></linearGradient>
+    <linearGradient id="tile" x2=".7" y2="1"><stop stop-color="#d3ae7d" stop-opacity=".38"/><stop offset=".5" stop-color="#644a32" stop-opacity=".6"/><stop offset="1" stop-color="#261e19" stop-opacity=".95"/></linearGradient>
+    <linearGradient id="accent" x2="0" y2="1"><stop stop-color="#ffe4b9"/><stop offset=".5" stop-color="#eaa14c"/><stop offset="1" stop-color="#9c652b"/></linearGradient>
+    <linearGradient id="glass-reflection" x2="1" y2=".3"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <clipPath id="glass-clip"><rect x="1" y="1" width="378" height="58" rx="18"/></clipPath>
+
+  </defs>
+  <defs><linearGradient id="button" x2=".2" y2="1"><stop stop-color="#f7ce91"/><stop offset=".4" stop-color="#e5a653"/><stop offset="1" stop-color="#bc7931"/></linearGradient></defs>
+  <rect x="1" y="6" width="378" height="57" rx="18" fill="#714820" stroke="#251c15" stroke-width="1.5"/>
+  <rect x="1" y="1" width="378" height="57" rx="18" fill="url(#button)" stroke="#ffe0b0" stroke-opacity=".65" stroke-width="1.5"/>
+  <path d="M22 3H358" stroke="#fff8e9" stroke-opacity=".35" stroke-linecap="round"/>
+  <g clip-path="url(#glass-clip)"><path class="sheen" d="M-170 0H-90L-30 60H-110Z" fill="url(#glass-reflection)"/></g>
   <g fill="none" stroke="#231b11" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M42 18v20m-8-8 8 8 8-8M32 46h20"/></g>
   <text x="70" y="30" font-size="18" font-weight="750" fill="#231b11">Download from Releases</text>
   <text x="70" y="49" font-size="12.5" font-weight="600" fill="#3d2c17">Chrome · Edge · Brave · Opera · Firefox 140+</text>
