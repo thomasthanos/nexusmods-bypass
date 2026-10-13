@@ -13,6 +13,14 @@ the repository before NexusMods Bypass was split out (2026-08-24) are folded int
 
 ## 2026-10-13 — v3.0.1
 
+### Vortex hand-off (feat/vortex-handoff)
+- **"Sent to Vortex" history** — Vortex hand-offs are recorded in a separate `vortexSent_<type>` list instead of as downloaded, so they are never skipped forever: the next run sends them again (logged as a re-send). Vortex itself skips files it already has, so a re-send is harmless. Redownload and a clean finish clear both lists.
+- **First hand-off is confirmed** — after the first file, the run waits for the page to lose focus or go hidden (the OS opening Vortex). If that does not happen within 4 s, it asks once, "Did Vortex open?"; "No, stop" ends the run instead of sending the rest into the void. Pacing between files is unchanged.
+- **Expired links are not sent** — the `expires` time of an nxm:// link is checked (with a 30 s margin) before the hand-off; an expired link is logged ("Link expired, fetching a new one") and fetched again once.
+- **Account check** — the Nexus account a link is signed for (`user_id`) is named once per run, with a reminder that Vortex must be signed into the same account. When the page shows a different signed-in member id, a warning appears instead.
+- **Clearer end-of-run message** — explains that sent files are kept as "sent", so running again only fetches what Vortex is missing.
+- **Collection guidance** — the Vortex prompt and the run log recommend starting a whole collection in Vortex ("Download collection in Vortex") and using the extension to send the files Vortex asks for.
+
 ### Fixed
 - **Collection ETA** — the remaining time is now human-readable (`7d 8h`, `3h 12m`, `45m`, `30s`, units localized via `Intl`) and sane: per-file latency and large-file throughput are measured separately with a smoothed average, with the configured download speed as fallback. A 1975-file run that showed `17645:01:37` now estimates about half an hour.
 

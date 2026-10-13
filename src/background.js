@@ -52,6 +52,9 @@ function recordBackgroundError(context, cause) {
 
 const STORAGE_HISTORY_KEY = 'nxtk_ndc_history';
 const HISTORY_TYPES = new Set(['all', 'mandatory', 'optional']);
+// "Sent to Vortex" lists live beside the downloaded ones and never cause a skip.
+const VORTEX_SENT_HISTORY_TYPES = new Set([...HISTORY_TYPES].map((type) => NXTK.vortexSentType(type)));
+const isWritableHistoryType = (type) => HISTORY_TYPES.has(type) || VORTEX_SENT_HISTORY_TYPES.has(type);
 const ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
 const MAX_HISTORY_IDS = 10000;
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -304,7 +307,7 @@ const STORAGE_HANDLERS = {
 
   async NDC_HISTORY_ADD(payload) {
     const { type, fileId } = payload || {};
-    if (!HISTORY_TYPES.has(type)) throw new Error('invalid-history-type');
+    if (!isWritableHistoryType(type)) throw new Error('invalid-history-type');
     if (!isValidHistoryId(fileId)) throw new Error('invalid-file-id');
     return mutateHistory(payload, (collection) => {
       const list = readHistoryList(collection, type);
@@ -315,7 +318,7 @@ const STORAGE_HANDLERS = {
 
   async NDC_HISTORY_CLEAR_TYPE(payload) {
     const { type } = payload || {};
-    if (!HISTORY_TYPES.has(type)) throw new Error('invalid-history-type');
+    if (!isWritableHistoryType(type)) throw new Error('invalid-history-type');
     return mutateHistory(payload, (collection) => {
       collection[type] = [];
     });

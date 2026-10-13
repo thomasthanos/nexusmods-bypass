@@ -306,6 +306,64 @@
 
   const MIN_HANDOFF_GAP_SECONDS = 2;
 
+  // Vortex hand-offs are recorded apart from real downloads: the browser cannot see whether Vortex
+  // received a link, so a "sent" file is never skipped on a later run (Vortex itself skips files it
+  // already has, so re-sending is harmless). One list per history type.
+  const VORTEX_SENT_PREFIX = 'vortexSent_';
+  const vortexSentType = (type) => `${VORTEX_SENT_PREFIX}${type}`;
+
+  // An nxm:// link is resolved by Vortex the moment it arrives, so it only has to be valid then.
+  // Treat a link as expired a little early so it never dies in transit.
+  const NXM_EXPIRY_MARGIN_MS = 30 * 1000;
+
+  // The `expires` (unix seconds) and `user_id` query values of an nxm:// link, split by hand (URL
+  // parsing of custom schemes differs across Chromium versions). Missing values come back as null.
+  function nxmLinkInfo(link) {
+    const match = /^nxm:\/\/[^?#]*\?([^#]*)/i.exec(String(link || ''));
+    if (!match) return { expiresAt: null, userId: null };
+    const params = new URLSearchParams(match[1]);
+    const expires = params.get('expires') || '';
+    const userId = params.get('user_id') || '';
+    return {
+      expiresAt: /^\d+$/.test(expires) ? Number(expires) * 1000 : null,
+      userId: /^\d+$/.test(userId) ? userId : null
+    };
+  }
+
+  function isNxmLinkExpired(link, now = Date.now(), marginMs = NXM_EXPIRY_MARGIN_MS) {
+    const { expiresAt } = nxmLinkInfo(link);
+    return expiresAt !== null && expiresAt - marginMs <= now;
+  }
+
+  // Whether a link was signed for a different Nexus account than the one signed in on the page.
+  // Unknown on either side is not a mismatch.
+  function isNexusUserMismatch(linkUserId, pageUserId) {
+    if (!linkUserId || !pageUserId) return false;
+    return String(linkUserId) !== String(pageUserId);
+  }
+
+  // Resolves true when the page loses focus or is hidden within the timeout, which is what happens
+  // when the OS hands an nxm:// link to Vortex (or Chrome shows its "Open Vortex?" prompt and the
+  // user accepts). Resolves false otherwise. Targets are injectable for tests.
+  function waitForProtocolHandoff({ win = globalThis.window, doc = globalThis.document, timeoutMs = 4000 } = {}) {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (value) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        win?.removeEventListener?.('blur', onBlur);
+        doc?.removeEventListener?.('visibilitychange', onVisibility);
+        resolve(value);
+      };
+      const onBlur = () => finish(true);
+      const onVisibility = () => { if (doc?.visibilityState === 'hidden') finish(true); };
+      const timer = setTimeout(() => finish(false), timeoutMs);
+      win?.addEventListener?.('blur', onBlur);
+      doc?.addEventListener?.('visibilitychange', onVisibility);
+    });
+  }
+
   // What a browser-download interrupt reason means for a retry. chrome.downloads names the reason
   // (InterruptReason); Firefox uses the same strings. Transient network/server hiccups are retried
   // (with backoff, one file at a time, through Nexus's normal link); problems a retry cannot fix
@@ -1071,6 +1129,13 @@
     setSafeHtml,
     classifyDownloadInterrupt,
     MIN_HANDOFF_GAP_SECONDS,
+    VORTEX_SENT_PREFIX,
+    vortexSentType,
+    NXM_EXPIRY_MARGIN_MS,
+    nxmLinkInfo,
+    isNxmLinkExpired,
+    isNexusUserMismatch,
+    waitForProtocolHandoff,
     CLOUDFLARE_SKIP_LIMIT,
     MAX_TRACKED_SKIPS,
     queueSkipReason,

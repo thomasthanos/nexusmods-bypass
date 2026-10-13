@@ -183,6 +183,7 @@ window.NexusExt = window.NexusExt || {};
   const NDC_BOUND_MODAL_IDS = [
     'nxtk-error-modal',
     'nxtk-vortex-check-modal',
+    'nxtk-vortex-opened-modal',
     'nxtk-history-modal',
     'nxtk-import-info-modal',
     'nxtk-wj-info-modal',

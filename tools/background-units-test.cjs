@@ -2211,6 +2211,27 @@ async function cloudflareStreakStopsTheQueue() {
   }
 }
 
+// "Sent to Vortex" lists are written beside the downloaded ones; nothing else new is accepted.
+async function vortexSentHistoryIsAccepted() {
+  const send = (type, payload) => new Promise((resolve) => {
+    messageListeners[0](
+      { type, payload },
+      { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/collections/abc', tab: { id: 7 } },
+      resolve
+    );
+  });
+  const base = { gameId: 'gv', collectionId: 'cv' };
+  const added = await send('NDC_HISTORY_ADD', { ...base, type: 'vortexSent_all', fileId: 123 });
+  assert.equal(added.ok, true, 'a vortexSent_all entry is accepted');
+  assert.deepEqual([...added.value.collection.vortexSent_all], [123]);
+  assert.equal(added.value.collection.all, undefined, 'and is not recorded as downloaded');
+  const bogus = await send('NDC_HISTORY_ADD', { ...base, type: 'vortexSent_bogus', fileId: 1 });
+  assert.equal(bogus.error, 'invalid-history-type', 'only the known types get a sent list');
+  const cleared = await send('NDC_HISTORY_CLEAR_TYPE', { ...base, type: 'vortexSent_all' });
+  assert.equal(cleared.ok, true);
+  assert.deepEqual([...cleared.value.collection.vortexSent_all], [], 'Redownload can clear the sent list');
+}
+
 jobStateBehaviour()
   .then(writeQueueRelease)
   .then(missingQueueItemsBehaviour)
@@ -2241,5 +2262,6 @@ jobStateBehaviour()
   .then(debugLogAndAutoReports)
   .then(downloadStartsAreDeduplicated)
   .then(downloadPopupFollowsBrowserRuns)
+  .then(vortexSentHistoryIsAccepted)
   .then(() => console.log('background.js unit behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

@@ -1688,5 +1688,54 @@
     "placeholders": {
       "count": { "content": "$1" }
     }
+  },
+  "logLinkExpired": {
+    "message": "Link expired before it could be sent to Vortex."
+  },
+  "logLinkExpiredRefetch": {
+    "message": "Link expired, fetching a new one."
+  },
+  "logVortexAccountMismatch": {
+    "message": "These links are signed for Nexus account #$LINK$, but this page is signed in as #$PAGE$. Vortex rejects links for another account: sign Vortex and the browser into the same Nexus account.",
+    "placeholders": {
+      "link": { "content": "$1" },
+      "page": { "content": "$2" }
+    }
+  },
+  "logVortexAccountNote": {
+    "message": "Links are signed for Nexus account #$ID$. Vortex must be signed into the same account, or it rejects them as \"Invalid download links\".",
+    "placeholders": {
+      "id": { "content": "$1" }
+    }
+  },
+  "logVortexOpened": {
+    "message": "Vortex picked up the first link; sending the rest."
+  },
+  "logVortexNotOpened": {
+    "message": "Vortex did not open, so the rest were not sent. Start Vortex (and allow nxm:// links in the browser prompt), then run again."
+  },
+  "logVortexCollectionTip": {
+    "message": "Tip: for a whole collection, start it in Vortex (\"Download collection in Vortex\") so Vortex installs it with its rules; then send the files it asks for from here."
+  },
+  "logResendingVortex": {
+    "message": "Sent to Vortex before; sending again (Vortex skips files it already has)"
+  },
+  "dlgVortexCollectionTip": {
+    "message": "For a whole collection, starting it in Vortex (\"Download collection in Vortex\") is recommended: Vortex installs it with the collection's rules. Use this to send the files it asks for."
+  },
+  "dlgVortexOpenedTitle": {
+    "message": "Did Vortex open?"
+  },
+  "dlgVortexOpenedLead": {
+    "message": "The first file was sent to Vortex. Did it show up in Vortex's Downloads?"
+  },
+  "dlgVortexOpenedHelp": {
+    "message": "If the browser asked to open Vortex, allow it. If nothing happened, stop here so the rest are not sent into the void."
+  },
+  "dlgVortexOpenedNo": {
+    "message": "No, stop"
+  },
+  "dlgVortexOpenedYes": {
+    "message": "Yes, send the rest"
   }
 }
