@@ -1023,12 +1023,19 @@ for (const lang of ['de', 'ru']) {
       const deckOverflow = await deck.evaluate((el) => {
         const r = el.getBoundingClientRect();
         return Array.from(el.querySelectorAll('button, .nxtk-selector-title, .nxtk-radio-hint, .nxtk-btn'))
-          .filter((c) => c.offsetParent && c.getBoundingClientRect().right > r.right + 1)
+          // A closed dropdown is invisible (opacity 0, no pointer events) and laid out off to the side.
+          .filter((c) => c.offsetParent && !c.closest('.nxtk-dropdown-menu:not(.nxtk-open)') && getComputedStyle(c).visibility !== 'hidden')
+          .filter((c) => c.getBoundingClientRect().right > r.right + 1)
           .map((c) => c.textContent.trim().slice(0, 40));
       });
       expect(deckOverflow, `${lang} deck text past the deck edge`).toEqual([]);
       await assertFits(page, '.nxtk-deck', `${lang} deck 380`);
       await page.screenshot({ path: path.join(shotDir, `deck-${lang}-380.png`), fullPage: true });
+      // The open menu with the longest labels stays on screen.
+      await deck.locator('#nxtk-menu-toggle').click();
+      await expect(page.locator('#nxtk-select-mods')).toBeVisible();
+      await page.waitForTimeout(400);
+      await assertFits(page, '#nxtk-dropdown-portal .nxtk-open', `${lang} deck menu 380`);
     } finally {
       await ctx.close();
     }
