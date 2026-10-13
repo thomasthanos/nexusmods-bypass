@@ -26,21 +26,31 @@
 </p>
 
 <details>
-<summary><b>📥 Manual install</b> — <sub>load a release ZIP in Chrome, Edge or Firefox</sub></summary>
+<summary><strong>Manual install</strong> — Install from a ZIP</summary>
 
-**Chrome, Edge, Brave, Opera**
+<blockquote>
+
+#### Chrome, Edge, Brave, Opera
+
 1. Download the latest `nexus.mods.bypass-<version>.zip` from the [Releases page](https://github.com/thomasthanos/nexusmods-bypass/releases/latest).
 2. Extract the `.zip` file into a new folder.
 3. Open `chrome://extensions` (or `edge://extensions`).
 4. Enable **Developer mode** in the top right.
 5. Click **Load unpacked** and select the folder you just extracted.
 
-**Firefox 140 or newer**
+</blockquote>
+
+<blockquote>
+
+#### Firefox 140 or newer
+
 1. Download the latest `nexus.mods.bypass-<version>-firefox.zip` from the [Releases page](https://github.com/thomasthanos/nexusmods-bypass/releases/latest).
 2. Open `about:debugging#/runtime/this-firefox`.
 3. Click **Load Temporary Add-on** and select the `.zip` file directly (no need to extract it).
 
-*Note: A temporary add-on is unloaded when Firefox closes. Installing it permanently requires downloading from the official AMO store.*
+**Temporary installation:** A temporary add-on is unloaded when Firefox closes. Installing it permanently requires downloading from the official AMO store.
+
+</blockquote>
 </details>
 
 > In **Vortex mode**, keep Vortex running: the browser can confirm a link was sent, not that Vortex finished the download.
