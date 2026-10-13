@@ -594,6 +594,7 @@
           <div class="nxtk-history-copy">
             <div class="nxtk-history-lead">${L('logVortexNotice', 'Vortex must be running. Files are recorded once sent to it — the browser cannot see whether Vortex actually received them.')}</div>
             <div class="nxtk-history-text">${L('deckMethodBrowserHint', 'Use native browser downloads when Vortex is not handling links.')}</div>
+            <div class="nxtk-history-text nxtk-vortex-collection-tip">${L('dlgVortexCollectionTip', 'For a whole collection, starting it in Vortex ("Download collection in Vortex") is recommended: Vortex installs it with the collection\'s rules. Use this to send the files it asks for.')}</div>
           </div>
           <div class="nxtk-history-grid">
             <button type="button" class="nxtk-history-option nxtk-history-option-accent" data-close="vortex">
@@ -612,6 +613,34 @@
       `
       });
       modal.querySelector('[data-close="vortex"]')?.focus();
+    });
+  }
+
+  // Asked once per run when the first nxm:// hand-off did not visibly open Vortex.
+  function showVortexOpenedModal() {
+    return new Promise((resolve) => {
+      const { modal } = openModal({
+        id: 'nxtk-vortex-opened-modal',
+        className: 'nxtk-modal nxtk-modal-sm',
+        onClose: (choice) => resolve(choice === 'yes' ? 'yes' : 'no'),
+        html: `
+        <div class="nxtk-modal-header">
+          <div class="nxtk-modal-title">${L('dlgVortexOpenedTitle', 'Did Vortex open?')}</div>
+          <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
+        </div>
+        <div class="nxtk-history-summary">
+          <div class="nxtk-history-copy">
+            <div class="nxtk-history-lead">${L('dlgVortexOpenedLead', 'The first file was sent to Vortex. Did it show up in Vortex\'s Downloads?')}</div>
+            <div class="nxtk-history-text">${L('dlgVortexOpenedHelp', 'If the browser asked to open Vortex, allow it. If nothing happened, stop here so the rest are not sent into the void.')}</div>
+          </div>
+        </div>
+        <div class="nxtk-modal-footer">
+          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-close="no">${L('dlgVortexOpenedNo', 'No, stop')}</button>
+          <button type="button" class="nxtk-btn nxtk-btn-primary" data-close="yes" id="nxtk-vortex-opened-yes">${L('dlgVortexOpenedYes', 'Yes, send the rest')}</button>
+        </div>
+      `
+      });
+      modal.querySelector('[data-close="yes"]')?.focus();
     });
   }
 
@@ -1976,6 +2005,6 @@
     closeAll: closeAllDropdownMenus,
     cleanupOrphanedPortals
   };
-  Object.assign(window.NexusExt.UI, { createControlDeck, showVortexHandoffModal, showHistoryDecisionModal, confirmLargeRun });
+  Object.assign(window.NexusExt.UI, { createControlDeck, showVortexHandoffModal, showVortexOpenedModal, showHistoryDecisionModal, confirmLargeRun });
   kit.collection = { createControlDeck, disposeControlDeck, deckRunIsActive };
 })();

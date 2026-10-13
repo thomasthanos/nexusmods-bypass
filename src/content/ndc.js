@@ -4,6 +4,18 @@ window.NexusExt = window.NexusExt || {};
   'use strict';
 
   const DOWNLOAD_METHOD_VORTEX = 0;
+  const VORTEX_CONFIRM_TIMEOUT_MS = 4000;
+
+  // The Nexus member id of the signed-in user, when the page shows it (data attributes or a link to
+  // the member's own profile by id). Null when unknown.
+  function pageNexusUserId(root) {
+    const tagged = root?.querySelector?.('[data-user-id], [data-member-id]');
+    const fromData = tagged?.getAttribute('data-user-id') || tagged?.getAttribute('data-member-id');
+    if (/^\d+$/.test(fromData || '')) return fromData;
+    const link = root?.querySelector?.('a[href*="/users/"][href*="nexusmods.com"], a[href^="/users/"]');
+    const match = /\/users\/(\d+)(?:[/?#]|$)/.exec(link?.getAttribute('href') || '');
+    return match ? match[1] : null;
+  }
   const DOWNLOAD_METHOD_BROWSER = 1;
 
   const STATUS_DOWNLOADING = 0;
@@ -593,9 +605,59 @@ window.NexusExt = window.NexusExt || {};
         return false;
       }
 
+      if (NXTK.isNxmLinkExpired(downloadUrl)) {
+        this.ui.log(`${prefix} ${T('logLinkExpired', 'Link expired before it could be sent to Vortex.')} ${link}`, 'error');
+        return false;
+      }
+
+      this.noteVortexAccount(downloadUrl);
       this.ui.log(`${prefix} ${T('logSendingToVortex', 'Sending to Vortex:')} ${link} ${meta}`);
       document.location.href = downloadUrl;
       return true;
+    }
+
+    // Vortex refuses a link signed for another account ("Invalid download links"), and the browser
+    // never hears about it. Say once per run which account the links belong to, and warn loudly when
+    // that is not the account signed in on this page.
+    noteVortexAccount(downloadUrl) {
+      const { userId } = NXTK.nxmLinkInfo(downloadUrl);
+      if (!userId || this.vortexAccountNoted === userId) return;
+      this.vortexAccountNoted = userId;
+      const pageUserId = pageNexusUserId(document);
+      if (NXTK.isNexusUserMismatch(userId, pageUserId)) {
+        this.ui.logText(TS('logVortexAccountMismatch', [userId, pageUserId],
+          `These links are signed for Nexus account #${userId}, but this page is signed in as #${pageUserId}. Vortex rejects links for another account: sign Vortex and the browser into the same Nexus account.`), 'error');
+        return;
+      }
+      this.ui.logText(TS('logVortexAccountNote', [userId],
+        `Links are signed for Nexus account #${userId}. Vortex must be signed into the same account, or it rejects them as "Invalid download links".`), 'info');
+    }
+
+    // A fresh link for the mod. Vortex resolves nxm:// links on arrival, so one that has expired (or
+    // is about to) is logged and fetched again once instead of being sent dead.
+    async fetchFreshLink(mod, options = {}, prefix = '') {
+      let result = await this.fetchDownloadLinkWithRetry(mod, options);
+      if (result.downloadUrl && NXTK.isNxmLinkExpired(result.downloadUrl)) {
+        const link = `<a href="${escapeHtml(this.fileLinkFor(mod))}" target="_blank" rel="noopener noreferrer">${escapeHtml(mod.file.name)}</a>`;
+        this.ui.log(`${prefix} ${T('logLinkExpiredRefetch', 'Link expired, fetching a new one.')} ${link}`.trim(), 'info');
+        result = await this.fetchDownloadLinkWithRetry(mod, options);
+      }
+      return result;
+    }
+
+    // After the first hand-off of a run: wait for the page to lose focus (the OS opening Vortex), and
+    // if it does not, ask once. Returns false when the user says Vortex did not open.
+    async confirmFirstVortexHandoff() {
+      const picked = await NXTK.waitForProtocolHandoff({ timeoutMs: VORTEX_CONFIRM_TIMEOUT_MS });
+      if (picked) {
+        this.ui.logText(T('logVortexOpened', 'Vortex picked up the first link; sending the rest.'), 'info');
+        return true;
+      }
+      if (typeof NexusExt.UI?.showVortexOpenedModal !== 'function') return true;
+      const answer = await NexusExt.UI.showVortexOpenedModal();
+      if (answer === 'yes') return true;
+      this.ui.logText(T('logVortexNotOpened', 'Vortex did not open, so the rest were not sent. Start Vortex (and allow nxm:// links in the browser prompt), then run again.'), 'error');
+      return false;
     }
 
     async retryMod(mod, { type = null, onSucceeded = null } = {}) {
@@ -604,7 +666,7 @@ window.NexusExt = window.NexusExt || {};
         return;
       }
 
-      const result = await this.fetchDownloadLinkWithRetry(mod);
+      const result = await this.fetchFreshLink(mod, {}, 'Retry:');
       if (this.isStopped()) return;
 
       if (result.downloadUrl) {
@@ -612,7 +674,7 @@ window.NexusExt = window.NexusExt || {};
           NXTK.bumpTotalDownloads?.();
           if (type !== null) {
             try {
-              await this.recordHistoryEntry(type, historyEntryId(mod));
+              await this.recordHistoryEntry(NXTK.vortexSentType(type), historyEntryId(mod));
             } catch (_) { }
           }
           onSucceeded?.();
@@ -1118,6 +1180,11 @@ window.NexusExt = window.NexusExt || {};
 
           if (choice === 'redownload') {
             restart = true;
+            await NexusExt.Storage.clearHistoryType({
+              gameId: this.gameId,
+              collectionId: this.collectionId,
+              type: NXTK.vortexSentType(type)
+            });
             history = await NexusExt.Storage.clearHistoryType({
               gameId: this.gameId,
               collectionId: this.collectionId,
@@ -1141,6 +1208,8 @@ window.NexusExt = window.NexusExt || {};
 
       this.ui.startDownload(mods.length);
       let outcome = 'finished';
+      this.vortexAccountNoted = null;
+      this.ui.logText(T('logVortexCollectionTip', 'Tip: for a whole collection, start it in Vortex ("Download collection in Vortex") so Vortex installs it with its rules; then send the files it asks for from here.'), 'info');
 
       try {
 
@@ -1167,6 +1236,9 @@ window.NexusExt = window.NexusExt || {};
           this.ui.incrementProgress();
           continue;
         }
+        if (history?.[this.gameId]?.[this.collectionId]?.[NXTK.vortexSentType(type)]?.includes(historyEntryId(mod))) {
+          this.ui.log(`[${modNumber}] ${T('logResendingVortex', 'Sent to Vortex before; sending again (Vortex skips files it already has)')} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`);
+        }
 
         await this.waitOutRateLimit();
         if (this.isStopped()) {
@@ -1175,12 +1247,12 @@ window.NexusExt = window.NexusExt || {};
           break;
         }
 
-        const downloadResult = await this.fetchDownloadLinkWithRetry(mod, {
+        const downloadResult = await this.fetchFreshLink(mod, {
           onAttemptFailed: (error, attempt) => this.ui.log(
             `[${modNumber}] ${escapeHtml(TS('logRetryingAttempt', [error.code, String(attempt + 1)], `${error.code} — retrying (attempt ${attempt + 1})`))} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`,
             'info'
           )
-        });
+        }, `[${modNumber}]`);
 
         if (this.isStopped()) {
           outcome = 'stopped';
@@ -1242,7 +1314,11 @@ window.NexusExt = window.NexusExt || {};
           handedOffCount += 1;
 
           if (history) {
-            history = await this.recordHistoryEntry(type, historyEntryId(mod));
+            history = await this.recordHistoryEntry(NXTK.vortexSentType(type), historyEntryId(mod));
+          }
+          if (handedOffCount === 1 && index < mods.length - 1 && !(await this.confirmFirstVortexHandoff())) {
+            forceStop = true;
+            outcome = 'stopped';
           }
         }
 
@@ -1321,11 +1397,13 @@ window.NexusExt = window.NexusExt || {};
 
       if (history && outcome === 'finished' && !failedDownload.length && !skipped.length
         && this.ui.progress === this.ui.modsCount) {
-        await NexusExt.Storage.clearHistoryType({
-          gameId: this.gameId,
-          collectionId: this.collectionId,
-          type
-        });
+        for (const listType of [type, NXTK.vortexSentType(type)]) {
+          await NexusExt.Storage.clearHistoryType({
+            gameId: this.gameId,
+            collectionId: this.collectionId,
+            type: listType
+          });
+        }
       }
 
       this.logSkippedSummary(skipped);
@@ -1334,7 +1412,7 @@ window.NexusExt = window.NexusExt || {};
       // hand-off is recorded as sent, not as downloaded. Say so, with the way to resend.
       if (handedOffCount > 0) {
         this.ui.logText(TS('logVortexHandoffSummary', [String(handedOffCount)],
-          `Handed ${handedOffCount} files to Vortex. Check Vortex's Downloads that each one arrived; if some did not, run again with Redownload.`), 'info');
+          `Handed ${handedOffCount} files to Vortex. Check Vortex's Downloads tab. If any are missing, just run again: sent files are kept as "sent", not "downloaded", and Vortex skips files it already has, so only the missing ones download again.`), 'info');
       }
 
       if (failedDownload.length) {
@@ -1512,6 +1590,7 @@ window.NexusExt = window.NexusExt || {};
   }
 
   window.NexusExt.NDC = NDC;
+  window.NexusExt.NDC_HELPERS = { pageNexusUserId };
   window.NexusExt.NDC_CONSTANTS = {
     DOWNLOAD_METHOD_VORTEX,
     DOWNLOAD_METHOD_BROWSER,

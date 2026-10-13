@@ -183,6 +183,7 @@ window.NexusExt = window.NexusExt || {};
   const NDC_BOUND_MODAL_IDS = [
     'nxtk-error-modal',
     'nxtk-vortex-check-modal',
+    'nxtk-vortex-opened-modal',
     'nxtk-history-modal',
     'nxtk-import-info-modal',
     'nxtk-wj-info-modal',
@@ -348,6 +349,64 @@ window.NexusExt = window.NexusExt || {};
     return null;
   }
 
+  // Nexus menus and popovers, wherever they are rendered (light DOM, portals, open shadow roots).
+  // Their own controls can sit in shadow roots that elementsFromPoint only reports as the host, and
+  // the account menu animates in after the click checks ran, so an open menu is looked for directly.
+  const NEXUS_MENU_SELECTOR = [
+    '[role="menu"]', '[role="listbox"]', '[role="dialog"]', '[aria-modal="true"]',
+    '[data-state="open"]', '[data-headlessui-state~="open"]', '[data-radix-popper-content-wrapper]',
+    '[data-popper-placement]', 'dialog[open]', 'details[open]'
+  ].join(',');
+
+  // Only custom elements (a dash in the tag) can host an open shadow root Nexus renders into.
+  function* deepElements(root, selector, depth = 0) {
+    if (!root || depth > 4) return;
+    yield* root.querySelectorAll(selector);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+      acceptNode: (node) => (node.localName.includes('-') && node.shadowRoot ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP)
+    });
+    for (let host = walker.nextNode(); host; host = walker.nextNode()) {
+      yield* deepElements(host.shadowRoot, selector, depth + 1);
+    }
+  }
+
+  function isShown(element) {
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) return null;
+    const style = getComputedStyle(element);
+    if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) return null;
+    return rect;
+  }
+
+  // The open Nexus menu or popover that reaches under the button, or null.
+  function openMenuUnderFab(fab) {
+    const box = fab.getBoundingClientRect();
+    if (!box.width || !box.height) return null;
+    const pad = 12;
+    const overlaps = (r) => r.left < box.right + pad && box.left - pad < r.right
+      && r.top < box.bottom + pad && box.top - pad < r.bottom;
+    const candidates = new Set(deepElements(document, NEXUS_MENU_SELECTOR));
+    // A control that says it is expanded points at what it opened.
+    for (const toggle of deepElements(document, '[aria-expanded="true"][aria-controls]')) {
+      const target = toggle.getRootNode().getElementById?.(toggle.getAttribute('aria-controls'));
+      if (target) candidates.add(target);
+    }
+    for (const element of candidates) {
+      if (element === fab || element.closest?.('#nxtk-extension-root, #nxtk-dropdown-portal, .nxtk-modal-backdrop, .nxtk-close-toast, .nxtk-modal')) continue;
+      // A whole-page dialog is the page, not a menu.
+      if (element === document.body || element === document.documentElement) continue;
+      const rect = isShown(element);
+      if (rect && rect.width < innerWidth * 0.95 && overlaps(rect)) return element;
+    }
+    return null;
+  }
+
+  function syncFabWithMenus(fab) {
+    const menu = openMenuUnderFab(fab);
+    fab.classList.toggle('nxtk-fab-menu-open', !!menu);
+    return menu;
+  }
+
   function placeFab(fab) {
     fab.style.removeProperty('bottom');
     fab.classList.remove('nxtk-fab-tucked', 'nxtk-fab-hidden');
@@ -398,7 +457,41 @@ window.NexusExt = window.NexusExt || {};
     }, true);
     fab.addEventListener('pointerleave', schedule);
     fab.addEventListener('blur', schedule);
+
+    // Open menus: checked on any change that opens or closes one, and a few times after a press,
+    // because menus open on pointerdown or hover and animate in.
+    // At most one scan per MENU_CHECK_MS: the scan walks open shadow roots, and Nexus pages mutate often.
+    const MENU_CHECK_MS = 200;
+    let menuTimer = 0;
+    let lastMenuCheck = 0;
+    const scheduleMenus = () => {
+      if (menuTimer) return;
+      const wait = Math.max(0, lastMenuCheck + MENU_CHECK_MS - Date.now());
+      menuTimer = setTimeout(() => requestAnimationFrame(() => {
+        menuTimer = 0;
+        lastMenuCheck = Date.now();
+        if (fab.isConnected) syncFabWithMenus(fab);
+      }), wait);
+    };
+    if (typeof MutationObserver === 'function') {
+      new MutationObserver(scheduleMenus).observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['aria-expanded', 'data-state', 'data-headlessui-state', 'open', 'hidden', 'aria-hidden']
+      });
+    }
+    for (const type of ['pointerdown', 'click', 'keydown', 'transitionend', 'animationend']) {
+      document.addEventListener(type, (event) => {
+        if (fab.contains(event.target)) return;
+        scheduleMenus();
+        if (type === 'pointerdown' || type === 'click' || type === 'keydown') {
+          for (const delay of [150, 400, 900]) setTimeout(scheduleMenus, delay);
+        }
+      }, { capture: true, passive: true });
+    }
     kit.placeFab = () => placeFab(fab);
+    kit.syncFabWithMenus = () => syncFabWithMenus(fab);
   }
 
   async function showSettingsModal() {
@@ -645,6 +738,48 @@ window.NexusExt = window.NexusExt || {};
     return { dismiss: remove };
   }
 
+  // A short, button-less status line (role=status, aria-live) for progress the user just caused, such
+  // as "Sending to Vortex…". update() changes the text and (re)starts the timer; it goes by itself.
+  function showStatusToast(text, ms = 8000) {
+    document.querySelectorAll('.nxtk-status-toast').forEach((old) => old.remove());
+    const toast = document.createElement('div');
+    toast.className = 'nxtk-close-toast nxtk-notice-toast nxtk-status-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    const heading = document.createElement('strong');
+    heading.textContent = String(text);
+    const copy = document.createElement('div');
+    copy.className = 'nxtk-close-toast-copy';
+    copy.append(heading);
+    toast.append(copy);
+    let gone = false;
+    let timer = null;
+    const dismiss = () => {
+      if (gone) return;
+      gone = true;
+      clearTimeout(timer);
+      toast.classList.add('is-leaving');
+      setTimeout(() => toast.remove(), 300);
+    };
+    const arm = (delay) => {
+      clearTimeout(timer);
+      if (delay > 0) timer = setTimeout(dismiss, delay);
+    };
+    prepareToolkitSurface(toast);
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('is-visible'));
+    arm(ms);
+    return {
+      element: toast,
+      update(next, nextMs = ms) {
+        if (gone) return;
+        heading.textContent = String(next);
+        arm(nextMs);
+      },
+      dismiss
+    };
+  }
+
   function showCloseCountdown({ ms = 3000, onDone = null, onCancel = null } = {}) {
     const total = Math.max(1000, Number(ms) || 3000);
     let remaining = Math.ceil(total / 1000);
@@ -748,6 +883,7 @@ window.NexusExt = window.NexusExt || {};
     showError,
     showCloseCountdown,
     showNotice,
+    showStatusToast,
     nxtkAlert,
     loadBundle
   };

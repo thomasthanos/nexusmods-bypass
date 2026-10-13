@@ -670,3 +670,121 @@ test('settings button steps aside when a Nexus menu (account / Sign out) drops u
   await expect(fab, 'and comes back when the menu closes').toBeVisible();
   await page.close();
 });
+
+test('Vortex button state shows on a real-style label (icon span + bare text, re-rendered) and in a status toast', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  const hold = async (route) => {
+    await new Promise((r) => setTimeout(r, 3000));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
+  };
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', hold);
+  await page.route('**/api/files/**', hold);
+  await page.evaluate(() => {
+    const host = document.createElement('mod-file-download');
+    host.setAttribute('file', JSON.stringify({ id: 35409 }));
+    host.setAttribute('game-id', '1704');
+    const outer = host.attachShadow({ mode: 'open' });
+    const modal = document.createElement('mod-download-modal');
+    modal.setAttribute('file', JSON.stringify({ id: 35409, downloadUrl: 'https://www.nexusmods.com/api/files/35409?game=1704', vortexDownloadUrl: 'https://www.nexusmods.com/api/files/35409?game=1704&nmm=1' }));
+    outer.append(modal);
+    const inner = modal.attachShadow({ mode: 'open' });
+    const button = document.createElement('button');
+    button.id = 'styled-vortex';
+    // Like Nexus: an icon wrapper first, the label as a bare text node.
+    button.innerHTML = '<span class="icon" aria-hidden="true"><svg width="16" height="16"></svg></span>Mod manager download';
+    // A framework re-render puts its own label back shortly after the click.
+    button.addEventListener('click', () => setTimeout(() => {
+      button.lastChild.nodeValue = 'Mod manager download';
+    }, 100));
+    inner.append(button);
+    document.body.append(host);
+  });
+  const button = page.locator('mod-file-download').locator('#styled-vortex');
+  await button.click();
+  await expect(page.locator('.nxtk-status-toast[role="status"]')).toContainText(/Sending to Vortex/, { timeout: 1000 });
+  await page.waitForTimeout(400);
+  await expect(button, 'the label survives the re-render').toHaveText(/Sending to Vortex/);
+  expect(await button.locator('svg').count(), 'the icon is kept').toBe(1);
+  await page.waitForTimeout(3500);
+  for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  }
+  await expect(page.locator('.nxtk-status-toast'), 'a failed send removes the toast').toHaveCount(0, { timeout: 2000 });
+  await page.close();
+});
+
+test('settings button hides while a Nexus menu in a shadow root (opened on pointerdown, animated) covers it at 150%', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604', 1280, 720, 1.5);
+  const fab = page.locator('#nxtk-settings-fab');
+  await expect(fab).toBeVisible({ timeout: 20000 });
+  await page.evaluate(() => {
+    const header = document.createElement('nexus-account-menu');
+    header.style.cssText = 'position:fixed;top:4px;right:4px;z-index:50';
+    const root = header.attachShadow({ mode: 'open' });
+    root.innerHTML = `
+      <button id="acct" aria-expanded="false" aria-controls="acct-menu">Account</button>
+      <div id="acct-menu" role="menu" hidden
+        style="position:fixed;top:40px;right:0;bottom:0;width:260px;background:#222;display:flex;flex-direction:column;justify-content:flex-end;opacity:0;transition:opacity .5s">
+        <div role="menuitem">Profile</div><div role="menuitem" style="padding:12px">Sign out</div>
+      </div>`;
+    const toggle = root.getElementById('acct');
+    const menu = root.getElementById('acct-menu');
+    toggle.addEventListener('pointerdown', () => {
+      const open = menu.hidden;
+      menu.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+      globalThis.requestAnimationFrame(() => { menu.style.opacity = open ? '1' : '0'; });
+    });
+    document.body.append(header);
+  });
+  const toggle = page.locator('nexus-account-menu').locator('#acct');
+  await toggle.dispatchEvent('pointerdown');
+  await page.waitForTimeout(1200);
+  const state = await page.evaluate(() => getComputedStyle(document.getElementById('nxtk-settings-fab')).visibility);
+  expect(state, 'the FAB steps aside while the menu is open').toBe('hidden');
+  await toggle.dispatchEvent('pointerdown');
+  await page.waitForTimeout(1200);
+  await expect(fab, 'and comes back when it closes').toBeVisible();
+  await page.close();
+});
+
+test('single-file Auto NMM path (?file_id=…&nmm=1, no button) shows the Vortex toast, the "didn\'t open?" hint and logs both', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  const ext = await context.newPage();
+  await ext.goto(`chrome-extension://${id}/popup/popup.html`);
+  const patch = (values) => ext.evaluate((v) => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_settings', (o) => globalThis.chrome.storage.local.set({ nxtk_settings: { ...(o.nxtk_settings || {}), ...v }, nxtk_debug_log: [] }, r))), values);
+  // The tab would close itself after the hand-off; keep it so the hint can be seen.
+  await patch({ AutoCloseTab: false, DebugLogs: true });
+
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const expires = Math.floor(Date.now() / 1000) + 3600;
+  const nxm = `nxm://skyrimspecialedition/mods/12604/files/35410?key=abc&expires=${expires}&user_id=1`;
+  const answer = (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: nxm }) });
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', async (route) => {
+    await new Promise((r) => setTimeout(r, 800));
+    return answer(route);
+  });
+  await page.route('**/api/files/**', answer);
+  await page.goto('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=35410&nmm=1');
+  const toast = page.locator('.nxtk-status-toast[role="status"]');
+  await expect(toast, 'the auto-start path announces the hand-off').toContainText(/Sending to Vortex/, { timeout: 15000 });
+  await expect(toast).toContainText(/Sent to Vortex/, { timeout: 5000 });
+  // Nothing takes the focus in the test browser, as when the xdg-open prompt is cancelled.
+  await expect(page.locator('.nxtk-notice-toast:not(.nxtk-status-toast)'), 'a hint follows when Vortex shows no sign of opening')
+    .toContainText(/Vortex didn't open\?/, { timeout: 8000 });
+  const readLog = () => ext.evaluate(() => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_debug_log', (o) => r((o.nxtk_debug_log || []).map((e) => e.text || JSON.stringify(e)).join('\n')))));
+  // The log is written in batches.
+  await expect.poll(readLog, { timeout: 10000 }).toMatch(/no sign Vortex opened/);
+  const all = await readLog();
+  expect(all, 'the toast is logged').toMatch(/Vortex hand-off: showing "Sending to Vortex…" \(toast\)/);
+  expect(all, 'the sent state is logged').toMatch(/Vortex hand-off: link sent/);
+  expect(all, 'the hint is logged').toMatch(/no sign Vortex opened/);
+  await patch({ AutoCloseTab: true, DebugLogs: false });
+  await page.close();
+  await ext.close();
+});

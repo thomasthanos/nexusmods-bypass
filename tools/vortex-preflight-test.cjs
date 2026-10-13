@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 // The queue policy is the real one from shared.js; shared.js needs no browser to load.
-const shared = vm.createContext({ console, URL, Intl });
+const shared = vm.createContext({ console, URL, URLSearchParams, Intl, setTimeout, clearTimeout });
 vm.runInContext(fs.readFileSync('src/shared.js', 'utf8'), shared, { filename: 'src/shared.js' });
 
 global.window = globalThis;
@@ -18,7 +18,13 @@ global.NXTK = {
   orderQueueBySize: shared.NXTK.orderQueueBySize,
   queueSkipReason: shared.NXTK.queueSkipReason,
   isSafeNexusPageUrl: shared.NXTK.isSafeNexusPageUrl,
-  CLOUDFLARE_SKIP_LIMIT: shared.NXTK.CLOUDFLARE_SKIP_LIMIT
+  CLOUDFLARE_SKIP_LIMIT: shared.NXTK.CLOUDFLARE_SKIP_LIMIT,
+  vortexSentType: shared.NXTK.vortexSentType,
+  nxmLinkInfo: shared.NXTK.nxmLinkInfo,
+  isNxmLinkExpired: shared.NXTK.isNxmLinkExpired,
+  isNexusUserMismatch: shared.NXTK.isNexusUserMismatch,
+  // Vortex "opens" instantly unless a test says otherwise.
+  waitForProtocolHandoff: async () => true
 };
 const BLOCKING_CODES = new Set(['cloudflare', 'requires_login', 'account_suspended', 'rate_limited']);
 global.NexusExt = {
@@ -29,6 +35,7 @@ global.NexusExt = {
     toLogMessage: (error) => `${error?.code || ''} — full advice`,
     displayText: (error) => ({ message: String(error?.code || ''), recovery: 'advice' }),
     create: (code, extra = {}) => ({ code, ...extra }),
+    fromException: (cause) => { console.error('RUN THREW', cause); return { code: 'unknown' }; },
     classifyContent: () => null
   },
   Auth: {
@@ -50,6 +57,8 @@ assert.match(
   /'nxtk-vortex-check-modal'/,
   'collection teardown must settle and remove an open Vortex preflight'
 );
+assert.match(boundModalList, /'nxtk-vortex-opened-modal'/,
+  'collection teardown must settle and remove an open "Did Vortex open?" question');
 
 function createHarness(choice) {
   const calls = {
@@ -278,6 +287,126 @@ function createHarness(choice) {
   answer({ errors: [{ message: 'Unknown argument "slug" on field "Query.collection".' }] });
   await api.fetchRevisions();
   assert.equal(api.lastError.code, 'nexus_api_changed');
+
+  // ---- Vortex hand-off improvements (feat/vortex-handoff).
+  {
+    const S = shared.NXTK;
+    const future = Math.floor(Date.now() / 1000) + 3600;
+    const past = Math.floor(Date.now() / 1000) - 10;
+    const link = (exp, uid = '42') => `nxm://skyrimspecialedition/mods/1/files/2?key=k&expires=${exp}&user_id=${uid}`;
+    assert.equal(S.vortexSentType('all'), 'vortexSent_all');
+    assert.deepEqual({ ...S.nxmLinkInfo(link(future)) }, { expiresAt: future * 1000, userId: '42' });
+    assert.deepEqual({ ...S.nxmLinkInfo('https://x/?expires=1') }, { expiresAt: null, userId: null }, 'only nxm links are read');
+    assert.equal(S.isNxmLinkExpired(link(future)), false);
+    assert.equal(S.isNxmLinkExpired(link(past)), true);
+    assert.equal(S.isNxmLinkExpired(link(Math.floor(Date.now() / 1000) + 10)), true, 'a link about to expire counts as expired');
+    assert.equal(S.isNxmLinkExpired('nxm://g/mods/1/files/2?key=k'), false, 'no expires is not expired');
+    assert.equal(S.isNexusUserMismatch('1', '2'), true);
+    assert.equal(S.isNexusUserMismatch('1', '1'), false);
+    assert.equal(S.isNexusUserMismatch('1', null), false, 'unknown page user is not a mismatch');
+
+    const target = () => {
+      const listeners = {};
+      return { listeners, visibilityState: 'visible',
+        addEventListener: (type, fn) => { listeners[type] = fn; },
+        removeEventListener: (type) => { delete listeners[type]; } };
+    };
+    const win = target(); const doc = target();
+    const blurred = S.waitForProtocolHandoff({ win, doc, timeoutMs: 1000, maxMs: 30 });
+    win.listeners.blur();
+    assert.equal(await blurred, true, 'a blur that lasts (Vortex holds the focus) means the link was handed on');
+    assert.equal(win.listeners.blur, undefined, 'listeners are removed');
+    const winC = target(); const docC = target();
+    const canceled = S.waitForProtocolHandoff({ win: winC, doc: docC, timeoutMs: 1000, maxMs: 1000 });
+    winC.listeners.blur();
+    winC.listeners.focus();
+    assert.equal(await canceled, false, 'blur then focus back (the browser prompt was cancelled or answered) is not proof');
+    const winF = target(); const docF = target();
+    const focusOnly = S.waitForProtocolHandoff({ win: winF, doc: docF, timeoutMs: 30 });
+    winF.listeners.focus();
+    assert.equal(await focusOnly, false, 'a focus without a blur first means nothing');
+    const win2 = target(); const doc2 = target();
+    const hidden = S.waitForProtocolHandoff({ win: win2, doc: doc2, timeoutMs: 1000 });
+    doc2.visibilityState = 'hidden'; doc2.listeners.visibilitychange();
+    assert.equal(await hidden, true, 'a hidden page counts too');
+    assert.equal(await S.waitForProtocolHandoff({ win: target(), doc: target(), timeoutMs: 20 }), false, 'nothing happening times out');
+
+    // A typed run: hand-offs land in the sent list, a sent file is sent again, a downloaded one is skipped.
+    const typedRun = async ({ history = {}, opened = true, modalAnswer = 'yes', links = null, mods }) => {
+      const harness = createHarness('vortex');
+      const { ndc } = harness;
+      const handed = []; const logs = []; const recorded = []; let outcome = null; let modalShown = 0;
+      ndc.pauseBetweenDownload = 0; ndc.showAlertsOnError = false; ndc.smallestFirst = false;
+      ndc.ui.incrementProgress = () => {};
+      ndc.ui.logText = (text) => { logs.push(text); };
+      ndc.ui.log = (html) => { logs.push(html); };
+      ndc.ui.endDownload = (value) => { outcome = value; };
+      NexusExt.Storage.getRateLimit = async () => null;
+      NexusExt.Storage.getHistory = async () => JSON.parse(JSON.stringify(history));
+      NexusExt.UI.showHistoryDecisionModal = async () => 'skip';
+      NexusExt.Storage.clearHistoryType = async () => history;
+      NexusExt.UI.showVortexOpenedModal = async () => { modalShown += 1; return modalAnswer; };
+      NXTK.waitForProtocolHandoff = async () => opened;
+      ndc.recordHistoryEntry = async (type, id) => { recorded.push([type, id]); return history; };
+      const queue = links ? [...links] : null;
+      ndc.fetchDownloadLinkWithRetry = async (mod) => ({ downloadUrl: queue ? queue.shift() : link(future) + mod.fileId });
+      ndc.handOffDownload = (mod, url) => { handed.push([mod.file.name, url]); return true; };
+      await ndc.runCollection(mods, 'all');
+      NXTK.waitForProtocolHandoff = async () => true;
+      return { handed, logs, recorded, outcome, modalShown };
+    };
+    const three = [vortexMod(1, 'A.7z', 1), vortexMod(2, 'B.7z', 2), vortexMod(3, 'C.7z', 3)];
+
+    const typed = await typedRun({
+      history: { game: { collection: { all: [1], vortexSent_all: [2] } } },
+      mods: three
+    });
+    assert.deepEqual(typed.handed.map(([name]) => name), ['B.7z', 'C.7z'], 'downloaded is skipped, sent is sent again');
+    assert.deepEqual(typed.recorded, [['vortexSent_all', 2], ['vortexSent_all', 3]], 'hand-offs are recorded as sent, not downloaded');
+    assert.ok(typed.logs.some((l) => /Sent to Vortex before; sending again/.test(l)), 'the re-send is explained');
+    assert.ok(typed.logs.some((l) => /start it in Vortex/.test(l)), 'collection guidance is given');
+    assert.ok(typed.logs.some((l) => /kept as "sent", not "downloaded"/.test(l)), 'the summary explains how to resend');
+    assert.equal(typed.modalShown, 0, 'no question when Vortex visibly opened');
+
+    const refused = await typedRun({ opened: false, modalAnswer: 'no', mods: three });
+    assert.equal(refused.handed.length, 1, 'only the first file is sent when Vortex did not open');
+    assert.equal(refused.modalShown, 1, 'the user is asked once');
+    assert.equal(refused.outcome, 'stopped');
+    assert.ok(refused.logs.some((l) => /Vortex did not open/.test(l)));
+
+    const confirmed = await typedRun({ opened: false, modalAnswer: 'yes', mods: three });
+    assert.equal(confirmed.handed.length, 3, 'a "yes" sends the rest');
+    assert.equal(confirmed.modalShown, 1, 'and is asked only once per run');
+
+    const stale = await typedRun({ links: [link(past), link(future)], mods: [vortexMod(1, 'A.7z', 1)] });
+    assert.deepEqual(stale.handed, [['A.7z', link(future)]], 'an expired link is fetched again, never sent');
+    assert.ok(stale.logs.some((l) => /Link expired, fetching a new one/.test(l)));
+
+    // The real hand-off: refuses an expired link, and names the account once per run.
+    const real = createHarness('vortex').ndc;
+    const realLogs = [];
+    real.ui.log = (html, level) => realLogs.push([html, level]);
+    real.ui.logText = (text, level) => realLogs.push([text, level]);
+    const mod = vortexMod(9, 'Real.7z', 5);
+    const savedDocument = global.document;
+    global.document = { location: {}, querySelector: (sel) => (/data-user-id/.test(sel) ? { getAttribute: (n) => (n === 'data-user-id' ? '42' : null) } : null) };
+    assert.equal(real.handOffDownload(mod, link(past), '[1]'), false, 'an expired link is not sent');
+    assert.ok(realLogs.some(([l]) => /Link expired before it could be sent/.test(l)));
+    assert.equal(real.handOffDownload(mod, link(future), '[1]'), true);
+    assert.ok(realLogs.some(([l, level]) => /Vortex must be signed into the same account/.test(l) && level === 'info'));
+    assert.equal(document.location.href, link(future));
+    real.vortexAccountNoted = null;
+    assert.equal(real.handOffDownload(mod, link(future, '7'), '[2]'), true);
+    assert.ok(realLogs.some(([l, level]) => /signed for Nexus account #7, but this page is signed in as #42/.test(l) && level === 'error'),
+      'a link for another account warns');
+    const before = realLogs.length;
+    real.handOffDownload(mod, link(future, '7'), '[3]');
+    assert.equal(realLogs.filter(([l]) => /account #/.test(l)).length, realLogs.slice(0, before).filter(([l]) => /account #/.test(l)).length,
+      'the account is named once per run');
+    assert.equal(NexusExt.NDC_HELPERS.pageNexusUserId({ querySelector: (sel) => (/users/.test(sel) ? { getAttribute: () => '/users/123' } : null) }), '123');
+    assert.equal(NexusExt.NDC_HELPERS.pageNexusUserId({ querySelector: () => null }), null);
+    global.document = savedDocument;
+  }
 
   console.log('Vortex preflight behavior OK');
 })().catch((error) => {

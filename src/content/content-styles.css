@@ -234,6 +234,8 @@
 .nxtk-settings-fab.nxtk-fab-tucked:hover,
 .nxtk-settings-fab.nxtk-fab-tucked:focus-visible { opacity: 1; transform: none; }
 .nxtk-settings-fab.nxtk-fab-hidden { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
+/* A Nexus menu or popover (account menu with Sign out, notifications) is open over the corner. */
+.nxtk-settings-fab.nxtk-fab-menu-open { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
 @media (prefers-reduced-motion: reduce) { .nxtk-settings-fab, .nxtk-settings-fab .nxtk-fab-label { transition: none; } }
 
 .nxtk-deck {

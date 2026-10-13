@@ -2093,10 +2093,81 @@
     }
   },
   "logVortexHandoffSummary": {
-    "message": "Handed $COUNT$ files to Vortex. Check Vortex's Downloads that each one arrived; if some did not, run again with Redownload.",
+    "message": "Handed $COUNT$ files to Vortex. Check Vortex's Downloads tab. If any are missing, just run again: sent files are kept as \"sent\", not \"downloaded\", and Vortex skips files it already has, so only the missing ones download again.",
     "description": "UI string.",
     "placeholders": {
       "count": { "content": "$1" }
     }
+  },
+  "logLinkExpired": {
+    "message": "Link expired before it could be sent to Vortex.",
+    "description": "UI string."
+  },
+  "logLinkExpiredRefetch": {
+    "message": "Link expired, fetching a new one.",
+    "description": "UI string."
+  },
+  "logVortexAccountMismatch": {
+    "message": "These links are signed for Nexus account #$LINK$, but this page is signed in as #$PAGE$. Vortex rejects links for another account: sign Vortex and the browser into the same Nexus account.",
+    "description": "UI string.",
+    "placeholders": {
+      "link": { "content": "$1" },
+      "page": { "content": "$2" }
+    }
+  },
+  "logVortexAccountNote": {
+    "message": "Links are signed for Nexus account #$ID$. Vortex must be signed into the same account, or it rejects them as \"Invalid download links\".",
+    "description": "UI string.",
+    "placeholders": {
+      "id": { "content": "$1" }
+    }
+  },
+  "logVortexOpened": {
+    "message": "Vortex picked up the first link; sending the rest.",
+    "description": "UI string."
+  },
+  "logVortexNotOpened": {
+    "message": "Vortex did not open, so the rest were not sent. Start Vortex (and allow nxm:// links in the browser prompt), then run again.",
+    "description": "UI string."
+  },
+  "logVortexCollectionTip": {
+    "message": "Tip: for a whole collection, start it in Vortex (\"Download collection in Vortex\") so Vortex installs it with its rules; then send the files it asks for from here.",
+    "description": "UI string."
+  },
+  "logResendingVortex": {
+    "message": "Sent to Vortex before; sending again (Vortex skips files it already has)",
+    "description": "UI string."
+  },
+  "dlgVortexCollectionTip": {
+    "message": "For a whole collection, starting it in Vortex (\"Download collection in Vortex\") is recommended: Vortex installs it with the collection's rules. Use this to send the files it asks for.",
+    "description": "UI string."
+  },
+  "dlgVortexOpenedTitle": {
+    "message": "Did Vortex open?",
+    "description": "UI string."
+  },
+  "dlgVortexOpenedLead": {
+    "message": "The first file was sent to Vortex. Did it show up in Vortex's Downloads?",
+    "description": "UI string."
+  },
+  "dlgVortexOpenedHelp": {
+    "message": "If the browser asked to open Vortex, allow it. If nothing happened, stop here so the rest are not sent into the void.",
+    "description": "UI string."
+  },
+  "dlgVortexOpenedNo": {
+    "message": "No, stop",
+    "description": "UI string."
+  },
+  "dlgVortexOpenedYes": {
+    "message": "Yes, send the rest",
+    "description": "UI string."
+  },
+  "noticeVortexNotOpenedTitle": {
+    "message": "Vortex didn't open?",
+    "description": "UI string."
+  },
+  "noticeVortexNotOpenedDetail": {
+    "message": "If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again.",
+    "description": "UI string."
   }
 }
