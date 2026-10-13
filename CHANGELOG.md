@@ -13,6 +13,12 @@ the repository before NexusMods Bypass was split out (2026-08-24) are folded int
 
 ## 2026-10-13 — v3.1.0
 
+### Settings polish and stability
+- **Info explanations** smoothly expand and collapse, including rapid reversals. Reduced motion remains instant, and settled explanations can wrap naturally after resizing.
+- **No background button flicker** — the NexusMods shortcut stays hidden while extension dialogs are open and returns when they close. Info clicks no longer restart its placement checks.
+- **Stable shortcut on scroll** — overlap checks calculate the final position without temporarily resetting the visible button or measuring it halfway through a transition. Unchanged obstacles no longer restart its position, and real download controls and Nexus menus remain accessible.
+- **Regression coverage** — targeted checks for opening/closing information, keyboard and reduced motion, rapid clicks, stable scrolling and menu/download-control overlap at higher zoom.
+
 ### Friendlier setup and errors (feat/ux-friendly)
 - **First-run setup** — the welcome page asks three questions (Vortex or browser downloads, download folder, close the extra tab) and saves them. A **Test Vortex** button sends the harmless `nxm://premium` link and checks whether Vortex opened, asking "Did Vortex open?" when it cannot tell.
 - **Settings presets** — "Quick setup" offers *Vortex user*, *Browser downloads* and *Minimal*; a mix shows as *Custom*. Technical settings (timeouts, Vortex speed/pause, official API, browser check) sit under **Advanced**. Presets never change pacing.

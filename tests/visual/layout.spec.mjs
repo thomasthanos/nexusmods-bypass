@@ -973,8 +973,9 @@ for (const [width, height] of [[1280, 800], [1366, 768], [360, 800]]) {
   }
 }
 
-test('compact settings information works by keyboard without changing the switch', async () => {
+test('compact settings information animates gently, respects reduced motion and leaves the switch unchanged', async () => {
   const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
   const row = page.locator('#nxtk-settings-modal [data-key="AutoStartDownload"]');
   const input = row.locator('input');
@@ -984,10 +985,130 @@ test('compact settings information works by keyboard without changing the switch
   await page.keyboard.press('Enter');
   await expect(help).toHaveAttribute('aria-expanded', 'true');
   await expect(row.locator('.nxtk-setting-help')).toBeVisible();
+  const motion = await row.locator('.nxtk-setting-help').evaluate((el) => {
+    const animation = el.getAnimations()[0];
+    if (!animation) return null;
+    const duration = Number(animation.effect.getTiming().duration);
+    animation.pause();
+    animation.currentTime = 0;
+    const start = { opacity: Number(getComputedStyle(el).opacity), transform: getComputedStyle(el).transform, height: el.getBoundingClientRect().height };
+    animation.currentTime = duration / 2;
+    const middleOpacity = Number(getComputedStyle(el).opacity);
+    animation.finish();
+    const end = { opacity: Number(getComputedStyle(el).opacity), transform: getComputedStyle(el).transform, height: el.getBoundingClientRect().height };
+    return { duration, start, middleOpacity, end };
+  });
+  expect(motion, 'opening the information has a reveal animation').not.toBeNull();
+  expect(motion.duration).toBeGreaterThanOrEqual(220);
+  expect(motion.duration).toBeLessThanOrEqual(300);
+  expect(motion.start.opacity).toBe(0);
+  expect(motion.middleOpacity).toBeGreaterThan(0);
+  expect(motion.middleOpacity).toBeLessThan(1);
+  expect(motion.end.opacity).toBe(1);
+  expect(motion.start.transform).not.toBe(motion.end.transform);
+  expect(motion.start.height).toBeLessThan(motion.end.height / 2);
+  expect(await input.isChecked()).toBe(before);
+  const closing = await help.evaluate((el) => {
+    el.click();
+    const detail = document.getElementById(el.getAttribute('aria-controls'));
+    const animation = detail.getAnimations()[0];
+    if (!animation) return null;
+    animation.pause();
+    animation.currentTime = 0;
+    const start = { height: detail.getBoundingClientRect().height, opacity: Number(getComputedStyle(detail).opacity) };
+    animation.currentTime = Number(animation.effect.getTiming().duration) / 2;
+    const middle = { height: detail.getBoundingClientRect().height, opacity: Number(getComputedStyle(detail).opacity) };
+    animation.finish();
+    return { start, middle };
+  });
+  expect(closing, 'closing the information also animates before hiding').not.toBeNull();
+  expect(closing.middle.height).toBeLessThan(closing.start.height);
+  expect(closing.middle.opacity).toBeLessThan(closing.start.opacity);
+  await expect(row.locator('.nxtk-setting-help')).toBeHidden();
+  expect(await input.isChecked()).toBe(before);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.keyboard.press('Enter');
+  await expect(help).toHaveAttribute('aria-expanded', 'true');
+  await expect(row.locator('.nxtk-setting-help')).toBeVisible();
+  expect(await row.locator('.nxtk-setting-help').evaluate((el) => el.getAnimations().length)).toBe(0);
+  expect(await row.locator('.nxtk-setting-help').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
   expect(await input.isChecked()).toBe(before);
   await page.keyboard.press('Space');
   await expect(row.locator('.nxtk-setting-help')).toBeHidden();
-  expect(await input.isChecked()).toBe(before);
+  await page.close();
+});
+
+test('info clicks do not re-place or flash the background NexusMods button while settings are open', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
+  const fab = page.locator('#nxtk-settings-fab');
+  await fab.click({ timeout: 20000 });
+  const info = page.locator('#nxtk-settings-modal [data-key="AutoStartDownload"] [data-setting-help]');
+  await expect(info).toBeVisible();
+  await fab.evaluate((el) => {
+    window.fabChanges = [];
+    window.fabObserver = new window.MutationObserver((records) => {
+      window.fabChanges.push(...records.map((r) => r.attributeName));
+    });
+    window.fabObserver.observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
+  });
+  await info.click();
+  // Covers the existing 120/450ms delayed placement checks as well as animation-end.
+  await page.waitForTimeout(550);
+  const changes = await page.evaluate(() => {
+    window.fabObserver.disconnect();
+    return window.fabChanges;
+  });
+  expect(changes, 'info must not restart placement behind the panel').toEqual([]);
+  await expect(fab, 'the page shortcut is hidden while the panel is open').toBeHidden();
+  await info.click();
+  await info.evaluate((el) => { el.click(); el.click(); el.click(); });
+  const detail = page.locator('#nxtk-settings-modal [data-key="AutoStartDownload"] .nxtk-setting-help');
+  await expect(detail, 'rapid toggles leave the final explanation open').toBeVisible();
+  await expect.poll(() => detail.evaluate((el) => el.getAnimations().length)).toBe(0);
+  expect(await detail.evaluate((el) => el.style.height), 'settled help does not keep a fixed height').toBe('');
+  await page.locator('#nxtk-settings-modal .nxtk-modal-header [data-close]').click();
+  await expect(fab, 'the shortcut returns after settings close').toBeVisible();
+  await page.close();
+});
+
+test('settings shortcut does not reset its position on scroll when an overlapping control stays still', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
+  const fab = page.locator('#nxtk-settings-fab');
+  await expect(fab).toBeVisible({ timeout: 20000 });
+  await page.mouse.move(10, 10);
+  await page.evaluate(() => {
+    // Isolate one actual overlap: other fixture controls must not affect the placement result.
+    document.body.replaceChildren(document.getElementById('nxtk-extension-root'));
+    document.body.style.minHeight = '3000px';
+    const cover = document.createElement('button');
+    cover.id = 'fixed-page-control';
+    cover.textContent = 'Download';
+    cover.style.cssText = 'position:fixed;right:0;bottom:0;width:180px;height:100px;z-index:5';
+    document.body.appendChild(cover);
+  });
+  await page.mouse.wheel(0, 100);
+  await expect.poll(() => fab.evaluate((el) => el.getBoundingClientRect().bottom)).toBeLessThanOrEqual(700);
+  await page.waitForTimeout(300);
+  const before = await fab.boundingBox();
+  await fab.evaluate((el) => {
+    window.scrollFabChanges = [];
+    window.scrollFabObserver = new window.MutationObserver((records) => window.scrollFabChanges.push(...records.map((r) => r.attributeName)));
+    window.scrollFabObserver.observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
+  });
+  for (let i = 0; i < 4; i++) {
+    await page.mouse.wheel(0, 100);
+    await page.waitForTimeout(80);
+  }
+  const changes = await page.evaluate(() => {
+    window.scrollFabObserver.disconnect();
+    return window.scrollFabChanges;
+  });
+  expect(changes, 'unchanged obstacles must not restart shortcut positioning').toEqual([]);
+  const after = await fab.boundingBox();
+  expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
+  await page.evaluate(() => document.getElementById('fixed-page-control').remove());
+  await page.mouse.wheel(0, 100);
+  await expect.poll(() => fab.evaluate((el) => el.getBoundingClientRect().bottom)).toBeGreaterThan(750);
   await page.close();
 });
 

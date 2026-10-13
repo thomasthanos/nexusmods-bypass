@@ -357,14 +357,45 @@
       if (note) note.textContent = active ? '' : NXTK.t('presetCustom', null, 'Custom: your own mix of settings.');
     }
 
+    const helpAnimations = new WeakMap();
     modal.addEventListener('click', (event) => {
       const button = event.target.closest('[data-setting-help]');
       if (!button || !modal.contains(button)) return;
       const detail = document.getElementById(button.getAttribute('aria-controls'));
       if (!detail || !modal.contains(detail)) return;
       const expanded = button.getAttribute('aria-expanded') !== 'true';
+      const previous = helpAnimations.get(detail);
+      const snapshot = () => {
+        const style = getComputedStyle(detail);
+        return { height: `${detail.getBoundingClientRect().height}px`, paddingTop: style.paddingTop, paddingBottom: style.paddingBottom, marginTop: style.marginTop, marginBottom: style.marginBottom, opacity: style.opacity, transform: style.transform, overflow: 'hidden' };
+      };
+      // A rapid reversal starts from the current visual size, not from a jump to full height.
+      const current = previous && !detail.hidden ? snapshot() : null;
+      previous?.cancel();
       button.setAttribute('aria-expanded', String(expanded));
-      detail.hidden = !expanded;
+      detail.setAttribute('aria-hidden', String(!expanded));
+      if (!detail.animate || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+        helpAnimations.delete(detail);
+        detail.hidden = !expanded;
+        return;
+      }
+      detail.hidden = false;
+      const full = { ...snapshot(), opacity: 1, transform: 'translateY(0)' };
+      const collapsed = { height: '0px', paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', marginBottom: '0px', opacity: 0, transform: 'translateY(6px)', overflow: 'hidden' };
+      const animation = detail.animate([
+        current || (expanded ? collapsed : full), expanded ? full : collapsed
+      ], { duration: expanded ? 260 : 220, easing: 'ease-out', fill: 'both' });
+      helpAnimations.set(detail, animation);
+      // Release the measured height once settled: long translations/resize can wrap naturally.
+      animation.finished.then(() => {
+        if (helpAnimations.get(detail) === animation) {
+          helpAnimations.delete(detail);
+          detail.hidden = !expanded;
+          animation.cancel();
+        }
+      }, () => {
+        if (helpAnimations.get(detail) === animation) helpAnimations.delete(detail);
+      });
     });
 
     modal.addEventListener('change', e => {

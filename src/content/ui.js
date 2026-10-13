@@ -273,7 +273,16 @@ window.NexusExt = window.NexusExt || {};
 
   // Install blocking scroll handlers only while extension overlays are open.
   function syncOverlayScrollLock() {
-    const needed = !!kit.dropdowns?.hasOpenMenus() || !!document.querySelector('.nxtk-modal-backdrop');
+    const modalOpen = !!getTopModalBackdrop();
+    const fab = document.getElementById('nxtk-settings-fab');
+    if (fab && fab.classList.contains('nxtk-fab-modal-open') !== modalOpen) {
+      fab.classList.toggle('nxtk-fab-modal-open', modalOpen);
+      if (!modalOpen) {
+        kit.placeFab?.();
+        kit.syncFabWithMenus?.();
+      }
+    }
+    const needed = !!kit.dropdowns?.hasOpenMenus() || modalOpen;
     if (needed === overlayScrollLockAttached) return;
     overlayScrollLockAttached = needed;
     if (needed) {
@@ -320,7 +329,12 @@ window.NexusExt = window.NexusExt || {};
       () => showSettingsModal(),
       { context: 'Opening page settings', title: NXTK.t('dlgCantOpenSettings', null, 'Could not open settings') }
     ));
-    host.appendChild(fab);
+    // A zero-size, non-interactive reference resolves the responsive corner offsets
+    // without temporarily moving the visible button during overlap checks.
+    const anchor = document.createElement('span');
+    anchor.className = 'nxtk-fab-anchor';
+    anchor.setAttribute('aria-hidden', 'true');
+    host.append(anchor, fab);
     applyGlassLayers(fab);
     watchFabOverlap(fab);
   }
@@ -329,8 +343,7 @@ window.NexusExt = window.NexusExt || {};
   // (a file card's download buttons, the deck's "Download all mods"). When it would, it first moves up
   // above that control; when there is no room it tucks into the edge until the pointer comes near.
   const FAB_INTERACTIVE = 'a[href], button, [role="button"], input, select, textarea, summary, label, mod-file-download, download-modal';
-  function fabCoversControl(fab) {
-    const rect = fab.getBoundingClientRect();
+  function fabCoversControl(fab, rect = fab.getBoundingClientRect()) {
     if (!rect.width || !rect.height) return null;
     const inset = 3;
     const points = [
@@ -404,30 +417,48 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function syncFabWithMenus(fab) {
+    if (getTopModalBackdrop()) return null;
     const menu = openMenuUnderFab(fab);
     fab.classList.toggle('nxtk-fab-menu-open', !!menu);
     return menu;
   }
 
   function placeFab(fab) {
-    fab.style.removeProperty('bottom');
-    fab.classList.remove('nxtk-fab-tucked', 'nxtk-fab-hidden');
-    const baseBottom = parseFloat(getComputedStyle(fab).bottom) || 28;
+    // Internal help clicks must not reset the shortcut's position behind an overlay.
+    if (getTopModalBackdrop()) return;
+    const anchor = fab.parentElement?.querySelector('.nxtk-fab-anchor');
+    if (!anchor) return;
+    const anchorStyle = getComputedStyle(anchor);
+    const baseBottom = parseFloat(anchorStyle.bottom) || 18;
+    const baseRight = parseFloat(anchorStyle.right) || 18;
+    const rectAt = (bottom, right = baseRight, scale = 1) => ({
+      left: innerWidth - right - fab.offsetWidth * scale,
+      right: innerWidth - right,
+      top: innerHeight - bottom - fab.offsetHeight * scale,
+      bottom: innerHeight - bottom,
+      width: fab.offsetWidth * scale,
+      height: fab.offsetHeight * scale
+    });
     let bottom = baseBottom;
+    let covered = fabCoversControl(fab, rectAt(bottom));
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      const covered = fabCoversControl(fab);
-      if (!covered) return;
+      if (!covered) break;
       const above = innerHeight - covered.getBoundingClientRect().top + 10;
       if (above <= bottom || above + fab.offsetHeight > innerHeight * 0.6) break;
       bottom = above;
-      fab.style.bottom = `${Math.round(bottom)}px`;
+      covered = fabCoversControl(fab, rectAt(bottom));
     }
-    if (fabCoversControl(fab)) {
-      fab.style.removeProperty('bottom');
-      fab.classList.add('nxtk-fab-tucked');
-      // Even the corner dot sits on a control (an open menu reaching the bottom of the window): step
-      // aside entirely until the next click or scroll re-checks.
-      if (fabCoversControl(fab)) fab.classList.add('nxtk-fab-hidden');
+    const tucked = !!covered;
+    const hidden = tucked && !!fabCoversControl(fab, rectAt(6, 6, .72));
+    const desiredBottom = tucked || bottom === baseBottom ? '' : `${Math.round(bottom)}px`;
+    // Apply only the final state, and only when it changes. Reading live bounds
+    // halfway through a CSS transition used to cause repeated resets and tucking.
+    if (fab.style.bottom !== desiredBottom) {
+      if (desiredBottom) fab.style.bottom = desiredBottom;
+      else fab.style.removeProperty('bottom');
+    }
+    for (const [name, on] of [['nxtk-fab-tucked', tucked], ['nxtk-fab-hidden', hidden]]) {
+      if (fab.classList.contains(name) !== on) fab.classList.toggle(name, on);
     }
   }
 

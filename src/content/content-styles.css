@@ -177,6 +177,14 @@
 #nxtk-extension-root {
   display: contents;
 }
+.nxtk-fab-anchor {
+  position: fixed;
+  right: var(--nxtk-gutter, 18px);
+  bottom: var(--nxtk-gutter, 18px);
+  width: 0; height: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
 .nxtk-settings-fab {
   position: fixed;
   bottom: 28px;
@@ -236,6 +244,7 @@
 .nxtk-settings-fab.nxtk-fab-hidden { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
 /* A Nexus menu or popover (account menu with Sign out, notifications) is open over the corner. */
 .nxtk-settings-fab.nxtk-fab-menu-open { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
+.nxtk-settings-fab.nxtk-fab-modal-open { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
 @media (prefers-reduced-motion: reduce) { .nxtk-settings-fab, .nxtk-settings-fab .nxtk-fab-label { transition: none; } }
 
 .nxtk-deck {
@@ -1602,6 +1611,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   #nxtk-settings-modal .nxtk-modal,
+  #nxtk-settings-modal .nxtk-setting-help,
   #nxtk-settings-modal .nxtk-toggle-track,
   #nxtk-settings-modal .nxtk-toggle-track::before,
   #nxtk-settings-modal .nxtk-settings-advanced-body,
