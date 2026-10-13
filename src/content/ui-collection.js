@@ -1183,8 +1183,26 @@
     $('#nxtk-dl-all').addEventListener('click', () => startCollectionDownload(ndc.mods.all, 'all'));
     $('#nxtk-dl-mandatory').addEventListener('click', () => startCollectionDownload(ndc.mods.mandatory, 'mandatory'));
     $('#nxtk-dl-optional').addEventListener('click', () => startCollectionDownload(ndc.mods.optional, 'optional'));
-    $('#nxtk-select-mods').addEventListener('click', () => { menuController?.close(); showSelectModsModal(ndc); });
-    $('#nxtk-update-collection').addEventListener('click', () => { menuController?.close(); showUpdateModal(ndc); });
+    // Menu actions run after the menu has closed and its portal is gone, and a failure is shown
+    // instead of leaving the click with no visible result.
+    const fromMenu = (label, open) => (event) => {
+      event?.preventDefault?.();
+      menuController?.close();
+      setTimeout(() => {
+        try {
+          const result = open();
+          if (result && typeof result.catch === 'function') result.catch((cause) => menuActionFailed(label, cause));
+        } catch (cause) {
+          menuActionFailed(label, cause);
+        }
+      }, 0);
+    };
+    const menuActionFailed = (label, cause) => {
+      NXTK.noteActivity?.('error', [`${label} failed: ${cause?.message || cause}`]);
+      NexusExt.UI?.showError?.((NexusExt.Errors?.fromException?.(cause, { context: label }) || { code: 'unknown', message: String(cause?.message || cause) }), { title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') });
+    };
+    $('#nxtk-select-mods').addEventListener('click', fromMenu('Opening the mod picker', () => showSelectModsModal(ndc)));
+    $('#nxtk-update-collection').addEventListener('click', fromMenu('Opening the update check', () => showUpdateModal(ndc)));
     $('#nxtk-history-view').addEventListener('click', () => {
       menuController?.close();
       showHistoryView(ndc, {

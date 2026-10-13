@@ -51,35 +51,39 @@ function officialAnswer(body) {
   return { data: null, errors: [{ message: `unexpected ${op}` }] };
 }
 
-let context;
-test.beforeAll(async () => {
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-visual-'));
-  context = await chromium.launchPersistentContext(userDataDir, {
+async function launchContext({ dir = extensionDir, userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-visual-')) } = {}) {
+  const ctx = await chromium.launchPersistentContext(userDataDir, {
     channel: process.env.NXTK_PLAYWRIGHT_CHANNEL || 'chromium',
     headless: true,
-    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`]
+    args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`]
   });
-  await context.route('https://www.nexusmods.com/**', (route) => {
+  await ctx.route('https://www.nexusmods.com/**', (route) => {
     const url = new URL(route.request().url());
     if (route.request().resourceType() !== 'document') return route.fulfill({ status: 204, body: '' });
     const html = url.pathname.includes('/collections/') ? fixture('visual-collection-page.html') : fixture('visual-mod-page.html');
     return route.fulfill({ status: 200, contentType: 'text/html', body: html });
   });
-  await context.route('https://api-router.nexusmods.com/**', (route) => route.fulfill({
+  await ctx.route('https://api-router.nexusmods.com/**', (route) => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify(collectionAnswer()),
     headers: { 'access-control-allow-origin': 'https://www.nexusmods.com', 'access-control-allow-credentials': 'true' }
   }));
-  await context.route('https://api.nexusmods.com/v2/graphql', (route) => {
+  await ctx.route('https://api.nexusmods.com/v2/graphql', (route) => {
     const cors = { 'access-control-allow-origin': 'https://www.nexusmods.com', 'access-control-allow-credentials': 'true', 'access-control-allow-headers': 'content-type' };
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors, body: '' });
     let body = null;
     try { body = JSON.parse(route.request().postData() || '{}'); } catch (_) { body = null; }
     return route.fulfill({ status: 200, contentType: 'application/json', headers: cors, body: JSON.stringify(officialAnswer(body)) });
   });
-  await context.route(/^(?!https:\/\/(www|api-router|api)\.nexusmods\.com)https?:\/\//, (route) => route.abort());
+  await ctx.route(/^(?!https:\/\/(www|api-router|api)\.nexusmods\.com)https?:\/\//, (route) => route.abort());
   // Skip the onboarding tab opened on install.
   await new Promise((r) => setTimeout(r, 1000));
-  for (const page of context.pages()) if (page.url().includes('onboarding')) await page.close();
+  for (const page of ctx.pages()) if (page.url().includes('onboarding')) await page.close();
+  return ctx;
+}
+
+let context;
+test.beforeAll(async () => {
+  context = await launchContext();
 });
 test.afterAll(async () => { await context?.close(); });
 
@@ -971,4 +975,151 @@ test('collection: Download history view shows sent / downloaded / missing and cl
   await expect(modal.locator('[data-history-resend]')).toBeEnabled();
   await assertFits(page, '#nxtk-history-view-modal', 'history view');
   await page.close();
+});
+
+// ---- stress and edge cases ----
+
+for (const lang of ['de', 'ru']) {
+  test(`longest locales (${lang}): popup and collection deck fit at 380px`, async () => {
+    // Headless Chromium ignores --lang for extensions, so a copy of the extension serves this
+    // locale's messages as its English ones: the same strings, rendered in the real layout.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `nxtk-${lang}-`));
+    fs.cpSync(extensionDir, dir, { recursive: true });
+    fs.copyFileSync(path.join(extensionDir, `_locales/${lang}/messages.json`), path.join(dir, '_locales/en/messages.json'));
+    const ctx = await launchContext({ dir });
+    try {
+      let [worker] = ctx.serviceWorkers();
+      if (!worker) worker = await ctx.waitForEvent('serviceworker');
+      const id = new URL(worker.url()).host;
+      const popup = await ctx.newPage();
+      await popup.setViewportSize({ width: 380, height: 600 });
+      await popup.goto(`chrome-extension://${id}/popup/popup.html`);
+      const sample = JSON.parse(fs.readFileSync(path.join(extensionDir, `_locales/${lang}/messages.json`), 'utf8')).setupSave.message;
+      expect(await popup.evaluate(() => globalThis.chrome.i18n.getMessage('setupSave'))).toBe(sample);
+      await popup.waitForTimeout(500);
+      const overflow = await popup.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const clipped = Array.from(document.querySelectorAll('button, a, label, h1, h2, h3, p, span'))
+          .filter((el) => el.offsetParent && el.textContent.trim() && el.getBoundingClientRect().right > vw + 1)
+          .map((el) => el.textContent.trim().slice(0, 40));
+        return { x: document.documentElement.scrollWidth - vw, clipped };
+      });
+      expect(overflow.x, `${lang} popup scrolls horizontally`).toBeLessThanOrEqual(1);
+      expect(overflow.clipped, `${lang} popup text past the edge`).toEqual([]);
+      await popup.screenshot({ path: path.join(shotDir, `popup-${lang}-380.png`) });
+      const page = await ctx.newPage();
+      await page.setViewportSize({ width: 380, height: 800 });
+      await page.goto('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123');
+      const deck = page.locator('#nxtk-control-deck');
+      await expect(deck).toBeVisible({ timeout: 30000 });
+      await page.waitForTimeout(800);
+      const deckOverflow = await deck.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return Array.from(el.querySelectorAll('button, .nxtk-selector-title, .nxtk-radio-hint, .nxtk-btn'))
+          .filter((c) => c.offsetParent && c.getBoundingClientRect().right > r.right + 1)
+          .map((c) => c.textContent.trim().slice(0, 40));
+      });
+      expect(deckOverflow, `${lang} deck text past the deck edge`).toEqual([]);
+      await assertFits(page, '.nxtk-deck', `${lang} deck 380`);
+      await page.screenshot({ path: path.join(shotDir, `deck-${lang}-380.png`), fullPage: true });
+    } finally {
+      await ctx.close();
+    }
+  });
+}
+
+test('rapid double and triple clicks on a Vortex button start one request', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  let hits = 0;
+  const slow = async (route) => {
+    hits += 1;
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
+  };
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', slow);
+  await page.route('**/api/files/**', slow);
+  await page.evaluate(() => {
+    const host = document.createElement('mod-file-download');
+    host.setAttribute('file', JSON.stringify({ id: 35409 }));
+    host.setAttribute('game-id', '1704');
+    const outer = host.attachShadow({ mode: 'open' });
+    const modal = document.createElement('mod-download-modal');
+    modal.setAttribute('file', JSON.stringify({ id: 35409, downloadUrl: 'https://www.nexusmods.com/api/files/35409?game=1704', vortexDownloadUrl: 'https://www.nexusmods.com/api/files/35409?game=1704&nmm=1' }));
+    outer.append(modal);
+    modal.attachShadow({ mode: 'open' }).innerHTML = '<button id="v">Mod manager download</button>';
+    document.body.append(host);
+  });
+  const button = page.locator('mod-file-download').locator('#v');
+  await button.dblclick();
+  await button.click({ delay: 0 });
+  await page.waitForTimeout(2500);
+  expect(hits, 'one link request for a burst of clicks').toBe(1);
+  expect(await page.locator('.nxtk-status-toast').count(), 'at most one status toast').toBeLessThanOrEqual(1);
+  for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  }
+  expect(await page.locator('.nxtk-modal-backdrop').count(), 'one error dialog, not a stack').toBe(0);
+  await page.close();
+});
+
+test('extension update mid-run: after the worker restarts, the collection page restores the progress UI', async () => {
+  // An update replaces the service worker and the content scripts; the queue lives in storage.
+  // Closing the browser and starting it again on the same profile does the same to the extension.
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-update-'));
+  let ctx = await launchContext({ userDataDir });
+  const jobId = 'e2e-update-job';
+  const items = Array.from({ length: 5 }, (_, i) => ({ fileId: 900 + i, modId: 100 + i, name: `Mod ${i}`, size: 10, url: '' }));
+  try {
+    let [worker] = ctx.serviceWorkers();
+    if (!worker) worker = await ctx.waitForEvent('serviceworker');
+    await worker.evaluate(async ([jid, list]) => {
+      const now = Date.now();
+      await globalThis.chrome.storage.local.set({
+        nxtk_background_ndc_jobs: { [jid]: {
+          id: jid, tabId: -1, gameId: 'skyrimspecialedition', collectionId: 'abc123', type: 'all',
+          itemCount: list.length, index: 2, completed: 2, failed: [], status: 'paused',
+          activeDownloadId: null, createdAt: now, updatedAt: now
+        } },
+        [`nxtk_ndc_items:${jid}`]: list
+      });
+    }, [jobId, items]);
+  } finally {
+    await ctx.close();
+  }
+  ctx = await launchContext({ userDataDir });
+  try {
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123');
+    await expect(page.locator('#nxtk-control-deck')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('#nxtk-progress-area'), 'the progress UI comes back').toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#nxtk-control-deck')).toContainText(/Reconnected|2\s*\/\s*5/, { timeout: 5000 });
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('collection menu: "Select mods to download" opens the picker with a real mouse click at every zoom', async () => {
+  for (const [w, h, zoom] of [[1920, 1080, 1], [1280, 720, 1.5], [1920, 1080, 1.25]]) {
+    const page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123', w, h, zoom);
+    const deck = page.locator('#nxtk-control-deck');
+    await expect(deck).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(800);
+    await deck.locator('#nxtk-menu-toggle').click();
+    const item = page.locator('#nxtk-select-mods');
+    await expect(item).toBeVisible();
+    await page.waitForTimeout(400);
+    const box = await item.boundingBox();
+    const hit = await page.evaluate(([x, y]) => {
+      const el = document.elementFromPoint(x, y);
+      return { inside: !!el?.closest('#nxtk-select-mods'), what: el ? `${el.tagName}#${el.id}.${el.className}` : 'none' };
+    }, [box.x + box.width / 2, box.y + box.height / 2]);
+    expect(hit.inside, `${w}x${h}@${zoom}: the item is covered by ${hit.what}`).toBe(true);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.locator('#nxtk-select-modal'), `${w}x${h}@${zoom}: picker opens`).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#nxtk-select-modal .nxtk-mod-item').first()).toBeVisible({ timeout: 10000 });
+    await page.close();
+  }
 });

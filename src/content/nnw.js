@@ -1226,8 +1226,9 @@ window.NexusExt = window.NexusExt || {};
   }
 
   const SINGLE_HANDOFF_TIMEOUT_MS = 4000;
-  // A blur that lasts this long means another app (Vortex) kept focus.
-  const SINGLE_HANDOFF_MAX_MS = 8000;
+  // A blur only counts as "Vortex opened" when focus has not come back for this long: Chrome's own
+  // "Open Vortex?" dialog can stay up well past 8 s before it is cancelled.
+  const SINGLE_HANDOFF_MAX_MS = NXTK.PROTOCOL_BLUR_OPENED_MS ?? 20000;
 
   // How long "Sent to Vortex" stays on the button and in the status toast.
   const SENT_STATE_MS = 2500;

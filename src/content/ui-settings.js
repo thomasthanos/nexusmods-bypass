@@ -192,6 +192,7 @@
       cfg[key] = value;
       NexusExt.Storage.patchSetting(key, value);
       if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
+      syncPresetState();
 
       if (key === 'WabbajackImport') {
         if (value) kit.preloadBundle('wabbajack');
@@ -206,6 +207,18 @@
         close();
         NexusExt.UI.showSettingsModal().catch(() => undefined);
       }
+    }
+
+    // Quick setup follows every change live: the matching preset lights up, a mix says "Custom".
+    function syncPresetState() {
+      const active = NXTK.matchingPreset(cfg);
+      modal.querySelectorAll('[data-preset]').forEach((button) => {
+        const on = button.dataset.preset === active;
+        button.classList.toggle('nxtk-preset-active', on);
+        button.setAttribute('aria-pressed', String(on));
+      });
+      const note = modal.querySelector('#nxtk-preset-note');
+      if (note) note.textContent = active ? '' : NXTK.t('presetCustom', null, 'Custom: your own mix of settings.');
     }
 
     modal.addEventListener('change', e => {

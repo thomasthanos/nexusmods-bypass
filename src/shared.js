@@ -498,17 +498,20 @@
   // false means "unknown", and the caller asks the user once. Targets are injectable for tests.
   // Watches whether a nxm:// navigation handed the page over to another app.
   //   - page hidden                         -> opened
-  //   - blur that lasts maxMs               -> opened (another window kept focus)
-  //   - blur, then focus back within maxMs  -> NOT opened (Chrome's "Open Vortex?" dialog was
+  //   - blur with no focus return for maxMs (20 s) -> opened (another window kept focus)
+  //   - blur, then focus back within maxMs  -> NOT opened, even after a long-open browser dialog (Chrome's "Open Vortex?" dialog was
   //     cancelled, or dismissed). Chrome does not always fire window 'focus' when its own
   //     external-protocol dialog closes, so document.hasFocus() is polled too.
   //   - nothing within timeoutMs            -> NOT opened
   // onResult(reason) names which rule decided, for the debug log.
+  // Page hidden = opened at once; otherwise focus must stay away this long (no return) to count as opened.
+  const PROTOCOL_BLUR_OPENED_MS = 20000;
+
   function waitForProtocolHandoff({
     win = globalThis.window,
     doc = globalThis.document,
     timeoutMs = 4000,
-    maxMs = 15000,
+    maxMs = PROTOCOL_BLUR_OPENED_MS,
     pollMs = 250,
     onResult = null
   } = {}) {
@@ -1400,6 +1403,7 @@
     setActivity,
     noteActivity,
     flushDebugLog,
+    PROTOCOL_BLUR_OPENED_MS,
     describeActivity,
     describeActivityTrail,
     bumpTotalDownloads,

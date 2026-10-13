@@ -24,7 +24,8 @@ the repository before NexusMods Bypass was split out (2026-08-24) are folded int
 - **Plain language** — settings and messages no longer say hand-off, NMM or fallback; descriptions are one plain sentence or two. All 13 languages updated.
 
 ### Fixed
-- **"Vortex didn't open?" never appeared after cancelling Chrome's "Open Vortex?" prompt** — Chrome does not always fire a window `focus` event when its own dialog closes, so the blur looked permanent and counted as "opened". The watcher now also polls `document.hasFocus()` and treats a click or key press in the page as "back here"; a blur only counts as opened after 8 s. A failed hand-off also cancels the pending auto-close, so the hint and the button stay.
+- **"Vortex didn't open?" never appeared after cancelling Chrome's "Open Vortex?" prompt** — Chrome does not always fire a window `focus` event when its own dialog closes, so the blur looked permanent and counted as "opened". The watcher now also polls `document.hasFocus()` and treats a click or key press in the page as "back here"; a blur only counts as opened when focus has not come back for 20 s (or the page is hidden), so a prompt left open past 8 s and then cancelled is still "not opened". A failed hand-off also cancels the pending auto-close, so the hint and the button stay.
+- **Stress and edge tests** — 2000-item queue ETA/summary/history timing, 2×2000 history entries against the storage quota, German and Russian popup and deck at 380 px, rapid double/triple clicks (one request), and a worker restart mid-run restoring the collection progress UI.
 - **"Vortex hand-off:" debug lines were lost** — the debug log was batched for 2 s, so a tab that closed or left right after the hand-off dropped them. Hand-off lines and errors are now written at once, and the batch is flushed on `pagehide` / when the page is hidden.
 
 ## 2026-10-13 — v3.0.1

@@ -650,7 +650,7 @@ window.NexusExt = window.NexusExt || {};
     async confirmFirstVortexHandoff() {
       let reason = '';
       NXTK.noteActivity?.('info', ['Vortex hand-off: watching whether Vortex opens (collection)']);
-      const picked = await NXTK.waitForProtocolHandoff({ timeoutMs: VORTEX_CONFIRM_TIMEOUT_MS, maxMs: 8000, onResult: (r) => { reason = r; } });
+      const picked = await NXTK.waitForProtocolHandoff({ timeoutMs: VORTEX_CONFIRM_TIMEOUT_MS, maxMs: NXTK.PROTOCOL_BLUR_OPENED_MS, onResult: (r) => { reason = r; } });
       NXTK.noteActivity?.('info', [`Vortex hand-off: ${picked ? 'Vortex opened' : 'no sign Vortex opened'} (${reason || 'unknown'})`]);
       if (picked) {
         await NXTK.recordVortexOpenEvent?.('opened');
@@ -754,6 +754,26 @@ window.NexusExt = window.NexusExt || {};
       });
     }
 
+    // The same card for a browser-download run, from what the background queue reported.
+    showBrowserRunSummary(runLog, skipped = [], type = null) {
+      const summary = {
+        sent: runLog.sent,
+        skipped: [
+          ...runLog.alreadyHad,
+          ...(Array.isArray(skipped) ? skipped : []).map((entry) => ({ name: entry.name, pageUrl: entry.pageUrl, reason: skipReasonText(entry.reason) }))
+        ],
+        failed: runLog.failed,
+        account: ''
+      };
+      this.lastRunSummary = summary;
+      if (!summary.sent.length && !summary.skipped.length && !summary.failed.length) return;
+      if (typeof NexusExt.UI?.showRunSummary !== 'function') return;
+      const retryable = summary.failed.map((entry) => entry.mod).filter(Boolean);
+      NexusExt.UI.showRunSummary(summary, {
+        onRetryFailed: retryable.length ? () => this.downloadMods(retryable, type) : null
+      });
+    }
+
     // What the error dialog's "Open file page" / "Use browser download" buttons refer to.
     errorContextFor(mod) {
       return {
@@ -781,9 +801,12 @@ window.NexusExt = window.NexusExt || {};
         ? new Set()
         : new Set(history?.[this.gameId]?.[this.collectionId]?.[type] || []);
       const pending = [];
+      // For the end-of-run card, collected from the worker's per-file events.
+      const runLog = { sent: [], failed: [], alreadyHad: [], pending, mods, type };
 
       for (const mod of mods) {
         if (alreadyDownloaded.has(historyEntryId(mod))) {
+          runLog.alreadyHad.push({ name: mod.file.name, pageUrl: mod.file.url, reason: T('logAlreadyDownloaded', 'Already downloaded') });
           this.ui.log(
             `${T('logAlreadyDownloaded', 'Already downloaded')} <a href="${escapeHtml(mod.file.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(mod.file.name)}</a>`
           );
@@ -804,6 +827,7 @@ window.NexusExt = window.NexusExt || {};
       if (!pending.length) {
         this.downloadController = null;
         this.ui.endDownload('finished');
+        this.showBrowserRunSummary(runLog, [], type);
         return;
       }
 
@@ -817,6 +841,7 @@ window.NexusExt = window.NexusExt || {};
         visibleTotal,
         fallbackQueueTotal: pending.length,
         sizesKb: pending.map((item) => item.sizeKb),
+        runLog,
         start: () => NexusExt.Storage.sendDownloadCommand('NDC_QUEUE_START', {
           gameId: this.gameId,
           collectionId: this.collectionId,
@@ -836,8 +861,11 @@ window.NexusExt = window.NexusExt || {};
       visibleTotal = 0,
       fallbackQueueTotal = 0,
       sizesKb = [],
-      start = null
+      start = null,
+      runLog: givenRunLog = null
     } = {}) {
+      // A reconnected job has no item list here; its card only shows what the worker reports.
+      const runLog = givenRunLog || { sent: [], failed: [], alreadyHad: [], pending: [], mods: [], type: null };
       return new Promise((resolve) => {
         let settled = false;
         let watchdogTimer = null;
@@ -922,6 +950,7 @@ window.NexusExt = window.NexusExt || {};
           let deckOutcome = known ? outcome : 'error';
           if (blocking) deckOutcome = code === 'requires_login' ? 'requires_login' : 'blocked';
           this.ui.endDownload(deckOutcome);
+          this.showBrowserRunSummary(runLog, skipped, runLog.type);
           resolve();
         };
 
@@ -998,6 +1027,7 @@ window.NexusExt = window.NexusExt || {};
               // for an older worker, and never for an adopted job, whose numbering is not this tab's.
               const sizeKb = Number(message.itemSizeKb)
                 || (adopted ? 0 : Number(sizesKb[queueIndex - 1]) || 0);
+              runLog.sent.push({ name, pageUrl: runLog.pending.find((item) => item.name === name)?.pageUrl || '' });
               this.ui.logText(sizeKb > 0
                 ? TS('logCompletedSize', [name, NXTK.formatBytes(sizeKb * 1024)], `Completed: ${name} (${NXTK.formatBytes(sizeKb * 1024)})`)
                 : TS('logCompleted', [name], `Completed: ${name}`), 'info');
@@ -1010,6 +1040,8 @@ window.NexusExt = window.NexusExt || {};
             } else if (message.itemState === 'failed') {
               eta?.spoil();
               const reason = queueErrorText(message.error);
+              const item = runLog.pending.find((entry) => entry.name === name);
+              runLog.failed.push({ name, pageUrl: item?.pageUrl || '', code: String(message.error || 'unknown').split(' ')[0], mod: runLog.mods.find((m) => m.file.name === name) || null });
               this.ui.logText(TS('logFailedItem', [name, reason], `Failed: ${name} (${reason})`), 'error');
             }
             return;

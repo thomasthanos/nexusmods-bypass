@@ -420,6 +420,42 @@ function createHarness(choice) {
     assert.equal(offered, 1, 'item 6: the second failure in a row offers browser downloads');
     delete NXTK.readVortexOpenState; delete NXTK.recordVortexOpenEvent;
 
+    // Browser runs end with the same summary card, built from the worker's per-file events.
+    {
+      const harness = createHarness('browser');
+      const { ndc } = harness;
+      delete ndc.downloadBrowserQueue;
+      NXTK.createQueueEta = shared.NXTK.createQueueEta; NXTK.formatBytes = shared.NXTK.formatBytes; NXTK.MAX_TRACKED_SKIPS = shared.NXTK.MAX_TRACKED_SKIPS;
+      ndc.ui.setProgress = () => {}; ndc.ui.setTimeLeft = () => {}; ndc.ui.setDownloadStatus = () => {};
+      let listener = null;
+      const savedChrome = global.chrome; const savedDoc = global.document;
+      global.document = { addEventListener: () => {}, removeEventListener: () => {}, visibilityState: 'visible' };
+      global.chrome = { runtime: { onMessage: { addListener: (fn) => { listener = fn; }, removeListener: () => {} } } };
+      NexusExt.Storage.sendDownloadCommand = async (command) => (command === 'NDC_QUEUE_START'
+        ? { ok: true, value: { jobId: 'job-b' } }
+        : { ok: true, value: { status: 'running', index: 0 } });
+      let card = null; let retried = null;
+      NexusExt.UI.showRunSummary = (summary, options) => { card = { summary, options }; };
+      ndc.ui.endDownload = () => {};
+      const mods = [vortexMod(1, 'A.7z', 1), vortexMod(2, 'B.7z', 2), vortexMod(3, 'C.7z', 3)];
+      const run = ndc.downloadBrowserQueue(mods, 'all', {});
+      for (let i = 0; i < 50 && !(listener && ndc.backgroundJobId); i += 1) await new Promise((r) => setTimeout(r, 10));
+      assert.ok(listener, 'the run listens for worker events');
+      const emit = (message) => listener({ jobId: 'job-b', ...message });
+      emit({ type: 'NXT_NDC_PROGRESS', itemState: 'complete', itemName: 'A.7z', index: 1, total: 3 });
+      emit({ type: 'NXT_NDC_PROGRESS', itemState: 'failed', itemName: 'B.7z', error: 'download_not_started', index: 2, total: 3 });
+      emit({ type: 'NXT_NDC_DONE', outcome: 'partial', skipped: [{ name: 'C.7z', pageUrl: '', reason: 'mod_unavailable' }] });
+      await run;
+      global.chrome = savedChrome; global.document = savedDoc;
+      assert.ok(card, 'a browser run shows the summary card');
+      assert.deepEqual(card.summary.sent.map((e) => e.name), ['A.7z']);
+      assert.deepEqual(card.summary.failed.map((e) => [e.name, e.code]), [['B.7z', 'download_not_started']]);
+      assert.deepEqual(card.summary.skipped.map((e) => e.name), ['C.7z']);
+      ndc.downloadMods = async (list, type) => { retried = [list.map((m) => m.file.name), type]; };
+      await card.options.onRetryFailed();
+      assert.deepEqual(retried, [['B.7z'], 'all'], 'Retry failed queues only the failed files');
+    }
+
     const stale = await typedRun({ links: [link(past), link(future)], mods: [vortexMod(1, 'A.7z', 1)] });
     assert.deepEqual(stale.handed, [['A.7z', link(future)]], 'an expired link is fetched again, never sent');
     assert.ok(stale.logs.some((l) => /Link expired, fetching a new one/.test(l)));

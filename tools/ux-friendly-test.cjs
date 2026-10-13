@@ -64,6 +64,17 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
   assert.equal(S.VORTEX_TEST_LINK, 'nxm://premium');
   assert.match(S.VORTEX_INSTALL_GUIDE_URL, /^https:\/\/www\.nexusmods\.com\//);
 
+  // A Chrome prompt left open longer than 8 s and then cancelled is still "not opened".
+  assert.equal(S.PROTOCOL_BLUR_OPENED_MS, 20000);
+  {
+    const listeners = {}; let focused = false;
+    const win = { addEventListener: (t, f) => { listeners[t] = f; }, removeEventListener() {} };
+    const doc = { visibilityState: 'visible', hasFocus: () => focused, addEventListener() {}, removeEventListener() {} };
+    const watch = S.waitForProtocolHandoff({ win, doc, timeoutMs: 50, maxMs: 300, pollMs: 10 });
+    setTimeout(() => { focused = true; }, 200); // "10 s" of an open dialog at this scale, still under maxMs
+    assert.equal(await watch, false, 'long-open dialog then cancel is not opened');
+  }
+
   // Item 4: summary text.
   const text = S.formatRunSummaryText({
     sent: [{ name: 'A' }],
@@ -96,6 +107,36 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
   assert.match(src, /addEventListener\?\.\('pagehide', flushDebugLog\)/);
   const nnw = fs.readFileSync('src/content/nnw.js', 'utf8');
   assert.match(nnw, /no sign Vortex opened[\s\S]{0,200}cancelScheduledTabClose\(\)/, 'a failed hand-off keeps the tab and its hint');
+
+  // Stress: a 2000-item queue: ETA, ordering, summary text and history numbers stay fast.
+  {
+    const n = 2000;
+    const sizes = Array.from({ length: n }, (_, i) => ((i * 7919) % 500000) + 1);
+    let clock = 0;
+    const t0 = Date.now();
+    const eta = S.createQueueEta(sizes, { now: () => clock });
+    for (let i = 0; i < n; i += 1) {
+      eta.itemStarted(); clock += 1500; eta.itemCompleted(i); clock += 2000;
+      if (i % 50 === 0 && typeof eta.remainingSeconds === 'function') eta.remainingSeconds(i + 1);
+    }
+    const queue = Array.from({ length: n }, (_, i) => ({ fileId: i, file: { size: sizes[i], name: `Mod ${i}` } }));
+    if (typeof S.orderQueueBySize === 'function') assert.equal(S.orderQueueBySize(queue, (m) => m.file.size).length, n);
+    const summary = {
+      sent: queue.slice(0, 1000).map((m) => ({ name: m.file.name })),
+      skipped: queue.slice(1000, 1500).map((m) => ({ name: m.file.name, reason: 'already downloaded' })),
+      failed: queue.slice(1500).map((m) => ({ name: m.file.name, code: 'no_nmm_link', pageUrl: `https://www.nexusmods.com/g/mods/${m.fileId}?tab=files` })),
+      account: '1'
+    };
+    const text = S.formatRunSummaryText(summary);
+    assert.equal(text.split('\n').filter((l) => l.startsWith('- ')).length, n);
+    const ids = queue.map((m) => m.fileId);
+    const stats = S.summarizeCollectionHistory({ all: ids.slice(0, 1200), vortexSent_all: ids.slice(800) }, 'all', ids);
+    assert.equal(stats.missing.length, 800);
+    assert.equal(stats.sent, 800);
+    const elapsed = Date.now() - t0;
+    assert.ok(elapsed < 1500, `2000-item ETA/summary work took ${elapsed} ms`);
+    assert.equal(S.formatEta(3600 * 30).length > 0, true, 'a 30-hour ETA still formats');
+  }
 
   console.log('UX-friendly helpers OK');
 })().catch((error) => { console.error(error); process.exit(1); });
