@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "Zgłoś błąd — kopiuje raport błędu"
-  },
   "popupFooter": {
     "message": "Asystent pobierania dla Nexus Mods i Vortex"
   },
@@ -705,9 +702,6 @@
   },
   "popupQueuesTitle": {
     "message": "Pobieranie w tle"
-  },
-  "popupReloadFirst": {
-    "message": "Odśwież stronę Nexus Mods przed otwarciem ustawień strony."
   },
   "popupReportFull": {
     "message": "GitHub otwiera się z pełnym raportem — wystarczy opisać, co się stało."
@@ -1900,14 +1894,6 @@
     "message": "Opisz problem, sprawdź raport i wyślij go",
     "description": "UI string."
   },
-  "btnCopyReport": {
-    "message": "Kopiuj raport błędu",
-    "description": "UI string."
-  },
-  "btnCopyReportTip": {
-    "message": "Kopiuje oczyszczony raport błędu i otwiera zgłoszenie na GitHubie",
-    "description": "UI string."
-  },
   "btnDebugLogTip": {
     "message": "Otwórz dziennik debugowania w nowej karcie",
     "description": "UI string."
@@ -1927,5 +1913,32 @@
   "setHideDownloadPopupDesc": {
     "message": "Tylko Chrome i Edge. Nie pozwala, by dymek pobierania otwierał się przy każdym pliku, i przywraca go po zakończeniu, zatrzymaniu lub błędzie.",
     "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Wysyłanie do Vortex…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "Zgłoś na GitHubie",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "Otwiera wypełnione zgłoszenie na GitHubie. Raport za długi na link jest najpierw kopiowany do schowka.",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — ponowna próba ($N$)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "Przekazano $COUNT$ plików do Vortex. Sprawdź w Pobranych Vortex, czy dotarły wszystkie; jeśli nie, uruchom ponownie z opcją Pobierz ponownie.",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

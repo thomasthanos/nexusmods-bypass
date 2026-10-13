@@ -1074,7 +1074,7 @@
       if (lastLogDay && day !== lastLogDay) {
         const divider = document.createElement('div');
         divider.className = 'nxtk-log-row nxtk-log-day';
-        divider.textContent = `— ${now.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })} —`;
+        divider.textContent = `— ${now.toLocaleDateString(NXTK.uiLocale?.() || undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })} —`;
         logContainer.appendChild(divider);
       }
       lastLogDay = day;
@@ -1085,7 +1085,7 @@
 
       const time = document.createElement('span');
       time.className = 'nxtk-log-time';
-      time.textContent = `[${now.toLocaleTimeString()}]`;
+      time.textContent = `[${now.toLocaleTimeString(NXTK.uiLocale?.() || undefined)}]`;
       const message = document.createElement('span');
       message.className = 'nxtk-log-msg';
       applyMessage(message);

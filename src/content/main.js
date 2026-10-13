@@ -334,6 +334,22 @@
   } catch (_) {
   }
 
+  // Opened from the popup's "Page settings" with #nxtk-settings: show the panel, then drop the hash so a
+  // reload or a shared link does not reopen it.
+  function openSettingsFromHash() {
+    if (location.hash !== NXTK.PAGE_SETTINGS_HASH) return;
+    try {
+      history.replaceState(history.state, '', location.pathname + location.search);
+    } catch (_) {
+    }
+    UI.showSettingsModal().catch((cause) => {
+      const error = logUnhandled(cause, 'Opening page settings');
+      UI.showError?.(error, { title: NXTK.t('dlgCantOpenSettings', null, 'Could not open settings') });
+    });
+  }
+  openSettingsFromHash();
+  addEventListener('hashchange', openSettingsFromHash);
+
   try {
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (msg?.type !== 'TOGGLE_POPOUT') return false;

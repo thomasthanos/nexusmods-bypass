@@ -86,6 +86,34 @@ async function debugLogAndAutoReports() {
   delete global.chrome.permissions;
 }
 
+// The download bubble is hidden only for runs that download in the browser, and comes back at once
+// when the last one ends. Progress events are coalesced into one storage pass.
+async function downloadPopupFollowsBrowserRuns() {
+  const decide = context.downloadUiShouldBeEnabled;
+  const at = Date.now();
+  assert.equal(decide({ setting: true, claims: {}, jobs: {} }), true, 'idle: shown');
+  assert.equal(decide({ setting: true, claims: { 'a/b': { tabId: 1, at, method: 'browser' } }, jobs: {} }), false);
+  assert.equal(decide({ setting: true, claims: { 'a/b': { tabId: 1, at, method: 'vortex' } }, jobs: {} }), true,
+    'a Vortex run downloads nothing in the browser, so the bubble stays');
+  assert.equal(decide({ setting: true, claims: {}, jobs: { j: { status: 'running' } } }), false);
+  assert.equal(decide({ setting: false, claims: {}, jobs: { j: { status: 'running' } } }), true, 'setting off');
+  const cleaned = context.cleanNdcClaims({ 'a/b': { tabId: 2, at, method: 'vortex' }, 'c/d': { tabId: 3, at } });
+  assert.equal(cleaned['a/b'].method, 'vortex', 'the method survives the claim clean-up');
+  assert.equal(cleaned['c/d'].method, 'browser', 'older claims count as browser runs');
+
+  const calls = [];
+  global.chrome.downloads = { ...(global.chrome.downloads || {}), setUiOptions: async (options) => { calls.push(options.enabled); } };
+  await context.storageSetLocal(context.NXTK.SETTINGS_KEY, { ...context.NXTK.DEFAULTS, HideDownloadPopup: true });
+  await context.storageSetLocal('nxtk_ndc_run_claims', { 'g/c': { tabId: 4, at: Date.now(), method: 'browser' } });
+  for (let i = 0; i < 20; i += 1) context.syncDownloadUi();
+  await new Promise((resolve) => setTimeout(resolve, 650));
+  await context.syncDownloadUi({ immediate: true });
+  assert.deepEqual(calls, [false], 'twenty progress events, one toggle');
+  await context.storageSetLocal('nxtk_ndc_run_claims', {});
+  await context.syncDownloadUi({ immediate: true });
+  assert.deepEqual(calls, [false, true], 'released: shown again straight away');
+}
+
 // One user action, one file: the worker drops a second start for the same game+file, and a start for a
 // file the browser is already downloading (Nexus's own native download included).
 async function downloadStartsAreDeduplicated() {
@@ -2212,5 +2240,6 @@ jobStateBehaviour()
   .then(failureRecordsAreCapped)
   .then(debugLogAndAutoReports)
   .then(downloadStartsAreDeduplicated)
+  .then(downloadPopupFollowsBrowserRuns)
   .then(() => console.log('background.js unit behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

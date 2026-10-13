@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "バグを報告 — エラーレポートをコピー"
-  },
   "popupFooter": {
     "message": "Nexus Mods と Vortex のためのダウンロード支援ツール"
   },
@@ -705,9 +702,6 @@
   },
   "popupQueuesTitle": {
     "message": "バックグラウンドのダウンロード"
-  },
-  "popupReloadFirst": {
-    "message": "ページ設定を開く前に Nexus Mods のページを再読み込みしてください。"
   },
   "popupReportFull": {
     "message": "GitHub が完全なレポート付きで開きます — 何が起きたかを書くだけです。"
@@ -1648,14 +1642,6 @@
     "message": "問題を説明し、レポートを確認して送信します",
     "description": "UI string."
   },
-  "btnCopyReport": {
-    "message": "エラーレポートをコピー",
-    "description": "UI string."
-  },
-  "btnCopyReportTip": {
-    "message": "匿名化したエラーレポートをコピーし GitHub Issue を開きます",
-    "description": "UI string."
-  },
   "btnDebugLogTip": {
     "message": "デバッグログを新しいタブで開きます",
     "description": "UI string."
@@ -1675,5 +1661,32 @@
   "setHideDownloadPopupDesc": {
     "message": "Chrome と Edge のみ。ファイルごとにダウンロードバブルが開くのを防ぎ、終了・停止・失敗時に元に戻します。",
     "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Vortex に送信中…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "GitHub で報告",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "入力済みの GitHub Issue を開きます。リンクに収まらないレポートは先にクリップボードへコピーされます。",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — 再試行中 ($N$ 回目)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "$COUNT$ 個のファイルを Vortex に渡しました。Vortex のダウンロードですべて届いたか確認し、足りなければ再ダウンロードで再実行してください。",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

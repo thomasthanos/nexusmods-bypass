@@ -164,8 +164,8 @@ function createHarness({
 
   // In the order the manifest loads them: the shared rules and the link parser come before nnw.js.
   const files = pages
-    ? ['src/shared.js', 'src/response-classifier.js', 'src/download-url-parser.js', 'src/content/errors.js', SOURCE_FILE]
-    : ['src/shared.js', 'src/download-url-parser.js', SOURCE_FILE];
+    ? ['src/shared.js', 'src/selectors.js', 'src/response-classifier.js', 'src/download-url-parser.js', 'src/content/errors.js', SOURCE_FILE]
+    : ['src/shared.js', 'src/selectors.js', 'src/download-url-parser.js', SOURCE_FILE];
   for (const file of files) {
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
@@ -312,15 +312,69 @@ async function legacyChromiumVortexTests() {
     href,
     url: LegacyChromiumURL,
     responses: [
-      response('<html><body><div id="mainContent">Slow download</div></body></html>', { finalUrl: href }),
-      response(JSON.stringify({ url: link }))
+      response(JSON.stringify({ url: link })),
+      response('<html><body><div id="mainContent">Slow download</div></body></html>', { finalUrl: href })
     ]
   });
 
   const result = await harness.api.getDownloadUrl({ fileId: '12218', isNMM: true, href });
   assert.equal(result.error, undefined, 'no error is reported');
   assert.equal(result.url, link, 'the signed link Nexus generated is handed to Vortex');
-  assert.equal(new URLSearchParams(harness.calls[1].options.body).get('nmm'), '1');
+  assert.equal(new URLSearchParams(harness.calls[0].options.body).get('nmm'), '1');
+}
+
+// Live report (SkyUI 12604): the Vortex hand-off waited seconds for the whole file page before asking for
+// the link. The generator is asked first, and the page is not loaded at all when it answers.
+async function vortexGeneratorFirstTests() {
+  const href = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=35407&nmm=1';
+  const link = 'nxm://skyrimspecialedition/mods/12604/files/35407?key=k&expires=2000000000&user_id=7';
+  const quick = createHarness({ href, responses: [response(JSON.stringify({ url: link }))] });
+  const result = await quick.api.getDownloadUrl({ fileId: '35407', isNMM: true, href });
+  assert.equal(result.url, link);
+  assert.deepEqual(quick.calls.map((call) => call.url),
+    ['https://www.nexusmods.com/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl'],
+    'one small POST, no file-page load');
+
+  // No link from the generator: the page is still read, and the generator is not asked twice.
+  const fallback = createHarness({
+    href,
+    responses: [
+      response(JSON.stringify({ url: '' })),
+      response(`<html><body><a href="${link}">x</a></body></html>`, { finalUrl: href })
+    ]
+  });
+  const second = await fallback.api.getDownloadUrl({ fileId: '35407', isNMM: true, href });
+  assert.equal(second.url, link, 'the page fallback still finds the link');
+  assert.equal(fallback.calls.length, 2, 'generator once, page once');
+}
+
+// Live reports: "Mod manager download" rendered as a plain button skipped the requirement-screen skip,
+// and the requirements modal's Close button was taken as a download, so the modal could not be closed.
+function controlClassificationTests() {
+  const api = createHarness({ href: 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files' }).api;
+  const node = (text, attrs = {}, extra = {}) => ({
+    textContent: text,
+    className: extra.className || '',
+    getAttribute: (name) => (name in attrs ? attrs[name] : null),
+    hasAttribute: (name) => name in attrs,
+    matches: (selector) => (extra.id ? selector === `#${extra.id}` : false),
+    closest: () => null
+  });
+  assert.equal(api.hrefWantsNmm('/x/mods/1?tab=files&file_id=2&nmm=1'), true);
+  assert.equal(api.hrefWantsNmm('/x/mods/1?tab=files&file_id=2&nmm=0'), false, 'nmm=0 is not Vortex');
+  assert.equal(api.hrefWantsNmm('/x/mods/1?file_id=2&nmmx=1'), false);
+
+  assert.equal(api.classifyDownloadControl(node('Mod manager download')), 'nmm');
+  assert.equal(api.classifyDownloadControl(node('Vortex')), 'nmm');
+  assert.equal(api.classifyDownloadControl(node('', {}, { id: 'action-nmm' })), 'nmm', 'by id, whatever the text');
+  assert.equal(api.classifyDownloadControl(node('Manual download')), 'manual');
+  assert.equal(api.classifyDownloadControl(node('Endorse')), '', 'other buttons are left alone');
+
+  for (const close of [node('Close'), node('×'), node('', { 'aria-label': 'Close' }), node('Cancel'),
+    node('', { 'data-close': '' }), node('x', {}, { className: 'modal-close' }), node('Schließen')]) {
+    assert.equal(api.isDismissControl(close), true, `"${close.textContent || close.className}" dismisses`);
+    assert.equal(api.classifyDownloadControl(close), '', 'and is never a download');
+  }
 }
 
 function modPageDetectionTests() {
@@ -342,6 +396,8 @@ Promise.resolve()
   .then(downloadFlowTests)
   .then(removedModFlowTests)
   .then(legacyChromiumVortexTests)
+  .then(vortexGeneratorFirstTests)
+  .then(controlClassificationTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {
     console.error(error);

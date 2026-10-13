@@ -155,7 +155,11 @@ window.NexusExt = window.NexusExt || {};
       retryable: overrides.retryable ?? !!definition.retryable,
       blocking: overrides.blocking ?? !!definition.blocking,
       technicalMessage: String(overrides.technicalMessage || ''),
-      stack: String(overrides.stack || '').slice(0, 1500)
+      stack: String(overrides.stack || '').slice(0, 1500),
+      // Carried on the error so a Retry-After survives callers that pass only the error along.
+      retryAfterSeconds: Number.isFinite(Number(overrides.retryAfterSeconds)) && Number(overrides.retryAfterSeconds) > 0
+        ? Number(overrides.retryAfterSeconds)
+        : null
     };
   }
 
@@ -320,7 +324,12 @@ window.NexusExt = window.NexusExt || {};
         contentType,
         record
       });
+      const withRetryAfter = (error) => {
+        if (error && rateLimit?.retryAfterSeconds > 0 && !error.retryAfterSeconds) error.retryAfterSeconds = rateLimit.retryAfterSeconds;
+        return error;
+      };
       if (semanticError) {
+        withRetryAfter(semanticError);
         return {
           ok: false,
           status: response.status || 0,
@@ -338,7 +347,7 @@ window.NexusExt = window.NexusExt || {};
           text,
           finalUrl,
           rateLimit,
-          error: fromResponse({ status: response.status, text, context, extra: respInfo, classified: true, record })
+          error: withRetryAfter(fromResponse({ status: response.status, text, context, extra: respInfo, classified: true, record }))
         };
       }
 

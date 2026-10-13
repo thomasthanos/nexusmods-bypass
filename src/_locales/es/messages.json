@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "Reportar un error — copia el informe"
-  },
   "popupFooter": {
     "message": "Asistente de descargas para Nexus Mods y Vortex"
   },
@@ -791,9 +788,6 @@
   },
   "popupQueuesTitle": {
     "message": "Descargas en segundo plano"
-  },
-  "popupReloadFirst": {
-    "message": "Recarga la página de Nexus Mods antes de abrir los ajustes."
   },
   "popupReportFull": {
     "message": "GitHub se abre con el informe completo: solo describe qué pasó."
@@ -1732,14 +1726,6 @@
     "message": "Describe el problema, revisa el informe y envíalo",
     "description": "UI string."
   },
-  "btnCopyReport": {
-    "message": "Copiar informe",
-    "description": "UI string."
-  },
-  "btnCopyReportTip": {
-    "message": "Copia el informe de error depurado y abre una incidencia en GitHub",
-    "description": "UI string."
-  },
   "btnDebugLogTip": {
     "message": "Abrir el registro de depuración en una pestaña nueva",
     "description": "UI string."
@@ -1759,5 +1745,32 @@
   "setHideDownloadPopupDesc": {
     "message": "Solo Chrome y Edge. Evita que la burbuja de descargas se abra con cada archivo y la restaura al terminar, detenerse o fallar.",
     "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Enviando a Vortex…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "Informar en GitHub",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "Abre una incidencia de GitHub rellenada. Si el informe no cabe en el enlace, primero se copia al portapapeles.",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — reintentando (intento $N$)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "Se enviaron $COUNT$ archivos a Vortex. Comprueba en Descargas de Vortex que llegaron todos; si no, vuelve a ejecutar con Volver a descargar.",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

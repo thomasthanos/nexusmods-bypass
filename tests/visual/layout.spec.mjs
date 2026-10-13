@@ -471,3 +471,99 @@ test('popup help tab: one solid primary, two compact secondaries, sentence case,
     await page.close();
   }
 });
+
+// Live report on SkyUI (12604): "Mod manager download" as a plain button still opened Nexus's
+// requirements modal, and that modal's Close button / Escape did nothing.
+test('Vortex button without href skips the requirements modal and says it is sending; modal Close and Escape reach Nexus', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  // Hold the link request so the in-between state can be seen.
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', async (route) => {
+    await new Promise((r) => setTimeout(r, 3000));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
+  });
+  await page.evaluate(() => {
+    const host = document.createElement('mod-file-download');
+    host.setAttribute('file-id', '35407');
+    const vortex = document.createElement('button');
+    vortex.id = 'fake-vortex';
+    vortex.innerHTML = '<span>Mod manager download</span>';
+    host.append(vortex);
+    document.body.append(host);
+    window.nativeOpened = 0;
+    vortex.addEventListener('click', () => { window.nativeOpened += 1; });
+
+    const modal = document.createElement('download-modal');
+    modal.setAttribute('file-id', '35407');
+    modal.setAttribute('download-links', JSON.stringify({ downloadUrl: '/skyrimspecialedition/mods/12604?tab=files&file_id=35407' }));
+    modal.tabIndex = -1;
+    const close = document.createElement('button');
+    close.id = 'fake-close';
+    close.textContent = 'Close';
+    modal.append(close);
+    document.body.append(modal);
+    window.closeClicks = 0;
+    window.escaped = 0;
+    close.addEventListener('click', () => { window.closeClicks += 1; });
+    modal.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.escaped += 1; });
+  });
+  const started = Date.now();
+  await page.click('#fake-vortex');
+  await expect(page.locator('#fake-vortex')).toHaveText(/Sending to Vortex/, { timeout: 1000 });
+  expect(Date.now() - started, 'feedback is immediate').toBeLessThan(1500);
+  expect(await page.evaluate(() => window.nativeOpened), 'Nexus never sees the click, so no modal').toBe(0);
+
+  await page.click('#fake-close');
+  expect(await page.evaluate(() => window.closeClicks), 'Close reaches Nexus').toBe(1);
+  await page.focus('download-modal');
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => window.escaped), 'Escape reaches Nexus').toBe(1);
+
+  // With an extension dialog open as well, a click inside Nexus's own dialog is still not blocked.
+  await page.click('#nxtk-settings-fab');
+  await expect(page.locator('.nxtk-modal').first()).toBeVisible({ timeout: 10000 });
+  const blocked = await page.evaluate(() => {
+    const close = document.getElementById('fake-close');
+    const event = new globalThis.PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true });
+    close.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(blocked, 'the overlay guard leaves Nexus dialogs alone').toBe(false);
+  await page.close();
+});
+
+test('settings button stays small at 125/150% zoom and never covers Download all mods', async () => {
+  for (const zoom of [1.25, 1.5]) {
+    const page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123', 1280, 720, zoom);
+    const deck = page.locator('#nxtk-control-deck');
+    await expect(deck).toBeVisible({ timeout: 30000 });
+    const fab = page.locator('#nxtk-settings-fab');
+    await expect(fab).toBeVisible();
+    const label = await fab.locator('.nxtk-fab-label').evaluate((el) => el.getBoundingClientRect().width);
+    expect(label, 'icon only at this width').toBeLessThan(2);
+    const button = page.locator('#nxtk-dl-all');
+    for (let step = 0; step < 6; step += 1) {
+      await button.scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, step * 60);
+      await page.waitForTimeout(250);
+      const covered = await page.evaluate(() => {
+        const target = document.getElementById('nxtk-dl-all');
+        const fabEl = document.getElementById('nxtk-settings-fab');
+        const a = target.getBoundingClientRect();
+        const b = fabEl.getBoundingClientRect();
+        if (fabEl.classList.contains('nxtk-fab-tucked')) return false;
+        return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      });
+      expect(covered, `zoom ${zoom}, step ${step}: the FAB sits on Download all mods`).toBe(false);
+    }
+    await page.screenshot({ path: path.join(shotDir, `fab-deck-${Math.round(zoom * 100)}.png`) });
+    await page.close();
+  }
+});
+
+test('popup Page settings deep link opens the in-page settings and drops the hash', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1#nxtk-settings', 1280, 800, 1);
+  await expect(page.locator('.nxtk-modal').first()).toBeVisible({ timeout: 20000 });
+  expect(new URL(page.url()).hash).toBe('');
+  await page.close();
+});

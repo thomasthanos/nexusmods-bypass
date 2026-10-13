@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "Signaler un bug — copie le rapport"
-  },
   "popupFooter": {
     "message": "Assistant de téléchargement pour Nexus Mods & Vortex"
   },
@@ -791,9 +788,6 @@
   },
   "popupQueuesTitle": {
     "message": "Téléchargements en arrière-plan"
-  },
-  "popupReloadFirst": {
-    "message": "Rechargez la page Nexus Mods avant d'ouvrir les paramètres."
   },
   "popupReportFull": {
     "message": "GitHub s’ouvre avec le rapport complet — décrivez simplement ce qui s’est passé."
@@ -1732,14 +1726,6 @@
     "message": "Décrivez le problème, vérifiez le rapport puis envoyez-le",
     "description": "UI string."
   },
-  "btnCopyReport": {
-    "message": "Copier le rapport",
-    "description": "UI string."
-  },
-  "btnCopyReportTip": {
-    "message": "Copie le rapport d'erreur nettoyé et ouvre une issue GitHub",
-    "description": "UI string."
-  },
   "btnDebugLogTip": {
     "message": "Ouvrir le journal de débogage dans un nouvel onglet",
     "description": "UI string."
@@ -1759,5 +1745,32 @@
   "setHideDownloadPopupDesc": {
     "message": "Chrome et Edge uniquement. Empêche la bulle de téléchargement de s'ouvrir à chaque fichier et la réactive à la fin, à l'arrêt ou en cas d'erreur.",
     "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "Envoi vers Vortex…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "Signaler sur GitHub",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "Ouvre une issue GitHub préremplie. Un rapport trop long pour le lien est d'abord copié dans le presse-papiers.",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — nouvelle tentative ($N$)",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "$COUNT$ fichiers transmis à Vortex. Vérifiez dans les téléchargements de Vortex qu'ils sont tous arrivés ; sinon, relancez avec Retélécharger.",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

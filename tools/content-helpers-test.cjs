@@ -429,6 +429,61 @@ function needsExtractingIsNotAFailure() {
   assert.match(importer, /error\.format = unreadable;/, 'the format is attached for the dialog');
 }
 
+// PR #22 review fixes, each pinned to the line of code that carried the bug.
+function reviewFixesBehaviour() {
+  const shared = fs.readFileSync('src/shared.js', 'utf8');
+  const { isNexusPageUrl, pageSettingsUrl } = new Function('PAGE_SETTINGS_HASH', `${extractFunction(shared, 'isNexusPageUrl')}\n${extractFunction(shared, 'pageSettingsUrl')}\nreturn { isNexusPageUrl, pageSettingsUrl };`)('#nxtk-settings');
+  assert.equal(isNexusPageUrl('https://www.nexusmods.com/skyrimspecialedition/mods/1'), true);
+  assert.equal(isNexusPageUrl('https://users.nexusmods.com/account'), false, 'no content script there');
+  assert.equal(isNexusPageUrl('https://evil.example/nexusmods.com'), false, 'a substring is not the host');
+  assert.equal(pageSettingsUrl('https://www.nexusmods.com/x/mods/1?tab=files'), 'https://www.nexusmods.com/x/mods/1?tab=files#nxtk-settings');
+  assert.equal(pageSettingsUrl('https://example.com/'), 'https://www.nexusmods.com/#nxtk-settings', 'a non-Nexus tab gets the Nexus home page');
+  const popup = fs.readFileSync('src/popup/popup.js', 'utf8');
+  assert.doesNotMatch(popup, /createTab\('https:\/\/www\.nexusmods\.com'\);\s*\n\s*\}\s*\n\s*\}\);/, 'Page settings no longer opens a bare home page');
+  assert.match(fs.readFileSync('src/content/main.js', 'utf8'), /location\.hash !== NXTK\.PAGE_SETTINGS_HASH/);
+
+  const popupCss = fs.readFileSync('src/popup/popup.css', 'utf8');
+  assert.doesNotMatch(popupCss, /font:[^;]*\S\s+inherit\b/, 'inherit cannot sit inside the font shorthand');
+  assert.doesNotMatch(popupCss, /\.popup-bug-btn/, 'dead button rules removed');
+
+  const css = fs.readFileSync('src/content/content-styles.css', 'utf8');
+  for (const match of css.matchAll(/^\s+min-width:\s*(\d{3,})px/gm)) {
+    assert.ok(Number(match[1]) < 200, `a fixed min-width of ${match[1]}px overflows at high zoom; use min(…, 100vw - …)`);
+  }
+  const z = (selector) => Number(css.match(new RegExp(`${selector.replace(/[#.]/g, '\\$&')} \\{[^}]*?z-index: (\\d+)`))?.[1]);
+  assert.ok(z('#nxtk-dropdown-portal') > z('.nxtk-settings-fab'), 'menus open above the settings button');
+  assert.ok(z('#nxtk-dropdown-portal') < 999999, 'and below modals');
+
+  const ndc = fs.readFileSync('src/content/ndc.js', 'utf8');
+  const rate = ndc.slice(ndc.indexOf("if (error.code === 'rate_limited') {"));
+  assert.ok(rate.indexOf('if (attempt >= attempts) return result;') < rate.indexOf("'logBackingOff'"),
+    '"Backing off" is only logged when the attempt really waits');
+  assert.match(rate.slice(0, 400), /error\.retryAfterSeconds/, 'Retry-After also comes from the error');
+  assert.match(ndc, /TS\('logRetryingAttempt'/, 'the retry line is translated');
+  assert.doesNotMatch(ndc, /— retrying \(attempt \$\{attempt \+ 1\}\) \$\{`/, 'no hard-coded English retry line');
+  assert.match(ndc, /logVortexHandoffSummary/, 'a Vortex run ends by saying hand-offs are unconfirmed');
+  assert.match(ndc, /\(adopted \? 0 : Number\(sizesKb\[queueIndex - 1\]\)/, 'an adopted job never borrows this tab\'s sizes');
+  assert.match(ndc, /method: this\.claimMethod\(\)/, 'claims say which method the run uses');
+
+  const background = fs.readFileSync('src/background.js', 'utf8');
+  assert.match(background, /itemState: 'complete',\s*itemSizeKb: item\.sizeKb/, 'the worker names the finished file\'s size');
+
+  const errors = fs.readFileSync('src/content/errors.js', 'utf8');
+  const buildError = new Function('DEFINITIONS', `${extractFunction(errors, 'buildError')}\nreturn buildError;`)({ rate_limited: { userMessage: 'x', recovery: 'y' }, request_failed: { userMessage: 'x', recovery: 'y' } });
+  assert.equal(buildError('rate_limited', { retryAfterSeconds: 90 }).retryAfterSeconds, 90, 'normalize keeps Retry-After');
+  assert.equal(buildError('rate_limited', {}).retryAfterSeconds, null);
+
+  const ui = readUi();
+  assert.match(ui, /toLocaleDateString\(NXTK\.uiLocale/, 'the midnight line uses the UI language');
+  for (const locale of fs.readdirSync('src/_locales')) {
+    const messages = JSON.parse(fs.readFileSync(`src/_locales/${locale}/messages.json`, 'utf8'));
+    for (const key of ['btnStateSendingVortex', 'btnGithubReport', 'btnGithubReportTip', 'logRetryingAttempt', 'logVortexHandoffSummary']) {
+      assert.ok(messages[key]?.message, `${locale} has ${key}`);
+    }
+    for (const key of ['btnReportBug', 'btnCopyReport']) assert.equal(messages[key], undefined, `${locale} drops unused ${key}`);
+  }
+}
+
 // The remaining-time figure is the one number in the deck a user will plan around, so it
 // has to come from measurement and say nothing at all until there is something to measure.
 function queueEtaBehaviour() {
@@ -1313,6 +1368,7 @@ errorDialogTests();
 adTimerCookieBehaviour();
 needsExtractingIsNotAFailure();
 queueEtaBehaviour();
+reviewFixesBehaviour();
 storeListingBehaviour();
 popupSizingTests();
 downloadDoctorRemovedTests();

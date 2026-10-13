@@ -204,7 +204,8 @@ window.NexusExt = window.NexusExt || {};
     async acquireRunClaim() {
       const reply = await NexusExt.Storage.sendDownloadCommand('NDC_RUN_CLAIM', {
         gameId: this.gameId,
-        collectionId: this.collectionId
+        collectionId: this.collectionId,
+        method: this.claimMethod()
       });
       if (!reply?.ok) return { granted: true };
       if (!reply.value?.granted) return { granted: false, reason: reply.value?.reason || 'lease' };
@@ -213,10 +214,15 @@ window.NexusExt = window.NexusExt || {};
       this.claimTimer = setInterval(() => {
         NexusExt.Storage.sendDownloadCommand('NDC_RUN_CLAIM', {
           gameId: this.gameId,
-          collectionId: this.collectionId
+          collectionId: this.collectionId,
+          method: this.claimMethod()
         }).catch?.(() => undefined);
       }, 15000);
       return { granted: true };
+    }
+
+    claimMethod() {
+      return this.downloadMethod === DOWNLOAD_METHOD_BROWSER ? 'browser' : 'vortex';
     }
 
     releaseRunClaim() {
@@ -428,7 +434,7 @@ window.NexusExt = window.NexusExt || {};
         });
         downloadUrl = resolved?.url || '';
         if (!downloadUrl && resolved?.error) {
-          return { downloadUrl: '', text, error: resolved.error };
+          return { downloadUrl: '', text, rateLimit: resolved.rateLimit || pageResponse.rateLimit, error: resolved.error };
         }
       }
       return {
@@ -545,10 +551,13 @@ window.NexusExt = window.NexusExt || {};
         result.error = error;
 
         if (error.code === 'rate_limited') {
-          const waitSeconds = this.noteRateLimited(result.rateLimit?.retryAfterSeconds);
+          // The resolve path (getDownloadUrl) passes only the error on, so Retry-After rides on it too.
+          const waitSeconds = this.noteRateLimited(result.rateLimit?.retryAfterSeconds ?? error.retryAfterSeconds);
+          // The shared limit is recorded either way; the next file waits it out (waitOutRateLimit) and
+          // says so. "Backing off" is only logged when this attempt really is about to wait.
+          if (attempt >= attempts) return result;
           this.ui.logText(TS('logBackingOff', [formatDuration(waitSeconds)],
             `Nexus Mods is rate limiting requests. Backing off ${formatDuration(waitSeconds)}.`), 'info');
-          if (attempt >= attempts) return result;
           await this.waitOutRateLimit();
           if (this.isStopped()) return result;
           continue;
@@ -719,7 +728,8 @@ window.NexusExt = window.NexusExt || {};
         let waitTimer = null;
         let waitRow = null;
         const queueTotal = sizesKb.length || fallbackQueueTotal;
-        const eta = sizesKb.length
+        let adopted = false;
+        let eta = sizesKb.length
           ? NXTK.createQueueEta(sizesKb, { fallbackMBps: this.resolveDownloadSpeed().speed })
           : null;
 
@@ -866,7 +876,10 @@ window.NexusExt = window.NexusExt || {};
             } else if (message.itemState === 'complete') {
               eta?.itemCompleted(queueIndex - 1);
               this.ui.setTimeLeft?.(eta ? eta.remainingSeconds(queueIndex, queueTotal) : 0);
-              const sizeKb = Number(message.itemSizeKb) || Number(sizesKb[queueIndex - 1]) || 0;
+              // The worker names the size of the file it finished. The page's own list is only a fallback
+              // for an older worker, and never for an adopted job, whose numbering is not this tab's.
+              const sizeKb = Number(message.itemSizeKb)
+                || (adopted ? 0 : Number(sizesKb[queueIndex - 1]) || 0);
               this.ui.logText(sizeKb > 0
                 ? TS('logCompletedSize', [name, NXTK.formatBytes(sizeKb * 1024)], `Completed: ${name} (${NXTK.formatBytes(sizeKb * 1024)})`)
                 : TS('logCompleted', [name], `Completed: ${name}`), 'info');
@@ -945,6 +958,11 @@ window.NexusExt = window.NexusExt || {};
           }
           this.backgroundJobId = reply.value.jobId;
           if (!reply.value.adopted) return;
+          // An adopted job numbers its own item list, so this tab's sizes no longer line up: no estimate
+          // is better than a wrong one.
+          adopted = true;
+          eta = null;
+          this.ui.setTimeLeft?.(0);
           this.ui.logText(T('logReconnectedAdopted', 'Reconnected to the download already running in the background.'), 'info');
           const queueIndex = Math.min(
             Number(reply.value.index) || 0,
@@ -1129,6 +1147,7 @@ window.NexusExt = window.NexusExt || {};
         const failedDownload = [];
         const skipped = [];
         let cloudflareStrikes = 0;
+        let handedOffCount = 0;
         let forceStop = false;
 
         for (const [index, mod] of mods.entries()) {
@@ -1158,7 +1177,7 @@ window.NexusExt = window.NexusExt || {};
 
         const downloadResult = await this.fetchDownloadLinkWithRetry(mod, {
           onAttemptFailed: (error, attempt) => this.ui.log(
-            `[${modNumber}] ${escapeHtml(error.code)} — retrying (attempt ${attempt + 1}) ${`<a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`}`,
+            `[${modNumber}] ${escapeHtml(TS('logRetryingAttempt', [error.code, String(attempt + 1)], `${error.code} — retrying (attempt ${attempt + 1})`))} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`,
             'info'
           )
         });
@@ -1220,6 +1239,7 @@ window.NexusExt = window.NexusExt || {};
           this.ui.incrementProgress();
           NXTK.bumpTotalDownloads?.();
           handedOff = true;
+          handedOffCount += 1;
 
           if (history) {
             history = await this.recordHistoryEntry(type, historyEntryId(mod));
@@ -1310,6 +1330,12 @@ window.NexusExt = window.NexusExt || {};
 
       this.logSkippedSummary(skipped);
       if (skipped.length && outcome === 'finished') outcome = 'partial';
+      // The browser cannot tell whether Vortex accepted an nxm:// link (or is installed at all), so a
+      // hand-off is recorded as sent, not as downloaded. Say so, with the way to resend.
+      if (handedOffCount > 0) {
+        this.ui.logText(TS('logVortexHandoffSummary', [String(handedOffCount)],
+          `Handed ${handedOffCount} files to Vortex. Check Vortex's Downloads that each one arrived; if some did not, run again with Redownload.`), 'info');
+      }
 
       if (failedDownload.length) {
         if (outcome === 'finished') outcome = 'partial';

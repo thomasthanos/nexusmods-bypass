@@ -664,6 +664,24 @@
     };
   }
 
+  // Page settings deep link: any Nexus page with this hash opens the in-page settings once it loads.
+  const PAGE_SETTINGS_HASH = '#nxtk-settings';
+  function isNexusPageUrl(value) {
+    try {
+      const url = new URL(String(value || ''));
+      const host = url.hostname.toLowerCase();
+      // The content scripts run on www.nexusmods.com only (manifest content_scripts.matches).
+      return url.protocol === 'https:' && host === 'www.nexusmods.com';
+    } catch (_) {
+      return false;
+    }
+  }
+  function pageSettingsUrl(value) {
+    const base = isNexusPageUrl(value) ? new URL(String(value)) : new URL('https://www.nexusmods.com/');
+    base.hash = PAGE_SETTINGS_HASH;
+    return base.href;
+  }
+
   // Bug-report relay (relay/ in the repository). The extension holds no secret: the relay owns the
   // Discord webhook. Its origin is an optional host permission, asked for the first time a report is
   // sent, so installing this version adds no permission warning. Change RELAY_ORIGIN together with
@@ -1063,6 +1081,10 @@
     sanitizeDiagnosticText,
     reportPagePath,
     formatEta,
+    uiLocale,
+    PAGE_SETTINGS_HASH,
+    isNexusPageUrl,
+    pageSettingsUrl,
     formatBytes,
     createQueueEta,
     redactPersonalData,

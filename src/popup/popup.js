@@ -30,6 +30,8 @@
     }
   }
 
+  const PAGE_SETTINGS_URL = 'https://www.nexusmods.com/';
+
   function createTab(url) {
     try {
       chrome.tabs.create({ url }, () => {
@@ -298,6 +300,9 @@
     });
 
     document.getElementById('openSettings').addEventListener('click', () => {
+      // A Nexus tab with no content script (opened before install, or a non-Nexus tab) gets a Nexus page
+      // whose #nxtk-settings hash opens the panel as soon as the page has loaded.
+      const openFresh = (base = PAGE_SETTINGS_URL) => createTab(NXTK.pageSettingsUrl(base));
       try {
         chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
           const error = getRuntimeError();
@@ -305,16 +310,20 @@
             showStatus(NXTK.t('popupCantOpenPageSettings', [String(error)], `Could not open page settings: ${error}`), 'error', { diagnostic: `Page settings open failed: ${error}` });
             return;
           }
-          if (tabs[0] && tabs[0].url?.includes('nexusmods.com')) {
-            chrome.tabs.sendMessage(tabs[0].id, { type: 'TOGGLE_POPOUT' }, () => {
-              if (getRuntimeError()) {
-                showStatus(NXTK.t('popupReloadFirst', null, 'Reload the Nexus Mods page before opening page settings.'), 'error', { record: false });
+          const tab = tabs[0];
+          if (tab && NXTK.isNexusPageUrl(tab.url)) {
+            chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_POPOUT' }, (reply) => {
+              if (getRuntimeError() || !reply?.ok) {
+                chrome.tabs.update(tab.id, { url: NXTK.pageSettingsUrl(tab.url) }, () => {
+                  if (getRuntimeError()) openFresh();
+                  else window.close();
+                });
                 return;
               }
               window.close();
             });
           } else {
-            createTab('https://www.nexusmods.com');
+            openFresh();
           }
         });
       } catch (error) {

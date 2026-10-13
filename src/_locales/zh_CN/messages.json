@@ -26,9 +26,6 @@
   "btnGoNexus": {
     "message": "NexusMods"
   },
-  "btnReportBug": {
-    "message": "报告问题 — 自动复制诊断报告"
-  },
   "popupFooter": {
     "message": "Nexus Mods 与 Vortex 下载助手"
   },
@@ -748,9 +745,6 @@
   },
   "popupQueuesTitle": {
     "message": "后台下载"
-  },
-  "popupReloadFirst": {
-    "message": "打开页面设置前，请先刷新 Nexus Mods 页面。"
   },
   "popupReportFull": {
     "message": "GitHub 已打开并附带完整报告——只需描述发生了什么。"
@@ -1648,14 +1642,6 @@
     "message": "描述问题，检查已脱敏的报告后发送",
     "description": "UI string."
   },
-  "btnCopyReport": {
-    "message": "复制错误报告",
-    "description": "UI string."
-  },
-  "btnCopyReportTip": {
-    "message": "复制已脱敏的错误报告并打开 GitHub Issue",
-    "description": "UI string."
-  },
   "btnDebugLogTip": {
     "message": "在新标签页中打开调试日志",
     "description": "UI string."
@@ -1675,5 +1661,32 @@
   "setHideDownloadPopupDesc": {
     "message": "仅限 Chrome 和 Edge。合集下载期间不再为每个文件弹出下载气泡，结束、停止或出错时恢复。",
     "description": "UI string."
+  },
+  "btnStateSendingVortex": {
+    "message": "正在发送到 Vortex…",
+    "description": "UI string."
+  },
+  "btnGithubReport": {
+    "message": "在 GitHub 上报告",
+    "description": "UI string."
+  },
+  "btnGithubReportTip": {
+    "message": "打开预填的 GitHub Issue。链接放不下的报告会先复制到剪贴板。",
+    "description": "UI string."
+  },
+  "logRetryingAttempt": {
+    "message": "$CODE$ — 正在重试（第 $N$ 次）",
+    "description": "UI string.",
+    "placeholders": {
+      "code": { "content": "$1" },
+      "n": { "content": "$2" }
+    }
+  },
+  "logVortexHandoffSummary": {
+    "message": "已将 $COUNT$ 个文件交给 Vortex。请在 Vortex 的下载中确认全部到达；如有缺失，请用“重新下载”再次运行。",
+    "description": "UI string.",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

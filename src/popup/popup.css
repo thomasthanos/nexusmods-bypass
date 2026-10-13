@@ -286,35 +286,13 @@ html, body {
   margin-bottom: 10px;
 }
 
-.popup-bug-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  margin-bottom: 10px;
-  padding: 9px 14px;
-  color: var(--nxtk-text-muted);
-  letter-spacing: .015em;
-  text-transform: none;
-  font-size: 12px;
-}
-.popup-bug-btn svg {
-  width: 15px;
-  height: 15px;
-  flex: none;
-  fill: currentColor;
-}
-.popup-bug-btn:hover,
-.popup-bug-btn:focus-visible { color: var(--nxtk-text-bright); }
-
 .popup-help-actions { display: grid; gap: 8px; margin-bottom: 12px; }
 .popup-help-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .popup-help-primary,
 .popup-help-secondary {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   min-height: 36px; padding: 8px 12px; border-radius: 8px;
-  font: 600 12.5px/1.2 inherit; font-family: inherit; letter-spacing: 0; text-transform: none;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.2; letter-spacing: 0; text-transform: none;
   cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
 }
 .popup-help-primary svg, .popup-help-secondary svg { width: 15px; height: 15px; flex: none; fill: currentColor; }
