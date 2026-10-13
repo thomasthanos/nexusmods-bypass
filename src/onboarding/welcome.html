@@ -45,6 +45,37 @@
       </div>
     </header>
 
+    <section class="setup card" id="setup" aria-labelledby="setupTitle">
+      <h2 id="setupTitle" data-i18n="setupTitle">Set it up in 30 seconds</h2>
+      <p class="setup-sub" data-i18n="setupSubtitle">Three questions. You can change everything later in settings.</p>
+      <form id="setupForm" class="setup-form">
+        <fieldset class="setup-q">
+          <legend data-i18n="setupQVortex">Do you use Vortex?</legend>
+          <label class="setup-choice"><input type="radio" name="method" value="vortex" checked> <span data-i18n="setupVortexYes">Yes, send files to Vortex</span></label>
+          <label class="setup-choice"><input type="radio" name="method" value="browser"> <span data-i18n="setupVortexNo">No, save files with my browser</span></label>
+        </fieldset>
+        <label class="setup-q setup-field" id="setupFolderRow">
+          <span data-i18n="setupQFolder">Download folder (inside your browser's Downloads)</span>
+          <input type="text" id="setupFolder" maxlength="100" spellcheck="false" placeholder="NexusMods">
+          <small data-i18n="setupFolderHint">Leave empty to save straight into Downloads.</small>
+        </label>
+        <label class="setup-q setup-check" id="setupCloseRow">
+          <input type="checkbox" id="setupCloseTab" checked>
+          <span data-i18n="setupQCloseTab">Close the extra Nexus tab after a file is sent to Vortex</span>
+        </label>
+        <div class="setup-actions">
+          <button type="submit" class="btn btn-primary" id="setupSave" data-i18n="setupSave">Save</button>
+          <button type="button" class="btn btn-secondary" id="setupTestVortex" data-i18n="setupTestVortex">Test Vortex</button>
+          <span class="setup-status" id="setupStatus" role="status" aria-live="polite"></span>
+        </div>
+        <div class="setup-ask" id="setupAsk" hidden>
+          <span data-i18n="setupAskOpened">Did Vortex open?</span>
+          <button type="button" class="btn btn-secondary" id="setupAskYes" data-i18n="dlgVortexOpenedYesShort">Yes</button>
+          <button type="button" class="btn btn-secondary" id="setupAskNo" data-i18n="dlgVortexOpenedNoShort">No</button>
+        </div>
+      </form>
+    </section>
+
     <section class="path" aria-labelledby="pathTitle">
       <h2 id="pathTitle" data-i18n="quickStartTitle">Quick start</h2>
       <ol class="path-steps">

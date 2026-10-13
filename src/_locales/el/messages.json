@@ -9,7 +9,7 @@
     "message": "Αυτόματη έναρξη λήψεων"
   },
   "setAutoCloseTabLabel": {
-    "message": "Κλείσιμο καρτελών Vortex"
+    "message": "Κλείσιμο της επιπλέον καρτέλας μετά την αποστολή στο Vortex"
   },
   "toggleSkipReq": {
     "message": "Παράλειψη οθονών requirements"
@@ -279,7 +279,7 @@
     "message": "Αποστολή στο Vortex"
   },
   "deckMethodVortexHint": {
-    "message": "Ιδανικό για μεταφορά με ένα κλικ στην ουρά του Vortex."
+    "message": "Στέλνει κάθε αρχείο απευθείας στην ουρά λήψεων του Vortex."
   },
   "deckMethodBrowser": {
     "message": "Λήψη μέσω περιηγητή"
@@ -564,7 +564,7 @@
     "message": "Αυτόματη έναρξη λήψεων"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Όταν ανοίγετε σελίδα λήψης του Nexus, ξεκινά η μεταφορά στο Vortex ή η λήψη μέσω περιηγητή χωρίς άλλο κλικ."
+    "message": "Όταν ανοίγετε μια σελίδα αρχείου του Nexus, η λήψη ξεκινά (στο Vortex ή στο πρόγραμμα περιήγησης) χωρίς άλλο κλικ."
   },
   "setAutoCloseTabDesc": {
     "message": "Αφού σταλεί σύνδεσμος στο Vortex, κλείνει την προσωρινή καρτέλα Nexus μετά την παρακάτω καθυστέρηση."
@@ -612,13 +612,13 @@
     "message": "Η ταχύτητα λήψης σας στο Nexus"
   },
   "setDownloadSpeedDesc": {
-    "message": "Μόνο σε λειτουργία Vortex. Ο περιηγητής δεν βλέπει τη μεταφορά μέσα στο Vortex, οπότε αυτό εκτιμά τη διάρκεια και κατανέμει τις παραδόσεις. Βάλτε την ταχύτητα που πραγματικά βλέπετε — πολύ χαμηλή τιμή σημαίνει περιττή αναμονή."
+    "message": "Μόνο Vortex. Το πρόγραμμα περιήγησης δεν βλέπει τις λήψεις του Vortex, οπότε εκτιμά πόσο κρατά κάθε αρχείο και περιμένει τόσο πριν στείλει το επόμενο. Ορίστε την ταχύτητα που πραγματικά έχετε."
   },
   "setPauseBetweenModsLabel": {
     "message": "Παύση μεταξύ mods"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Μόνο σε λειτουργία Vortex. Προστίθεται στην παραπάνω εκτίμηση. Βάλτε 0 για να απενεργοποιήσετε την εκτίμηση μεγέθους και να αφήσετε το Vortex να βάζει μόνο του τα αρχεία στην ουρά· ένα κενό 2 δευτερολέπτων ανάμεσα στις παραδόσεις παραμένει πάντα."
+    "message": "Μόνο Vortex. Επιπλέον αναμονή μεταξύ αρχείων, που προστίθεται στην παραπάνω εκτίμηση. Το 0 απενεργοποιεί την εκτίμηση και αφήνει το Vortex να βάζει μόνο του τα αρχεία στην ουρά· ένα κενό 2 δευτερολέπτων μένει πάντα."
   },
   "dlgHistoryTitle": {
     "message": "Βρέθηκαν ληφθέντα mods"
@@ -1260,10 +1260,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Cloudflare fallback"
+    "message": "Άνοιγμα σελίδας αρχείου όταν το Nexus ζητά έλεγχο προγράμματος περιήγησης"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Αν μια λήψη στο παρασκήνιο ζητήσει επαλήθευση browser, ανοίγει τη σελίδα για να την περάσεις αντί να αποτύχει."
+    "message": "Αν το Nexus δείξει σελίδα «επιβεβαιώστε ότι είστε άνθρωπος» αντί για σύνδεσμο, ανοίγει η σελίδα του αρχείου για να περάσετε τον έλεγχο. Γι' αυτό η καρτέλα μερικές φορές αλλάζει μόνη της."
   },
   "tabControls": {
     "message": "Ρυθμίσεις",
@@ -1827,5 +1827,217 @@
   },
   "noticeVortexNotOpenedDetail": {
     "message": "Αν δεν έγινε τίποτα, ελέγξτε ότι το Vortex είναι εγκατεστημένο και ορισμένο για συνδέσμους nxm:// (και επιτρέψτε το μήνυμα του browser), και πατήστε ξανά το κουμπί."
+  },
+  "summarySent": {
+    "message": "Στάλθηκαν"
+  },
+  "summarySkipped": {
+    "message": "Παραλείφθηκαν"
+  },
+  "summaryFailed": {
+    "message": "Απέτυχαν"
+  },
+  "summaryAccount": {
+    "message": "Λογαριασμός Nexus"
+  },
+  "btnRetryIn": {
+    "message": "Νέα προσπάθεια σε $1",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "btnOpenFilePage": {
+    "message": "Άνοιγμα σελίδας αρχείου"
+  },
+  "btnUseBrowserDownload": {
+    "message": "Λήψη μέσω προγράμματος περιήγησης"
+  },
+  "btnRetryNow": {
+    "message": "Νέα προσπάθεια τώρα"
+  },
+  "noticeSwitchedToBrowserTitle": {
+    "message": "Έγινε αλλαγή σε λήψεις μέσω προγράμματος περιήγησης"
+  },
+  "noticeSwitchedToBrowserDetail": {
+    "message": "Οι συλλογές αποθηκεύουν πλέον πραγματικά αρχεία στον φάκελο Λήψεις. Για μεμονωμένα αρχεία, χρησιμοποιήστε τη «Χειροκίνητη λήψη» στη σελίδα του αρχείου. Μπορείτε να επιστρέψετε από τις ρυθμίσεις."
+  },
+  "noticeVortexKeepsFailingTitle": {
+    "message": "Το Vortex δεν παραλαμβάνει τα αρχεία"
+  },
+  "noticeVortexKeepsFailingDetail": {
+    "message": "Δύο φορές στη σειρά δεν φάνηκε ότι άνοιξε το Vortex. Χρησιμοποιήστε λήψεις μέσω προγράμματος περιήγησης ή ελέγξτε ότι το Vortex είναι εγκατεστημένο."
+  },
+  "btnUseBrowserDownloads": {
+    "message": "Χρήση λήψεων μέσω προγράμματος περιήγησης"
+  },
+  "btnVortexInstallGuide": {
+    "message": "Οδηγός εγκατάστασης Vortex"
+  },
+  "logVortexOpenRemembered": {
+    "message": "Το Vortex έχει ήδη επιβεβαιωθεί, οπότε δεν ξαναρωτάμε."
+  },
+  "presetVortex": {
+    "message": "Χρήστης Vortex"
+  },
+  "presetVortexDesc": {
+    "message": "Αποστολή αρχείων στο Vortex, αυτόματη έναρξη, κλείσιμο της επιπλέον καρτέλας."
+  },
+  "presetBrowser": {
+    "message": "Λήψεις μέσω προγράμματος περιήγησης"
+  },
+  "presetBrowserDesc": {
+    "message": "Αποθήκευση πραγματικών αρχείων στις Λήψεις, αυτόματη έναρξη."
+  },
+  "presetMinimal": {
+    "message": "Ελάχιστο"
+  },
+  "presetMinimalDesc": {
+    "message": "Μόνο ό,τι πατάτε: χωρίς αυτόματη έναρξη, χωρίς επιπλέον κουμπιά."
+  },
+  "setSectionPresets": {
+    "message": "Γρήγορη ρύθμιση"
+  },
+  "presetCustom": {
+    "message": "Προσαρμοσμένο: ο δικός σας συνδυασμός ρυθμίσεων."
+  },
+  "summaryTitle": {
+    "message": "Σύνοψη"
+  },
+  "summaryCounts": {
+    "message": "$1 στάλθηκαν · $2 παραλείφθηκαν · $3 απέτυχαν",
+    "placeholders": {
+      "sent": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryAccountLine": {
+    "message": "Οι σύνδεσμοι υπογράφηκαν για τον λογαριασμό Nexus #$1. Το Vortex πρέπει να χρησιμοποιεί τον ίδιο λογαριασμό.",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      }
+    }
+  },
+  "summaryCopy": {
+    "message": "Αντιγραφή λίστας"
+  },
+  "summaryOpenFailed": {
+    "message": "Άνοιγμα σελίδων που απέτυχαν"
+  },
+  "summaryRetryFailed": {
+    "message": "Επανάληψη αποτυχημένων"
+  },
+  "summaryCopied": {
+    "message": "Αντιγράφηκε"
+  },
+  "summaryCopyFailed": {
+    "message": "Η αντιγραφή απέτυχε"
+  },
+  "historyViewTitle": {
+    "message": "Ιστορικό λήψεων αυτής της συλλογής"
+  },
+  "historyViewSent": {
+    "message": "Στάλθηκαν στο Vortex"
+  },
+  "historyViewDownloaded": {
+    "message": "Λήφθηκαν"
+  },
+  "historyViewMissing": {
+    "message": "Δεν έχουν ληφθεί ακόμη"
+  },
+  "historyViewHelp": {
+    "message": "Τα αρχεία «Στάλθηκαν στο Vortex» δεν παραλείπονται: το πρόγραμμα περιήγησης δεν βλέπει αν τα πήρε το Vortex. Η επαναποστολή είναι ασφαλής, το Vortex παραλείπει όσα ήδη έχει."
+  },
+  "historyViewClear": {
+    "message": "Εκκαθάριση ιστορικού"
+  },
+  "historyViewResend": {
+    "message": "Επαναποστολή όσων λείπουν ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "deckHistoryView": {
+    "message": "Ιστορικό λήψεων"
+  },
+  "deckHistoryViewHint": {
+    "message": "Στάλθηκαν, λήφθηκαν, επαναποστολή όσων λείπουν"
+  },
+  "setupSaved": {
+    "message": "Αποθηκεύτηκε. Ανοίξτε οποιαδήποτε σελίδα αρχείου του Nexus Mods για να το δοκιμάσετε."
+  },
+  "setupSaveFailed": {
+    "message": "Δεν ήταν δυνατή η αποθήκευση. Δοκιμάστε ξανά από το κουμπί ρυθμίσεων σε μια σελίδα του Nexus."
+  },
+  "setupTesting": {
+    "message": "Ζητάμε από το πρόγραμμα περιήγησης να ανοίξει το Vortex… επιτρέψτε το μήνυμα αν εμφανιστεί."
+  },
+  "setupTestOk": {
+    "message": "Το Vortex άνοιξε. Όλα έτοιμα."
+  },
+  "setupTestUnsure": {
+    "message": "Δεν ήταν δυνατό να διαπιστωθεί αν άνοιξε το Vortex."
+  },
+  "setupTestFailed": {
+    "message": "Το Vortex δεν άνοιξε. Εγκαταστήστε το Vortex και αφήστε το να χειρίζεται τους συνδέσμους nxm:// (Ρυθμίσεις Vortex → Λήψεις) ή επιλέξτε παραπάνω λήψεις μέσω προγράμματος περιήγησης."
+  },
+  "setupTitle": {
+    "message": "Έτοιμο σε 30 δευτερόλεπτα"
+  },
+  "setupSubtitle": {
+    "message": "Τρεις ερωτήσεις. Μπορείτε να αλλάξετε τα πάντα αργότερα στις ρυθμίσεις."
+  },
+  "setupQVortex": {
+    "message": "Χρησιμοποιείτε το Vortex;"
+  },
+  "setupVortexYes": {
+    "message": "Ναι, αποστολή αρχείων στο Vortex"
+  },
+  "setupVortexNo": {
+    "message": "Όχι, αποθήκευση αρχείων με το πρόγραμμα περιήγησης"
+  },
+  "setupQFolder": {
+    "message": "Φάκελος λήψεων (μέσα στις Λήψεις του προγράμματος περιήγησης)"
+  },
+  "setupFolderHint": {
+    "message": "Αφήστε κενό για αποθήκευση απευθείας στις Λήψεις."
+  },
+  "setupQCloseTab": {
+    "message": "Κλείσιμο της επιπλέον καρτέλας Nexus μετά την αποστολή αρχείου στο Vortex"
+  },
+  "setupSave": {
+    "message": "Αποθήκευση"
+  },
+  "setupTestVortex": {
+    "message": "Δοκιμή Vortex"
+  },
+  "setupAskOpened": {
+    "message": "Άνοιξε το Vortex;"
+  },
+  "dlgVortexOpenedYesShort": {
+    "message": "Ναι"
+  },
+  "dlgVortexOpenedNoShort": {
+    "message": "Όχι"
+  },
+  "noticeFileMissingTitle": {
+    "message": "Αυτό το αρχείο δεν είναι διαθέσιμο"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Το Nexus λέει ότι το αρχείο δεν υπάρχει: αφαιρέθηκε ή κρύφτηκε, ή ο σύνδεσμος είναι λάθος. Επιλέξτε άλλο αρχείο στην καρτέλα Files του mod."
+  },
+  "btnOpenModFiles": {
+    "message": "Άνοιγμα καρτέλας Files"
   }
 }

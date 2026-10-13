@@ -184,6 +184,8 @@ window.NexusExt = window.NexusExt || {};
     'nxtk-error-modal',
     'nxtk-vortex-check-modal',
     'nxtk-vortex-opened-modal',
+    'nxtk-run-summary-modal',
+    'nxtk-history-view-modal',
     'nxtk-history-modal',
     'nxtk-import-info-modal',
     'nxtk-wj-info-modal',
@@ -507,7 +509,9 @@ window.NexusExt = window.NexusExt || {};
     await kit.settings.open();
   }
 
-  function showError(error, { onRetry = null, title = '' } = {}) {
+  // filePageUrl: where "Open file page" goes. method: 'vortex' | 'browser'. onSwitchToBrowser: what
+  // "Use browser download" does (the setting is switched here; the caller may retry with it).
+  function showError(error, { onRetry = null, title = '', filePageUrl = '', method = '', onSwitchToBrowser = null } = {}) {
     const normalized = NexusExt.Errors?.normalize
       ? NexusExt.Errors.normalize(error)
       : {
@@ -516,8 +520,25 @@ window.NexusExt = window.NexusExt || {};
         recovery: 'Retry the download. If it keeps happening, report the issue.',
         retryable: false
       };
-    const canRetry = normalized.retryable && typeof onRetry === 'function';
+    const canRetry = (normalized.retryable || normalized.code === 'rate_limited') && typeof onRetry === 'function';
     const requiresLogin = normalized.code === 'requires_login';
+    const safeFilePage = filePageUrl && NXTK.isSafeNexusPageUrl?.(filePageUrl) ? filePageUrl : '';
+    const actions = NXTK.errorActionsFor
+      ? NXTK.errorActionsFor(normalized, { canRetry, filePageUrl: safeFilePage, method, canSwitchToBrowser: true })
+      : (requiresLogin ? ['signIn'] : canRetry ? ['retry'] : []);
+    const waitSeconds = Number(normalized.retryAfterSeconds) || 0;
+    const actionButton = (id) => {
+      switch (id) {
+        case 'signIn': return `<button class="nxtk-btn nxtk-btn-primary" type="button" data-login>${escapeHtml(NXTK.t('btnSignIn', null, 'Sign in to Nexus Mods'))}</button>`;
+        case 'retry': return `<button class="nxtk-btn nxtk-btn-primary" type="button" data-retry>${escapeHtml(NXTK.t('btnRetry', null, 'Retry'))}</button>`;
+        case 'retryIn': return `<button class="nxtk-btn nxtk-btn-primary" type="button" data-retry data-retry-in="${waitSeconds}" disabled>${escapeHtml(NXTK.t('btnRetryIn', [NXTK.formatCountdown(waitSeconds)], `Retry in ${NXTK.formatCountdown(waitSeconds)}`))}</button>`;
+        case 'openFilePage': return `<a class="nxtk-btn nxtk-btn-secondary" data-open-file-page href="${escapeHtml(safeFilePage)}" target="_blank" rel="noopener noreferrer">${escapeHtml(NXTK.t('btnOpenFilePage', null, 'Open file page'))}</a>`;
+        case 'switchToBrowser': return `<button class="nxtk-btn nxtk-btn-secondary" type="button" data-switch-browser>${escapeHtml(NXTK.t('btnUseBrowserDownload', null, 'Use browser download'))}</button>`;
+        default: return '';
+      }
+    };
+    const secondaryActions = actions.filter((id) => id === 'openFilePage' || id === 'switchToBrowser').map(actionButton).join('');
+    const primaryAction = actions.find((id) => id === 'signIn' || id === 'retry' || id === 'retryIn');
     const shown = NexusExt.Errors?.displayText
       ? NexusExt.Errors.displayText(normalized)
       : { message: normalized.userMessage, recovery: normalized.recovery };
@@ -554,11 +575,10 @@ window.NexusExt = window.NexusExt || {};
           ${normalized.blocking
             ? `<a class="nxtk-btn nxtk-btn-secondary" href="${escapeHtml(NXTK.TROUBLESHOOTING_URL)}" target="_blank" rel="noopener noreferrer">${escapeHtml(NXTK.t('dlgWhatDoesThisMean', null, 'What does this mean?'))}</a>`
             : `<button class="nxtk-btn nxtk-btn-secondary" type="button" data-send-report>${escapeHtml(NXTK.t('btnSendReport', null, 'Send bug report'))}</button><button class="nxtk-btn nxtk-btn-secondary" type="button" data-report>${escapeHtml(NXTK.t('dlgReportBug', null, 'Report a bug'))}</button>`}
-          ${requiresLogin
-            ? `<button class="nxtk-btn nxtk-btn-primary" type="button" data-login>${escapeHtml(NXTK.t('btnSignIn', null, 'Sign in to Nexus Mods'))}</button>`
-            : canRetry
-              ? `<button class="nxtk-btn nxtk-btn-primary" type="button" data-retry>${escapeHtml(NXTK.t('btnRetry', null, 'Retry'))}</button>`
-              : `<button class="nxtk-btn nxtk-btn-primary" type="button" data-close>${escapeHtml(NXTK.t('btnDone', null, 'Done'))}</button>`}
+          ${secondaryActions}
+          ${primaryAction
+            ? actionButton(primaryAction)
+            : `<button class="nxtk-btn nxtk-btn-primary" type="button" data-close>${escapeHtml(NXTK.t('btnDone', null, 'Done'))}</button>`}
         </div>`
       });
 
@@ -574,6 +594,34 @@ window.NexusExt = window.NexusExt || {};
         close();
         NexusExt.Auth?.openLogin?.();
       });
+      const countdownButton = modal.querySelector('[data-retry-in]');
+      if (countdownButton) {
+        let remaining = Number(countdownButton.dataset.retryIn) || 0;
+        const tick = () => {
+          if (!countdownButton.isConnected) return;
+          remaining -= 1;
+          if (remaining <= 0) {
+            countdownButton.disabled = false;
+            countdownButton.textContent = NXTK.t('btnRetryNow', null, 'Retry now');
+            countdownButton.focus();
+            return;
+          }
+          countdownButton.textContent = NXTK.t('btnRetryIn', [NXTK.formatCountdown(remaining)], `Retry in ${NXTK.formatCountdown(remaining)}`);
+          setTimeout(tick, 1000);
+        };
+        setTimeout(tick, 1000);
+      }
+      modal.querySelector('[data-open-file-page]')?.addEventListener('click', () => close());
+      modal.querySelector('[data-switch-browser]')?.addEventListener('click', async () => {
+        close();
+        try { await NexusExt.Storage?.patchSetting?.('NDC_downloadMethod', 1); } catch (_) { }
+        showNotice({
+          title: NXTK.t('noticeSwitchedToBrowserTitle', null, 'Switched to browser downloads'),
+          detail: NXTK.t('noticeSwitchedToBrowserDetail', null, 'Collections now save real files to your Downloads folder. On a file page, use "Manual download" for single files. You can switch back in settings.'),
+          ms: 10000
+        });
+        try { onSwitchToBrowser?.(); } catch (_) { }
+      });
       modal.querySelector('[data-retry]')?.addEventListener('click', () => {
         close();
         Promise.resolve().then(onRetry).catch((cause) => {
@@ -583,7 +631,7 @@ window.NexusExt = window.NexusExt || {};
           showError(retryError, { onRetry, title });
         });
       });
-      (modal.querySelector('[data-login]') || modal.querySelector('[data-retry]') || modal.querySelector('[data-close]'))?.focus();
+      (modal.querySelector('[data-login]') || modal.querySelector('[data-retry]:not([disabled])') || modal.querySelector('[data-close]'))?.focus();
     });
   }
 
@@ -707,7 +755,9 @@ window.NexusExt = window.NexusExt || {};
 
   // A small dismissible notice in the close-toast style, for things the user should know about but
   // that need no decision (for example: Nexus changed a page and a feature may be degraded).
-  function showNotice({ title = '', detail = '', ms = 12000 } = {}) {
+  // actions: [{ label, href } | { label, onClick }] shown before Dismiss.
+  function showNotice({ title = '', detail = '', ms = 12000, actions = [], id = '' } = {}) {
+    if (id) document.querySelectorAll(`.nxtk-notice-toast[data-notice-id="${CSS.escape(id)}"]`).forEach((old) => old.remove());
     const toast = document.createElement('div');
     toast.className = 'nxtk-close-toast nxtk-notice-toast';
     toast.setAttribute('role', 'status');
@@ -723,7 +773,25 @@ window.NexusExt = window.NexusExt || {};
     close.type = 'button';
     close.className = 'nxtk-btn nxtk-btn-secondary nxtk-close-toast-keep';
     close.textContent = NXTK.t('btnDismiss', null, 'Dismiss');
-    toast.append(copy, close);
+    if (id) toast.dataset.noticeId = id;
+    const actionEls = actions.map((action) => {
+      const el = document.createElement(action.href ? 'a' : 'button');
+      el.className = 'nxtk-btn nxtk-btn-primary nxtk-close-toast-keep nxtk-notice-action';
+      el.textContent = String(action.label || '');
+      if (action.href) {
+        el.href = action.href;
+        el.target = '_blank';
+        el.rel = 'noopener noreferrer';
+      } else {
+        el.type = 'button';
+      }
+      el.addEventListener('click', () => {
+        try { action.onClick?.(); } catch (_) { }
+        remove();
+      });
+      return el;
+    });
+    toast.append(copy, ...actionEls, close);
     let gone = false;
     const remove = () => {
       if (gone) return;
@@ -778,6 +846,27 @@ window.NexusExt = window.NexusExt || {};
       },
       dismiss
     };
+  }
+
+  // After two hand-offs in a row with no sign of Vortex: offer browser downloads, or the install guide.
+  function offerBrowserSwitch({ onSwitch = null } = {}) {
+    return showNotice({
+      id: 'vortex-switch-offer',
+      title: NXTK.t('noticeVortexKeepsFailingTitle', null, 'Vortex is not picking up the files'),
+      detail: NXTK.t('noticeVortexKeepsFailingDetail', null, 'Twice in a row nothing showed that Vortex opened. Use browser downloads instead, or check that Vortex is installed.'),
+      ms: 20000,
+      actions: [
+        {
+          label: NXTK.t('btnUseBrowserDownloads', null, 'Use browser downloads'),
+          onClick: async () => {
+            try { await NexusExt.Storage?.patchSetting?.('NDC_downloadMethod', 1); } catch (_) { }
+            try { await NXTK.recordVortexOpenEvent?.('reset'); } catch (_) { }
+            try { onSwitch?.(); } catch (_) { }
+          }
+        },
+        { label: NXTK.t('btnVortexInstallGuide', null, 'Vortex install guide'), href: NXTK.VORTEX_INSTALL_GUIDE_URL }
+      ]
+    });
   }
 
   function showCloseCountdown({ ms = 3000, onDone = null, onCancel = null } = {}) {
@@ -883,6 +972,7 @@ window.NexusExt = window.NexusExt || {};
     showError,
     showCloseCountdown,
     showNotice,
+    offerBrowserSwitch,
     showStatusToast,
     nxtkAlert,
     loadBundle

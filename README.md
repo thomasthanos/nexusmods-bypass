@@ -47,7 +47,7 @@
 
 ## Usage
 
-Sign in to Nexus Mods. On a mod's **Files** tab, download as usual. On a **collection**, pick Vortex or browser download in the collection panel and start the queue (keep the tab open). The toolbar popup has quick switches, **Page settings** and **Help & Bugs**.
+On first install, the welcome page asks three setup questions and has a **Test Vortex** button. Sign in to Nexus Mods. On a mod's **Files** tab, download as usual. On a **collection**, pick Vortex or browser download in the collection panel and start the queue (keep the tab open). The toolbar popup has quick switches, **Page settings** and **Help & Bugs**. A collection run ends with a summary (sent / skipped / failed, retry failed, copy list); the collection menu's **Download history** shows what was sent to Vortex and resends what is missing.
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
@@ -56,10 +56,11 @@ Sign in to Nexus Mods. On a mod's **Files** tab, download as usual. On a **colle
 <details>
 <summary><b>⚙️ Settings</b> — <sub>what each Page settings group controls</sub></summary>
 
-- **Download flow:** auto-start, close Vortex tabs, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first, Cloudflare fallback.
-- **Files & pacing:** browser download folder, Nexus download speed, pause between mods.
+- **Quick setup:** presets *Vortex user*, *Browser downloads* and *Minimal* (a mix shows as *Custom*).
+- **Download flow:** auto-start, close the extra tab after sending to Vortex, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first.
+- **Files:** browser download folder.
 - **Official Nexus API:** use the documented API for collection, mod and file details (on), follow curator update policy (off), endorse and track buttons (on). See [docs/nexus-site-map.md](docs/nexus-site-map.md).
-- **Advanced:** request timeout and close-tab delay.
+- **Advanced:** request timeout, close-tab delay, Vortex download speed and pause between files, official API, open the file page when Nexus asks for a browser check.
 - **Language:** Always use English.
 </details>
 

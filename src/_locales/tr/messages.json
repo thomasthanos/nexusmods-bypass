@@ -9,7 +9,7 @@
     "message": "İndirmeleri otomatik başlat"
   },
   "setAutoCloseTabLabel": {
-    "message": "Vortex sekmelerini kapat"
+    "message": "Vortex'e gönderdikten sonra fazla sekmeyi kapat"
   },
   "toggleSkipReq": {
     "message": "Gereksinim ekranlarını atla"
@@ -279,7 +279,7 @@
     "message": "Vortex'e gönder"
   },
   "deckMethodVortexHint": {
-    "message": "Tek tıkla Vortex kuyruğuna aktarmak için en uygunu."
+    "message": "Her dosyayı doğrudan Vortex indirme kuyruğunuza gönderir."
   },
   "deckMethodBrowser": {
     "message": "Tarayıcıyla indir"
@@ -494,7 +494,7 @@
     "message": "İndirmeleri otomatik başlat"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Bir Nexus dosya indirme sayfası açtığınızda, ek bir tıklama olmadan Vortex aktarımını veya tarayıcı indirmesini başlatır."
+    "message": "Bir Nexus dosya sayfasını açtığınızda indirme (Vortex'e veya tarayıcıya) ek tıklama olmadan başlar."
   },
   "setAutoCloseTabDesc": {
     "message": "Vortex'e bir bağlantı gönderildikten sonra, aşağıdaki gecikmenin ardından geçici Nexus sekmesini kapatır."
@@ -542,13 +542,13 @@
     "message": "Nexus indirme hızınız"
   },
   "setDownloadSpeedDesc": {
-    "message": "Yalnızca Vortex modu. Tarayıcı, Vortex içinde gerçekleşen aktarımı göremez; bu yüzden bu değer her dosyanın süresini tahmin eder ve aktarımları aralıklandırır. Gerçekte gördüğünüz hızı girin — çok düşük olursa kuyruk gereğinden çok daha uzun bekler."
+    "message": "Yalnızca Vortex. Tarayıcı Vortex'in indirmelerini göremez; bu yüzden her dosyanın ne kadar süreceği tahmin edilir ve sonrakini göndermeden önce o kadar beklenir. Gerçek hızınızı girin."
   },
   "setPauseBetweenModsLabel": {
     "message": "Modlar arası bekleme"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Yalnızca Vortex modu. Yukarıdaki tahmine eklenir. 0 yaparsanız boyuta dayalı tahmin kapanır ve kuyruğu Vortex kendi yönetir; aktarımlar arasında her zaman 2 saniyelik bir ara kalır."
+    "message": "Yalnızca Vortex. Dosyalar arasında yukarıdaki tahmine eklenen ek bekleme. 0 tahmini kapatır ve dosyaları Vortex'in kendisinin sıraya almasına izin verir; 2 saniyelik ara her zaman kalır."
   },
   "dlgHistoryTitle": {
     "message": "İndirilmiş modlar bulundu"
@@ -1260,10 +1260,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Cloudflare yedeği"
+    "message": "Nexus tarayıcı doğrulaması istediğinde dosya sayfasını aç"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Arka planda indirme işlemi tarayıcı doğrulaması gerektirirse, başarısız olmak yerine tamamlamanız için sayfayı açar."
+    "message": "Nexus bağlantı yerine \"insan olduğunuzu doğrulayın\" sayfası gösterirse, doğrulamayı geçebilmeniz için dosya sayfası açılır. Sekmenin bazen kendiliğinden değişmesinin nedeni budur."
   },
   "tabControls": {
     "message": "Kontroller",
@@ -1827,5 +1827,217 @@
   },
   "noticeVortexNotOpenedDetail": {
     "message": "Hiçbir şey olmadıysa Vortex'in kurulu ve nxm:// bağlantılarını işleyecek şekilde ayarlı olduğunu kontrol edin (ve tarayıcı istemine izin verin), sonra düğmeye yeniden tıklayın."
+  },
+  "summarySent": {
+    "message": "Gönderildi"
+  },
+  "summarySkipped": {
+    "message": "Atlandı"
+  },
+  "summaryFailed": {
+    "message": "Başarısız"
+  },
+  "summaryAccount": {
+    "message": "Nexus hesabı"
+  },
+  "btnRetryIn": {
+    "message": "$1 sonra tekrar dene",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "btnOpenFilePage": {
+    "message": "Dosya sayfasını aç"
+  },
+  "btnUseBrowserDownload": {
+    "message": "Tarayıcı indirmesini kullan"
+  },
+  "btnRetryNow": {
+    "message": "Şimdi tekrar dene"
+  },
+  "noticeSwitchedToBrowserTitle": {
+    "message": "Tarayıcı indirmelerine geçildi"
+  },
+  "noticeSwitchedToBrowserDetail": {
+    "message": "Koleksiyonlar artık gerçek dosyaları İndirilenler klasörüne kaydediyor. Tekil dosyalar için dosya sayfasında \"Elle indir\"i kullanın. Ayarlardan geri dönebilirsiniz."
+  },
+  "noticeVortexKeepsFailingTitle": {
+    "message": "Vortex dosyaları almıyor"
+  },
+  "noticeVortexKeepsFailingDetail": {
+    "message": "Art arda iki kez Vortex'in açıldığına dair bir işaret olmadı. Bunun yerine tarayıcı indirmelerini kullanın veya Vortex'in kurulu olduğunu kontrol edin."
+  },
+  "btnUseBrowserDownloads": {
+    "message": "Tarayıcı indirmelerini kullan"
+  },
+  "btnVortexInstallGuide": {
+    "message": "Vortex kurulum rehberi"
+  },
+  "logVortexOpenRemembered": {
+    "message": "Vortex daha önce onaylandı, bu yüzden tekrar sorulmuyor."
+  },
+  "presetVortex": {
+    "message": "Vortex kullanıcısı"
+  },
+  "presetVortexDesc": {
+    "message": "Dosyaları Vortex'e gönder, otomatik başlat, fazla sekmeyi kapat."
+  },
+  "presetBrowser": {
+    "message": "Tarayıcı indirmeleri"
+  },
+  "presetBrowserDesc": {
+    "message": "Gerçek dosyaları İndirilenler'e kaydet, otomatik başlat."
+  },
+  "presetMinimal": {
+    "message": "Minimal"
+  },
+  "presetMinimalDesc": {
+    "message": "Yalnızca tıkladıklarınız: otomatik başlatma yok, ek düğme yok."
+  },
+  "setSectionPresets": {
+    "message": "Hızlı kurulum"
+  },
+  "presetCustom": {
+    "message": "Özel: kendi ayar karışımınız."
+  },
+  "summaryTitle": {
+    "message": "Özet"
+  },
+  "summaryCounts": {
+    "message": "$1 gönderildi · $2 atlandı · $3 başarısız",
+    "placeholders": {
+      "sent": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryAccountLine": {
+    "message": "Bağlantılar #$1 numaralı Nexus hesabı için imzalandı. Vortex aynı hesabı kullanmalı.",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      }
+    }
+  },
+  "summaryCopy": {
+    "message": "Listeyi kopyala"
+  },
+  "summaryOpenFailed": {
+    "message": "Başarısız sayfaları aç"
+  },
+  "summaryRetryFailed": {
+    "message": "Başarısızları tekrar dene"
+  },
+  "summaryCopied": {
+    "message": "Kopyalandı"
+  },
+  "summaryCopyFailed": {
+    "message": "Kopyalanamadı"
+  },
+  "historyViewTitle": {
+    "message": "Bu koleksiyonun indirme geçmişi"
+  },
+  "historyViewSent": {
+    "message": "Vortex'e gönderildi"
+  },
+  "historyViewDownloaded": {
+    "message": "İndirildi"
+  },
+  "historyViewMissing": {
+    "message": "Henüz indirilmedi"
+  },
+  "historyViewHelp": {
+    "message": "\"Vortex'e gönderildi\" dosyaları atlanmaz: tarayıcı Vortex'in onları alıp almadığını göremez. Yeniden göndermek güvenlidir, Vortex zaten olanları atlar."
+  },
+  "historyViewClear": {
+    "message": "Geçmişi temizle"
+  },
+  "historyViewResend": {
+    "message": "Eksikleri yeniden gönder ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "deckHistoryView": {
+    "message": "İndirme geçmişi"
+  },
+  "deckHistoryViewHint": {
+    "message": "Gönderilen, indirilen, eksikleri yeniden gönder"
+  },
+  "setupSaved": {
+    "message": "Kaydedildi. Denemek için herhangi bir Nexus Mods dosya sayfasını açın."
+  },
+  "setupSaveFailed": {
+    "message": "Kaydedilemedi. Bir Nexus sayfasındaki ayarlar düğmesinden tekrar deneyin."
+  },
+  "setupTesting": {
+    "message": "Tarayıcıdan Vortex'i açması isteniyor… bir istem çıkarsa izin verin."
+  },
+  "setupTestOk": {
+    "message": "Vortex açıldı. Her şey hazır."
+  },
+  "setupTestUnsure": {
+    "message": "Vortex'in açılıp açılmadığı anlaşılamadı."
+  },
+  "setupTestFailed": {
+    "message": "Vortex açılmadı. Vortex'i kurun ve nxm:// bağlantılarını işlemesine izin verin (Vortex Ayarları → İndirmeler) ya da yukarıdan tarayıcı indirmelerini seçin."
+  },
+  "setupTitle": {
+    "message": "30 saniyede kurun"
+  },
+  "setupSubtitle": {
+    "message": "Üç soru. Her şeyi daha sonra ayarlardan değiştirebilirsiniz."
+  },
+  "setupQVortex": {
+    "message": "Vortex kullanıyor musunuz?"
+  },
+  "setupVortexYes": {
+    "message": "Evet, dosyaları Vortex'e gönder"
+  },
+  "setupVortexNo": {
+    "message": "Hayır, dosyaları tarayıcımla kaydet"
+  },
+  "setupQFolder": {
+    "message": "İndirme klasörü (tarayıcının İndirilenler klasörü içinde)"
+  },
+  "setupFolderHint": {
+    "message": "Doğrudan İndirilenler'e kaydetmek için boş bırakın."
+  },
+  "setupQCloseTab": {
+    "message": "Bir dosya Vortex'e gönderildikten sonra fazla Nexus sekmesini kapat"
+  },
+  "setupSave": {
+    "message": "Kaydet"
+  },
+  "setupTestVortex": {
+    "message": "Vortex'i test et"
+  },
+  "setupAskOpened": {
+    "message": "Vortex açıldı mı?"
+  },
+  "dlgVortexOpenedYesShort": {
+    "message": "Evet"
+  },
+  "dlgVortexOpenedNoShort": {
+    "message": "Hayır"
+  },
+  "noticeFileMissingTitle": {
+    "message": "Bu dosya kullanılamıyor"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Nexus'a göre dosya yok: kaldırılmış ya da gizlenmiş veya bağlantı hatalı. Modun Dosyalar sekmesinden başka bir dosya seçin."
+  },
+  "btnOpenModFiles": {
+    "message": "Dosyalar sekmesini aç"
   }
 }

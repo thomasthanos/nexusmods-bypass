@@ -2232,6 +2232,35 @@ async function vortexSentHistoryIsAccepted() {
   assert.deepEqual([...cleared.value.collection.vortexSent_all], [], 'Redownload can clear the sent list');
 }
 
+// Stress: a 2000-mod collection's history fits the storage quota and stays quick to write.
+async function largeHistoryFitsTheQuota() {
+  const send = (type, payload) => new Promise((resolve) => {
+    messageListeners[0]({ type, payload }, { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/collections/big', tab: { id: 7 } }, resolve);
+  });
+  const base = { gameId: 'gbig', collectionId: 'cbig' };
+  const ids = Array.from({ length: 2000 }, (_, i) => 1000000 + i);
+  const startedAt = Date.now();
+  const set = await send('NDC_HISTORY_SET_COLLECTION', { ...base, lists: { all: ids } });
+  assert.equal(set.ok, true, '2000 downloaded entries are accepted at once');
+  for (const id of ids.slice(0, 2000)) {
+    const added = await send('NDC_HISTORY_ADD', { ...base, type: 'vortexSent_all', fileId: id });
+    assert.equal(added.ok, true);
+  }
+  const elapsed = Date.now() - startedAt;
+  assert.ok(elapsed < 20000, `2000 sequential history writes took ${elapsed} ms`);
+  const history = await storageGetLocal(STORAGE_HISTORY_KEY, null);
+  const collection = history.gbig.cbig;
+  assert.equal(collection.all.length, 2000);
+  assert.equal(collection.vortexSent_all.length, 2000);
+  const bytes = Buffer.byteLength(JSON.stringify(history));
+  // chrome.storage.local allows 10 MB without unlimitedStorage; one big collection must stay a tiny share.
+  assert.ok(bytes < 200 * 1024, `history for 2x2000 ids is ${bytes} bytes`);
+  const dup = await send('NDC_HISTORY_ADD', { ...base, type: 'vortexSent_all', fileId: ids[0] });
+  assert.equal(dup.value.collection.vortexSent_all.length, 2000, 'a repeat id is not stored twice');
+  await send('NDC_HISTORY_CLEAR_TYPE', { ...base, type: 'vortexSent_all' });
+  await send('NDC_HISTORY_CLEAR_TYPE', { ...base, type: 'all' });
+}
+
 jobStateBehaviour()
   .then(writeQueueRelease)
   .then(missingQueueItemsBehaviour)
@@ -2263,5 +2292,6 @@ jobStateBehaviour()
   .then(downloadStartsAreDeduplicated)
   .then(downloadPopupFollowsBrowserRuns)
   .then(vortexSentHistoryIsAccepted)
+  .then(largeHistoryFitsTheQuota)
   .then(() => console.log('background.js unit behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

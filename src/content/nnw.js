@@ -1139,7 +1139,11 @@ window.NexusExt = window.NexusExt || {};
     if (!cfg.ShowAlertsOnError) return normalized;
 
     if (NexusExt.UI?.showError) {
-      NexusExt.UI.showError(normalized, { onRetry });
+      NexusExt.UI.showError(normalized, {
+        onRetry,
+        filePageUrl: lastRunContext.filePageUrl,
+        method: lastRunContext.method
+      });
     } else {
       NexusExt.UI?.nxtkAlert?.(`${shown.message}\n${shown.recovery}`.trim());
     }
@@ -1182,6 +1186,8 @@ window.NexusExt = window.NexusExt || {};
   }
 
   let activeStatusToast = null;
+  // What the error dialog's "Open file page" and "Use browser download" refer to.
+  let lastRunContext = { filePageUrl: '', method: '' };
 
   // A single file is not worth a question, but when the hand-off shows no sign of reaching Vortex
   // (the browser prompt cancelled or dismissed, nothing took focus), say what to check.
@@ -1189,25 +1195,40 @@ window.NexusExt = window.NexusExt || {};
 
   function watchSingleHandoff() {
     const wait = NXTK.waitForProtocolHandoff;
-    if (typeof wait !== 'function') return;
+    if (typeof wait !== 'function') return Promise.resolve(true);
     const sequence = ++singleHandoffSequence;
-    wait({ timeoutMs: SINGLE_HANDOFF_TIMEOUT_MS }).then((opened) => {
+    let reason = '';
+    Logger.info('Vortex hand-off: watching whether Vortex opens');
+    return wait({ timeoutMs: SINGLE_HANDOFF_TIMEOUT_MS, maxMs: SINGLE_HANDOFF_MAX_MS, onResult: (r) => { reason = r; } }).then((opened) => {
       if (opened) {
-        Logger.info('Vortex hand-off: the page lost focus or was hidden; Vortex opened');
-        return;
+        Logger.info(`Vortex hand-off: Vortex opened (${reason || 'page left'})`);
+        NXTK.recordVortexOpenEvent?.('opened');
+        return true;
       }
       // A newer hand-off has its own watch. ("Keep open" on the close countdown is not a newer one.)
-      if (sequence !== singleHandoffSequence) return;
-      Logger.info('Vortex hand-off: no sign Vortex opened (prompt cancelled or nothing took focus); showing the hint');
+      if (sequence !== singleHandoffSequence) return false;
+      Logger.info(`Vortex hand-off: no sign Vortex opened (${reason || 'no-signal'}); showing the hint`);
+      // Keep the tab: closing it would take the hint (and the way to retry) with it.
+      cancelScheduledTabClose();
+      Promise.resolve(NXTK.recordVortexOpenEvent?.('notDetected')).then((next) => {
+        if (next && NXTK.shouldOfferBrowserSwitch?.(next)) {
+          Logger.info('Vortex hand-off: two in a row with no sign of Vortex; offering browser downloads');
+          NexusExt.UI?.offerBrowserSwitch?.();
+        }
+      }).catch(() => undefined);
       NexusExt.UI?.showNotice?.({
         title: NXTK.t('noticeVortexNotOpenedTitle', null, "Vortex didn't open?"),
         detail: NXTK.t('noticeVortexNotOpenedDetail', null, 'If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again.'),
         ms: 12000
       });
+      return false;
     });
   }
 
   const SINGLE_HANDOFF_TIMEOUT_MS = 4000;
+  // A blur only counts as "Vortex opened" when focus has not come back for this long: Chrome's own
+  // "Open Vortex?" dialog can stay up well past 8 s before it is cancelled.
+  const SINGLE_HANDOFF_MAX_MS = NXTK.PROTOCOL_BLUR_OPENED_MS ?? 20000;
 
   // How long "Sent to Vortex" stays on the button and in the status toast.
   const SENT_STATE_MS = 2500;
@@ -1228,6 +1249,7 @@ window.NexusExt = window.NexusExt || {};
   }
 
   async function runDownloadOnce(options) {
+    let handoffVerdict = Promise.resolve(true);
     const {
       button = null,
       fileId,
@@ -1237,6 +1259,12 @@ window.NexusExt = window.NexusExt || {};
       closeTabAfterStart = false
     } = options;
     const attemptId = beginDownloadAttempt();
+    try {
+      const page = new URL(href || location.href, location.href);
+      lastRunContext = { filePageUrl: NXTK.isSafeNexusPageUrl(page.href) ? page.href : '', method: isNMM ? 'vortex' : 'browser' };
+    } catch (_) {
+      lastRunContext = { filePageUrl: '', method: isNMM ? 'vortex' : 'browser' };
+    }
 
     NXTK.setActivity?.({
       trigger: button ? 'manual' : 'automatic',
@@ -1345,7 +1373,7 @@ window.NexusExt = window.NexusExt || {};
       }
       statusToast?.update(NXTK.t('toastSentToVortex', null, 'Sent to Vortex'), SENT_STATE_MS);
       Logger.info('Vortex hand-off: link sent, showing "Sent to Vortex"');
-      watchSingleHandoff();
+      handoffVerdict = watchSingleHandoff();
       if (button) {
         setButtonState(button, 'sent');
         setTimeout(() => {
@@ -1363,10 +1391,15 @@ window.NexusExt = window.NexusExt || {};
     if (closeTabAfterStart && cfg.AutoCloseTab && isNMM && attemptId === downloadAttemptSequence) {
       const closeDelay = NXTK.normalizeSetting('CloseTabDelay', Number(cfg.CloseTabDelay))
         ?? NXTK.DEFAULTS.CloseTabDelay;
-      const closeNow = () => {
+      // The tab closes only once the watch says Vortex opened: closing earlier would take the
+      // "Vortex didn't open?" hint (and its debug line) with it.
+      const closeNow = async () => {
         closeTabTimer = null;
         closeTabToast = null;
         if (attemptId !== downloadAttemptSequence) return;
+        const opened = await handoffVerdict;
+        if (!opened || attemptId !== downloadAttemptSequence) return;
+        NXTK.flushDebugLog?.();
         safeSendMessage({ type: 'CLOSE_TAB' });
       };
 

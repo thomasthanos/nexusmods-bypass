@@ -9,7 +9,7 @@
     "message": "다운로드 자동 시작"
   },
   "setAutoCloseTabLabel": {
-    "message": "Vortex 탭 닫기"
+    "message": "Vortex로 보낸 뒤 추가 탭 닫기"
   },
   "toggleSkipReq": {
     "message": "필수 항목 화면 건너뛰기"
@@ -279,7 +279,7 @@
     "message": "Vortex로 보내기"
   },
   "deckMethodVortexHint": {
-    "message": "클릭 한 번으로 Vortex 대기열에 넘기기에 가장 적합합니다."
+    "message": "각 파일을 Vortex 다운로드 대기열로 바로 보냅니다."
   },
   "deckMethodBrowser": {
     "message": "브라우저 다운로드"
@@ -494,7 +494,7 @@
     "message": "다운로드 자동 시작"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Nexus 파일 다운로드 페이지를 열면 추가 클릭 없이 Vortex 전달 또는 브라우저 다운로드를 시작합니다."
+    "message": "Nexus 파일 페이지를 열면 추가 클릭 없이 (Vortex 또는 브라우저로) 다운로드를 시작합니다."
   },
   "setAutoCloseTabDesc": {
     "message": "Vortex로 링크를 보낸 뒤 아래 지연 시간이 지나면 임시 Nexus 탭을 닫습니다."
@@ -542,13 +542,13 @@
     "message": "내 Nexus 다운로드 속도"
   },
   "setDownloadSpeedDesc": {
-    "message": "Vortex 모드 전용입니다. 브라우저는 Vortex 내부의 전송을 볼 수 없으므로, 이 값으로 각 파일의 소요 시간을 추정하고 전달 간격을 둡니다. 실제로 나오는 속도를 입력하세요. 너무 낮으면 대기열이 필요 이상으로 오래 기다립니다."
+    "message": "Vortex 전용. 브라우저는 Vortex의 다운로드를 볼 수 없어서 파일마다 걸리는 시간을 추정하고 그만큼 기다린 뒤 다음 파일을 보냅니다. 실제 속도로 설정하세요."
   },
   "setPauseBetweenModsLabel": {
     "message": "모드 사이 대기"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Vortex 모드 전용입니다. 위 추정치에 더해집니다. 0으로 설정하면 크기 기반 추정을 끄고 Vortex가 직접 대기열을 관리하게 합니다. 단, 전달 사이에는 항상 2초 간격이 유지됩니다."
+    "message": "Vortex 전용. 파일 사이의 추가 대기 시간으로, 위의 추정치에 더해집니다. 0이면 추정을 끄고 Vortex가 직접 대기열에 넣게 합니다. 2초 간격은 항상 유지됩니다."
   },
   "dlgHistoryTitle": {
     "message": "다운로드된 모드를 찾았습니다"
@@ -1184,10 +1184,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Cloudflare 대체 동작"
+    "message": "Nexus가 브라우저 확인을 요구하면 파일 페이지 열기"
   },
   "setCloudflareFallbackDesc": {
-    "message": "백그라운드 다운로드 중 브라우저 확인이 필요한 경우, 실패하는 대신 페이지를 열어 완료할 수 있게 합니다."
+    "message": "Nexus가 링크 대신 \"사람인지 확인\" 페이지를 보여 주면 확인을 통과할 수 있도록 파일 페이지를 엽니다. 탭이 가끔 저절로 바뀌는 이유입니다."
   },
   "tabControls": {
     "message": "제어",
@@ -1743,5 +1743,217 @@
   },
   "noticeVortexNotOpenedDetail": {
     "message": "아무 일도 없었다면 Vortex가 설치되어 있고 nxm:// 링크를 처리하도록 설정되어 있는지 확인하고(브라우저 확인 창을 허용한 뒤) 버튼을 다시 클릭하세요."
+  },
+  "summarySent": {
+    "message": "전송됨"
+  },
+  "summarySkipped": {
+    "message": "건너뜀"
+  },
+  "summaryFailed": {
+    "message": "실패"
+  },
+  "summaryAccount": {
+    "message": "Nexus 계정"
+  },
+  "btnRetryIn": {
+    "message": "$1 후 다시 시도",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "btnOpenFilePage": {
+    "message": "파일 페이지 열기"
+  },
+  "btnUseBrowserDownload": {
+    "message": "브라우저로 다운로드"
+  },
+  "btnRetryNow": {
+    "message": "지금 다시 시도"
+  },
+  "noticeSwitchedToBrowserTitle": {
+    "message": "브라우저 다운로드로 전환했습니다"
+  },
+  "noticeSwitchedToBrowserDetail": {
+    "message": "이제 컬렉션은 실제 파일을 다운로드 폴더에 저장합니다. 단일 파일은 파일 페이지에서 \"수동 다운로드\"를 사용하세요. 설정에서 다시 바꿀 수 있습니다."
+  },
+  "noticeVortexKeepsFailingTitle": {
+    "message": "Vortex가 파일을 받지 않습니다"
+  },
+  "noticeVortexKeepsFailingDetail": {
+    "message": "두 번 연속으로 Vortex가 열린 흔적이 없었습니다. 브라우저 다운로드를 사용하거나 Vortex가 설치되어 있는지 확인하세요."
+  },
+  "btnUseBrowserDownloads": {
+    "message": "브라우저 다운로드 사용"
+  },
+  "btnVortexInstallGuide": {
+    "message": "Vortex 설치 가이드"
+  },
+  "logVortexOpenRemembered": {
+    "message": "Vortex가 이미 확인되었으므로 다시 묻지 않습니다."
+  },
+  "presetVortex": {
+    "message": "Vortex 사용자"
+  },
+  "presetVortexDesc": {
+    "message": "파일을 Vortex로 보내고, 자동으로 시작하고, 추가 탭을 닫습니다."
+  },
+  "presetBrowser": {
+    "message": "브라우저 다운로드"
+  },
+  "presetBrowserDesc": {
+    "message": "실제 파일을 다운로드 폴더에 저장하고 자동으로 시작합니다."
+  },
+  "presetMinimal": {
+    "message": "최소"
+  },
+  "presetMinimalDesc": {
+    "message": "클릭한 것만: 자동 시작 없음, 추가 버튼 없음."
+  },
+  "setSectionPresets": {
+    "message": "빠른 설정"
+  },
+  "presetCustom": {
+    "message": "사용자 지정: 나만의 설정 조합입니다."
+  },
+  "summaryTitle": {
+    "message": "실행 요약"
+  },
+  "summaryCounts": {
+    "message": "$1개 전송 · $2개 건너뜀 · $3개 실패",
+    "placeholders": {
+      "sent": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryAccountLine": {
+    "message": "링크는 Nexus 계정 #$1용으로 서명되었습니다. Vortex도 같은 계정을 사용해야 합니다.",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      }
+    }
+  },
+  "summaryCopy": {
+    "message": "목록 복사"
+  },
+  "summaryOpenFailed": {
+    "message": "실패한 페이지 열기"
+  },
+  "summaryRetryFailed": {
+    "message": "실패한 항목 다시 시도"
+  },
+  "summaryCopied": {
+    "message": "복사됨"
+  },
+  "summaryCopyFailed": {
+    "message": "복사 실패"
+  },
+  "historyViewTitle": {
+    "message": "이 컬렉션의 다운로드 기록"
+  },
+  "historyViewSent": {
+    "message": "Vortex로 전송됨"
+  },
+  "historyViewDownloaded": {
+    "message": "다운로드됨"
+  },
+  "historyViewMissing": {
+    "message": "아직 다운로드 안 됨"
+  },
+  "historyViewHelp": {
+    "message": "\"Vortex로 전송됨\" 파일은 건너뛰지 않습니다. 브라우저는 Vortex가 받았는지 알 수 없기 때문입니다. 다시 보내도 안전하며, Vortex는 이미 있는 파일을 건너뜁니다."
+  },
+  "historyViewClear": {
+    "message": "기록 지우기"
+  },
+  "historyViewResend": {
+    "message": "누락된 항목 다시 보내기 ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "deckHistoryView": {
+    "message": "다운로드 기록"
+  },
+  "deckHistoryViewHint": {
+    "message": "전송됨, 다운로드됨, 누락 항목 다시 보내기"
+  },
+  "setupSaved": {
+    "message": "저장했습니다. 아무 Nexus Mods 파일 페이지나 열어 사용해 보세요."
+  },
+  "setupSaveFailed": {
+    "message": "저장하지 못했습니다. Nexus 페이지의 설정 버튼에서 다시 시도하세요."
+  },
+  "setupTesting": {
+    "message": "브라우저에 Vortex를 열도록 요청하는 중… 확인 창이 뜨면 허용하세요."
+  },
+  "setupTestOk": {
+    "message": "Vortex가 열렸습니다. 준비 완료."
+  },
+  "setupTestUnsure": {
+    "message": "Vortex가 열렸는지 알 수 없습니다."
+  },
+  "setupTestFailed": {
+    "message": "Vortex가 열리지 않았습니다. Vortex를 설치하고 nxm:// 링크를 처리하도록 설정하거나(Vortex 설정 → 다운로드), 위에서 브라우저 다운로드를 선택하세요."
+  },
+  "setupTitle": {
+    "message": "30초 만에 설정"
+  },
+  "setupSubtitle": {
+    "message": "질문은 세 가지. 모든 항목은 나중에 설정에서 바꿀 수 있습니다."
+  },
+  "setupQVortex": {
+    "message": "Vortex를 사용하나요?"
+  },
+  "setupVortexYes": {
+    "message": "예, 파일을 Vortex로 보내기"
+  },
+  "setupVortexNo": {
+    "message": "아니요, 브라우저로 파일 저장"
+  },
+  "setupQFolder": {
+    "message": "다운로드 폴더 (브라우저 다운로드 폴더 안)"
+  },
+  "setupFolderHint": {
+    "message": "비워 두면 다운로드 폴더에 바로 저장합니다."
+  },
+  "setupQCloseTab": {
+    "message": "파일을 Vortex로 보낸 뒤 추가 Nexus 탭 닫기"
+  },
+  "setupSave": {
+    "message": "저장"
+  },
+  "setupTestVortex": {
+    "message": "Vortex 테스트"
+  },
+  "setupAskOpened": {
+    "message": "Vortex가 열렸나요?"
+  },
+  "dlgVortexOpenedYesShort": {
+    "message": "예"
+  },
+  "dlgVortexOpenedNoShort": {
+    "message": "아니요"
+  },
+  "noticeFileMissingTitle": {
+    "message": "이 파일은 사용할 수 없습니다"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Nexus에 따르면 파일이 없습니다. 삭제되었거나 숨겨졌거나 링크가 잘못되었습니다. 모드의 Files 탭에서 다른 파일을 고르세요."
+  },
+  "btnOpenModFiles": {
+    "message": "Files 탭 열기"
   }
 }

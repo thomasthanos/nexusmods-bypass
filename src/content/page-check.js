@@ -232,6 +232,7 @@ window.NexusExt = window.NexusExt || {};
   // Legitimate states in which the usual page parts are hidden or not rendered: a download modal
   // over the page, or Nexus's adult-content gate. A check failing then is not a site change.
   const ADULT_GATE_TEXT = /(contains|includes) adult content|adult content (is )?(hidden|blocked|filter)|show adult content|confirm (that )?you are (over )?18|you must be 18/i;
+  const FILE_MISSING_TEXT = /object not found|file (was |has been )?(not found|removed|deleted|hidden)|this file (is|has been) (no longer )?(available|removed|deleted|hidden)/i;
   function pageVariant(doc = (typeof document !== 'undefined' ? document : null)) {
     if (!doc?.querySelector) return '';
     try {
@@ -240,21 +241,50 @@ window.NexusExt = window.NexusExt || {};
       const main = doc.querySelector('main') || doc.body;
       const text = String(main?.innerText || main?.textContent || '').slice(0, 20000);
       if (ADULT_GATE_TEXT.test(text)) return 'adult content gate';
+      if (FILE_MISSING_TEXT.test(text) || /not\s*found/i.test(doc.title || '')) return 'file not found';
     } catch (_) { }
     return '';
+  }
+
+  // A file page whose file is gone: offer the mod's Files tab instead of a silent banner.
+  let fileMissingShown = false;
+  function notifyFileMissing(doc) {
+    if (fileMissingShown) return;
+    fileMissingShown = true;
+    const t = (key, fallback) => globalThis.NXTK?.t?.(key, null, fallback) || fallback;
+    let filesUrl = '';
+    try {
+      const url = new URL(doc?.location?.href || location.href);
+      url.search = '?tab=files';
+      url.hash = '';
+      if (globalThis.NXTK?.isSafeNexusPageUrl?.(url.href) !== false) filesUrl = url.href;
+    } catch (_) { }
+    window.NexusExt.UI?.showNotice?.({
+      id: 'nxtk-file-missing',
+      title: t('noticeFileMissingTitle', 'This file is not available'),
+      detail: t('noticeFileMissingDetail', 'Nexus says the file does not exist: it was removed or hidden, or the link is wrong. Pick another file on the mod\'s Files tab.'),
+      ms: 15000,
+      actions: filesUrl ? [{ label: t('btnOpenModFiles', 'Open the Files tab'), href: filesUrl }] : []
+    });
   }
 
   function reportFailures(result, build, doc) {
     const failed = failuresOf(result);
     if (!failed.length) return;
     const variant = pageVariant(doc);
+    if (variant === 'file not found') {
+      window.NexusExt.NNW?.Logger?.info?.('This file page says the file does not exist (removed, hidden or a wrong link); nothing to download here.');
+      notifyFileMissing(doc);
+      return;
+    }
     if (variant) {
       globalThis.NXTK?.queueDebugEntry?.('debug', `Nexus page check skipped on the ${result.label} (${variant}): ${failed.map((entry) => entry.id).join(', ')}`);
       return;
     }
     const signature = `${result.page}:${failed.map((entry) => entry.id).join(',')}`;
     const missing = failed.map((entry) => `${entry.label} (${entry.detail})`).join('; ');
-    window.NexusExt.NNW?.Logger?.warn?.(`Nexus page check failed on the ${result.label}: ${missing}`);
+    // The selector list goes to the report; the log line says what it means.
+    window.NexusExt.NNW?.Logger?.warn?.(`Could not find ${failed.map((entry) => entry.label).join(', ')} on the ${result.label}. Nexus may have changed this page; its own buttons still work.`);
     if (alreadyReported(signature)) return;
     notifyDegraded(result, failed);
     globalThis.NXTK?.recordError?.({

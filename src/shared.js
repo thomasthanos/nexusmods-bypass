@@ -306,6 +306,152 @@
 
   const MIN_HANDOFF_GAP_SECONDS = 2;
 
+  // ---- Friendlier setup (3.1.0) ----
+
+  // Presets set a few behaviour switches at once. They never touch pacing (download speed, pause
+  // between mods), timeouts, or the ad/Premium panel setting.
+  const SETTING_PRESETS = Object.freeze({
+    vortex: Object.freeze({
+      NDC_downloadMethod: 0, AutoStartDownload: true, AutoCloseTab: true, SkipRequirements: true, HideDownloadPopup: true
+    }),
+    browser: Object.freeze({
+      NDC_downloadMethod: 1, AutoStartDownload: true, AutoCloseTab: false, SkipRequirements: true, HideDownloadPopup: true
+    }),
+    minimal: Object.freeze({
+      AutoStartDownload: false, AutoCloseTab: false, SkipRequirements: false, HandleArchivedFiles: false,
+      ShowModActions: false, WabbajackImport: false
+    })
+  });
+  const PRESET_PROTECTED_KEYS = Object.freeze(['NDC_downloadSpeed', 'NDC_pauseBetweenDownload', 'RequestTimeout', 'CloseTabDelay', 'HidePremiumUpsells']);
+
+  // The settings with a preset's values applied (normalized; unknown names change nothing).
+  function applyPreset(settings, name) {
+    const preset = SETTING_PRESETS[name];
+    const next = { ...(settings || {}) };
+    if (!preset) return next;
+    for (const [key, value] of Object.entries(preset)) {
+      if (PRESET_PROTECTED_KEYS.includes(key)) continue;
+      const normalized = normalizeSetting(key, value);
+      if (normalized !== undefined) next[key] = normalized;
+    }
+    return next;
+  }
+
+  // The preset the settings currently match exactly, or null ("Custom").
+  function matchingPreset(settings) {
+    for (const [name, preset] of Object.entries(SETTING_PRESETS)) {
+      if (Object.entries(preset).every(([key, value]) => (settings?.[key] ?? DEFAULTS[key]) === value)) return name;
+    }
+    return null;
+  }
+
+  // Technical settings shown only under "Advanced".
+  const ADVANCED_SETTING_KEYS = Object.freeze([
+    'RequestTimeout', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload', 'UseOfficialApi', 'CloudflareFallback'
+  ]);
+
+  // Which action buttons an error dialog offers, from the error and what the caller can do.
+  // Returns ids in display order: signIn, retryIn, retry, openFilePage, switchToBrowser.
+  const FILE_PAGE_ERROR_CODES = new Set(['no_download_url', 'no_nmm_link', 'unsafe_download_url', 'file_not_found',
+    'access_denied', 'moderation_hold', 'cloudflare', 'mod_unavailable', 'short_file', 'empty_file', 'not_a_file']);
+  function errorActionsFor(error, { canRetry = false, filePageUrl = '', method = '', canSwitchToBrowser = false } = {}) {
+    const code = error?.code || '';
+    const actions = [];
+    if (code === 'requires_login') return ['signIn'];
+    const wait = Number(error?.retryAfterSeconds) || 0;
+    if (canRetry && code === 'rate_limited' && wait > 0) actions.push('retryIn');
+    else if (canRetry) actions.push('retry');
+    if (filePageUrl && FILE_PAGE_ERROR_CODES.has(code)) actions.push('openFilePage');
+    if (canSwitchToBrowser && method === 'vortex' && code !== 'rate_limited' && code !== 'account_suspended') actions.push('switchToBrowser');
+    return actions;
+  }
+
+  // "1:05" style countdown text for a number of seconds.
+  function formatCountdown(seconds) {
+    const total = Math.max(0, Math.ceil(Number(seconds) || 0));
+    const m = Math.floor(total / 60);
+    const sec = String(total % 60).padStart(2, '0');
+    return `${m}:${sec}`;
+  }
+
+  // Whether Vortex opens for this browser profile, as far as the extension has seen.
+  //   confirmed: the user said "yes" (or Vortex visibly took over) and nothing failed since
+  //   failStreak: hand-offs in a row with no sign of Vortex (a "no", or nothing happening)
+  const VORTEX_OPEN_KEY = 'nxtk_vortex_open';
+  const VORTEX_SWITCH_OFFER_STREAK = 2;
+  function vortexOpenNext(state, event) {
+    const current = { confirmed: !!state?.confirmed, failStreak: Math.max(0, Number(state?.failStreak) || 0) };
+    switch (event) {
+      case 'opened':
+      case 'answeredYes':
+        return { confirmed: true, failStreak: 0 };
+      case 'answeredNo':
+      case 'notDetected':
+        return { confirmed: false, failStreak: current.failStreak + 1 };
+      case 'reset':
+        return { confirmed: false, failStreak: 0 };
+      default:
+        return current;
+    }
+  }
+  const shouldAskVortexOpened = (state) => !state?.confirmed;
+  const shouldOfferBrowserSwitch = (state) => (Number(state?.failStreak) || 0) >= VORTEX_SWITCH_OFFER_STREAK;
+  const VORTEX_INSTALL_GUIDE_URL = 'https://www.nexusmods.com/about/vortex/';
+
+  function readVortexOpenState() {
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get(VORTEX_OPEN_KEY, (result) => {
+          if (chrome.runtime.lastError) return resolve(vortexOpenNext(null));
+          resolve(vortexOpenNext(result?.[VORTEX_OPEN_KEY]));
+        });
+      } catch (_) {
+        resolve(vortexOpenNext(null));
+      }
+    });
+  }
+
+  async function recordVortexOpenEvent(event) {
+    const next = vortexOpenNext(await readVortexOpenState(), event);
+    await new Promise((resolve) => {
+      try {
+        chrome.storage.local.set({ [VORTEX_OPEN_KEY]: next }, () => { void chrome.runtime.lastError; resolve(); });
+      } catch (_) {
+        resolve();
+      }
+    });
+    return next;
+  }
+
+  // A link Vortex treats as harmless: "re-read the membership". It opens (or focuses) Vortex and
+  // changes nothing, so it can test the nxm:// handler.
+  const VORTEX_TEST_LINK = 'nxm://premium';
+
+  // Plain text for "Copy list" on the end-of-run summary.
+  function formatRunSummaryText({ sent = [], skipped = [], failed = [], account = '' } = {}, t = (k, f) => f) {
+    const lines = [];
+    const section = (title, items, render) => {
+      if (!items.length) return;
+      lines.push(`${title} (${items.length})`);
+      for (const item of items) lines.push(`- ${render(item)}`);
+      lines.push('');
+    };
+    section(t('summarySent', 'Sent'), sent, (i) => i.name);
+    section(t('summarySkipped', 'Skipped'), skipped, (i) => `${i.name} (${i.reason})${i.pageUrl ? ` ${i.pageUrl}` : ''}`);
+    section(t('summaryFailed', 'Failed'), failed, (i) => `${i.name} (${i.code})${i.pageUrl ? ` ${i.pageUrl}` : ''}`);
+    if (account) lines.push(`${t('summaryAccount', 'Nexus account')}: #${account}`);
+    return lines.join('\n').trim();
+  }
+
+  // Sent/downloaded counts for one collection's history, for the history view.
+  function summarizeCollectionHistory(collection, type, allIds = []) {
+    const downloaded = new Set(Array.isArray(collection?.[type]) ? collection[type] : []);
+    const sent = new Set(Array.isArray(collection?.[vortexSentType(type)]) ? collection[vortexSentType(type)] : []);
+    for (const id of downloaded) sent.delete(id);
+    const missing = allIds.filter((id) => !downloaded.has(id));
+    return { downloaded: downloaded.size, sent: sent.size, missing, total: allIds.length };
+  }
+
   // Vortex hand-offs are recorded apart from real downloads: the browser cannot see whether Vortex
   // received a link, so a "sent" file is never skipped on a later run (Vortex itself skips files it
   // already has, so re-sending is harmless). One list per history type.
@@ -350,36 +496,71 @@
   //   - focus coming back after a blur (prompt answered either way, or dismissed) -> false
   //   - nothing within timeoutMs -> false
   // false means "unknown", and the caller asks the user once. Targets are injectable for tests.
+  // Watches whether a nxm:// navigation handed the page over to another app.
+  //   - page hidden                         -> opened
+  //   - blur with no focus return for maxMs (20 s) -> opened (another window kept focus)
+  //   - blur, then focus back within maxMs  -> NOT opened, even after a long-open browser dialog (Chrome's "Open Vortex?" dialog was
+  //     cancelled, or dismissed). Chrome does not always fire window 'focus' when its own
+  //     external-protocol dialog closes, so document.hasFocus() is polled too.
+  //   - nothing within timeoutMs            -> NOT opened
+  // onResult(reason) names which rule decided, for the debug log.
+  // Page hidden = opened at once; otherwise focus must stay away this long (no return) to count as opened.
+  const PROTOCOL_BLUR_OPENED_MS = 20000;
+
   function waitForProtocolHandoff({
     win = globalThis.window,
     doc = globalThis.document,
     timeoutMs = 4000,
-    maxMs = 15000
+    maxMs = PROTOCOL_BLUR_OPENED_MS,
+    pollMs = 250,
+    onResult = null
   } = {}) {
     return new Promise((resolve) => {
       let done = false;
       let blurTimer = null;
-      const finish = (value) => {
+      let pollTimer = null;
+      let blurred = false;
+      const finish = (value, reason) => {
         if (done) return;
         done = true;
         clearTimeout(timer);
         clearTimeout(blurTimer);
+        clearInterval(pollTimer);
         win?.removeEventListener?.('blur', onBlur);
         win?.removeEventListener?.('focus', onFocus);
         doc?.removeEventListener?.('visibilitychange', onVisibility);
+        doc?.removeEventListener?.('pointerdown', onInteract, true);
+        doc?.removeEventListener?.('keydown', onInteract, true);
+        try { onResult?.(reason); } catch (_) { }
         resolve(value);
       };
-      const onBlur = () => {
-        clearTimeout(timer);
-        clearTimeout(blurTimer);
-        blurTimer = setTimeout(() => finish(true), Math.max(0, maxMs));
+      const hasFocus = () => {
+        try { return typeof doc?.hasFocus === 'function' ? doc.hasFocus() : null; } catch (_) { return null; }
       };
-      const onFocus = () => { if (blurTimer) finish(false); };
-      const onVisibility = () => { if (doc?.visibilityState === 'hidden') finish(true); };
-      const timer = setTimeout(() => finish(false), timeoutMs);
+      const onBlur = () => {
+        if (blurred) return;
+        blurred = true;
+        clearTimeout(timer);
+        blurTimer = setTimeout(() => finish(true, 'blur-persisted'), Math.max(0, maxMs));
+        if (pollMs > 0) {
+          pollTimer = setInterval(() => {
+            if (doc?.visibilityState === 'hidden') return finish(true, 'hidden');
+            if (hasFocus() === true) finish(false, 'focus-returned');
+          }, pollMs);
+        }
+      };
+      const onFocus = () => { if (blurred) finish(false, 'focus-returned'); };
+      // Clicking or typing in the page after the blur means the user is back here, not in Vortex.
+      const onInteract = () => { if (blurred) finish(false, 'user-back'); };
+      const onVisibility = () => { if (doc?.visibilityState === 'hidden') finish(true, 'hidden'); };
+      const timer = setTimeout(() => finish(false, 'no-signal'), timeoutMs);
       win?.addEventListener?.('blur', onBlur);
       win?.addEventListener?.('focus', onFocus);
       doc?.addEventListener?.('visibilitychange', onVisibility);
+      doc?.addEventListener?.('pointerdown', onInteract, true);
+      doc?.addEventListener?.('keydown', onInteract, true);
+      // A dialog may already have taken focus before the watcher started.
+      if (hasFocus() === false) onBlur();
     });
   }
 
@@ -801,21 +982,37 @@
     }
   }
 
+  function flushDebugLog() {
+    clearTimeout(debugFlushTimer);
+    debugFlushTimer = null;
+    const entries = debugPending;
+    debugPending = [];
+    try {
+      if (!chrome?.runtime?.id || !entries.length) return;
+      chrome.runtime.sendMessage({ type: 'DEBUG_LOG_APPEND', payload: { entries } }, () => void chrome.runtime.lastError);
+    } catch (_) {
+    }
+  }
+
+  // Lines worth not losing to a tab that closes or navigates inside the 2 s batching window.
+  const DEBUG_FLUSH_NOW_PATTERN = /^Vortex hand-off/;
+
   function queueDebugEntry(level, text) {
     if (!debugPersist || !text) return;
     debugPending.push({ at: Date.now(), level: String(level || 'info'), page: debugPageType(), text });
     if (debugPending.length > 100) debugPending.splice(0, debugPending.length - 100);
+    if (level === 'error' || DEBUG_FLUSH_NOW_PATTERN.test(text)) return flushDebugLog();
     if (debugFlushTimer) return;
-    debugFlushTimer = setTimeout(() => {
-      debugFlushTimer = null;
-      const entries = debugPending;
-      debugPending = [];
-      try {
-        if (!chrome?.runtime?.id || !entries.length) return;
-        chrome.runtime.sendMessage({ type: 'DEBUG_LOG_APPEND', payload: { entries } }, () => void chrome.runtime.lastError);
-      } catch (_) {
-      }
-    }, 2000);
+    debugFlushTimer = setTimeout(flushDebugLog, 2000);
+  }
+
+  // A closing tab (auto-close after a Vortex send) must not drop the batch.
+  try {
+    globalThis.addEventListener?.('pagehide', flushDebugLog);
+    globalThis.document?.addEventListener?.('visibilitychange', () => {
+      if (globalThis.document.visibilityState === 'hidden') flushDebugLog();
+    });
+  } catch (_) {
   }
 
   const DOWNLOAD_METHOD_VORTEX = 0;
@@ -1149,6 +1346,22 @@
     setSafeHtml,
     classifyDownloadInterrupt,
     MIN_HANDOFF_GAP_SECONDS,
+    SETTING_PRESETS,
+    applyPreset,
+    matchingPreset,
+    ADVANCED_SETTING_KEYS,
+    errorActionsFor,
+    formatCountdown,
+    VORTEX_OPEN_KEY,
+    vortexOpenNext,
+    shouldAskVortexOpened,
+    shouldOfferBrowserSwitch,
+    VORTEX_INSTALL_GUIDE_URL,
+    readVortexOpenState,
+    recordVortexOpenEvent,
+    VORTEX_TEST_LINK,
+    formatRunSummaryText,
+    summarizeCollectionHistory,
     VORTEX_SENT_PREFIX,
     vortexSentType,
     NXM_EXPIRY_MARGIN_MS,
@@ -1189,6 +1402,8 @@
     recordError,
     setActivity,
     noteActivity,
+    flushDebugLog,
+    PROTOCOL_BLUR_OPENED_MS,
     describeActivity,
     describeActivityTrail,
     bumpTotalDownloads,

@@ -9,7 +9,7 @@
     "message": "自动开始下载"
   },
   "setAutoCloseTabLabel": {
-    "message": "关闭 Vortex 标签页"
+    "message": "发送到 Vortex 后关闭多余的标签页"
   },
   "toggleSkipReq": {
     "message": "跳过前置要求页面"
@@ -279,7 +279,7 @@
     "message": "发送到 Vortex"
   },
   "deckMethodVortexHint": {
-    "message": "最适合一键交给 Vortex 队列处理。"
+    "message": "把每个文件直接发送到你的 Vortex 下载队列。"
   },
   "deckMethodBrowser": {
     "message": "浏览器下载"
@@ -529,7 +529,7 @@
     "message": "自动开始下载"
   },
   "setAutoStartDownloadDesc": {
-    "message": "打开 Nexus 文件下载页时，无需再次点击即可开始 Vortex 交接或浏览器下载。"
+    "message": "打开 Nexus 文件页面时,无需再次点击即开始下载(到 Vortex 或浏览器)。"
   },
   "setAutoCloseTabDesc": {
     "message": "发送 Vortex 链接后，按下方延迟关闭临时的 Nexus 标签页。"
@@ -577,13 +577,13 @@
     "message": "你的 Nexus 下载速度"
   },
   "setDownloadSpeedDesc": {
-    "message": "仅适用于 Vortex 模式。浏览器无法观测 Vortex 内部的传输，因此用此值估算每个文件的耗时并安排交接间隔。请填写你实际看到的速度——设得过低会让队列等待远超必要的时间。"
+    "message": "仅 Vortex。浏览器看不到 Vortex 的下载,所以会估算每个文件需要多久,并等待相应时间再发送下一个。请设置为你的实际速度。"
   },
   "setPauseBetweenModsLabel": {
     "message": "模组之间的暂停"
   },
   "setPauseBetweenModsDesc": {
-    "message": "仅适用于 Vortex 模式。会加到上面的估算之上。设为 0 可关闭基于大小的估算，让 Vortex 自行排队；每次交接之间始终保留 2 秒间隔。"
+    "message": "仅 Vortex。文件之间的额外等待,会加到上面的估算上。设为 0 则关闭估算,让 Vortex 自己排队;始终保留 2 秒间隔。"
   },
   "dlgHistoryTitle": {
     "message": "发现已下载的模组"
@@ -1184,10 +1184,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Cloudflare 回退"
+    "message": "Nexus 要求浏览器验证时打开文件页面"
   },
   "setCloudflareFallbackDesc": {
-    "message": "如果后台下载遇到浏览器验证，将打开页面让您完成验证，而不是直接失败。"
+    "message": "如果 Nexus 显示“验证你是人类”页面而不是下载链接,会打开文件页面让你完成验证。这就是标签页有时会自行切换的原因。"
   },
   "tabControls": {
     "message": "控制",
@@ -1743,5 +1743,217 @@
   },
   "noticeVortexNotOpenedDetail": {
     "message": "如果什么都没发生，请检查 Vortex 是否已安装并设置为处理 nxm:// 链接（并允许浏览器提示），然后再次点击按钮。"
+  },
+  "summarySent": {
+    "message": "已发送"
+  },
+  "summarySkipped": {
+    "message": "已跳过"
+  },
+  "summaryFailed": {
+    "message": "失败"
+  },
+  "summaryAccount": {
+    "message": "Nexus 账号"
+  },
+  "btnRetryIn": {
+    "message": "$1 后重试",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "btnOpenFilePage": {
+    "message": "打开文件页面"
+  },
+  "btnUseBrowserDownload": {
+    "message": "使用浏览器下载"
+  },
+  "btnRetryNow": {
+    "message": "立即重试"
+  },
+  "noticeSwitchedToBrowserTitle": {
+    "message": "已切换为浏览器下载"
+  },
+  "noticeSwitchedToBrowserDetail": {
+    "message": "合集现在会把真实文件保存到你的下载文件夹。单个文件请在文件页面使用“手动下载”。可在设置中切换回来。"
+  },
+  "noticeVortexKeepsFailingTitle": {
+    "message": "Vortex 没有接收文件"
+  },
+  "noticeVortexKeepsFailingDetail": {
+    "message": "连续两次都没有迹象表明 Vortex 已打开。请改用浏览器下载,或检查 Vortex 是否已安装。"
+  },
+  "btnUseBrowserDownloads": {
+    "message": "使用浏览器下载"
+  },
+  "btnVortexInstallGuide": {
+    "message": "Vortex 安装指南"
+  },
+  "logVortexOpenRemembered": {
+    "message": "Vortex 之前已确认过,因此不再询问。"
+  },
+  "presetVortex": {
+    "message": "Vortex 用户"
+  },
+  "presetVortexDesc": {
+    "message": "把文件发送到 Vortex,自动开始,关闭多余的标签页。"
+  },
+  "presetBrowser": {
+    "message": "浏览器下载"
+  },
+  "presetBrowserDesc": {
+    "message": "把真实文件保存到下载文件夹,自动开始。"
+  },
+  "presetMinimal": {
+    "message": "精简"
+  },
+  "presetMinimalDesc": {
+    "message": "只做你点击的操作:不自动开始,不加额外按钮。"
+  },
+  "setSectionPresets": {
+    "message": "快速设置"
+  },
+  "presetCustom": {
+    "message": "自定义:你自己的设置组合。"
+  },
+  "summaryTitle": {
+    "message": "运行摘要"
+  },
+  "summaryCounts": {
+    "message": "已发送 $1 · 已跳过 $2 · 失败 $3",
+    "placeholders": {
+      "sent": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryAccountLine": {
+    "message": "链接是为 Nexus 账号 #$1 签发的。Vortex 必须使用同一个账号。",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      }
+    }
+  },
+  "summaryCopy": {
+    "message": "复制列表"
+  },
+  "summaryOpenFailed": {
+    "message": "打开失败的页面"
+  },
+  "summaryRetryFailed": {
+    "message": "重试失败项"
+  },
+  "summaryCopied": {
+    "message": "已复制"
+  },
+  "summaryCopyFailed": {
+    "message": "复制失败"
+  },
+  "historyViewTitle": {
+    "message": "此合集的下载历史"
+  },
+  "historyViewSent": {
+    "message": "已发送到 Vortex"
+  },
+  "historyViewDownloaded": {
+    "message": "已下载"
+  },
+  "historyViewMissing": {
+    "message": "尚未下载"
+  },
+  "historyViewHelp": {
+    "message": "“已发送到 Vortex”的文件不会被跳过:浏览器无法得知 Vortex 是否收到。重新发送是安全的,Vortex 会跳过已有的文件。"
+  },
+  "historyViewClear": {
+    "message": "清除历史"
+  },
+  "historyViewResend": {
+    "message": "重新发送缺失项($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "deckHistoryView": {
+    "message": "下载历史"
+  },
+  "deckHistoryViewHint": {
+    "message": "已发送、已下载、重新发送缺失项"
+  },
+  "setupSaved": {
+    "message": "已保存。打开任意 Nexus Mods 文件页面即可试用。"
+  },
+  "setupSaveFailed": {
+    "message": "无法保存。请在 Nexus 页面上的设置按钮中重试。"
+  },
+  "setupTesting": {
+    "message": "正在请浏览器打开 Vortex…如出现提示请允许。"
+  },
+  "setupTestOk": {
+    "message": "Vortex 已打开。一切就绪。"
+  },
+  "setupTestUnsure": {
+    "message": "无法判断 Vortex 是否已打开。"
+  },
+  "setupTestFailed": {
+    "message": "Vortex 没有打开。请安装 Vortex 并让它处理 nxm:// 链接(Vortex 设置 → 下载),或在上方选择浏览器下载。"
+  },
+  "setupTitle": {
+    "message": "30 秒完成设置"
+  },
+  "setupSubtitle": {
+    "message": "三个问题。之后都可以在设置中更改。"
+  },
+  "setupQVortex": {
+    "message": "你使用 Vortex 吗?"
+  },
+  "setupVortexYes": {
+    "message": "是,把文件发送到 Vortex"
+  },
+  "setupVortexNo": {
+    "message": "否,用浏览器保存文件"
+  },
+  "setupQFolder": {
+    "message": "下载文件夹(位于浏览器的下载文件夹内)"
+  },
+  "setupFolderHint": {
+    "message": "留空则直接保存到下载文件夹。"
+  },
+  "setupQCloseTab": {
+    "message": "文件发送到 Vortex 后关闭多余的 Nexus 标签页"
+  },
+  "setupSave": {
+    "message": "保存"
+  },
+  "setupTestVortex": {
+    "message": "测试 Vortex"
+  },
+  "setupAskOpened": {
+    "message": "Vortex 打开了吗?"
+  },
+  "dlgVortexOpenedYesShort": {
+    "message": "是"
+  },
+  "dlgVortexOpenedNoShort": {
+    "message": "否"
+  },
+  "noticeFileMissingTitle": {
+    "message": "此文件不可用"
+  },
+  "noticeFileMissingDetail": {
+    "message": "Nexus 显示该文件不存在:已被删除或隐藏,或链接有误。请在模组的“文件”标签页选择其他文件。"
+  },
+  "btnOpenModFiles": {
+    "message": "打开“文件”标签页"
   }
 }

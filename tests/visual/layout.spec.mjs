@@ -51,35 +51,39 @@ function officialAnswer(body) {
   return { data: null, errors: [{ message: `unexpected ${op}` }] };
 }
 
-let context;
-test.beforeAll(async () => {
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-visual-'));
-  context = await chromium.launchPersistentContext(userDataDir, {
+async function launchContext({ dir = extensionDir, userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-visual-')) } = {}) {
+  const ctx = await chromium.launchPersistentContext(userDataDir, {
     channel: process.env.NXTK_PLAYWRIGHT_CHANNEL || 'chromium',
     headless: true,
-    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`]
+    args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`]
   });
-  await context.route('https://www.nexusmods.com/**', (route) => {
+  await ctx.route('https://www.nexusmods.com/**', (route) => {
     const url = new URL(route.request().url());
     if (route.request().resourceType() !== 'document') return route.fulfill({ status: 204, body: '' });
     const html = url.pathname.includes('/collections/') ? fixture('visual-collection-page.html') : fixture('visual-mod-page.html');
     return route.fulfill({ status: 200, contentType: 'text/html', body: html });
   });
-  await context.route('https://api-router.nexusmods.com/**', (route) => route.fulfill({
+  await ctx.route('https://api-router.nexusmods.com/**', (route) => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify(collectionAnswer()),
     headers: { 'access-control-allow-origin': 'https://www.nexusmods.com', 'access-control-allow-credentials': 'true' }
   }));
-  await context.route('https://api.nexusmods.com/v2/graphql', (route) => {
+  await ctx.route('https://api.nexusmods.com/v2/graphql', (route) => {
     const cors = { 'access-control-allow-origin': 'https://www.nexusmods.com', 'access-control-allow-credentials': 'true', 'access-control-allow-headers': 'content-type' };
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors, body: '' });
     let body = null;
     try { body = JSON.parse(route.request().postData() || '{}'); } catch (_) { body = null; }
     return route.fulfill({ status: 200, contentType: 'application/json', headers: cors, body: JSON.stringify(officialAnswer(body)) });
   });
-  await context.route(/^(?!https:\/\/(www|api-router|api)\.nexusmods\.com)https?:\/\//, (route) => route.abort());
+  await ctx.route(/^(?!https:\/\/(www|api-router|api)\.nexusmods\.com)https?:\/\//, (route) => route.abort());
   // Skip the onboarding tab opened on install.
   await new Promise((r) => setTimeout(r, 1000));
-  for (const page of context.pages()) if (page.url().includes('onboarding')) await page.close();
+  for (const page of ctx.pages()) if (page.url().includes('onboarding')) await page.close();
+  return ctx;
+}
+
+let context;
+test.beforeAll(async () => {
+  context = await launchContext();
 });
 test.afterAll(async () => { await context?.close(); });
 
@@ -787,4 +791,349 @@ test('single-file Auto NMM path (?file_id=…&nmm=1, no button) shows the Vortex
   await patch({ AutoCloseTab: true, DebugLogs: false });
   await page.close();
   await ext.close();
+});
+
+// ---- 3.1.0 friendlier UX ----
+
+async function extensionPage() {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  const ext = await context.newPage();
+  await ext.goto(`chrome-extension://${id}/popup/popup.html`);
+  const patch = (values, extra = {}) => ext.evaluate(([v, x]) => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_settings', (o) => globalThis.chrome.storage.local.set({ nxtk_settings: { ...(o.nxtk_settings || {}), ...v }, ...x }, r))), [values, extra]);
+  const read = (key) => ext.evaluate((k) => new Promise((r) => globalThis.chrome.storage.local.get(k, (o) => r(o[k]))), key);
+  return { id, ext, patch, read };
+}
+
+async function autoNmmRun(page) {
+  const expires = Math.floor(Date.now() / 1000) + 3600;
+  const nxm = `nxm://skyrimspecialedition/mods/12604/files/35410?key=abc&expires=${expires}&user_id=1`;
+  const answer = (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: nxm }) });
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', answer);
+  await page.route('**/api/files/**', answer);
+  await page.goto('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=35410&nmm=1');
+}
+
+test('auto-close on: a cancelled Vortex prompt keeps the tab, shows the hint, persists the log; two in a row offer browser downloads', async () => {
+  const { ext, patch, read } = await extensionPage();
+  await patch({ AutoCloseTab: true, CloseTabDelay: 1000, DebugLogs: true }, { nxtk_debug_log: [], nxtk_vortex_open: { confirmed: true, failStreak: 0 } });
+  const readLog = async () => ((await read('nxtk_debug_log')) || []).map((e) => e.text || '').join('\n');
+  for (let round = 1; round <= 2; round += 1) {
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await autoNmmRun(page);
+    // As with Chrome's "Open Vortex?" dialog: the window blurs, then Cancel gives focus back with no focus event.
+    await page.waitForTimeout(300);
+    await page.evaluate(() => globalThis.dispatchEvent(new Event('blur')));
+    await expect(page.locator('.nxtk-notice-toast:not(.nxtk-status-toast)').first(), `round ${round}: the hint appears`)
+      .toContainText(/Vortex didn't open\?/, { timeout: 9000 });
+    expect(page.isClosed(), `round ${round}: the tab was kept`).toBe(false);
+    if (round === 2) {
+      await expect(page.locator('#nxtk-vortex-switch-offer, .nxtk-notice-toast').filter({ hasText: /not picking up the files/ }).first(),
+        'the second failure offers browser downloads').toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole('link', { name: /Vortex install guide/ })).toBeVisible();
+    }
+    await page.close();
+  }
+  await expect.poll(readLog, { timeout: 5000 }).toMatch(/Vortex hand-off: watching whether Vortex opens/);
+  expect(await readLog()).toMatch(/Vortex hand-off: no sign Vortex opened \((focus-returned|no-signal|user-back)\)/);
+  expect((await read('nxtk_vortex_open')).failStreak).toBe(2);
+  await patch({ AutoCloseTab: true, CloseTabDelay: 3000, DebugLogs: false }, { nxtk_vortex_open: { confirmed: false, failStreak: 0 } });
+  await ext.close();
+});
+
+test('settings: quick-setup presets apply and technical settings sit under Advanced', async () => {
+  const { ext, patch, read } = await extensionPage();
+  await patch({ NDC_downloadMethod: 0, AutoCloseTab: true, AutoStartDownload: true, SkipRequirements: true, HideDownloadPopup: true });
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
+  await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
+  const modal = page.locator('.nxtk-modal').first();
+  await expect(modal.locator('[data-preset="vortex"]')).toHaveClass(/nxtk-preset-active/, { timeout: 10000 });
+  await expect(modal.locator('#nxtk-advanced-body')).toBeHidden();
+  await modal.locator('[data-preset="browser"]').click();
+  await expect.poll(async () => (await read('nxtk_settings')).NDC_downloadMethod).toBe(1);
+  expect((await read('nxtk_settings')).AutoCloseTab).toBe(false);
+  await expect(page.locator('.nxtk-modal [data-preset="browser"]')).toHaveClass(/nxtk-preset-active/, { timeout: 10000 });
+  // The note and the highlight follow a change at once, without reopening.
+  await page.locator('.nxtk-modal [data-setting="AutoStartDownload"]').evaluate((el) => { el.checked = !el.checked; el.dispatchEvent(new Event('change', { bubbles: true })); });
+  await expect(page.locator('#nxtk-preset-note')).toContainText(/Custom/);
+  await expect(page.locator('.nxtk-modal .nxtk-preset-active')).toHaveCount(0);
+  await page.locator('.nxtk-modal [data-setting="AutoStartDownload"]').evaluate((el) => { el.checked = !el.checked; el.dispatchEvent(new Event('change', { bubbles: true })); });
+  await expect(page.locator('#nxtk-preset-note')).toHaveText('');
+  await expect(page.locator('.nxtk-modal [data-preset="browser"]')).toHaveClass(/nxtk-preset-active/);
+  await page.waitForTimeout(600);
+  await assertFits(page, '.nxtk-modal', 'presets');
+  await page.locator('#nxtk-advanced-toggle').click();
+  await expect(page.locator('#nxtk-advanced-body')).toContainText(/browser check/);
+  await patch({ NDC_downloadMethod: 0, AutoCloseTab: true });
+  await page.close();
+  await ext.close();
+});
+
+test('welcome page: setup saves choices and Test Vortex asks when it cannot tell', async () => {
+  const { id, ext, read, patch } = await extensionPage();
+  await patch({}, { nxtk_vortex_open: { confirmed: false, failStreak: 0 } });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`chrome-extension://${id}/onboarding/welcome.html`);
+  await page.locator('input[name="method"][value="browser"]').check();
+  await expect(page.locator('#setupTestVortex')).toBeHidden();
+  await page.locator('#setupFolder').fill('Mods');
+  await page.locator('#setupSave').click();
+  await expect(page.locator('#setupStatus')).toContainText(/Saved/);
+  let saved = await read('nxtk_settings');
+  expect(saved.NDC_downloadMethod).toBe(1);
+  expect(saved.DownloadFolder).toBe('Mods');
+  await page.locator('input[name="method"][value="vortex"]').check();
+  await page.locator('#setupCloseTab').uncheck();
+  await page.locator('#setupSave').click();
+  await expect.poll(async () => (await read('nxtk_settings')).NDC_downloadMethod).toBe(0);
+  saved = await read('nxtk_settings');
+  expect(saved.AutoCloseTab).toBe(false);
+  // Headless Chromium has no nxm:// handler and nothing takes the focus: the page asks.
+  await page.evaluate(() => { globalThis.__nav = []; });
+  await page.locator('#setupTestVortex').click();
+  await expect(page.locator('#setupAsk')).toBeVisible({ timeout: 10000 });
+  // After a nxm:// navigation headless Chromium stops delivering real input, so the answer is clicked in the page.
+  await page.evaluate(() => document.getElementById('setupAskYes').click());
+  await expect(page.locator('#setupStatus')).toContainText(/all set/);
+  expect((await read('nxtk_vortex_open')).confirmed).toBe(true);
+  await assertFits(page, '#setup', 'welcome setup');
+  await patch({ AutoCloseTab: true, DownloadFolder: '' });
+  await page.close();
+  await ext.close();
+});
+
+test('error dialog: a missing link offers Retry, Open file page and Use browser download', async () => {
+  const { ext, patch, read } = await extensionPage();
+  await patch({ NDC_downloadMethod: 0, ShowAlertsOnError: true });
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  const empty = (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', empty);
+  await page.route('**/api/files/**', empty);
+  await page.evaluate(() => {
+    const host = document.createElement('mod-file-download');
+    host.setAttribute('file', JSON.stringify({ id: 35409 }));
+    host.setAttribute('game-id', '1704');
+    const outer = host.attachShadow({ mode: 'open' });
+    const modal = document.createElement('mod-download-modal');
+    modal.setAttribute('file', JSON.stringify({ id: 35409, downloadUrl: 'https://www.nexusmods.com/api/files/35409?game=1704', vortexDownloadUrl: 'https://www.nexusmods.com/api/files/35409?game=1704&nmm=1' }));
+    outer.append(modal);
+    const inner = modal.attachShadow({ mode: 'open' });
+    inner.innerHTML = '<button id="v">Mod manager download</button>';
+    document.body.append(host);
+  });
+  await page.locator('mod-file-download').locator('#v').click();
+  const dialog = page.locator('.nxtk-modal').filter({ has: page.locator('[data-retry]') }).first();
+  await expect(dialog).toBeVisible({ timeout: 15000 });
+  await expect(dialog.locator('[data-open-file-page]')).toBeVisible();
+  await dialog.locator('[data-switch-browser]').click();
+  await expect.poll(async () => (await read('nxtk_settings')).NDC_downloadMethod).toBe(1);
+  await expect(page.locator('.nxtk-notice-toast').filter({ hasText: /Switched to browser downloads/ })).toBeVisible();
+  await patch({ NDC_downloadMethod: 0 });
+  await page.close();
+  await ext.close();
+});
+
+test('error dialog: a rate limit counts down before Retry is allowed', async () => {
+  const { ext, patch } = await extensionPage();
+  await patch({ NDC_downloadMethod: 0, ShowAlertsOnError: true });
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  const limited = (route) => route.fulfill({ status: 429, contentType: 'text/plain', headers: { 'Retry-After': '3' }, body: 'Too Many Requests' });
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', limited);
+  await page.route('**/api/files/**', limited);
+  await page.evaluate(() => {
+    const host = document.createElement('mod-file-download');
+    host.setAttribute('file', JSON.stringify({ id: 35409 }));
+    host.setAttribute('game-id', '1704');
+    const outer = host.attachShadow({ mode: 'open' });
+    const modal = document.createElement('mod-download-modal');
+    modal.setAttribute('file', JSON.stringify({ id: 35409, downloadUrl: 'https://www.nexusmods.com/api/files/35409?game=1704', vortexDownloadUrl: 'https://www.nexusmods.com/api/files/35409?game=1704&nmm=1' }));
+    outer.append(modal);
+    modal.attachShadow({ mode: 'open' }).innerHTML = '<button id="v">Mod manager download</button>';
+    document.body.append(host);
+  });
+  await page.locator('mod-file-download').locator('#v').click();
+  const button = page.locator('[data-retry-in]');
+  await expect(button).toBeVisible({ timeout: 15000 });
+  await expect(button).toBeDisabled();
+  await expect(button).toHaveText(/Retry in 0:0[1-3]/);
+  await expect(button).toBeEnabled({ timeout: 6000 });
+  await expect(button).toHaveText(/Retry now/);
+  await expect(page.locator('[data-switch-browser]'), 'a rate limit never suggests switching').toHaveCount(0);
+  await page.close();
+  await ext.evaluate(() => new Promise((r) => globalThis.chrome.storage.local.remove('nxtk_ndc_rate_limit', r)));
+  await ext.close();
+});
+
+test('collection: Download history view shows sent / downloaded / missing and clears', async () => {
+  const page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123', 1280, 900, 1);
+  const deck = page.locator('#nxtk-control-deck');
+  await expect(deck).toBeVisible({ timeout: 30000 });
+  await deck.locator('#nxtk-menu-toggle').click();
+  await page.locator('#nxtk-history-view').click({ timeout: 10000 });
+  const modal = page.locator('#nxtk-history-view-modal');
+  await expect(modal).toBeVisible({ timeout: 10000 });
+  await expect(modal).toContainText(/Sent to Vortex/);
+  await expect(modal).toContainText(/Not downloaded yet/);
+  await expect(modal.locator('[data-history-resend]')).toBeEnabled();
+  await assertFits(page, '#nxtk-history-view-modal', 'history view');
+  await page.close();
+});
+
+// ---- stress and edge cases ----
+
+for (const lang of ['de', 'ru']) {
+  test(`longest locales (${lang}): popup and collection deck fit at 380px`, async () => {
+    // Headless Chromium ignores --lang for extensions, so a copy of the extension serves this
+    // locale's messages as its English ones: the same strings, rendered in the real layout.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `nxtk-${lang}-`));
+    fs.cpSync(extensionDir, dir, { recursive: true });
+    fs.copyFileSync(path.join(extensionDir, `_locales/${lang}/messages.json`), path.join(dir, '_locales/en/messages.json'));
+    const ctx = await launchContext({ dir });
+    try {
+      let [worker] = ctx.serviceWorkers();
+      if (!worker) worker = await ctx.waitForEvent('serviceworker');
+      const id = new URL(worker.url()).host;
+      const popup = await ctx.newPage();
+      await popup.setViewportSize({ width: 380, height: 600 });
+      await popup.goto(`chrome-extension://${id}/popup/popup.html`);
+      const sample = JSON.parse(fs.readFileSync(path.join(extensionDir, `_locales/${lang}/messages.json`), 'utf8')).setupSave.message;
+      expect(await popup.evaluate(() => globalThis.chrome.i18n.getMessage('setupSave'))).toBe(sample);
+      await popup.waitForTimeout(500);
+      const overflow = await popup.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const clipped = Array.from(document.querySelectorAll('button, a, label, h1, h2, h3, p, span'))
+          .filter((el) => el.offsetParent && el.textContent.trim() && el.getBoundingClientRect().right > vw + 1)
+          .map((el) => el.textContent.trim().slice(0, 40));
+        return { x: document.documentElement.scrollWidth - vw, clipped };
+      });
+      expect(overflow.x, `${lang} popup scrolls horizontally`).toBeLessThanOrEqual(1);
+      expect(overflow.clipped, `${lang} popup text past the edge`).toEqual([]);
+      await popup.screenshot({ path: path.join(shotDir, `popup-${lang}-380.png`) });
+      const page = await ctx.newPage();
+      await page.setViewportSize({ width: 380, height: 800 });
+      await page.goto('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123');
+      const deck = page.locator('#nxtk-control-deck');
+      await expect(deck).toBeVisible({ timeout: 30000 });
+      await page.waitForTimeout(800);
+      const deckOverflow = await deck.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return Array.from(el.querySelectorAll('button, .nxtk-selector-title, .nxtk-radio-hint, .nxtk-btn'))
+          // A closed dropdown is invisible (opacity 0, no pointer events) and laid out off to the side.
+          .filter((c) => c.offsetParent && c.textContent.trim() && !c.closest('.nxtk-dropdown-menu:not(.nxtk-open)') && getComputedStyle(c).visibility !== 'hidden')
+          .filter((c) => c.getBoundingClientRect().right > r.right + 1)
+          .map((c) => `${c.id || c.className}: ${c.textContent.trim().slice(0, 40)} (+${Math.round(c.getBoundingClientRect().right - r.right)}px)`);
+      });
+      expect(deckOverflow, `${lang} deck text past the deck edge`).toEqual([]);
+      await assertFits(page, '.nxtk-deck', `${lang} deck 380`);
+      await page.screenshot({ path: path.join(shotDir, `deck-${lang}-380.png`), fullPage: true });
+      // The open menu with the longest labels stays on screen.
+      await deck.locator('#nxtk-menu-toggle').click();
+      await expect(page.locator('#nxtk-select-mods')).toBeVisible();
+      await page.waitForTimeout(400);
+      await assertFits(page, '#nxtk-dropdown-portal .nxtk-open', `${lang} deck menu 380`);
+    } finally {
+      await ctx.close();
+    }
+  });
+}
+
+test('rapid double and triple clicks on a Vortex button start one request', async () => {
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  let hits = 0;
+  const slow = async (route) => {
+    hits += 1;
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
+  };
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', slow);
+  await page.route('**/api/files/**', slow);
+  await page.evaluate(() => {
+    const host = document.createElement('mod-file-download');
+    host.setAttribute('file', JSON.stringify({ id: 35409 }));
+    host.setAttribute('game-id', '1704');
+    const outer = host.attachShadow({ mode: 'open' });
+    const modal = document.createElement('mod-download-modal');
+    modal.setAttribute('file', JSON.stringify({ id: 35409, downloadUrl: 'https://www.nexusmods.com/api/files/35409?game=1704', vortexDownloadUrl: 'https://www.nexusmods.com/api/files/35409?game=1704&nmm=1' }));
+    outer.append(modal);
+    modal.attachShadow({ mode: 'open' }).innerHTML = '<button id="v">Mod manager download</button>';
+    document.body.append(host);
+  });
+  const button = page.locator('mod-file-download').locator('#v');
+  await button.dblclick();
+  await button.click({ delay: 0 });
+  await page.waitForTimeout(2500);
+  expect(hits, 'one link request for a burst of clicks').toBe(1);
+  expect(await page.locator('.nxtk-status-toast').count(), 'at most one status toast').toBeLessThanOrEqual(1);
+  for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  }
+  expect(await page.locator('.nxtk-modal-backdrop').count(), 'one error dialog, not a stack').toBe(0);
+  await page.close();
+});
+
+test('extension update mid-run: after the worker restarts, the collection page restores the progress UI', async () => {
+  // An update replaces the service worker and the content scripts; the queue lives in storage.
+  // Closing the browser and starting it again on the same profile does the same to the extension.
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-update-'));
+  let ctx = await launchContext({ userDataDir });
+  const jobId = 'e2e-update-job';
+  const items = Array.from({ length: 5 }, (_, i) => ({ fileId: 900 + i, modId: 100 + i, name: `Mod ${i}`, size: 10, url: '' }));
+  try {
+    let [worker] = ctx.serviceWorkers();
+    if (!worker) worker = await ctx.waitForEvent('serviceworker');
+    await worker.evaluate(async ([jid, list]) => {
+      const now = Date.now();
+      await globalThis.chrome.storage.local.set({
+        nxtk_background_ndc_jobs: { [jid]: {
+          id: jid, tabId: -1, gameId: 'skyrimspecialedition', collectionId: 'abc123', type: 'all',
+          itemCount: list.length, index: 2, completed: 2, failed: [], status: 'paused',
+          activeDownloadId: null, createdAt: now, updatedAt: now
+        } },
+        [`nxtk_ndc_items:${jid}`]: list
+      });
+    }, [jobId, items]);
+  } finally {
+    await ctx.close();
+  }
+  ctx = await launchContext({ userDataDir });
+  try {
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123');
+    await expect(page.locator('#nxtk-control-deck')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('#nxtk-progress-area'), 'the progress UI comes back').toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#nxtk-control-deck')).toContainText(/Reconnected|2\s*\/\s*5/, { timeout: 5000 });
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('collection menu: "Select mods to download" opens the picker with a real mouse click at every zoom', async () => {
+  for (const [w, h, zoom] of [[1920, 1080, 1], [1280, 720, 1.5], [1920, 1080, 1.25]]) {
+    const page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123', w, h, zoom);
+    const deck = page.locator('#nxtk-control-deck');
+    await expect(deck).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(800);
+    await deck.locator('#nxtk-menu-toggle').click();
+    const item = page.locator('#nxtk-select-mods');
+    await expect(item).toBeVisible();
+    await page.waitForTimeout(400);
+    const box = await item.boundingBox();
+    const hit = await page.evaluate(([x, y]) => {
+      const el = document.elementFromPoint(x, y);
+      return { inside: !!el?.closest('#nxtk-select-mods'), what: el ? `${el.tagName}#${el.id}.${el.className}` : 'none' };
+    }, [box.x + box.width / 2, box.y + box.height / 2]);
+    expect(hit.inside, `${w}x${h}@${zoom}: the item is covered by ${hit.what}`).toBe(true);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.locator('#nxtk-select-modal'), `${w}x${h}@${zoom}: picker opens`).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#nxtk-select-modal .nxtk-mod-item').first()).toBeVisible({ timeout: 10000 });
+    await page.close();
+  }
 });

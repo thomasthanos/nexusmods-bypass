@@ -13,8 +13,8 @@
   });
 
   const SETTINGS_UI = [
-    { key: 'AutoStartDownload', label: () => NXTK.t('setAutoStartDownloadLabel', null, 'Start downloads automatically'), type: 'bool', desc: () => NXTK.t('setAutoStartDownloadDesc', null, 'When you open a Nexus file download page, start the Vortex handoff or browser download without another click.') },
-    { key: 'AutoCloseTab', label: () => NXTK.t('setAutoCloseTabLabel', null, 'Close Vortex tabs'), type: 'bool', desc: () => NXTK.t('setAutoCloseTabDesc', null, 'After a Vortex link is sent, close the temporary Nexus tab after the delay below.') },
+    { key: 'AutoStartDownload', label: () => NXTK.t('setAutoStartDownloadLabel', null, 'Start downloads automatically'), type: 'bool', desc: () => NXTK.t('setAutoStartDownloadDesc', null, 'When you open a Nexus file page, start the download (to Vortex or your browser) without another click.') },
+    { key: 'AutoCloseTab', label: () => NXTK.t('setAutoCloseTabLabel', null, 'Close the extra tab after sending to Vortex'), type: 'bool', desc: () => NXTK.t('setAutoCloseTabDesc', null, 'After a Vortex link is sent, close the temporary Nexus tab after the delay below.') },
     { key: 'SkipRequirements', label: () => NXTK.t('setSkipRequirementsLabel', null, 'Skip requirement screens'), type: 'bool', desc: () => NXTK.t('setSkipRequirementsDesc', null, 'Continue past Nexus requirements popups and go straight to the download step.') },
     { key: 'ShowAlertsOnError', label: () => NXTK.t('setShowAlertsOnErrorLabel', null, 'Show error popups'), type: 'bool', desc: () => NXTK.t('setShowAlertsOnErrorDesc', null, 'Show a clear message when Nexus does not return a usable download link.') },
     { key: 'HidePremiumUpsells', label: () => NXTK.t('setHidePremiumUpsellsLabel', null, 'Hide ads and Premium panels'), type: 'bool', desc: () => NXTK.t('setHidePremiumUpsellsDesc', null, 'Hide Nexus advertising slots, empty ad containers, Premium banners and upgrade panels while browsing. It also sets the Nexus ad-timer cookie so queued downloads do not wait through the countdown before each link.') },
@@ -30,7 +30,7 @@
     { key: 'UseOfficialApi', label: () => NXTK.t('setUseOfficialApiLabel', null, 'Use the official Nexus API'), type: 'bool', desc: () => NXTK.t('setUseOfficialApiDesc', null, 'Read collection, mod and file details from the documented Nexus Mods API, with caching and rate-limit handling. Turn off to use the older page-based lookups.') },
     { key: 'FollowUpdatePolicy', label: () => NXTK.t('setFollowUpdatePolicyLabel', null, 'Follow curator update policy'), type: 'bool', desc: () => NXTK.t('setFollowUpdatePolicyDesc', null, 'When a collection allows newer versions of a mod, download the newest file of that download instead of the one listed. Mods pinned to an exact version are never changed.') },
     { key: 'ShowModActions', label: () => NXTK.t('setShowModActionsLabel', null, 'Endorse and track buttons'), type: 'bool', desc: () => NXTK.t('setShowModActionsDesc', null, 'Show Endorse and Track buttons in the collection mod list. Nothing is sent until you click one.') },
-    { key: 'CloudflareFallback', label: () => NXTK.t('setCloudflareFallbackLabel', null, 'Cloudflare fallback'), type: 'bool', desc: () => NXTK.t('setCloudflareFallbackDesc', null, 'When Nexus answers a background download request with a browser verification page, open the file page so you can complete the check, instead of failing. This is why the tab sometimes navigates on its own.') },
+    { key: 'CloudflareFallback', label: () => NXTK.t('setCloudflareFallbackLabel', null, 'Open the file page when Nexus asks for a browser check'), type: 'bool', desc: () => NXTK.t('setCloudflareFallbackDesc', null, 'If Nexus shows a "verify you are human" page instead of a download link, open the file page so you can pass the check. That is why the tab sometimes changes on its own.') },
     {
       key: 'ForceEnglish',
       group: 'language',
@@ -48,20 +48,34 @@
       unit: 'MB/s',
       min: 0.1,
       step: 0.1,
-      desc: () => NXTK.t('setDownloadSpeedDesc', null, 'Vortex mode only. The browser cannot watch a transfer happening inside Vortex, so this estimates how long each file takes and spaces the hand-offs out. Set it to the speed you actually see — too low and the queue waits far longer than it needs to.')
+      desc: () => NXTK.t('setDownloadSpeedDesc', null, 'Vortex only. The browser can\'t see Vortex\'s downloads, so this guesses how long each file takes and waits that long before sending the next one. Set it to the speed you really get.')
     },
     {
       key: 'NDC_pauseBetweenDownload',
       label: () => NXTK.t('setPauseBetweenModsLabel', null, 'Pause between mods'),
       type: 'number',
       unit: () => NXTK.t('unitSecondsShort', null, 's'),
-      desc: () => NXTK.t('setPauseBetweenModsDesc', null, 'Vortex mode only. Added to the estimate above. Set it to 0 to switch off the size estimate and let Vortex queue the files itself; a 2-second gap between hand-offs always remains.')
+      desc: () => NXTK.t('setPauseBetweenModsDesc', null, 'Vortex only. Extra wait between files, added to the guess above. 0 turns the guess off and lets Vortex queue the files itself; a 2-second gap always stays.')
     }
+  ];
+
+  // Technical settings live under "Advanced" (one list in shared.js, also used by the tests).
+  for (const s of SETTINGS_UI) {
+    if (NXTK.ADVANCED_SETTING_KEYS.includes(s.key)) s.advanced = true;
+  }
+
+  const PRESETS_UI = [
+    { name: 'vortex', label: () => NXTK.t('presetVortex', null, 'Vortex user'), desc: () => NXTK.t('presetVortexDesc', null, 'Send files to Vortex, start automatically, close the extra tab.') },
+    { name: 'browser', label: () => NXTK.t('presetBrowser', null, 'Browser downloads'), desc: () => NXTK.t('presetBrowserDesc', null, 'Save real files to your Downloads folder, start automatically.') },
+    { name: 'minimal', label: () => NXTK.t('presetMinimal', null, 'Minimal'), desc: () => NXTK.t('presetMinimalDesc', null, 'Only what you click: no auto-start, no extra buttons.') }
   ];
 
   // UI.showSettingsModal in ui.js checks that the extension is still connected, then calls this.
   async function openSettingsModal() {
     const cfg = await NexusExt.Storage.getSettings();
+    const activePreset = NXTK.matchingPreset(cfg);
+    const presetButtons = PRESETS_UI.map((p) => `<button type="button" class="nxtk-preset${activePreset === p.name ? ' nxtk-preset-active' : ''}" data-preset="${p.name}" aria-pressed="${activePreset === p.name}"><span class="nxtk-preset-title">${escapeHtml(p.label())}</span><span class="nxtk-preset-desc">${escapeHtml(p.desc())}</span></button>`).join('');
+    const presetsHtml = `<div class="nxtk-settings-section nxtk-settings-presets"><div class="nxtk-settings-section-title">${L('setSectionPresets', 'Quick setup')}</div><div class="nxtk-preset-row" role="group">${presetButtons}</div><div class="nxtk-preset-note" id="nxtk-preset-note">${activePreset ? '' : escapeHtml(NXTK.t('presetCustom', null, 'Custom: your own mix of settings.'))}</div></div>`;
 
     const text = (v) => (typeof v === 'function' ? v() : (v ?? ''));
     const buildRow = (s) => {
@@ -117,6 +131,7 @@
       </div>
       <div class="nxtk-modal-scroll">
         <div class="nxtk-settings-col nxtk-settings-col-main">
+          ${presetsHtml}
           <div class="nxtk-settings-section nxtk-settings-flow"><div class="nxtk-settings-section-title">${L('setSectionFlow', 'Download Flow')}</div><div class="nxtk-settings-rows">${features}</div></div>
         </div>
         <div class="nxtk-settings-col nxtk-settings-col-side">
@@ -177,6 +192,7 @@
       cfg[key] = value;
       NexusExt.Storage.patchSetting(key, value);
       if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
+      syncPresetState();
 
       if (key === 'WabbajackImport') {
         if (value) kit.preloadBundle('wabbajack');
@@ -191,6 +207,18 @@
         close();
         NexusExt.UI.showSettingsModal().catch(() => undefined);
       }
+    }
+
+    // Quick setup follows every change live: the matching preset lights up, a mix says "Custom".
+    function syncPresetState() {
+      const active = NXTK.matchingPreset(cfg);
+      modal.querySelectorAll('[data-preset]').forEach((button) => {
+        const on = button.dataset.preset === active;
+        button.classList.toggle('nxtk-preset-active', on);
+        button.setAttribute('aria-pressed', String(on));
+      });
+      const note = modal.querySelector('#nxtk-preset-note');
+      if (note) note.textContent = active ? '' : NXTK.t('presetCustom', null, 'Custom: your own mix of settings.');
     }
 
     modal.addEventListener('change', e => {
@@ -208,6 +236,18 @@
         if (target.isConnected) update(target);
       }, SETTING_INPUT_DEBOUNCE_MS));
     });
+    modal.querySelectorAll('[data-preset]').forEach((button) => button.addEventListener('click', async () => {
+      const next = NXTK.applyPreset(cfg, button.dataset.preset);
+      for (const [key, value] of Object.entries(next)) {
+        if (cfg[key] === value) continue;
+        cfg[key] = value;
+        await NexusExt.Storage.patchSetting(key, value);
+      }
+      if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
+      // Shown again so every switch reflects the preset.
+      close();
+      NexusExt.UI.showSettingsModal().catch(() => undefined);
+    }));
     modal.querySelectorAll('[data-report-issue]').forEach(b => b.addEventListener('click', () => copyReportAndOpenIssue(b)));
     modal.querySelector('#nxtk-wj-import')?.addEventListener('click', () => kit.withWabbajack(
       (wabbajack) => wabbajack.importModlist(close)

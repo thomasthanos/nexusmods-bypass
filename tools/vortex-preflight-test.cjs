@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 // The queue policy is the real one from shared.js; shared.js needs no browser to load.
-const shared = vm.createContext({ console, URL, URLSearchParams, Intl, setTimeout, clearTimeout });
+const shared = vm.createContext({ console, URL, URLSearchParams, Intl, setTimeout, clearTimeout, setInterval, clearInterval });
 vm.runInContext(fs.readFileSync('src/shared.js', 'utf8'), shared, { filename: 'src/shared.js' });
 
 global.window = globalThis;
@@ -331,6 +331,28 @@ function createHarness(choice) {
     assert.equal(await hidden, true, 'a hidden page counts too');
     assert.equal(await S.waitForProtocolHandoff({ win: target(), doc: target(), timeoutMs: 20 }), false, 'nothing happening times out');
 
+    // Chrome's own "Open Vortex?" dialog: the window blurs, and on Cancel no 'focus' event fires,
+    // but document.hasFocus() is true again. That must read as "not opened", well before maxMs.
+    const winN = target(); const docN = target(); let focused = true; const reasons = [];
+    docN.hasFocus = () => focused;
+    const nativeCancel = S.waitForProtocolHandoff({ win: winN, doc: docN, timeoutMs: 1000, maxMs: 5000, pollMs: 10, onResult: (r) => reasons.push(r) });
+    focused = false; winN.listeners.blur();
+    setTimeout(() => { focused = true; }, 40);
+    const startedAt = Date.now();
+    assert.equal(await nativeCancel, false, 'focus back without a focus event (cancelled native dialog) is not opened');
+    assert.ok(Date.now() - startedAt < 1000, 'decided by polling, not by maxMs');
+    assert.deepEqual([...reasons], ['focus-returned']);
+    // The dialog already holds focus when the watch starts.
+    const winP = target(); const docP = target(); let focusP = false;
+    docP.hasFocus = () => focusP;
+    const preBlurred = S.waitForProtocolHandoff({ win: winP, doc: docP, timeoutMs: 1000, maxMs: 5000, pollMs: 10 });
+    setTimeout(() => { focusP = true; }, 30);
+    assert.equal(await preBlurred, false, 'a watch that starts while the dialog is open still sees the cancel');
+    const winV = target(); const docV = target(); const reasonsV = [];
+    docV.hasFocus = () => false;
+    assert.equal(await S.waitForProtocolHandoff({ win: winV, doc: docV, timeoutMs: 1000, maxMs: 40, pollMs: 10, onResult: (r) => reasonsV.push(r) }), true, 'focus kept away for maxMs means Vortex opened');
+    assert.deepEqual([...reasonsV], ['blur-persisted']);
+
     // A typed run: hand-offs land in the sent list, a sent file is sent again, a downloaded one is skipped.
     const typedRun = async ({ history = {}, opened = true, modalAnswer = 'yes', links = null, mods }) => {
       const harness = createHarness('vortex');
@@ -377,6 +399,62 @@ function createHarness(choice) {
     const confirmed = await typedRun({ opened: false, modalAnswer: 'yes', mods: three });
     assert.equal(confirmed.handed.length, 3, 'a "yes" sends the rest');
     assert.equal(confirmed.modalShown, 1, 'and is asked only once per run');
+
+    // Item 7: a remembered "yes" skips the question; a remembered failure asks again.
+    let memory = { confirmed: true, failStreak: 0 }; const events = []; let summaries = 0; let offered = 0;
+    NXTK.readVortexOpenState = async () => memory;
+    NXTK.recordVortexOpenEvent = async (event) => { events.push(event); memory = shared.NXTK.vortexOpenNext(memory, event); return memory; };
+    NXTK.shouldAskVortexOpened = shared.NXTK.shouldAskVortexOpened;
+    NXTK.shouldOfferBrowserSwitch = shared.NXTK.shouldOfferBrowserSwitch;
+    NexusExt.UI.showRunSummary = () => { summaries += 1; };
+    NexusExt.UI.offerBrowserSwitch = () => { offered += 1; };
+    const remembered = await typedRun({ opened: false, modalAnswer: 'no', mods: three });
+    assert.equal(remembered.modalShown, 0, 'a remembered yes is not asked again');
+    assert.equal(remembered.handed.length, 3);
+    assert.ok(remembered.logs.some((l) => /confirmed before/.test(l)));
+    assert.equal(summaries, 1, 'item 4: the run ends with a summary card');
+    memory = { confirmed: false, failStreak: 1 };
+    const again = await typedRun({ opened: false, modalAnswer: 'no', mods: three });
+    assert.equal(again.modalShown, 1, 'after a failure the question comes back');
+    assert.equal(memory.failStreak, 2);
+    assert.equal(offered, 1, 'item 6: the second failure in a row offers browser downloads');
+    delete NXTK.readVortexOpenState; delete NXTK.recordVortexOpenEvent;
+
+    // Browser runs end with the same summary card, built from the worker's per-file events.
+    {
+      const harness = createHarness('browser');
+      const { ndc } = harness;
+      delete ndc.downloadBrowserQueue;
+      NXTK.createQueueEta = shared.NXTK.createQueueEta; NXTK.formatBytes = shared.NXTK.formatBytes; NXTK.MAX_TRACKED_SKIPS = shared.NXTK.MAX_TRACKED_SKIPS;
+      ndc.ui.setProgress = () => {}; ndc.ui.setTimeLeft = () => {}; ndc.ui.setDownloadStatus = () => {};
+      let listener = null;
+      const savedChrome = global.chrome; const savedDoc = global.document;
+      global.document = { addEventListener: () => {}, removeEventListener: () => {}, visibilityState: 'visible' };
+      global.chrome = { runtime: { onMessage: { addListener: (fn) => { listener = fn; }, removeListener: () => {} } } };
+      NexusExt.Storage.sendDownloadCommand = async (command) => (command === 'NDC_QUEUE_START'
+        ? { ok: true, value: { jobId: 'job-b' } }
+        : { ok: true, value: { status: 'running', index: 0 } });
+      let card = null; let retried = null;
+      NexusExt.UI.showRunSummary = (summary, options) => { card = { summary, options }; };
+      ndc.ui.endDownload = () => {};
+      const mods = [vortexMod(1, 'A.7z', 1), vortexMod(2, 'B.7z', 2), vortexMod(3, 'C.7z', 3)];
+      const run = ndc.downloadBrowserQueue(mods, 'all', {});
+      for (let i = 0; i < 50 && !(listener && ndc.backgroundJobId); i += 1) await new Promise((r) => setTimeout(r, 10));
+      assert.ok(listener, 'the run listens for worker events');
+      const emit = (message) => listener({ jobId: 'job-b', ...message });
+      emit({ type: 'NXT_NDC_PROGRESS', itemState: 'complete', itemName: 'A.7z', index: 1, total: 3 });
+      emit({ type: 'NXT_NDC_PROGRESS', itemState: 'failed', itemName: 'B.7z', error: 'download_not_started', index: 2, total: 3 });
+      emit({ type: 'NXT_NDC_DONE', outcome: 'partial', skipped: [{ name: 'C.7z', pageUrl: '', reason: 'mod_unavailable' }] });
+      await run;
+      global.chrome = savedChrome; global.document = savedDoc;
+      assert.ok(card, 'a browser run shows the summary card');
+      assert.deepEqual(card.summary.sent.map((e) => e.name), ['A.7z']);
+      assert.deepEqual(card.summary.failed.map((e) => [e.name, e.code]), [['B.7z', 'download_not_started']]);
+      assert.deepEqual(card.summary.skipped.map((e) => e.name), ['C.7z']);
+      ndc.downloadMods = async (list, type) => { retried = [list.map((m) => m.file.name), type]; };
+      await card.options.onRetryFailed();
+      assert.deepEqual(retried, [['B.7z'], 'all'], 'Retry failed queues only the failed files');
+    }
 
     const stale = await typedRun({ links: [link(past), link(future)], mods: [vortexMod(1, 'A.7z', 1)] });
     assert.deepEqual(stale.handed, [['A.7z', link(future)]], 'an expired link is fetched again, never sent');

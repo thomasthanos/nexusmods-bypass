@@ -9,7 +9,7 @@
     "message": "Iniciar downloads automaticamente"
   },
   "setAutoCloseTabLabel": {
-    "message": "Fechar abas do Vortex"
+    "message": "Fechar a aba extra depois de enviar ao Vortex"
   },
   "toggleSkipReq": {
     "message": "Pular telas de requisitos"
@@ -279,7 +279,7 @@
     "message": "Enviar para o Vortex"
   },
   "deckMethodVortexHint": {
-    "message": "Ideal para enviar com um clique para sua fila do Vortex."
+    "message": "Envia cada arquivo direto para a fila de downloads do Vortex."
   },
   "deckMethodBrowser": {
     "message": "Download pelo navegador"
@@ -564,7 +564,7 @@
     "message": "Iniciar downloads automaticamente"
   },
   "setAutoStartDownloadDesc": {
-    "message": "Ao abrir uma página de download do Nexus, inicia o envio ao Vortex ou o download do navegador sem outro clique."
+    "message": "Ao abrir a página de um arquivo do Nexus, o download começa (no Vortex ou no navegador) sem outro clique."
   },
   "setAutoCloseTabDesc": {
     "message": "Após enviar um link ao Vortex, fecha a aba temporária do Nexus após o atraso abaixo."
@@ -612,13 +612,13 @@
     "message": "Sua velocidade de download no Nexus"
   },
   "setDownloadSpeedDesc": {
-    "message": "Somente no modo Vortex. O navegador não vê a transferência dentro do Vortex, então isto estima a duração e espaça os envios. Defina a velocidade que você realmente observa — muito baixa, e a fila espera bem mais que o necessário."
+    "message": "Só Vortex. O navegador não vê os downloads do Vortex, então estima quanto cada arquivo demora e espera esse tempo antes de enviar o próximo. Defina a velocidade que você realmente tem."
   },
   "setPauseBetweenModsLabel": {
     "message": "Pausa entre mods"
   },
   "setPauseBetweenModsDesc": {
-    "message": "Somente no modo Vortex. Somado à estimativa acima. Defina 0 para desligar a estimativa de tamanho e deixar o Vortex enfileirar os arquivos; um intervalo de 2 segundos entre os envios sempre é mantido."
+    "message": "Só Vortex. Espera extra entre arquivos, somada à estimativa acima. 0 desliga a estimativa e deixa o Vortex enfileirar os arquivos sozinho; sempre fica um intervalo de 2 segundos."
   },
   "dlgHistoryTitle": {
     "message": "Mods baixados encontrados"
@@ -1260,10 +1260,10 @@
     }
   },
   "setCloudflareFallbackLabel": {
-    "message": "Alternativa do Cloudflare"
+    "message": "Abrir a página do arquivo quando o Nexus pedir uma verificação do navegador"
   },
   "setCloudflareFallbackDesc": {
-    "message": "Se um download em segundo plano pedir verificação, abre a página para você concluí-la em vez de falhar."
+    "message": "Se o Nexus mostrar uma página \"verifique que você é humano\" em vez de um link, a página do arquivo é aberta para você passar na verificação. Por isso a aba às vezes muda sozinha."
   },
   "tabControls": {
     "message": "Controles",
@@ -1827,5 +1827,217 @@
   },
   "noticeVortexNotOpenedDetail": {
     "message": "Se nada aconteceu, verifique se o Vortex está instalado e configurado para links nxm:// (e permita o aviso do navegador) e clique no botão novamente."
+  },
+  "summarySent": {
+    "message": "Enviados"
+  },
+  "summarySkipped": {
+    "message": "Ignorados"
+  },
+  "summaryFailed": {
+    "message": "Com falha"
+  },
+  "summaryAccount": {
+    "message": "Conta Nexus"
+  },
+  "btnRetryIn": {
+    "message": "Tentar de novo em $1",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "btnOpenFilePage": {
+    "message": "Abrir página do arquivo"
+  },
+  "btnUseBrowserDownload": {
+    "message": "Usar download do navegador"
+  },
+  "btnRetryNow": {
+    "message": "Tentar de novo agora"
+  },
+  "noticeSwitchedToBrowserTitle": {
+    "message": "Mudado para downloads do navegador"
+  },
+  "noticeSwitchedToBrowserDetail": {
+    "message": "As coleções agora salvam arquivos reais na sua pasta Downloads. Na página de um arquivo, use \"Download manual\" para arquivos avulsos. Você pode voltar nas configurações."
+  },
+  "noticeVortexKeepsFailingTitle": {
+    "message": "O Vortex não está recebendo os arquivos"
+  },
+  "noticeVortexKeepsFailingDetail": {
+    "message": "Duas vezes seguidas nada indicou que o Vortex abriu. Use os downloads do navegador ou verifique se o Vortex está instalado."
+  },
+  "btnUseBrowserDownloads": {
+    "message": "Usar downloads do navegador"
+  },
+  "btnVortexInstallGuide": {
+    "message": "Guia de instalação do Vortex"
+  },
+  "logVortexOpenRemembered": {
+    "message": "O Vortex já foi confirmado antes, então não vou perguntar de novo."
+  },
+  "presetVortex": {
+    "message": "Usuário do Vortex"
+  },
+  "presetVortexDesc": {
+    "message": "Enviar arquivos ao Vortex, iniciar automaticamente, fechar a aba extra."
+  },
+  "presetBrowser": {
+    "message": "Downloads do navegador"
+  },
+  "presetBrowserDesc": {
+    "message": "Salvar arquivos reais na pasta Downloads, iniciar automaticamente."
+  },
+  "presetMinimal": {
+    "message": "Mínimo"
+  },
+  "presetMinimalDesc": {
+    "message": "Só o que você clicar: sem início automático, sem botões extras."
+  },
+  "setSectionPresets": {
+    "message": "Configuração rápida"
+  },
+  "presetCustom": {
+    "message": "Personalizado: sua própria combinação de configurações."
+  },
+  "summaryTitle": {
+    "message": "Resumo"
+  },
+  "summaryCounts": {
+    "message": "$1 enviados · $2 ignorados · $3 com falha",
+    "placeholders": {
+      "sent": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryAccountLine": {
+    "message": "Os links foram assinados para a conta Nexus nº $1. O Vortex precisa usar a mesma conta.",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      }
+    }
+  },
+  "summaryCopy": {
+    "message": "Copiar lista"
+  },
+  "summaryOpenFailed": {
+    "message": "Abrir páginas com falha"
+  },
+  "summaryRetryFailed": {
+    "message": "Tentar de novo os com falha"
+  },
+  "summaryCopied": {
+    "message": "Copiado"
+  },
+  "summaryCopyFailed": {
+    "message": "Falha ao copiar"
+  },
+  "historyViewTitle": {
+    "message": "Histórico de downloads desta coleção"
+  },
+  "historyViewSent": {
+    "message": "Enviados ao Vortex"
+  },
+  "historyViewDownloaded": {
+    "message": "Baixados"
+  },
+  "historyViewMissing": {
+    "message": "Ainda não baixados"
+  },
+  "historyViewHelp": {
+    "message": "Arquivos \"Enviados ao Vortex\" não são ignorados: o navegador não consegue ver se o Vortex os recebeu. Reenviar é seguro, o Vortex ignora os que já tem."
+  },
+  "historyViewClear": {
+    "message": "Limpar histórico"
+  },
+  "historyViewResend": {
+    "message": "Reenviar faltantes ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "deckHistoryView": {
+    "message": "Histórico de downloads"
+  },
+  "deckHistoryViewHint": {
+    "message": "Enviados, baixados, reenviar faltantes"
+  },
+  "setupSaved": {
+    "message": "Salvo. Abra qualquer página de arquivo do Nexus Mods para testar."
+  },
+  "setupSaveFailed": {
+    "message": "Não foi possível salvar. Tente de novo pelo botão de configurações em uma página do Nexus."
+  },
+  "setupTesting": {
+    "message": "Pedindo ao navegador para abrir o Vortex… permita o aviso se aparecer."
+  },
+  "setupTestOk": {
+    "message": "O Vortex abriu. Tudo pronto."
+  },
+  "setupTestUnsure": {
+    "message": "Não foi possível saber se o Vortex abriu."
+  },
+  "setupTestFailed": {
+    "message": "O Vortex não abriu. Instale o Vortex e deixe-o tratar links nxm:// (Configurações do Vortex → Downloads), ou escolha downloads do navegador acima."
+  },
+  "setupTitle": {
+    "message": "Pronto em 30 segundos"
+  },
+  "setupSubtitle": {
+    "message": "Três perguntas. Você pode mudar tudo depois nas configurações."
+  },
+  "setupQVortex": {
+    "message": "Você usa o Vortex?"
+  },
+  "setupVortexYes": {
+    "message": "Sim, enviar arquivos ao Vortex"
+  },
+  "setupVortexNo": {
+    "message": "Não, salvar arquivos com o navegador"
+  },
+  "setupQFolder": {
+    "message": "Pasta de download (dentro dos Downloads do navegador)"
+  },
+  "setupFolderHint": {
+    "message": "Deixe vazio para salvar direto em Downloads."
+  },
+  "setupQCloseTab": {
+    "message": "Fechar a aba extra do Nexus depois de enviar um arquivo ao Vortex"
+  },
+  "setupSave": {
+    "message": "Salvar"
+  },
+  "setupTestVortex": {
+    "message": "Testar Vortex"
+  },
+  "setupAskOpened": {
+    "message": "O Vortex abriu?"
+  },
+  "dlgVortexOpenedYesShort": {
+    "message": "Sim"
+  },
+  "dlgVortexOpenedNoShort": {
+    "message": "Não"
+  },
+  "noticeFileMissingTitle": {
+    "message": "Este arquivo não está disponível"
+  },
+  "noticeFileMissingDetail": {
+    "message": "O Nexus diz que o arquivo não existe: foi removido ou ocultado, ou o link está errado. Escolha outro arquivo na aba Arquivos do mod."
+  },
+  "btnOpenModFiles": {
+    "message": "Abrir a aba Arquivos"
   }
 }

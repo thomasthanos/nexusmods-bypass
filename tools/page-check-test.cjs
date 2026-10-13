@@ -175,6 +175,19 @@ assert.equal(PageCheck.detectBuild(fakeDoc({ scripts: ['https://ads.example/x.js
   assert.equal(PageCheck.pageVariant(withModal), 'modal open');
   assert.equal(PageCheck.pageVariant(withGate), 'adult content gate');
   assert.equal(PageCheck.pageVariant({ querySelector: () => null }), '');
+  // A file page for a file that does not exist: a notice with the Files tab, not a site-change warning.
+  const missingFile = { title: 'Object not found', location: { href: 'https://www.nexusmods.com/skyrimspecialedition/mods/267?tab=files&file_id=1' },
+    querySelector: (sel) => (sel === 'main' ? { innerText: 'Object not found. The file you are looking for does not exist.' } : null) };
+  assert.equal(PageCheck.pageVariant(missingFile), 'file not found');
+  const notices = [];
+  const savedUi = context.NexusExt.UI;
+  context.NexusExt.UI = { ...(savedUi || {}), showNotice: (n) => notices.push(n) };
+  PageCheck.reportFailures(variantFailing, record, missingFile);
+  PageCheck.reportFailures(variantFailing, record, missingFile);
+  context.NexusExt.UI = savedUi;
+  assert.equal(recorded.length, before, 'a missing file is not a site change');
+  assert.equal(notices.length, 1, 'the missing-file notice is shown once');
+  assert.match(notices[0].actions[0].href, /\/mods\/267\?tab=files$/);
 
   // The report section.
   const lines = PageCheck.describe({ ...failing, at: 10000 }, record, 15000).join('\n');

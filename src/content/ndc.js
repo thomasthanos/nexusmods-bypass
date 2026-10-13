@@ -648,15 +648,35 @@ window.NexusExt = window.NexusExt || {};
     // After the first hand-off of a run: wait for the page to lose focus (the OS opening Vortex), and
     // if it does not, ask once. Returns false when the user says Vortex did not open.
     async confirmFirstVortexHandoff() {
-      const picked = await NXTK.waitForProtocolHandoff({ timeoutMs: VORTEX_CONFIRM_TIMEOUT_MS });
+      let reason = '';
+      NXTK.noteActivity?.('info', ['Vortex hand-off: watching whether Vortex opens (collection)']);
+      const picked = await NXTK.waitForProtocolHandoff({ timeoutMs: VORTEX_CONFIRM_TIMEOUT_MS, maxMs: NXTK.PROTOCOL_BLUR_OPENED_MS, onResult: (r) => { reason = r; } });
+      NXTK.noteActivity?.('info', [`Vortex hand-off: ${picked ? 'Vortex opened' : 'no sign Vortex opened'} (${reason || 'unknown'})`]);
       if (picked) {
+        await NXTK.recordVortexOpenEvent?.('opened');
         this.ui.logText(T('logVortexOpened', 'Vortex picked up the first link; sending the rest.'), 'info');
+        return true;
+      }
+      // A "yes" is remembered for this browser profile; the question comes back only after a "no"
+      // or a hand-off that showed no sign of Vortex.
+      const memory = await NXTK.readVortexOpenState?.();
+      if (memory && !NXTK.shouldAskVortexOpened(memory)) {
+        this.ui.logText(T('logVortexOpenRemembered', 'Vortex was confirmed before, so not asking again.'), 'info');
         return true;
       }
       if (typeof NexusExt.UI?.showVortexOpenedModal !== 'function') return true;
       const answer = await NexusExt.UI.showVortexOpenedModal();
+      const next = await NXTK.recordVortexOpenEvent?.(answer === 'yes' ? 'answeredYes' : 'answeredNo');
       if (answer === 'yes') return true;
       this.ui.logText(T('logVortexNotOpened', 'Vortex did not open, so the rest were not sent. Start Vortex (and allow nxm:// links in the browser prompt), then run again.'), 'error');
+      if (next && NXTK.shouldOfferBrowserSwitch(next)) {
+        NexusExt.UI?.offerBrowserSwitch?.({
+          onSwitch: () => {
+            this.downloadMethod = DOWNLOAD_METHOD_BROWSER;
+            this.ui?.setDownloadMethod?.(DOWNLOAD_METHOD_BROWSER);
+          }
+        });
+      }
       return false;
     }
 
@@ -686,7 +706,10 @@ window.NexusExt = window.NexusExt || {};
       const link = `<a href="${escapeHtml(this.fileLinkFor(mod))}" target="_blank" rel="noopener noreferrer">${escapeHtml(mod.file.name)}</a>`;
       this.ui.log(`${TS('logRetryFailed', [escapeHtml(Errors.toLogMessage(error))], `Retry failed: ${escapeHtml(Errors.toLogMessage(error))}`)} ${link}`, 'error');
       if (this.showAlertsOnError && error.retryable) {
-        NexusExt.UI.showError(error, { onRetry: () => this.retryMod(mod, { type, onSucceeded }) });
+        NexusExt.UI.showError(error, {
+          onRetry: () => this.retryMod(mod, { type, onSucceeded }),
+          ...this.errorContextFor(mod)
+        });
       }
     }
 
@@ -710,6 +733,59 @@ window.NexusExt = window.NexusExt || {};
       }
     }
 
+    // The end-of-run card: what was sent, skipped (with reasons) and failed, with ways to act on it.
+    showRunSummary({ sentMods = [], skipped = [], failedDownload = [], type = null } = {}) {
+      const summary = {
+        sent: sentMods.map((mod) => ({ name: mod.file.name, pageUrl: this.fileLinkFor(mod) })),
+        skipped: skipped.map(({ name, pageUrl, reason }) => ({ name, pageUrl, reason })),
+        failed: failedDownload.map(({ mod, error }) => ({ name: mod.file.name, pageUrl: this.fileLinkFor(mod), code: error?.code || 'unknown', mod })),
+        account: this.vortexAccountNoted || ''
+      };
+      this.lastRunSummary = summary;
+      if (!summary.sent.length && !summary.skipped.length && !summary.failed.length) return;
+      if (typeof NexusExt.UI?.showRunSummary !== 'function') return;
+      NexusExt.UI.showRunSummary(summary, {
+        onRetryFailed: async () => {
+          for (const entry of summary.failed.slice()) {
+            if (this.isStopped()) break;
+            await this.retryMod(entry.mod, { type });
+          }
+        }
+      });
+    }
+
+    // The same card for a browser-download run, from what the background queue reported.
+    showBrowserRunSummary(runLog, skipped = [], type = null) {
+      const summary = {
+        sent: runLog.sent,
+        skipped: [
+          ...runLog.alreadyHad,
+          ...(Array.isArray(skipped) ? skipped : []).map((entry) => ({ name: entry.name, pageUrl: entry.pageUrl, reason: skipReasonText(entry.reason) }))
+        ],
+        failed: runLog.failed,
+        account: ''
+      };
+      this.lastRunSummary = summary;
+      if (!summary.sent.length && !summary.skipped.length && !summary.failed.length) return;
+      if (typeof NexusExt.UI?.showRunSummary !== 'function') return;
+      const retryable = summary.failed.map((entry) => entry.mod).filter(Boolean);
+      NexusExt.UI.showRunSummary(summary, {
+        onRetryFailed: retryable.length ? () => this.downloadMods(retryable, type) : null
+      });
+    }
+
+    // What the error dialog's "Open file page" / "Use browser download" buttons refer to.
+    errorContextFor(mod) {
+      return {
+        filePageUrl: NXTK.isSafeNexusPageUrl?.(this.fileLinkFor(mod)) ? this.fileLinkFor(mod) : '',
+        method: this.downloadMethod === DOWNLOAD_METHOD_VORTEX ? 'vortex' : 'browser',
+        onSwitchToBrowser: () => {
+          this.downloadMethod = DOWNLOAD_METHOD_BROWSER;
+          this.ui?.setDownloadMethod?.(DOWNLOAD_METHOD_BROWSER);
+        }
+      };
+    }
+
     async recordHistoryEntry(type, fileId) {
       return NexusExt.Storage.addHistoryEntry({
         gameId: this.gameId,
@@ -725,9 +801,12 @@ window.NexusExt = window.NexusExt || {};
         ? new Set()
         : new Set(history?.[this.gameId]?.[this.collectionId]?.[type] || []);
       const pending = [];
+      // For the end-of-run card, collected from the worker's per-file events.
+      const runLog = { sent: [], failed: [], alreadyHad: [], pending, mods, type };
 
       for (const mod of mods) {
         if (alreadyDownloaded.has(historyEntryId(mod))) {
+          runLog.alreadyHad.push({ name: mod.file.name, pageUrl: mod.file.url, reason: T('logAlreadyDownloaded', 'Already downloaded') });
           this.ui.log(
             `${T('logAlreadyDownloaded', 'Already downloaded')} <a href="${escapeHtml(mod.file.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(mod.file.name)}</a>`
           );
@@ -748,6 +827,7 @@ window.NexusExt = window.NexusExt || {};
       if (!pending.length) {
         this.downloadController = null;
         this.ui.endDownload('finished');
+        this.showBrowserRunSummary(runLog, [], type);
         return;
       }
 
@@ -761,6 +841,7 @@ window.NexusExt = window.NexusExt || {};
         visibleTotal,
         fallbackQueueTotal: pending.length,
         sizesKb: pending.map((item) => item.sizeKb),
+        runLog,
         start: () => NexusExt.Storage.sendDownloadCommand('NDC_QUEUE_START', {
           gameId: this.gameId,
           collectionId: this.collectionId,
@@ -780,8 +861,11 @@ window.NexusExt = window.NexusExt || {};
       visibleTotal = 0,
       fallbackQueueTotal = 0,
       sizesKb = [],
-      start = null
+      start = null,
+      runLog: givenRunLog = null
     } = {}) {
+      // A reconnected job has no item list here; its card only shows what the worker reports.
+      const runLog = givenRunLog || { sent: [], failed: [], alreadyHad: [], pending: [], mods: [], type: null };
       return new Promise((resolve) => {
         let settled = false;
         let watchdogTimer = null;
@@ -866,6 +950,7 @@ window.NexusExt = window.NexusExt || {};
           let deckOutcome = known ? outcome : 'error';
           if (blocking) deckOutcome = code === 'requires_login' ? 'requires_login' : 'blocked';
           this.ui.endDownload(deckOutcome);
+          this.showBrowserRunSummary(runLog, skipped, runLog.type);
           resolve();
         };
 
@@ -942,6 +1027,7 @@ window.NexusExt = window.NexusExt || {};
               // for an older worker, and never for an adopted job, whose numbering is not this tab's.
               const sizeKb = Number(message.itemSizeKb)
                 || (adopted ? 0 : Number(sizesKb[queueIndex - 1]) || 0);
+              runLog.sent.push({ name, pageUrl: runLog.pending.find((item) => item.name === name)?.pageUrl || '' });
               this.ui.logText(sizeKb > 0
                 ? TS('logCompletedSize', [name, NXTK.formatBytes(sizeKb * 1024)], `Completed: ${name} (${NXTK.formatBytes(sizeKb * 1024)})`)
                 : TS('logCompleted', [name], `Completed: ${name}`), 'info');
@@ -954,6 +1040,8 @@ window.NexusExt = window.NexusExt || {};
             } else if (message.itemState === 'failed') {
               eta?.spoil();
               const reason = queueErrorText(message.error);
+              const item = runLog.pending.find((entry) => entry.name === name);
+              runLog.failed.push({ name, pageUrl: item?.pageUrl || '', code: String(message.error || 'unknown').split(' ')[0], mod: runLog.mods.find((m) => m.file.name === name) || null });
               this.ui.logText(TS('logFailedItem', [name, reason], `Failed: ${name} (${reason})`), 'error');
             }
             return;
@@ -1167,7 +1255,9 @@ window.NexusExt = window.NexusExt || {};
         history[this.gameId][this.collectionId] = history[this.gameId][this.collectionId] || {};
         history[this.gameId][this.collectionId][type] = history[this.gameId][this.collectionId][type] || [];
 
-        if (history[this.gameId][this.collectionId][type].length) {
+        const skipPrompt = this.skipHistoryPromptOnce === true;
+        this.skipHistoryPromptOnce = false;
+        if (history[this.gameId][this.collectionId][type].length && !skipPrompt) {
           const choice = await NexusExt.UI.showHistoryDecisionModal({
             downloadedCount: history[this.gameId][this.collectionId][type].length,
             totalCount: mods.length
@@ -1217,6 +1307,7 @@ window.NexusExt = window.NexusExt || {};
         const skipped = [];
         let cloudflareStrikes = 0;
         let handedOffCount = 0;
+        const sentMods = [];
         let forceStop = false;
 
         for (const [index, mod] of mods.entries()) {
@@ -1291,6 +1382,7 @@ window.NexusExt = window.NexusExt || {};
             failedDownload.push({ mod, error: downloadError });
             if (this.showAlertsOnError && downloadError.retryable) {
               NexusExt.UI.showError(downloadError, {
+                ...this.errorContextFor(mod),
                 onRetry: () => this.retryMod(mod, {
                   type,
                   onSucceeded: () => {
@@ -1312,6 +1404,7 @@ window.NexusExt = window.NexusExt || {};
           NXTK.bumpTotalDownloads?.();
           handedOff = true;
           handedOffCount += 1;
+          sentMods.push(mod);
 
           if (history) {
             history = await this.recordHistoryEntry(NXTK.vortexSentType(type), historyEntryId(mod));
@@ -1426,6 +1519,8 @@ window.NexusExt = window.NexusExt || {};
           );
         }
       }
+
+      this.showRunSummary({ sentMods, skipped, failedDownload, type });
 
       } catch (cause) {
         outcome = 'error';
