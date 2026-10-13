@@ -1125,6 +1125,8 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function handleError(btn, error, { onRetry = null } = {}) {
+    activeStatusToast?.dismiss();
+    activeStatusToast = null;
     btn?._nxtkStatusToast?.dismiss();
     if (btn) delete btn._nxtkStatusToast;
     const normalized = Errors.normalize(error);
@@ -1179,6 +1181,34 @@ window.NexusExt = window.NexusExt || {};
     };
   }
 
+  let activeStatusToast = null;
+
+  // A single file is not worth a question, but when the hand-off shows no sign of reaching Vortex
+  // (the browser prompt cancelled or dismissed, nothing took focus), say what to check.
+  let singleHandoffSequence = 0;
+
+  function watchSingleHandoff() {
+    const wait = NXTK.waitForProtocolHandoff;
+    if (typeof wait !== 'function') return;
+    const sequence = ++singleHandoffSequence;
+    wait({ timeoutMs: SINGLE_HANDOFF_TIMEOUT_MS }).then((opened) => {
+      if (opened) {
+        Logger.info('Vortex hand-off: the page lost focus or was hidden; Vortex opened');
+        return;
+      }
+      // A newer hand-off has its own watch. ("Keep open" on the close countdown is not a newer one.)
+      if (sequence !== singleHandoffSequence) return;
+      Logger.info('Vortex hand-off: no sign Vortex opened (prompt cancelled or nothing took focus); showing the hint');
+      NexusExt.UI?.showNotice?.({
+        title: NXTK.t('noticeVortexNotOpenedTitle', null, "Vortex didn't open?"),
+        detail: NXTK.t('noticeVortexNotOpenedDetail', null, 'If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again.'),
+        ms: 12000
+      });
+    });
+  }
+
+  const SINGLE_HANDOFF_TIMEOUT_MS = 4000;
+
   // How long "Sent to Vortex" stays on the button and in the status toast.
   const SENT_STATE_MS = 2500;
 
@@ -1227,10 +1257,18 @@ window.NexusExt = window.NexusExt || {};
     Logger.debug('fileId', fileId, 'isNMM', isNMM);
     // Also announced in a status toast: visible (and read out) even where the control's own label
     // cannot be changed.
-    const statusToast = button && isNMM
+    // Every Vortex hand-off gets it, including the single-file page's auto-start ("Auto NMM"), which
+    // has no button to label: a click that lands on ?file_id=…&nmm=1 runs that path.
+    const statusToast = isNMM
       ? NexusExt.UI?.showStatusToast?.(NXTK.t('btnStateSendingVortex', null, 'Sending to Vortex…'))
       : null;
-    if (statusToast) button._nxtkStatusToast = statusToast;
+    if (statusToast) {
+      activeStatusToast = statusToast;
+      if (button) button._nxtkStatusToast = statusToast;
+    }
+    if (isNMM) {
+      Logger.info(`Vortex hand-off: showing "Sending to Vortex…" (${[button ? 'button' : '', statusToast ? 'toast' : ''].filter(Boolean).join(' + ') || 'nothing to show it on'})`);
+    }
 
     let result;
     try {
@@ -1306,6 +1344,8 @@ window.NexusExt = window.NexusExt || {};
         return false;
       }
       statusToast?.update(NXTK.t('toastSentToVortex', null, 'Sent to Vortex'), SENT_STATE_MS);
+      Logger.info('Vortex hand-off: link sent, showing "Sent to Vortex"');
+      watchSingleHandoff();
       if (button) {
         setButtonState(button, 'sent');
         setTimeout(() => {
@@ -1331,6 +1371,7 @@ window.NexusExt = window.NexusExt || {};
       };
 
       if (NexusExt.UI?.showCloseCountdown && closeDelay >= 1000) {
+        statusToast?.dismiss();
         closeTabToast = NexusExt.UI.showCloseCountdown({
           ms: closeDelay,
           onDone: closeNow,
@@ -1368,6 +1409,7 @@ window.NexusExt = window.NexusExt || {};
       return null;
     };
 
+    const OWN_UI_SELECTOR = '.nxtk-close-toast, .nxtk-modal-backdrop, .nxtk-modal, #nxtk-extension-root, #nxtk-dropdown-portal, #nxtk-settings-fab';
     const IGNORE_ANCESTORS = 'nav, .nav, .pagination, .comment-container, .comment-content, .forum-post, .header-nav, .search-results, .nxtk-deck';
     const DOWNLOAD_HREF_PATTERNS = ['/Core/Libs/Common/', 'tab=files&file_id=', 'file_id=', 'ModRequirementsPopUp', '/api/files/'];
     const isDownloadHref = (href) => DOWNLOAD_HREF_PATTERNS.some(p => href.includes(p));
@@ -1379,6 +1421,8 @@ window.NexusExt = window.NexusExt || {};
       if (!isModPage()) return;
       if (isNativeFallbackActive()) return;
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+      // The extension's own UI (toasts with "Keep open", dialogs, the deck) is never a Nexus download.
+      if (path.some((node) => node?.closest && node.matches?.(OWN_UI_SELECTOR))) return;
       noteFileClick(path);
 
       if (cfg.SkipRequirements && path.length) {

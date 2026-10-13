@@ -735,7 +735,7 @@ test('settings button hides while a Nexus menu in a shadow root (opened on point
       const open = menu.hidden;
       menu.hidden = !open;
       toggle.setAttribute('aria-expanded', String(open));
-      requestAnimationFrame(() => { menu.style.opacity = open ? '1' : '0'; });
+      globalThis.requestAnimationFrame(() => { menu.style.opacity = open ? '1' : '0'; });
     });
     document.body.append(header);
   });
@@ -748,4 +748,43 @@ test('settings button hides while a Nexus menu in a shadow root (opened on point
   await page.waitForTimeout(1200);
   await expect(fab, 'and comes back when it closes').toBeVisible();
   await page.close();
+});
+
+test('single-file Auto NMM path (?file_id=…&nmm=1, no button) shows the Vortex toast, the "didn\'t open?" hint and logs both', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  const ext = await context.newPage();
+  await ext.goto(`chrome-extension://${id}/popup/popup.html`);
+  const patch = (values) => ext.evaluate((v) => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_settings', (o) => globalThis.chrome.storage.local.set({ nxtk_settings: { ...(o.nxtk_settings || {}), ...v }, nxtk_debug_log: [] }, r))), values);
+  // The tab would close itself after the hand-off; keep it so the hint can be seen.
+  await patch({ AutoCloseTab: false, DebugLogs: true });
+
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const expires = Math.floor(Date.now() / 1000) + 3600;
+  const nxm = `nxm://skyrimspecialedition/mods/12604/files/35410?key=abc&expires=${expires}&user_id=1`;
+  const answer = (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: nxm }) });
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', async (route) => {
+    await new Promise((r) => setTimeout(r, 800));
+    return answer(route);
+  });
+  await page.route('**/api/files/**', answer);
+  await page.goto('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=35410&nmm=1');
+  const toast = page.locator('.nxtk-status-toast[role="status"]');
+  await expect(toast, 'the auto-start path announces the hand-off').toContainText(/Sending to Vortex/, { timeout: 15000 });
+  await expect(toast).toContainText(/Sent to Vortex/, { timeout: 5000 });
+  // Nothing takes the focus in the test browser, as when the xdg-open prompt is cancelled.
+  await expect(page.locator('.nxtk-notice-toast:not(.nxtk-status-toast)'), 'a hint follows when Vortex shows no sign of opening')
+    .toContainText(/Vortex didn't open\?/, { timeout: 8000 });
+  const readLog = () => ext.evaluate(() => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_debug_log', (o) => r((o.nxtk_debug_log || []).map((e) => e.text || JSON.stringify(e)).join('\n')))));
+  // The log is written in batches.
+  await expect.poll(readLog, { timeout: 10000 }).toMatch(/no sign Vortex opened/);
+  const all = await readLog();
+  expect(all, 'the toast is logged').toMatch(/Vortex hand-off: showing "Sending to Vortex…" \(toast\)/);
+  expect(all, 'the sent state is logged').toMatch(/Vortex hand-off: link sent/);
+  expect(all, 'the hint is logged').toMatch(/no sign Vortex opened/);
+  await patch({ AutoCloseTab: true, DebugLogs: false });
+  await page.close();
+  await ext.close();
 });

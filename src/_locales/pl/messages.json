@@ -1989,5 +1989,11 @@
   },
   "dlgVortexOpenedYes": {
     "message": "Yes, send the rest"
+  },
+  "noticeVortexNotOpenedTitle": {
+    "message": "Vortex didn't open?"
+  },
+  "noticeVortexNotOpenedDetail": {
+    "message": "If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again."
   }
 }

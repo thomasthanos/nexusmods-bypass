@@ -2161,5 +2161,13 @@
   "dlgVortexOpenedYes": {
     "message": "Yes, send the rest",
     "description": "UI string."
+  },
+  "noticeVortexNotOpenedTitle": {
+    "message": "Vortex didn't open?",
+    "description": "UI string."
+  },
+  "noticeVortexNotOpenedDetail": {
+    "message": "If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again.",
+    "description": "UI string."
   }
 }
