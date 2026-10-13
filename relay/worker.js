@@ -128,29 +128,87 @@ export async function markSeen(env, fp, now = Date.now()) {
   else recentFingerprints.set(key, now);
 }
 
+// Keep technical identifiers in the footer; the body explains what happened in plain language.
+const AUTO_ERROR_COPY = {
+  requires_login: ['Sign in to Nexus Mods', 'Nexus Mods needs a signed-in account for this download. Sign in, return to the file or collection page, then retry.'],
+  cloudflare: ['Browser verification needed', 'Open the Nexus file page and complete the browser check, then retry.'],
+  rate_limited: ['Nexus requests paused', 'Nexus is receiving too many requests. Wait before retrying; a paused collection queue resumes automatically.'],
+  account_suspended: ['Downloads temporarily paused by Nexus', 'Nexus has temporarily stopped further download requests. Wait before trying again; repeated attempts may extend the pause.'],
+  timeout: ['Nexus took too long to respond', 'A download link did not arrive in time. Check your connection, then retry.'],
+  offline: ['No internet connection', 'Reconnect to the internet, then retry.'],
+  network_error: ['Could not connect to Nexus', 'Check your connection, then retry.'],
+  request_failed: ['Download request failed', 'The request could not be completed. Retry; if it keeps happening, send a bug report from Help & Bugs.'],
+  server_error: ['Nexus is having trouble', 'Nexus returned a server error. Wait a little, then retry.'],
+  access_denied: ['Download access denied', 'Check your Nexus account permissions and the file page before retrying.'],
+  file_not_found: ['File no longer available', 'The file may have been removed or the link may be outdated. Check the mod page for another version.'],
+  mod_unavailable: ['Mod no longer available', 'The mod has been hidden or removed. Check its Nexus page for details.'],
+  moderation_hold: ['File awaiting Nexus review', 'Nexus is reviewing this file. It cannot be downloaded until the review is complete.'],
+  missing_file: ['No file selected', 'Open the mod Files tab and choose a file to download.'],
+  nexus_page_changed: ['Nexus page may have changed', 'The page no longer matches what the extension expects. Send a bug report from Help & Bugs.'],
+  nexus_api_changed: ['Nexus response may have changed', 'The extension could not read the Nexus response. Send a bug report from Help & Bugs.'],
+  invalid_response: ['Unexpected response from Nexus', 'Refresh the file page, then retry.'],
+  no_download_url: ['No download link received', 'Nexus did not return a usable file link. Open the file page, check your sign-in, then retry.'],
+  unsafe_download_url: ['Download link blocked for safety', 'The returned link was not a trusted download destination. Do not open it manually; send a bug report from Help & Bugs.'],
+  short_file: ['Download incomplete', 'The download stopped before the whole file arrived. Retry from the file page.'],
+  empty_file: ['Downloaded file is empty', 'Retry from the Nexus file page. If the file is still empty, check the mod page for another version.'],
+  not_a_file: ['Nexus returned a page instead of a file', 'Open the file page, check your sign-in and any browser verification, then retry.'],
+  download_not_started: ['Browser download did not start', 'Check your browser download settings and folder, then retry.']
+};
+
+function compactBrowser(value) {
+  const ua = String(value || '').trim();
+  // Check derivatives first: Edge and Opera user agents also contain Chrome/Safari.
+  for (const [pattern, name] of [
+    [/\bEdg(?:A|iOS)?\/(\d+)/i, 'Edge'],
+    [/\bOPR\/(\d+)/i, 'Opera'],
+    [/\b(?:Firefox|FxiOS)\/(\d+)/i, 'Firefox'],
+    [/\b(?:Chrome|CriOS)\/(\d+)/i, 'Chrome'],
+    [/\bVersion\/(\d+).*\bSafari\//i, 'Safari']
+  ]) {
+    const match = ua.match(pattern);
+    if (match) return `${name} ${match[1]}`;
+  }
+  const short = ua.match(/^(Edge|Opera|Firefox|Chrome|Safari|Brave)\s+(\d+)/i);
+  return short ? `${short[1]} ${short[2]}` : 'Unknown browser';
+}
+
 export function discordMessage(p, id) {
+  if (p.kind === 'auto') {
+    const error = p.error;
+    const [title, description] = Object.hasOwn(AUTO_ERROR_COPY, error.code)
+      ? AUTO_ERROR_COPY[error.code]
+      : ['Action could not complete', clip(quiet(error.message?.trim()), 300) || 'Try again. If the problem continues, send a bug report from Help & Bugs.'];
+    const fields = [];
+    if (p.page) fields.push({ name: 'Page', value: clip(quiet(p.page), 200), inline: false });
+    if (error.context?.trim()) fields.push({ name: 'Action', value: clip(quiet(error.context.trim().split(/\r?\n/)[0]), 160), inline: false });
+    const status = Number(error.status);
+    const http = Number.isInteger(status) && status >= 100 && status <= 599 ? ` · HTTP ${status}` : '';
+    return {
+      username: 'NexusMods Bypass reports',
+      allowed_mentions: { parse: [] },
+      embeds: [fitEmbed({
+        title, description, color: SEVERITY_COLORS[severityOf(p)], fields,
+        footer: { text: quiet(`v${clip(p.version, 20)} · ${compactBrowser(p.browser)} · ${clip(error.code, 80)}${http} · id ${clip(id, 40)}`) },
+        timestamp: new Date().toISOString()
+      })]
+    };
+  }
   const fields = [
     { name: 'Version', value: clip(p.version, 40), inline: true },
     { name: 'Kind', value: p.kind, inline: true },
-    { name: 'Browser', value: clip(quiet(p.browser) || '—', 200), inline: true }
+    { name: 'Browser', value: compactBrowser(p.browser), inline: true }
   ];
   if (p.page) fields.push({ name: 'Page', value: clip(quiet(p.page), 200), inline: true });
-  if (p.kind === 'auto') {
-    fields.push({ name: 'Error', value: clip(quiet(`${p.error.code}${p.error.status ? ` (${p.error.status})` : ''}`), 200) });
-    if (p.error.context) fields.push({ name: 'Context', value: clip(quiet(p.error.context), 900) });
-    if (p.error.message) fields.push({ name: 'Message', value: clip(quiet(p.error.message), 900) });
-  } else {
-    if (p.category) fields.push({ name: 'Area', value: p.category, inline: true });
-    if (p.currentError?.code) fields.push({ name: 'Current error', value: clip(quiet(p.currentError.code), 200) });
-    fields.push({ name: 'Logged errors', value: String(p.errors?.length || 0), inline: true });
-    fields.push({ name: 'Debug lines', value: String(p.logs?.length || 0), inline: true });
-    if (p.contact) fields.push({ name: 'Contact', value: clip(quiet(p.contact), 120) });
-  }
+  if (p.category) fields.push({ name: 'Area', value: p.category, inline: true });
+  if (p.currentError?.code) fields.push({ name: 'Current error', value: clip(quiet(p.currentError.code), 200) });
+  fields.push({ name: 'Logged errors', value: String(p.errors?.length || 0), inline: true });
+  fields.push({ name: 'Debug lines', value: String(p.logs?.length || 0), inline: true });
+  if (p.contact) fields.push({ name: 'Contact', value: clip(quiet(p.contact), 120) });
   return {
     username: 'NexusMods Bypass reports',
     allowed_mentions: { parse: [] },
     embeds: [fitEmbed({
-      title: p.kind === 'auto' ? `Auto error: ${clip(quiet(p.error.code), 80)}` : clip(quiet(p.summary || 'Bug report'), 160),
+      title: clip(quiet(p.summary || 'Bug report'), 160),
       // Discord rejects an embed over 6000 characters in total; fields take at most ~2600 here.
       description: clip(quiet(p.note || (p.report ? `\`\`\`\n${clip(p.report, 1500)}\n\`\`\`` : '')), 3000),
       color: SEVERITY_COLORS[severityOf(p)],
@@ -213,9 +271,11 @@ export default {
       const message = discordMessage(payload, id);
       const body = new FormData();
       body.set('payload_json', JSON.stringify(message));
-      // Discord embeds are summaries. The attachment preserves the exact report, including the
-      // reproduction steps, diagnostics and opted-in logs the reporter reviewed before sending.
-      body.set('files[0]', new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `nexusmods-report-${id}.json`);
+      // Manual reports retain the exact reviewed diagnostics. Auto errors are already
+      // summarised by the embed; attaching them repeats the same data in Discord's preview.
+      if (payload.kind === 'manual') {
+        body.set('files[0]', new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `nexusmods-report-${id}.json`);
+      }
       const webhook = new URL(env.DISCORD_WEBHOOK_URL);
       webhook.searchParams.set('wait', 'true');
       discord = await fetch(webhook.href, {

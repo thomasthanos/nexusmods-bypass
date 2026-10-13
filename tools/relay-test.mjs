@@ -17,7 +17,7 @@ assert.equal(validateReport([]), 'not an object');
 const msg = discordMessage({ ...auto, error: { code: '@everyone', context: '<@123>' } }, 'abc');
 assert.deepEqual(msg.allowed_mentions, { parse: [] }, 'mentions are disabled');
 assert.ok(!JSON.stringify(msg).includes('@everyone'), 'user text cannot ping');
-assert.equal(msg.embeds[0].footer.text, 'id abc');
+assert.match(msg.embeds[0].footer.text, /id abc$/);
 
 const sent = [];
 globalThis.fetch = async (url, init) => {
@@ -38,8 +38,8 @@ assert.ok(out.ok && out.id);
 assert.equal(res.headers.get('access-control-allow-origin'), 'chrome-extension://abc');
 assert.equal(sent.length, 1, 'forwarded to Discord once');
 assert.equal(new URL(sent[0].url).searchParams.get('wait'), 'true', 'the relay waits for Discord to confirm saving the report');
-assert.deepEqual(JSON.parse(await sent[0].attachment.text()), auto, 'Discord gets the complete report as a JSON attachment');
-assert.match(sent[0].attachment.name, /^nexusmods-report-[a-z0-9-]+\.json$/);
+assert.equal(sent[0].attachment, null, 'auto errors have one embed, without a duplicate JSON preview');
+assert.equal(sent[0].body.embeds.length, 1);
 const manual = { schema: 1, kind: 'manual', version: '2.10.2', summary: 'Vortex does not open', category: 'vortex', steps: 'Click Download', expected: 'Vortex opens', logs: [{ text: 'diagnostic' }] };
 assert.equal(validateReport(manual), '');
 assert.equal(validateReport({ ...manual, category: 'unknown' }), 'bad category');
@@ -48,6 +48,7 @@ assert.equal(validateReport({ ...manual, steps: 'x'.repeat(1001) }), 'bad steps'
 assert.equal(validateReport({ ...manual, expected: 'x'.repeat(1001) }), 'bad expected result');
 await post(manual, '8.8.8.8');
 assert.deepEqual(JSON.parse(await sent[1].attachment.text()), manual, 'steps, expected result and logs all reach Discord');
+assert.match(sent[1].attachment.name, /^nexusmods-report-[a-z0-9-]+\.json$/);
 assert.equal(sent[1].body.embeds[0].title, manual.summary);
 
 assert.equal((await post('{bad', '2.2.2.2')).status, 400);
@@ -111,6 +112,36 @@ assert.equal(discordMessage({ ...auto, error: { code: 'x', status: 500 } }, 'i')
 assert.equal(validateReport({ ...auto, page: '/skyrimspecialedition/mods/1?tab=files' }), 'bad page');
 assert.equal(validateReport({ ...auto, page: '/skyrimspecialedition/mods/1' }), '');
 assert.ok(discordMessage({ ...auto, page: '/games/x' }, 'i').embeds[0].fields.some((f) => f.name === 'Page' && f.value === '/games/x'));
+// The screenshot's empty error message still gets a useful explanation, not a raw code title.
+const edgeUa = 'Mozilla/5.0 AppleWebKit/537.36 Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0';
+const login = discordMessage({ ...auto, version: '3.1.0', browser: edgeUa, page: '/games/skyrimspecialedition/collections/xk05aw', error: { code: 'requires_login', context: 'Starting collection download', message: '' } }, 'abc').embeds[0];
+assert.match(login.title, /sign in/i);
+assert.match(login.description, /Nexus Mods/);
+assert.match(login.description, /retry/i);
+assert.ok(login.description.length < 400 && !login.description.includes('```'), 'short explanation, no repeated JSON/log block');
+assert.deepEqual(login.fields.map((f) => f.name), ['Page', 'Action'], 'only the useful context is shown');
+assert.ok(login.fields.every((f) => !f.inline), 'context is readable, not cramped into side-by-side fields');
+assert.match(login.footer.text, /v3\.1\.0/);
+assert.match(login.footer.text, /Edge 155/);
+assert.equal(JSON.stringify(login).split('requires_login').length - 1, 1, 'the technical code appears only once');
+assert.ok(!JSON.stringify(login).includes('Mozilla/5.0'), 'raw user agents do not fill the embed');
+for (const [browser, expected] of [
+  ['Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36', 'Chrome 140'],
+  ['Mozilla/5.0 Firefox/144.0', 'Firefox 144'],
+  ['Mozilla/5.0 Version/18.5 Safari/605.1.15', 'Safari 18'],
+  ['Mozilla/5.0 Chrome/140.0.0.0 OPR/125.0', 'Opera 125'],
+  ['Mozilla/5.0 CriOS/140.0 Mobile Safari/604.1', 'Chrome 140'],
+  ['Mozilla/5.0 FxiOS/144.0 Mobile Safari/605.1', 'Firefox 144'],
+  ['Chrome 140', 'Chrome 140'],
+  ['unrecognised browser data', 'Unknown browser']
+]) {
+  assert.ok(discordMessage({ ...auto, browser }, 'b').embeds[0].footer.text.includes(expected), `${expected} is compact and recognisable`);
+}
+for (const code of ['cloudflare', 'rate_limited', 'account_suspended', 'constructor', 'new_unknown_error']) {
+  const embed = discordMessage({ ...auto, error: { code, message: '' } }, 'c').embeds[0];
+  assert.ok(embed.title && embed.description, `${code} has useful copy even with no message`);
+  assert.ok(!embed.title.includes(code), 'technical codes stay in the footer');
+}
 // fitEmbed clamps every Discord limit.
 const fat = fitEmbed({ title: 't'.repeat(400), description: 'd'.repeat(5000), footer: { text: 'f' }, fields: Array.from({ length: 30 }, () => ({ name: 'n', value: 'v'.repeat(1500) })) });
 assert.ok(fat.title.length <= 256 && fat.description.length <= 4096 && fat.fields.length <= 25 && fat.fields.every((f) => f.value.length <= 1024));

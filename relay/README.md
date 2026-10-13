@@ -13,9 +13,10 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 
 ## Current deployment
 
-Deployed on 2026-10-12 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev.
+Updated on 2026-10-13 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev with compact auto-error embeds.
 The Discord destination is stored as the Cloudflare Worker secret `DISCORD_WEBHOOK_URL`.
-The live health check returned `ok: true, configured: true`, and a test report was accepted by Discord.
+The live health check returned `ok: true, configured: true`. Initial Discord delivery was verified
+on 2026-10-12; no Discord test message was sent for the compact-embed update.
 `RELAY_CONFIGURED` is enabled in the extension. The first send still asks for the optional relay
 host permission. KV-backed rate limiting and auto-report dedupe use the `RATE_LIMIT` binding in
 `wrangler.toml`. KV is eventually consistent: this shares counters across instances but does not
@@ -26,8 +27,10 @@ provide a strict atomic limit. E-mail is not configured.
 - At most 10 reports per IP per hour. With a KV namespace bound as `RATE_LIMIT` the counters are
   shared across Cloudflare's edge. Without one, a per-isolate in-memory limiter only slows down bursts.
   For a hard limit, add a Cloudflare Rate Limiting rule on the route. No Durable Object is needed.
-- Posts a Discord summary with mentions disabled and attaches the full report as a JSON file,
-  preserving the description, reproduction steps, expected result and reviewed diagnostics.
+- Posts one compact Discord embed for automatic errors, with a plain-language explanation,
+  page/action context and a short browser name. Automatic errors have no JSON attachment.
+- Manual bug reports still include the full JSON file, preserving the description, reproduction
+  steps, expected result and reviewed diagnostics. Mentions are disabled for both report types.
   If Resend is configured, it also e-mails the full JSON.
 - CORS only for extension origins (`ALLOWED_ORIGINS`).
 
