@@ -90,24 +90,92 @@
     setStatus(reply.ok ? t('setupSaved', 'Saved. Open any Nexus Mods file page to try it.') : t('setupSaveFailed', 'Could not save. Try again from the settings button on a Nexus page.'), reply.ok ? 'ok' : 'warn');
   });
 
-  // Test Vortex: hand Vortex a harmless link and watch whether anything took over.
-  $('setupTestVortex').addEventListener('click', async () => {
+  // ---- Custom Vortex test dialog ----
+  function createVortexDialog() {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'vortex-dialog-backdrop';
+    backdrop.innerHTML = `
+      <div class="vortex-dialog">
+        <div class="vortex-dialog-icon">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg>
+        </div>
+        <div class="vortex-dialog-title" data-i18n="vortexDialogTitle">Test Vortex Connection</div>
+        <div class="vortex-dialog-text" data-i18n="vortexDialogText">We'll send a harmless test link to Vortex. Your browser may show a permission prompt — click <strong>Open</strong> to allow it.</div>
+        <div class="vortex-dialog-actions" id="vortexDialogActions">
+          <button type="button" class="btn btn-primary" id="vortexDialogOpen">${t('vortexDialogOpenBtn', 'Open Vortex')}</button>
+          <button type="button" class="btn btn-secondary" id="vortexDialogCancel">${t('vortexDialogCancelBtn', 'Cancel')}</button>
+        </div>
+        <div id="vortexDialogBody"></div>
+      </div>`;
+    NXTK.applyI18nTo(backdrop);
+    document.body.appendChild(backdrop);
+    return backdrop;
+  }
+
+  function dismissDialog(backdrop) {
+    const dialog = backdrop.querySelector('.vortex-dialog');
+    if (dialog) dialog.style.animation = 'vortex-dialog-out 0.22s ease forwards';
+    backdrop.style.animation = 'vortex-backdrop-in 0.22s ease reverse forwards';
+    setTimeout(() => backdrop.remove(), 240);
+  }
+
+  // Test Vortex: show custom dialog, then hand Vortex a harmless link.
+  $('setupTestVortex').addEventListener('click', () => {
     $('setupAsk').hidden = true;
-    setStatus(t('setupTesting', 'Asking the browser to open Vortex… allow the prompt if one appears.'));
-    const watching = NXTK.waitForProtocolHandoff({ timeoutMs: 6000, maxMs: 8000 });
-    try {
-      location.href = NXTK.VORTEX_TEST_LINK;
-    } catch (_) { }
-    const opened = await watching;
-    if (opened) {
-      await NXTK.recordVortexOpenEvent('opened');
-      setStatus(t('setupTestOk', 'Vortex opened. You are all set.'), 'ok');
-      return;
-    }
-    setStatus(t('setupTestUnsure', 'Could not tell whether Vortex opened.'), 'warn');
-    $('setupAsk').hidden = false;
-    $('setupAskYes').focus();
+    const backdrop = createVortexDialog();
+    const body = backdrop.querySelector('#vortexDialogBody');
+    const actions = backdrop.querySelector('#vortexDialogActions');
+    const openBtn = backdrop.querySelector('#vortexDialogOpen');
+    const cancelBtn = backdrop.querySelector('#vortexDialogCancel');
+
+    cancelBtn.addEventListener('click', () => dismissDialog(backdrop));
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) dismissDialog(backdrop); });
+
+    openBtn.addEventListener('click', async () => {
+      actions.innerHTML = '';
+      body.innerHTML = `<div class="vortex-dialog-spinner"></div>
+        <div class="vortex-dialog-text" style="margin-bottom:0">${t('setupTesting', 'Connecting to Vortex…')}</div>`;
+
+      const watching = NXTK.waitForProtocolHandoff({ timeoutMs: 6000, maxMs: 8000 });
+      try { location.href = NXTK.VORTEX_TEST_LINK; } catch (_) { }
+      const opened = await watching;
+
+      if (opened) {
+        await NXTK.recordVortexOpenEvent('opened');
+        body.innerHTML = `<div class="vortex-dialog-result ok">✓ ${t('setupTestOk', 'Vortex opened. You are all set.')}</div>`;
+        setStatus(t('setupTestOk', 'Vortex opened. You are all set.'), 'ok');
+        actions.innerHTML = `<button type="button" class="btn btn-primary" id="vortexDialogDone">${t('vortexDialogDoneBtn', 'Done')}</button>`;
+        backdrop.querySelector('#vortexDialogDone').addEventListener('click', () => dismissDialog(backdrop));
+        return;
+      }
+
+      // Could not tell — ask the user
+      body.innerHTML = `<div class="vortex-dialog-result warn">${t('setupTestUnsure', 'Could not detect whether Vortex opened.')}</div>`;
+      const title = backdrop.querySelector('.vortex-dialog-title');
+      if (title) title.textContent = t('setupAskOpened', 'Did Vortex open?');
+      actions.innerHTML = `
+        <button type="button" class="btn btn-primary" id="vortexAskYes">${t('dlgVortexOpenedYesShort', 'Yes')}</button>
+        <button type="button" class="btn btn-secondary" id="vortexAskNo">${t('dlgVortexOpenedNoShort', 'No')}</button>`;
+
+      backdrop.querySelector('#vortexAskYes').addEventListener('click', async () => {
+        await NXTK.recordVortexOpenEvent('answeredYes');
+        body.innerHTML = `<div class="vortex-dialog-result ok">✓ ${t('setupTestOk', 'Vortex opened. You are all set.')}</div>`;
+        setStatus(t('setupTestOk', 'Vortex opened. You are all set.'), 'ok');
+        actions.innerHTML = `<button type="button" class="btn btn-primary" id="vortexDialogDone">${t('vortexDialogDoneBtn', 'Done')}</button>`;
+        backdrop.querySelector('#vortexDialogDone').addEventListener('click', () => dismissDialog(backdrop));
+      });
+
+      backdrop.querySelector('#vortexAskNo').addEventListener('click', async () => {
+        await NXTK.recordVortexOpenEvent('answeredNo');
+        body.innerHTML = `<div class="vortex-dialog-result error">${t('setupTestFailed', 'Vortex did not open. Install Vortex and let it handle nxm:// links (Vortex Settings → Downloads), or choose browser downloads above.')}</div>`;
+        setStatus(t('setupTestFailed', 'Vortex did not open.'), 'warn');
+        actions.innerHTML = `<button type="button" class="btn btn-secondary" id="vortexDialogDone">${t('vortexDialogDoneBtn', 'Close')}</button>`;
+        backdrop.querySelector('#vortexDialogDone').addEventListener('click', () => dismissDialog(backdrop));
+      });
+    });
   });
+
+  // Keep the inline buttons working as fallback (they're still in the DOM).
   $('setupAskYes').addEventListener('click', async () => {
     $('setupAsk').hidden = true;
     await NXTK.recordVortexOpenEvent('answeredYes');
