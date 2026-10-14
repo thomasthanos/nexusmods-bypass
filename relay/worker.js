@@ -43,11 +43,20 @@ export function validateReport(p) {
   if (!isStr(p.version, 20) || !/^\d+\.\d+\.\d+$/.test(p.version)) return 'bad version';
   if (p.browser !== undefined && !isStr(p.browser, 200)) return 'bad browser';
   if (p.page !== undefined && (!isStr(p.page, 200) || /[?#]/.test(p.page))) return 'bad page';
+  if (p.reference !== undefined && (!isStr(p.reference, 32) || (p.reference !== '' && !/^E-[a-z0-9]{7}$/.test(p.reference)))) return 'bad reference';
   if (p.kind === 'auto') {
     const e = p.error;
     if (!e || typeof e !== 'object' || !isStr(e.code, 80)) return 'bad error';
     if (e.context !== undefined && !isStr(e.context, 400)) return 'bad error context';
     if (e.message !== undefined && !isStr(e.message, 400)) return 'bad error message';
+    if (e.status !== undefined && e.status !== null && (!Number.isInteger(e.status) || e.status < 100 || e.status > 599)) return 'bad error status';
+    if (e.action !== undefined && !isStr(e.action, 200)) return 'bad error action';
+    if (e.frame !== undefined && (!isStr(e.frame, 200) || (e.frame !== '' && !/^[\w/.-]+\.js:\d+:\d+$/.test(e.frame)))) return 'bad error frame';
+    if (p.severity !== undefined && !['critical', 'error'].includes(p.severity)) return 'bad severity';
+    if (p.occurrences !== undefined && (!Number.isInteger(p.occurrences) || p.occurrences < 1 || p.occurrences > 10000)) return 'bad occurrences';
+    for (const key of ['firstAt', 'lastAt']) {
+      if (p[key] !== undefined && (!isStr(p[key], 30) || !/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(p[key]) || !Number.isFinite(Date.parse(p[key])))) return 'bad timestamp';
+    }
     return '';
   }
   if (p.note !== undefined && !isStr(p.note, 2000)) return 'bad note';
@@ -63,9 +72,10 @@ export function validateReport(p) {
   return '';
 }
 
-async function allow(env, ip, now = Date.now()) {
+async function allow(env, ip, kind, now = Date.now()) {
   const hour = Math.floor(now / 3600000);
-  const key = `rl:${ip}:${hour}`;
+  // Automatic diagnostics must not use up the allowance for a user's manual report.
+  const key = `rl:${kind}:${ip}:${hour}`;
   if (env.RATE_LIMIT) {
     const count = Number(await env.RATE_LIMIT.get(key)) || 0;
     if (count >= LIMIT_PER_HOUR) return false;
@@ -89,6 +99,7 @@ const quiet = (s) => String(s ?? '').replace(/@/g, '@\u200b');
 export const SEVERITY_COLORS = { critical: 0xd9433b, error: 0xe8b339, report: 0x5b8def };
 export function severityOf(p) {
   if (p.kind !== 'auto') return 'report';
+  if (p.severity === 'critical') return 'critical';
   const status = Number(p.error?.status) || 0;
   if (status >= 500 || /crash|uncaught|fatal|unhandled/i.test(p.error?.code || '')) return 'critical';
   return 'error';
@@ -111,6 +122,7 @@ export const DEDUPE_WINDOW_MS = 10 * 60 * 1000;
 const recentFingerprints = new Map();
 export function fingerprintOf(p) {
   if (p.kind !== 'auto') return '';
+  if (p.reference) return [p.version, p.reference].join('|');
   return [p.version, p.error?.code, p.error?.status || '', String(p.error?.context || '').slice(0, 80)].join('|');
 }
 export async function isDuplicate(env, fp, now = Date.now()) {
@@ -130,6 +142,10 @@ export async function markSeen(env, fp, now = Date.now()) {
 
 // Keep technical identifiers in the footer; the body explains what happened in plain language.
 const AUTO_ERROR_COPY = {
+  uncaught_exception: ['Extension error', 'An extension script failed unexpectedly. Use the technical cause and script position below to investigate.'],
+  unhandled_rejection: ['Extension promise failed', 'An extension task failed without handling its result. Use the technical cause and script position below to investigate.'],
+  background_error: ['Background task failed', 'An extension background task failed. See the action and technical cause below.'],
+  queue_item_failed: ['Collection download failed', 'A queued file could not finish downloading. See the technical cause and download flow below.'],
   requires_login: ['Sign in to Nexus Mods', 'Nexus Mods needs a signed-in account for this download. Sign in, return to the file or collection page, then retry.'],
   cloudflare: ['Browser verification needed', 'Open the Nexus file page and complete the browser check, then retry.'],
   rate_limited: ['Nexus requests paused', 'Nexus is receiving too many requests. Wait before retrying; a paused collection queue resumes automatically.'],
@@ -181,6 +197,11 @@ export function discordMessage(p, id) {
     const fields = [];
     if (p.page) fields.push({ name: 'Page', value: clip(quiet(p.page), 200), inline: false });
     if (error.context?.trim()) fields.push({ name: 'Action', value: clip(quiet(error.context.trim().split(/\r?\n/)[0]), 160), inline: false });
+    if (error.action?.trim()) fields.push({ name: 'Download flow', value: clip(quiet(error.action), 200), inline: false });
+    if (error.message?.trim()) fields.push({ name: 'Technical cause', value: clip(quiet(error.message), 300), inline: false });
+    if (error.frame) fields.push({ name: 'Script', value: quiet(error.frame), inline: true });
+    if (p.occurrences) fields.push({ name: 'Occurrences in this report', value: String(p.occurrences), inline: true });
+    if (p.firstAt && p.lastAt) fields.push({ name: 'Observed (UTC)', value: `${p.firstAt}\n${p.lastAt}`, inline: false });
     const status = Number(error.status);
     const http = Number.isInteger(status) && status >= 100 && status <= 599 ? ` · HTTP ${status}` : '';
     return {
@@ -188,7 +209,7 @@ export function discordMessage(p, id) {
       allowed_mentions: { parse: [] },
       embeds: [fitEmbed({
         title, description, color: SEVERITY_COLORS[severityOf(p)], fields,
-        footer: { text: quiet(`v${clip(p.version, 20)} · ${compactBrowser(p.browser)} · ${clip(error.code, 80)}${http} · id ${clip(id, 40)}`) },
+        footer: { text: quiet(`v${clip(p.version, 20)} · ${compactBrowser(p.browser)} · ${clip(error.code, 80)}${http}${p.reference ? ` · ${p.reference}` : ''} · id ${clip(id, 40)}`) },
         timestamp: new Date().toISOString()
       })]
     };
@@ -201,6 +222,9 @@ export function discordMessage(p, id) {
   if (p.page) fields.push({ name: 'Page', value: clip(quiet(p.page), 200), inline: true });
   if (p.category) fields.push({ name: 'Area', value: p.category, inline: true });
   if (p.currentError?.code) fields.push({ name: 'Current error', value: clip(quiet(p.currentError.code), 200) });
+  if (p.reference) fields.push({ name: 'Error reference', value: p.reference, inline: true });
+  if (p.steps) fields.push({ name: 'Steps to reproduce', value: clip(quiet(p.steps), 1000) });
+  if (p.expected) fields.push({ name: 'Expected result', value: clip(quiet(p.expected), 1000) });
   fields.push({ name: 'Logged errors', value: String(p.errors?.length || 0), inline: true });
   fields.push({ name: 'Debug lines', value: String(p.logs?.length || 0), inline: true });
   if (p.contact) fields.push({ name: 'Contact', value: clip(quiet(p.contact), 120) });
@@ -250,9 +274,6 @@ export default {
     const text = await request.text();
     if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return json({ error: 'too large' }, 413, headers);
 
-    const ip = request.headers.get('cf-connecting-ip') || 'unknown';
-    if (!await allow(env, ip)) return json({ error: 'rate limited' }, 429, { ...headers, 'retry-after': '3600' });
-
     let payload;
     try {
       payload = JSON.parse(text);
@@ -261,6 +282,8 @@ export default {
     }
     const problem = validateReport(payload);
     if (problem) return json({ error: problem }, 422, headers);
+    const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+    if (!await allow(env, ip, payload.kind)) return json({ error: 'rate limited' }, 429, { ...headers, 'retry-after': '3600' });
 
     if (!env.DISCORD_WEBHOOK_URL) return json({ error: 'relay not configured' }, 503, headers);
     const fp = fingerprintOf(payload);

@@ -4,6 +4,21 @@ import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, severityOf, SEV
 
 const auto = { schema: 1, kind: 'auto', version: '2.9.0', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
 assert.equal(validateReport(auto), '');
+const detailed = { ...auto, reference: 'E-001abcd', occurrences: 12, severity: 'critical', page: 'collection',
+  firstAt: '2026-10-14T12:00:00.000Z', lastAt: '2026-10-14T12:10:00.000Z',
+  error: { ...auto.error, action: 'collection run · browser', message: 'No collectionRevision in response', frame: 'content/ndc.js:42:5' } };
+assert.equal(validateReport(detailed), '');
+assert.equal(validateReport({ ...detailed, occurrences: -1 }), 'bad occurrences');
+assert.equal(validateReport({ ...detailed, reference: '@everyone' }), 'bad reference');
+assert.equal(validateReport({ ...detailed, error: { ...detailed.error, frame: 'https://private.example/user' } }), 'bad error frame');
+assert.equal(validateReport({ ...detailed, error: { ...detailed.error, status: '503' } }), 'bad error status');
+assert.equal(validateReport({ ...detailed, firstAt: 'yesterday' }), 'bad timestamp');
+const detailedEmbed = discordMessage(detailed, 'id').embeds[0];
+assert.match(detailedEmbed.footer.text, /E-001abcd/);
+assert.ok(detailedEmbed.fields.some((field) => field.name === 'Occurrences in this report' && field.value === '12'));
+assert.ok(detailedEmbed.fields.some((field) => field.name === 'Technical cause' && field.value.includes('collectionRevision')));
+assert.ok(detailedEmbed.fields.some((field) => field.name === 'Script' && field.value === 'content/ndc.js:42:5'));
+assert.equal(fingerprintOf(detailed), fingerprintOf({ ...detailed, error: { ...detailed.error, context: 'another file' } }), 'stable references dedupe across different files');
 let seq = 0;
 // Each call gets its own fingerprint so the dedupe window does not collapse them.
 const fresh = () => ({ ...auto, error: { ...auto.error, context: `x${seq++}` } });
@@ -87,6 +102,10 @@ assert.equal(evil.headers.get('access-control-allow-origin'), null, 'web origins
 const health = await worker.fetch(new Request('https://relay.test/v1/health', { headers: { origin: 'moz-extension://x' } }), env);
 assert.deepEqual({ ...(await health.json()), maxBytes: 0 }, { ok: true, configured: true, maxBytes: 0 });
 assert.equal((await (await worker.fetch(new Request('https://relay.test/v1/health'), {})).json()).configured, false);
+// Automatic traffic cannot consume the manual reporting allowance for a shared network.
+for (let i = 0; i < LIMIT_PER_HOUR; i += 1) assert.equal((await post(fresh(), '4.4.4.4')).status, 200);
+assert.equal((await post(fresh(), '4.4.4.4')).status, 429);
+assert.equal((await post({ schema: 1, kind: 'manual', version: '3.1.1', note: 'Manual details' }, '4.4.4.4')).status, 200);
 // Content type with a charset is fine; a wrong one is refused.
 assert.equal((await post(fresh(), '3.3.3.1', { 'content-type': 'application/json; charset=utf-8' })).status, 200);
 assert.equal((await post(fresh(), '3.3.3.2', { 'content-type': 'text/plain' })).status, 415);

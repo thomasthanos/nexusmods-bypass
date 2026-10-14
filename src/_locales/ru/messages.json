@@ -1589,10 +1589,10 @@
     "message": "Открыть issue на GitHub"
   },
   "rpAuto": {
-    "message": "Автоматически отправлять анонимные отчёты об ошибках"
+    "message": "Send technical error reports automatically"
   },
   "rpAutoDesc": {
-    "message": "По умолчанию выключено. Если включено, отправляются только код ошибки, место, где она возникла, и версии расширения и браузера — не больше десяти в день. Без содержимого страниц, истории и настроек."
+    "message": "Off by default. Sends only technical errors, extension and browser versions, action and page type. Repeated errors are grouped; up to ten reports a day. No page content, history or settings. Failed sends retry automatically."
   },
   "rpSent": {
     "message": "Отчёт отправлен. Спасибо! Номер: $1"
@@ -2269,5 +2269,29 @@
         "content": "$1"
       }
     }
+  },
+  "autoPromptTitle": {
+    "message": "Help fix errors faster"
+  },
+  "autoPromptBody": {
+    "message": "If the extension fails, it can send a small technical report to the developer's private Discord channel. No page content, download history or settings is sent. Reports stay off unless you enable them; you can turn them off in Help & Bugs."
+  },
+  "autoEnable": {
+    "message": "Enable automatic reports"
+  },
+  "autoNoThanks": {
+    "message": "No thanks"
+  },
+  "autoPrivacyLink": {
+    "message": "What is shared?"
+  },
+  "autoEnabled": {
+    "message": "Automatic reports are on. Thank you for helping improve the extension."
+  },
+  "autoEnableFailed": {
+    "message": "Reports could not be enabled. Please try again."
+  },
+  "errorAddDetails": {
+    "message": "Add details"
   }
 }

@@ -1337,10 +1337,10 @@
     "message": "代わりに GitHub Issue を開く"
   },
   "rpAuto": {
-    "message": "匿名のエラーレポートを自動送信する"
+    "message": "Send technical error reports automatically"
   },
   "rpAutoDesc": {
-    "message": "既定ではオフ。オンにすると、エラーコード、発生場所、拡張機能とブラウザのバージョンのみを 1 日最大 10 件まで送信します。ページの内容、履歴、設定は送信しません。"
+    "message": "Off by default. Sends only technical errors, extension and browser versions, action and page type. Repeated errors are grouped; up to ten reports a day. No page content, history or settings. Failed sends retry automatically."
   },
   "rpSent": {
     "message": "レポートを送信しました。ありがとうございます！ 参照番号: $1"
@@ -2017,5 +2017,29 @@
         "content": "$1"
       }
     }
+  },
+  "autoPromptTitle": {
+    "message": "Help fix errors faster"
+  },
+  "autoPromptBody": {
+    "message": "If the extension fails, it can send a small technical report to the developer's private Discord channel. No page content, download history or settings is sent. Reports stay off unless you enable them; you can turn them off in Help & Bugs."
+  },
+  "autoEnable": {
+    "message": "Enable automatic reports"
+  },
+  "autoNoThanks": {
+    "message": "No thanks"
+  },
+  "autoPrivacyLink": {
+    "message": "What is shared?"
+  },
+  "autoEnabled": {
+    "message": "Automatic reports are on. Thank you for helping improve the extension."
+  },
+  "autoEnableFailed": {
+    "message": "Reports could not be enabled. Please try again."
+  },
+  "errorAddDetails": {
+    "message": "Add details"
   }
 }

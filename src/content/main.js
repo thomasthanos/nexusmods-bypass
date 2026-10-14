@@ -52,6 +52,20 @@
     });
   });
 
+  window.addEventListener('unhandledrejection', (event) => {
+    // Promise failures from Nexus itself are outside the extension's responsibility.
+    const reason = event.reason;
+    const stack = String(reason?.stack || '');
+    let ownStack = false;
+    try { ownStack = stack.includes(chrome.runtime.getURL('')); } catch (_) { }
+    if (!ownStack) return;
+    NXTK.recordError({
+      code: 'unhandled_rejection', context: 'Unhandled extension promise',
+      userMessage: 'An unexpected extension error occurred.',
+      technicalMessage: String(reason?.message || reason || ''), stack
+    });
+  });
+
   // A background tab does not paint, so waiting for a frame there held everything back until the tab was
   // shown — a browser download or a collection queue included, and neither needs anyone watching. The one
   // start that does, handing a link to Vortex, waits for the tab itself in nnw.js.
@@ -373,6 +387,7 @@
     await waitForSafeStartup();
     await NNW.init();
     UI.createSettingsFAB();
+    UI.showAutoReportInvitation?.().catch(() => undefined);
     bootstrapDone = true;
 
     window.NexusExt.PageCheck?.configure({
@@ -429,6 +444,7 @@
     syncPollRate();
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) return;
+      UI.showAutoReportInvitation?.().catch(() => undefined);
       syncObserverRoot();
       syncNavigation();
       syncPollRate();

@@ -109,6 +109,88 @@ window.NexusExt = window.NexusExt || {};
     openReportIssue(issueUrl);
   }
 
+  let promptCheck = null;
+  async function showAutoReportInvitation() {
+    if (document.hidden || window.top !== window || !NXTK.RELAY_CONFIGURED || promptCheck) return;
+    promptCheck = new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ type: 'AUTO_REPORT_PROMPT_CLAIM' }, (reply) => {
+          void chrome.runtime.lastError;
+          resolve(!!reply?.ok && reply.value === true);
+        });
+      } catch (_) { resolve(false); }
+    });
+    try {
+      if (!await promptCheck) return;
+      const notice = showNotice({
+        id: 'auto-reports-invitation', ms: 0,
+        title: NXTK.t('autoPromptTitle', null, 'Help fix errors faster'),
+        detail: NXTK.t('autoPromptBody', null, "If the extension fails, it can send a small technical report to the developer's private Discord channel. No page content, download history or settings is sent. Reports stay off unless you enable them; you can turn them off in Help & Bugs."),
+        actions: [{
+          label: NXTK.t('autoEnable', null, 'Enable automatic reports'),
+          onClick: () => {
+            if (dismiss) dismiss.disabled = true;
+            return new Promise((resolve) => {
+              try {
+                chrome.runtime.sendMessage({ type: 'SETTINGS_PATCH', payload: { patch: { AutoErrorReports: true } } }, (reply) => {
+                  const failed = chrome.runtime.lastError || !reply?.ok;
+                  if (dismiss) dismiss.disabled = false;
+                  if (failed) {
+                    feedback.textContent = NXTK.t('autoEnableFailed', null, 'Reports could not be enabled. Please try again.');
+                    resolve(false);
+                  } else {
+                    showStatusToast(NXTK.t('autoEnabled', null, 'Automatic reports are on. Thank you for helping improve the extension.'));
+                    if (root?.contains(document.activeElement)) document.getElementById('nxtk-settings-fab')?.focus();
+                    resolve(true);
+                  }
+                });
+              } catch (_) {
+                if (dismiss) dismiss.disabled = false;
+                feedback.textContent = NXTK.t('autoEnableFailed', null, 'Reports could not be enabled. Please try again.');
+                resolve(false);
+              }
+            });
+          }
+        }]
+      });
+      const root = document.querySelector('[data-notice-id="auto-reports-invitation"]');
+      root?.classList.add('nxtk-report-invitation');
+      root?.setAttribute('role', 'region');
+      root?.setAttribute('aria-labelledby', 'nxtk-report-invitation-title');
+      root?.setAttribute('aria-describedby', 'nxtk-report-invitation-description');
+      const heading = root?.querySelector('.nxtk-close-toast-copy strong');
+      if (heading) heading.id = 'nxtk-report-invitation-title';
+      const body = root?.querySelector('.nxtk-close-toast-copy span');
+      if (body) body.id = 'nxtk-report-invitation-description';
+      const feedback = document.createElement('span');
+      feedback.className = 'nxtk-report-invitation-feedback';
+      feedback.setAttribute('role', 'alert');
+      root?.querySelector('.nxtk-close-toast-copy')?.appendChild(feedback);
+      const privacy = document.createElement('a');
+      privacy.className = 'nxtk-report-invitation-privacy';
+      privacy.href = 'https://github.com/thomasthanos/nexusmods-bypass/blob/main/PRIVACY.md';
+      privacy.target = '_blank';
+      privacy.rel = 'noopener noreferrer';
+      privacy.textContent = NXTK.t('autoPrivacyLink', null, 'What is shared?');
+      root?.querySelector('.nxtk-close-toast-copy')?.appendChild(privacy);
+      const dismiss = root?.querySelector('button:not(.nxtk-notice-action)');
+      if (dismiss) dismiss.textContent = NXTK.t('autoNoThanks', null, 'No thanks');
+      root?.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !dismiss?.disabled) {
+          notice.dismiss();
+          document.getElementById('nxtk-settings-fab')?.focus();
+        }
+      });
+      const changed = (changes, area) => {
+        if (area === 'local' && changes[NXTK.SETTINGS_KEY]?.newValue?.AutoErrorReports) {
+          notice.dismiss();
+          chrome.storage.onChanged.removeListener(changed);
+        }
+      };
+      chrome.storage.onChanged.addListener(changed);
+    } finally { promptCheck = null; }
+  }
+
   function runUiTask(task, { context = 'Running extension action', title = 'Extension action failed' } = {}) {
     Promise.resolve()
       .then(task)
@@ -600,12 +682,12 @@ window.NexusExt = window.NexusExt || {};
         <div class="nxtk-alert-body">
           <div class="nxtk-error-message">${escapeHtml(shown.message)}</div>
           <div class="nxtk-error-recovery">${escapeHtml(shown.recovery)}</div>
-          <div class="nxtk-error-code">${escapeHtml(NXTK.t('dlgErrorId', null, 'Error ID'))}: ${escapeHtml(normalized.code)}</div>
+          <div class="nxtk-error-code">${escapeHtml(NXTK.t('dlgErrorId', null, 'Error ID'))}: ${escapeHtml(NXTK.errorReference(normalized))} · ${escapeHtml(normalized.code)}</div>
         </div>
         <div class="nxtk-modal-footer nxtk-alert-footer nxtk-error-footer">
           ${normalized.blocking
             ? `<a class="nxtk-btn nxtk-btn-secondary" href="${escapeHtml(NXTK.TROUBLESHOOTING_URL)}" target="_blank" rel="noopener noreferrer">${escapeHtml(NXTK.t('dlgWhatDoesThisMean', null, 'What does this mean?'))}</a>`
-            : `<button class="nxtk-btn nxtk-btn-secondary" type="button" data-send-report>${escapeHtml(NXTK.t('btnSendReport', null, 'Send bug report'))}</button><button class="nxtk-btn nxtk-btn-secondary" type="button" data-report>${escapeHtml(NXTK.t('dlgReportBug', null, 'Report a bug'))}</button>`}
+            : `<button class="nxtk-btn nxtk-btn-secondary" type="button" data-send-report>${escapeHtml(NXTK.t('errorAddDetails', null, 'Add details'))}</button><button class="nxtk-btn nxtk-btn-secondary" type="button" data-report>${escapeHtml(NXTK.t('dlgReportBug', null, 'Report a bug'))}</button>`}
           ${secondaryActions}
           ${primaryAction
             ? actionButton(primaryAction)
@@ -615,10 +697,11 @@ window.NexusExt = window.NexusExt || {};
 
       const reportButton = modal.querySelector('[data-report]');
       reportButton?.addEventListener('click', () => copyReportAndOpenIssue(reportButton, normalized));
-      // The report page previews the exact payload; the error is already in the log it reads.
+      // Capture this incident, rather than whichever error is newest when the report page opens.
+      const reportError = NXTK.buildErrorEntry({ ...normalized, action: NXTK.describeActivity(), url: location.href });
       modal.querySelector('[data-send-report]')?.addEventListener('click', () => {
         try {
-          chrome.runtime.sendMessage({ type: 'OPEN_REPORT_PAGE' }, () => void chrome.runtime.lastError);
+          chrome.runtime.sendMessage({ type: 'OPEN_REPORT_PAGE', error: reportError }, () => void chrome.runtime.lastError);
         } catch (_) { }
       });
       modal.querySelector('[data-login]')?.addEventListener('click', () => {
@@ -817,8 +900,15 @@ window.NexusExt = window.NexusExt || {};
         el.type = 'button';
       }
       el.addEventListener('click', () => {
-        try { action.onClick?.(); } catch (_) { }
-        remove();
+        try {
+          const result = action.onClick?.();
+          if (result && typeof result.then === 'function') {
+            el.disabled = true;
+            el.setAttribute('aria-busy', 'true');
+            Promise.resolve(result).then((done) => { if (done !== false) remove(); })
+              .catch(() => undefined).finally(() => { el.disabled = false; el.removeAttribute('aria-busy'); });
+          } else if (result !== false) remove();
+        } catch (_) { }
       });
       return el;
     });
@@ -996,6 +1086,7 @@ window.NexusExt = window.NexusExt || {};
 
   window.NexusExt.UI = {
     createSettingsFAB,
+    showAutoReportInvitation,
     closeExtensionOverlays,
     cleanupOrphanedPortals: () => kit.dropdowns?.cleanupOrphanedPortals(),
     disposeControlDeck: (deck) => kit.collection?.disposeControlDeck(deck),

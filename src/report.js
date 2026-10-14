@@ -73,16 +73,7 @@
   // Only the file and position are kept, so the same fault gives the same ID everywhere.
   function errorFingerprint(error) {
     if (!error) return '';
-    const frame = String(error.stack || '')
-      .split('\n')
-      .map((line) => line.trim())
-      .map((line) => line.match(/([\w.-]+\.js):(\d+):(\d+)/))
-      .find(Boolean);
-    return shortHash([
-      String(error.code || ''),
-      String(error.context || ''),
-      frame ? `${frame[1]}:${frame[2]}` : ''
-    ].join('|'));
+    return NXTK.errorReference(error);
   }
 
   function relativeTime(at) {
@@ -550,6 +541,7 @@
         note: clean(note, 2000),
         contact: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) ? String(contact).slice(0, 120) : '',
         settings: settingsSnapshot(cfg),
+        reference: selectedError ? NXTK.errorReference(selectedError) : '',
         currentError: selectedError ? NXTK.buildErrorEntry(selectedError) : null,
         errors: errors.slice(-15).map((entry) => NXTK.buildErrorEntry(entry)),
         logs: debug.slice(-200).map((entry) => ({
@@ -633,12 +625,12 @@
     }
   }
 
-  // Is the relay there and set up? { ok, reason } with the reasons above. Needs the host permission.
+  // Is the relay there and set up? The relay authorises this extension origin through normal CORS.
   async function checkRelayHealth({ fetchImpl = globalThis.fetch, timeoutMs = 8000 } = {}) {
     if (!NXTK.RELAY_CONFIGURED) return { ok: false, reason: 'not_configured' };
     let response;
     try {
-      response = await timedFetch(fetchImpl, NXTK.RELAY_HEALTH_URL, { method: 'GET', credentials: 'omit' }, timeoutMs);
+      response = await timedFetch(fetchImpl, NXTK.RELAY_HEALTH_URL, { method: 'GET', mode: 'cors', credentials: 'omit' }, timeoutMs);
     } catch (_) {
       return { ok: false, reason: 'unreachable' };
     }
@@ -649,14 +641,14 @@
     return { ok: true, reason: '' };
   }
 
-  // Posts a payload to the relay. The caller (a page with a user gesture) must have obtained the
-  // optional host permission first; this never asks for it. Never throws.
+  // Posts a user-approved payload through normal CORS, without host-permission exemptions. Never throws.
   async function sendReportPayload(payload, { fetchImpl = globalThis.fetch, timeoutMs = 20000 } = {}) {
     if (!NXTK.RELAY_CONFIGURED) return { ok: false, status: 0, id: '', error: '', reason: 'not_configured' };
     let response;
     try {
       response = await timedFetch(fetchImpl, NXTK.RELAY_REPORT_URL, {
         method: 'POST',
+        mode: 'cors',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
         credentials: 'omit'

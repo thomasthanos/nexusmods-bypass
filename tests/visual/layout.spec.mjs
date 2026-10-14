@@ -1,3 +1,4 @@
+import http from 'node:http';
 /* global window, getComputedStyle */
 // Layout checks for every piece of UI the extension draws, at four screen sizes and three browser zoom
 // levels. Browser zoom Z on a W×H screen is emulated as a W/Z × H/Z CSS viewport at device scale Z,
@@ -86,6 +87,146 @@ test.beforeAll(async () => {
   context = await launchContext();
 });
 test.afterAll(async () => { await context?.close(); });
+
+test('automatic reports: accessible one-time Nexus invitation without extra permissions', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  await worker.evaluate(async () => {
+    await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false }, nxtk_auto_report_prompt_v1: { pending: true, shown: false } });
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('https://www.nexusmods.com/skyrimspecialedition/mods/12604');
+  const notice = page.locator('.nxtk-report-invitation');
+  await expect(notice).toBeVisible({ timeout: 30000 });
+  await expect(notice).toHaveAttribute('role', 'region');
+  expect(await worker.evaluate(async () => (await globalThis.chrome.storage.local.get('nxtk_settings')).nxtk_settings.AutoErrorReports)).toBe(false);
+  const enable = notice.locator('.nxtk-notice-action');
+  await enable.focus(); await page.keyboard.press('Escape');
+  await expect(notice).toHaveCount(0);
+  expect(await worker.evaluate(async () => (await globalThis.chrome.storage.local.get('nxtk_settings')).nxtk_settings.AutoErrorReports)).toBe(false);
+  await page.reload();
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 30000 });
+  await expect(notice).toHaveCount(0);
+  // A fresh prompt state simulates a separate user for the positive opt-in path.
+  await worker.evaluate(async () => { await globalThis.chrome.storage.local.set({ nxtk_auto_report_prompt_v1: { pending: true, shown: false } }); });
+  await page.reload(); await expect(notice).toBeVisible({ timeout: 30000 });
+  await page.screenshot({ path: path.join(shotDir, 'auto-reports-invitation.png') });
+  for (const width of [853, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    const box = await notice.boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+    await page.screenshot({ path: path.join(shotDir, `auto-reports-invitation-${width}.png`) });
+  }
+  const greek = JSON.parse(fs.readFileSync(path.join(extensionDir, '_locales/el/messages.json'), 'utf8'));
+  await worker.evaluate(async (messages) => {
+    const [tab] = await globalThis.chrome.tabs.query({ url: 'https://www.nexusmods.com/skyrimspecialedition/mods/12604' });
+    await globalThis.chrome.scripting.executeScript({ target: { tabId: tab.id }, args: [messages], func: (messages) => {
+      globalThis.chrome.i18n.getMessage = key => messages[key]?.message || '';
+      globalThis.NXTK.setForceEnglish(false);
+      const root = document.querySelector('.nxtk-report-invitation');
+      root.querySelector('strong').textContent = messages.autoPromptTitle.message;
+      root.querySelector('#nxtk-report-invitation-description').textContent = messages.autoPromptBody.message;
+      root.querySelector('.nxtk-notice-action').textContent = messages.autoEnable.message;
+      root.querySelector('.nxtk-report-invitation-privacy').textContent = messages.autoPrivacyLink.message;
+      root.querySelector('button:not(.nxtk-notice-action)').textContent = messages.autoNoThanks.message;
+    } });
+  }, greek);
+  await page.screenshot({ path: path.join(shotDir, 'auto-reports-invitation-greek-390.png') });
+  for (const [width, height] of [[640, 360], [320, 480]]) {
+    await page.setViewportSize({ width, height });
+    const box = await notice.boundingBox();
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(height);
+    await enable.focus();
+    await expect(enable).toBeInViewport();
+    await page.screenshot({ path: path.join(shotDir, `auto-reports-invitation-zoom-${width}.png`) });
+  }
+  const pagesBefore = context.pages().length;
+  await enable.focus(); await page.keyboard.press('Enter');
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator('.nxtk-status-toast')).toContainText('ενεργοποιήθηκαν');
+  expect(context.pages().length).toBe(pagesBefore);
+  expect(await worker.evaluate(async () => (await globalThis.chrome.storage.local.get('nxtk_settings')).nxtk_settings.AutoErrorReports)).toBe(true);
+  await worker.evaluate(async () => { await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false } }); });
+  await page.close();
+});
+
+test('reporting CORS: manual and background delivery work without relay host permissions', async () => {
+  const requests = [];
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      requests.push({ method: req.method, path: req.url, origin: req.headers.origin, body });
+      if (req.url !== '/no-cors') {
+        res.setHeader('access-control-allow-origin', req.headers.origin || '*');
+        res.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+        res.setHeader('access-control-allow-headers', 'content-type');
+      }
+      if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ ok: true, configured: true, id: 'local-cors-test' }));
+    });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const route = r => r.continue();
+  await context.route(`${base}/**`, route);
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  let page;
+  try {
+    const result = await worker.evaluate(async (base) => {
+      const manifest = globalThis.chrome.runtime.getManifest();
+      const response = await fetch(`${base}/cors`, { method: 'POST', mode: 'cors', headers: { 'content-type': 'application/json' }, body: '{}' });
+      let blocked = false;
+      try { await fetch(`${base}/no-cors`, { method: 'POST', mode: 'cors', headers: { 'content-type': 'application/json' }, body: '{}' }); }
+      catch (_) { blocked = true; }
+      return { manifest, body: await response.json(), blocked };
+    }, base);
+    expect(result.manifest.optional_host_permissions || []).toEqual([]);
+    expect(result.manifest.host_permissions).toEqual(['https://www.nexusmods.com/*']);
+    expect(result.body.ok).toBe(true);
+    expect(result.blocked).toBe(true);
+    const id = new URL(worker.url()).host;
+    page = await context.newPage();
+    await page.goto(`chrome-extension://${id}/report-page/report.html`);
+    await page.waitForFunction(() => document.getElementById('rpPreview').textContent.includes('schema'));
+    await page.evaluate((base) => {
+      globalThis.chrome.permissions.request = () => { throw new Error('No extra permission may be requested'); };
+      globalThis.NXTK.RELAY_HEALTH_URL = `${base}/health`;
+      globalThis.NXTK.RELAY_REPORT_URL = `${base}/cors`;
+    }, base);
+    await page.locator('#rpSummary').fill('Local CORS test');
+    await page.locator('#rpSend').click();
+    await expect(page.locator('#rpReference')).toHaveText('local-cors-test');
+    await worker.evaluate(async (base) => {
+      await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: true } });
+      const reporter = new globalThis.NXTKAutoReports.Reporter({
+        kit: globalThis.NXTK, api: globalThis.chrome,
+        read: globalThis.storageGetLocal, write: globalThis.storageSetLocal,
+        fetchImpl: (_url, init) => fetch(`${base}/cors`, init)
+      });
+      try {
+        await reporter.enqueue(globalThis.NXTK.buildErrorEntry({ code: 'nexus_api_changed', context: 'CORS integration check' }));
+        await reporter.flush();
+      } finally {
+        await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false } });
+        await reporter.stop();
+      }
+    }, base);
+    const posts = requests.filter(r => r.method === 'POST').map(r => JSON.parse(r.body));
+    expect(posts.some(p => p.kind === 'manual')).toBe(true);
+    expect(posts.some(p => p.kind === 'auto')).toBe(true);
+    expect(requests.filter(r => r.method === 'POST').every(r => /^chrome-extension:\/\//.test(r.origin || ''))).toBe(true);
+  } finally {
+    await page?.close();
+    await context.unroute(`${base}/**`, route);
+    await new Promise(resolve => server.close(resolve));
+  }
+});
 
 async function openPage(url, width, height, zoom) {
   const page = await context.newPage();
@@ -379,48 +520,29 @@ test('debug log page: live view, level filter, safe text, clear and no overflow'
   await page.close();
 });
 
-test('report send requests the relay permission synchronously inside the click, once', async () => {
+test('report send and automatic toggle need no extra permission prompt', async () => {
   let [worker] = context.serviceWorkers();
   if (!worker) worker = await context.waitForEvent('serviceworker');
   const id = new URL(worker.url()).host;
   const page = await context.newPage();
   await page.goto(`chrome-extension://${id}/report-page/report.html`);
   await page.waitForFunction(() => document.getElementById('rpPreview').textContent.includes('schema'));
-  const expected = await page.evaluate(async () => {
-    const manifest = globalThis.chrome.runtime.getManifest();
-    window.permCalls = [];
+  await page.evaluate(() => {
     window.sends = 0;
-    let grant = false;
-    // True only for the rest of the click's task: an await on a browser API before request() ends it,
-    // and that is exactly what loses the extension user-gesture token in Chrome.
-    document.addEventListener('click', () => { window.inClick = true; setTimeout(() => { window.inClick = false; }, 0); }, true);
-    globalThis.chrome.permissions.request = (perm) => {
-      // userActivation.isActive is only true while the click's gesture is still usable.
-      window.permCalls.push({ origins: perm.origins, active: navigator.userActivation.isActive, sameTask: window.inClick === true, frozen: Object.isFrozen(perm.origins) });
-      grant = window.permCalls.length > 1;
-      return Promise.resolve(grant);
-    };
+    globalThis.chrome.permissions.request = () => { throw new Error('Unexpected permission request'); };
     globalThis.NXTK.checkRelayHealth = async () => ({ ok: true });
     globalThis.NXTK.sendReportPayload = async () => { window.sends += 1; return { ok: false, reason: 'server_error' }; };
-    return manifest.optional_host_permissions;
   });
-  await page.locator('#rpSummary').fill('Permission test');
-  await page.click('#rpSend');
-  await expect(page.locator('#rpStatus, #rpFailure').first()).toBeVisible();
-  let calls = await page.evaluate(() => window.permCalls);
-  expect(calls).toHaveLength(1);
-  expect(calls[0].active, 'request() ran while the user gesture was active').toBe(true);
-  expect(calls[0].sameTask, 'request() ran in the same task as the click (no await before it)').toBe(true);
-  expect(calls[0].origins).toEqual(expected);
-  expect(calls[0].frozen).toBe(false);
-  expect(await page.evaluate(() => window.sends)).toBe(0);
-  // Granted on the second try: it sends; a third click after the grant skips the prompt.
-  await page.click('#rpSend');
+  await page.locator('#rpSummary').fill('Report without extra access');
+  await page.locator('#rpSend').click();
   await expect.poll(() => page.evaluate(() => window.sends)).toBe(1);
-  await page.click('#rpSend');
+  await page.locator('#rpSend').click();
   await expect.poll(() => page.evaluate(() => window.sends)).toBe(2);
-  calls = await page.evaluate(() => window.permCalls);
-  expect(calls).toHaveLength(2);
+  await page.locator('.rp-auto summary').click();
+  await page.locator('#rpAuto').check();
+  await expect.poll(() => worker.evaluate(async () => (await globalThis.chrome.storage.local.get('nxtk_settings')).nxtk_settings.AutoErrorReports)).toBe(true);
+  await page.locator('#rpAuto').uncheck();
+  await expect.poll(() => worker.evaluate(async () => (await globalThis.chrome.storage.local.get('nxtk_settings')).nxtk_settings.AutoErrorReports)).toBe(false);
   await page.close();
 });
 

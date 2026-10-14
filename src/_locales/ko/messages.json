@@ -1337,10 +1337,10 @@
     "message": "대신 GitHub 이슈 열기"
   },
   "rpAuto": {
-    "message": "익명 오류 보고서 자동 전송"
+    "message": "Send technical error reports automatically"
   },
   "rpAutoDesc": {
-    "message": "기본값은 꺼짐입니다. 켜면 오류 코드, 발생 위치, 확장 프로그램 및 브라우저 버전만 하루 최대 10건 전송합니다. 페이지 내용, 기록, 설정은 보내지 않습니다."
+    "message": "Off by default. Sends only technical errors, extension and browser versions, action and page type. Repeated errors are grouped; up to ten reports a day. No page content, history or settings. Failed sends retry automatically."
   },
   "rpSent": {
     "message": "보고서를 보냈습니다. 감사합니다! 참조 번호: $1"
@@ -2017,5 +2017,29 @@
         "content": "$1"
       }
     }
+  },
+  "autoPromptTitle": {
+    "message": "Help fix errors faster"
+  },
+  "autoPromptBody": {
+    "message": "If the extension fails, it can send a small technical report to the developer's private Discord channel. No page content, download history or settings is sent. Reports stay off unless you enable them; you can turn them off in Help & Bugs."
+  },
+  "autoEnable": {
+    "message": "Enable automatic reports"
+  },
+  "autoNoThanks": {
+    "message": "No thanks"
+  },
+  "autoPrivacyLink": {
+    "message": "What is shared?"
+  },
+  "autoEnabled": {
+    "message": "Automatic reports are on. Thank you for helping improve the extension."
+  },
+  "autoEnableFailed": {
+    "message": "Reports could not be enabled. Please try again."
+  },
+  "errorAddDetails": {
+    "message": "Add details"
   }
 }
