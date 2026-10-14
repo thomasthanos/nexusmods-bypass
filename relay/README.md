@@ -13,12 +13,14 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 
 ## Current deployment
 
-Updated on 2026-10-14 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev from main commit `b06921c` (relay runtime source `a281919`).
-Active Worker version: `883a3b68-efbf-40b1-b08e-1dace26120c7` at 100% traffic.
+Updated on 2026-10-14 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev.
+The latest notification update distinguishes red user reports from GitHub automation and configures
+one explicit maintainer mention. Its formatting and mention policy were verified offline; no new
+test message or ping was sent for this update.
 The Discord destination is stored as the Cloudflare Worker secret `DISCORD_WEBHOOK_URL`.
 The live health check returned `ok: true, configured: true` (HTTP 200); JSON preflight returned 204.
 Real Edge and Firefox extension-origin requests passed, including CORS error responses and without
-additional relay host permissions. One clearly marked synthetic Discord report was accepted (HTTP 200,
+additional relay host permissions. During the earlier 3.1.1 deployment validation, one clearly marked synthetic Discord report was accepted (HTTP 200,
 report `e0e83e8f`, reference `E-0880e90`); `wait=true` confirms Discord delivery before the relay returns success.
 Manual JSON attachments, limits, duplicate suppression and opt-out behavior were also checked offline.
 `RELAY_CONFIGURED` is enabled in the extension. The deployed Worker already allows extension
@@ -40,10 +42,19 @@ The previously reported HTTP 403 / Cloudflare code 1010 did not reproduce in the
   For a hard limit, add a Cloudflare Rate Limiting rule on the route. No Durable Object is needed.
 - Posts one compact Discord embed for automatic errors, with a plain-language explanation,
   page type/action context, a short browser name, an error reference shared with manual reports, occurrence count, observation times, technical cause and packaged script position. Automatic errors have no JSON attachment.
+- User reports have a red accent and a distinct `User error` / `Bug report` title and sender name.
+  `REPORT_MENTION_USER_ID` in `wrangler.toml` allows one explicit maintainer mention; it is a public
+  Discord user ID, not a secret. Report input cannot choose recipients, mention roles or ping everyone.
 - Manual bug reports still include the full JSON file, preserving the description, reproduction
-  steps, expected result and reviewed diagnostics. Mentions are disabled for both report types.
+  steps, expected result and reviewed diagnostics. Mentions from report text are disabled for both report types;
+  only the configured maintainer may be pinged.
   If Resend is configured, it also e-mails the full JSON.
 - CORS only for extension origins (`ALLOWED_ORIGINS`).
+
+GitHub automation is separate: its sender is `NexusMods Bypass · GitHub`, titles start with `GitHub`,
+repository changes/issues are blue, releases green and permission/schema warnings amber. It does not
+ping the report recipient. Manifest summaries use Discord-friendly bullets; missing/invalid Firefox
+manifests are reported as unavailable, never as an unchanged `? → ?` comparison.
 
 ## Deploy
 To update this deployment or deploy your own copy, use your machine. The relay is **not deployed by CI**:

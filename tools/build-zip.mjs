@@ -52,6 +52,7 @@ for (const check of [
   'page-check-test.cjs',
   'dom-fixtures-test.cjs',
   'relay-test.mjs',
+  'discord-notification-test.mjs',
   'manifest-diff-test.mjs',
   'nexus-api-test.cjs',
   'debug-view-test.cjs',

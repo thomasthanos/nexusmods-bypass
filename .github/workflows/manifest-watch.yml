@@ -9,10 +9,10 @@ name: Manifest watch
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths: ['src/manifest.json', 'tools/build-zip.mjs']
+    paths: ['src/manifest.json', 'tools/build-zip.mjs', 'tools/manifest-diff.mjs', '.github/workflows/manifest-watch.yml']
   push:
     branches: [main]
-    paths: ['src/manifest.json', 'tools/build-zip.mjs']
+    paths: ['src/manifest.json', 'tools/build-zip.mjs', 'tools/manifest-diff.mjs', '.github/workflows/manifest-watch.yml']
 
 permissions:
   contents: read
@@ -28,6 +28,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm ci
 
       - name: Resolve base commit
         id: base
@@ -46,15 +47,16 @@ jobs:
           # Firefox variants come from the packager; build each side without its test gate if possible.
           node tools/build-zip.mjs >/dev/null 2>&1 && unzip -p dist/*-firefox.zip manifest.json > /tmp/mw/head-firefox.json || echo '{}' > /tmp/mw/head-firefox.json
           git worktree add -q /tmp/mw/base-tree "${{ steps.base.outputs.sha }}" 2>/dev/null \
-            && (cd /tmp/mw/base-tree && node tools/build-zip.mjs >/dev/null 2>&1 && unzip -p dist/*-firefox.zip manifest.json > /tmp/mw/base-firefox.json) \
+            && (cd /tmp/mw/base-tree && npm ci >/dev/null 2>&1 && node tools/build-zip.mjs >/dev/null 2>&1 && unzip -p dist/*-firefox.zip manifest.json > /tmp/mw/base-firefox.json) \
             || echo '{}' > /tmp/mw/base-firefox.json
 
       - name: Diff
         id: diff
         run: |
-          chrome=$(node tools/manifest-diff.mjs /tmp/mw/base.json /tmp/mw/head.json /tmp/mw/chrome.md)
-          firefox=$(node tools/manifest-diff.mjs /tmp/mw/base-firefox.json /tmp/mw/head-firefox.json /tmp/mw/firefox.md)
+          chrome=$(node tools/manifest-diff.mjs /tmp/mw/base.json /tmp/mw/head.json /tmp/mw/chrome.md /tmp/mw/chrome-discord.md)
+          firefox=$(node tools/manifest-diff.mjs /tmp/mw/base-firefox.json /tmp/mw/head-firefox.json /tmp/mw/firefox.md /tmp/mw/firefox-discord.md)
           { echo "## Chrome / Edge"; cat /tmp/mw/chrome.md; echo; echo "## Firefox"; cat /tmp/mw/firefox.md; } > /tmp/mw/summary.md
+          { echo "## Chrome / Edge"; cat /tmp/mw/chrome-discord.md; echo; echo "## Firefox"; cat /tmp/mw/firefox-discord.md; } > /tmp/mw/summary-discord.md
           cat /tmp/mw/summary.md >> "$GITHUB_STEP_SUMMARY"
           expanded=false
           echo "$chrome$firefox" | grep -q '"expanded":true' && expanded=true
@@ -62,6 +64,9 @@ jobs:
           echo "$chrome$firefox" | grep -q '"changed":true' && changed=true
           echo "expanded=$expanded" >> "$GITHUB_OUTPUT"
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          incomplete=false
+          echo "$chrome$firefox" | grep -q '"checked":false' && incomplete=true
+          echo "incomplete=$incomplete" >> "$GITHUB_OUTPUT"
 
       - name: Notify Discord
         if: steps.diff.outputs.changed == 'true'
@@ -69,10 +74,11 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TITLE: ${{ github.event.pull_request.title || github.event.head_commit.message }}
           LINK: ${{ github.event.pull_request.html_url || github.event.compare }}
+          EXPANDED: ${{ steps.diff.outputs.expanded }}
+          INCOMPLETE: ${{ steps.diff.outputs.incomplete }}
         run: |
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set; skipping."; exit 0; fi
-          body=$(jq -n --rawfile d /tmp/mw/summary.md --arg t "$TITLE" --arg u "$LINK" --arg e "${{ steps.diff.outputs.expanded }}" \
-            '{username:"NexusMods Bypass CI", allowed_mentions:{parse:[]}, embeds:[{title:("Manifest change: " + ($t|.[0:200])), url:$u, description:($d|.[0:3900]), color:(if $e=="true" then 15158332 else 3447003 end)}]}')
+          body=$(node tools/discord-notification.mjs manifest /tmp/mw/summary-discord.md)
           curl -fsS -X POST -H 'content-type: application/json' -d "$body" "$DISCORD_WEBHOOK_URL" > /dev/null || echo "Discord post failed (ignored)."
 
       - name: Comment on the PR
@@ -93,3 +99,7 @@ jobs:
       - name: Warn on expanded access (push)
         if: github.event_name == 'push' && steps.diff.outputs.expanded == 'true'
         run: echo "::warning::Pushed manifest change expands extension permissions."
+
+      - name: Warn on an unavailable comparison
+        if: steps.diff.outputs.incomplete == 'true'
+        run: echo "::warning::A manifest comparison could not finish; this is not a no-permission-change result."

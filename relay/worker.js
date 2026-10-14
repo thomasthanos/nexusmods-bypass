@@ -94,9 +94,8 @@ const clip = (s, n) => (String(s ?? '').length > n ? `${String(s).slice(0, n - 1
 // Discord would otherwise turn @everyone or <@id> in user text into pings.
 const quiet = (s) => String(s ?? '').replace(/@/g, '@\u200b');
 
-// Embed colour by severity: red for crashes/server errors, amber for other auto errors, and a
-// per-area colour for manual reports so a channel skims at a glance.
-export const SEVERITY_COLORS = { critical: 0xd9433b, error: 0xe8b339, report: 0x5b8def };
+// All user reports are red; GitHub automation has its own blue/green/amber identity.
+export const SEVERITY_COLORS = { critical: 0xd9433b, error: 0xd9433b, report: 0xd9433b };
 export function severityOf(p) {
   if (p.kind !== 'auto') return 'report';
   if (p.severity === 'critical') return 'critical';
@@ -188,12 +187,21 @@ function compactBrowser(value) {
   return short ? `${short[1]} ${short[2]}` : 'Unknown browser';
 }
 
-export function discordMessage(p, id) {
+export function discordMessage(p, id, mentionUserId = '') {
+  // Only trusted Worker configuration can nominate a recipient, never report input.
+  const recipient = typeof mentionUserId === 'string' && /^\d{17,20}$/.test(mentionUserId) ? mentionUserId : '';
+  const identity = {
+    username: 'NexusMods Bypass · User reports',
+    ...(recipient ? { content: `<@${recipient}>` } : {}),
+    allowed_mentions: recipient ? { parse: [], users: [recipient] } : { parse: [] }
+  };
   if (p.kind === 'auto') {
     const error = p.error;
     const [title, description] = Object.hasOwn(AUTO_ERROR_COPY, error.code)
       ? AUTO_ERROR_COPY[error.code]
-      : ['Action could not complete', clip(quiet(error.message?.trim()), 300) || 'Try again. If the problem continues, send a bug report from Help & Bugs.'];
+      : ['Action could not complete', error.message?.trim()
+        ? 'An extension action could not complete. See the technical cause below.'
+        : 'Try again. If the problem continues, send a bug report from Help & Bugs.'];
     const fields = [];
     if (p.page) fields.push({ name: 'Page', value: clip(quiet(p.page), 200), inline: false });
     if (error.context?.trim()) fields.push({ name: 'Action', value: clip(quiet(error.context.trim().split(/\r?\n/)[0]), 160), inline: false });
@@ -205,10 +213,9 @@ export function discordMessage(p, id) {
     const status = Number(error.status);
     const http = Number.isInteger(status) && status >= 100 && status <= 599 ? ` · HTTP ${status}` : '';
     return {
-      username: 'NexusMods Bypass reports',
-      allowed_mentions: { parse: [] },
+      ...identity,
       embeds: [fitEmbed({
-        title, description, color: SEVERITY_COLORS[severityOf(p)], fields,
+        title: `User error · ${title}`, description, color: SEVERITY_COLORS[severityOf(p)], fields,
         footer: { text: quiet(`v${clip(p.version, 20)} · ${compactBrowser(p.browser)} · ${clip(error.code, 80)}${http}${p.reference ? ` · ${p.reference}` : ''} · id ${clip(id, 40)}`) },
         timestamp: new Date().toISOString()
       })]
@@ -229,10 +236,9 @@ export function discordMessage(p, id) {
   fields.push({ name: 'Debug lines', value: String(p.logs?.length || 0), inline: true });
   if (p.contact) fields.push({ name: 'Contact', value: clip(quiet(p.contact), 120) });
   return {
-    username: 'NexusMods Bypass reports',
-    allowed_mentions: { parse: [] },
+    ...identity,
     embeds: [fitEmbed({
-      title: clip(quiet(p.summary || 'Bug report'), 160),
+      title: `Bug report · ${clip(quiet(p.summary || 'User report'), 160)}`,
       // Discord rejects an embed over 6000 characters in total; fields take at most ~2600 here.
       description: clip(quiet(p.note || (p.report ? `\`\`\`\n${clip(p.report, 1500)}\n\`\`\`` : '')), 3000),
       color: SEVERITY_COLORS[severityOf(p)],
@@ -291,7 +297,7 @@ export default {
     const id = crypto.randomUUID().slice(0, 8);
     let discord;
     try {
-      const message = discordMessage(payload, id);
+      const message = discordMessage(payload, id, env.REPORT_MENTION_USER_ID);
       const body = new FormData();
       body.set('payload_json', JSON.stringify(message));
       // Manual reports retain the exact reviewed diagnostics. Auto errors are already

@@ -20,6 +20,10 @@ jobs:
       (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug')) ||
       (github.event.action == 'labeled' && github.event.label.name == 'bug')
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Post to Discord
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
@@ -33,10 +37,8 @@ jobs:
         run: |
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set; skipping."; exit 0; fi
           if [ "$KIND" = "release" ]; then
-            body=$(jq -n --arg t "$R_NAME" --arg u "$R_URL" --arg d "$R_BODY" \
-              '{username:"NexusMods Bypass", allowed_mentions:{parse:[]}, embeds:[{title:("Release " + $t), url:$u, description:($d|.[0:3900]), color:5763719}]}')
+            body=$(node tools/discord-notification.mjs release)
           else
-            body=$(jq -n --arg t "$I_TITLE" --arg u "$I_URL" --arg a "$I_USER" \
-              '{username:"NexusMods Bypass", allowed_mentions:{parse:[]}, embeds:[{title:("Bug: " + ($t|.[0:200])), url:$u, description:("Opened by " + $a), color:15548997}]}')
+            body=$(node tools/discord-notification.mjs issue)
           fi
           curl -fsS -X POST -H 'content-type: application/json' -d "$body" "$DISCORD_WEBHOOK_URL" > /dev/null || echo "Discord post failed (ignored)."

@@ -31,6 +31,21 @@ assert.equal(validateReport([]), 'not an object');
 
 const msg = discordMessage({ ...auto, error: { code: '@everyone', context: '<@123>' } }, 'abc');
 assert.deepEqual(msg.allowed_mentions, { parse: [] }, 'mentions are disabled');
+const ownerId = '706932839907852389';
+for (const report of [auto, { schema: 1, kind: 'manual', version: '3.1.1', summary: 'A bug' }]) {
+  const alert = discordMessage({ ...report, mentionUserId: '123456789012345678', note: '@everyone <@123456789012345678>' }, 'owner', ownerId);
+  assert.equal(alert.content, `<@${ownerId}>`, 'only the configured owner is mentioned');
+  assert.deepEqual(alert.allowed_mentions, { parse: [], users: [ownerId] });
+  assert.equal(alert.embeds[0].color, 0xd9433b, 'all user reports are red');
+  assert.match(alert.embeds[0].title, report.kind === 'auto' ? /^User error · / : /^Bug report · /);
+}
+for (const invalidId of ['@everyone', '706932839907852389 <@123>', 42, '']) {
+  const alert = discordMessage(auto, 'invalid', invalidId);
+  assert.equal(alert.content, undefined, 'invalid configuration cannot create a mention');
+  assert.deepEqual(alert.allowed_mentions, { parse: [] });
+}
+const unknownError = discordMessage({ ...auto, error: { code: 'unknown_fault', message: 'Unique technical cause' } }, 'unknown');
+assert.equal(JSON.stringify(unknownError).split('Unique technical cause').length - 1, 1, 'unknown error causes are not duplicated in the description and fields');
 assert.ok(!JSON.stringify(msg).includes('@everyone'), 'user text cannot ping');
 assert.match(msg.embeds[0].footer.text, /id abc$/);
 
@@ -39,7 +54,7 @@ globalThis.fetch = async (url, init) => {
   sent.push({ url, body: JSON.parse(init.body.get('payload_json')), attachment: init.body.get('files[0]') });
   return new Response(null, { status: 204 });
 };
-const env = { DISCORD_WEBHOOK_URL: 'https://discord.invalid/webhook' };
+const env = { DISCORD_WEBHOOK_URL: 'https://discord.invalid/webhook', REPORT_MENTION_USER_ID: ownerId };
 const post = (body, ip = '1.1.1.1', extra = {}) => worker.fetch(new Request('https://relay.test/v1/report', {
   method: 'POST',
   headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip, origin: 'chrome-extension://abc', ...extra },
@@ -55,6 +70,7 @@ assert.equal(sent.length, 1, 'forwarded to Discord once');
 assert.equal(new URL(sent[0].url).searchParams.get('wait'), 'true', 'the relay waits for Discord to confirm saving the report');
 assert.equal(sent[0].attachment, null, 'auto errors have one embed, without a duplicate JSON preview');
 assert.equal(sent[0].body.embeds.length, 1);
+assert.equal(sent[0].body.content, `<@${ownerId}>`, 'the live handler passes only the trusted configuration');
 const manual = { schema: 1, kind: 'manual', version: '2.10.2', summary: 'Vortex does not open', category: 'vortex', steps: 'Click Download', expected: 'Vortex opens', logs: [{ text: 'diagnostic' }] };
 assert.equal(validateReport(manual), '');
 assert.equal(validateReport({ ...manual, category: 'unknown' }), 'bad category');
@@ -64,7 +80,7 @@ assert.equal(validateReport({ ...manual, expected: 'x'.repeat(1001) }), 'bad exp
 await post(manual, '8.8.8.8');
 assert.deepEqual(JSON.parse(await sent[1].attachment.text()), manual, 'steps, expected result and logs all reach Discord');
 assert.match(sent[1].attachment.name, /^nexusmods-report-[a-z0-9-]+\.json$/);
-assert.equal(sent[1].body.embeds[0].title, manual.summary);
+assert.equal(sent[1].body.embeds[0].title, `Bug report · ${manual.summary}`);
 
 assert.equal((await post('{bad', '2.2.2.2')).status, 400);
 assert.equal((await post({ ...auto, schema: 9 }, '2.2.2.3')).status, 422);

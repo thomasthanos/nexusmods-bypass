@@ -42,8 +42,7 @@ jobs:
         run: |
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set; skipping."; exit 0; fi
           [ -f /tmp/schema-watch.md ] || echo "Schema watch could not run (see the log)." > /tmp/schema-watch.md
-          body=$(jq -n --rawfile d /tmp/schema-watch.md --arg u "$RUN_URL" \
-            '{username:"NexusMods Bypass CI", allowed_mentions:{parse:[]}, embeds:[{title:"Nexus API schema changed", url:$u, description:($d|.[0:3900]), color:15158332}]}')
+          body=$(node tools/discord-notification.mjs schema /tmp/schema-watch.md)
           curl -fsS -X POST -H 'content-type: application/json' -d "$body" "$DISCORD_WEBHOOK_URL" > /dev/null || echo "Discord post failed (ignored)."
       - name: Fail the run
         if: steps.watch.outputs.failed == 'true'
