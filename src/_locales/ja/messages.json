@@ -1,4 +1,19 @@
 {
+  "vortexDialogTitle": {
+    "message": "Vortexとの接続を確認"
+  },
+  "vortexDialogText": {
+    "message": "安全なテスト用リンクを送信します。MODはダウンロードされません。ブラウザーが許可を求めた場合は「開く」を選び、Vortexの起動を許可してください。"
+  },
+  "vortexDialogOpenBtn": {
+    "message": "Vortexを開く"
+  },
+  "vortexDialogCancelBtn": {
+    "message": "キャンセル"
+  },
+  "vortexDialogDoneBtn": {
+    "message": "閉じる"
+  },
   "appName": {
     "message": "NexusMods Bypass"
   },

@@ -1,4 +1,19 @@
 {
+  "vortexDialogTitle": {
+    "message": "Vortex bağlantısını test et"
+  },
+  "vortexDialogText": {
+    "message": "Mod indirmeden yalnızca zararsız bir test bağlantısı gönderilir. Tarayıcınız izin isterse Vortex'in başlamasına izin vermek için «Aç» seçeneğini seçin."
+  },
+  "vortexDialogOpenBtn": {
+    "message": "Vortex'i aç"
+  },
+  "vortexDialogCancelBtn": {
+    "message": "İptal"
+  },
+  "vortexDialogDoneBtn": {
+    "message": "Kapat"
+  },
   "appName": {
     "message": "NexusMods Bypass"
   },

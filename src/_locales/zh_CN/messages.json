@@ -1,4 +1,19 @@
 {
+  "vortexDialogTitle": {
+    "message": "测试与 Vortex 的连接"
+  },
+  "vortexDialogText": {
+    "message": "这里只会发送一个安全的测试链接，不会下载任何模组。如果浏览器请求权限，请选择“打开”，允许启动 Vortex。"
+  },
+  "vortexDialogOpenBtn": {
+    "message": "打开 Vortex"
+  },
+  "vortexDialogCancelBtn": {
+    "message": "取消"
+  },
+  "vortexDialogDoneBtn": {
+    "message": "关闭"
+  },
   "appName": {
     "message": "NexusMods Bypass"
   },

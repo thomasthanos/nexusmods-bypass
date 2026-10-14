@@ -1,4 +1,19 @@
 {
+  "vortexDialogTitle": {
+    "message": "Δοκιμή σύνδεσης με το Vortex"
+  },
+  "vortexDialogText": {
+    "message": "Θα σταλεί ένας ακίνδυνος δοκιμαστικός σύνδεσμος, χωρίς να γίνει λήψη mod. Αν ο browser ζητήσει άδεια, επίλεξε «Άνοιγμα» για να ξεκινήσει το Vortex."
+  },
+  "vortexDialogOpenBtn": {
+    "message": "Άνοιγμα Vortex"
+  },
+  "vortexDialogCancelBtn": {
+    "message": "Ακύρωση"
+  },
+  "vortexDialogDoneBtn": {
+    "message": "Κλείσιμο"
+  },
   "appName": {
     "message": "NexusMods Bypass"
   },

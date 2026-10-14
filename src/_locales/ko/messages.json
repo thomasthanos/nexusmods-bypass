@@ -1,4 +1,19 @@
 {
+  "vortexDialogTitle": {
+    "message": "Vortex 연결 테스트"
+  },
+  "vortexDialogText": {
+    "message": "안전한 테스트 링크만 전송하며 모드를 다운로드하지 않습니다. 브라우저에서 권한을 요청하면 '열기'를 선택해 Vortex 실행을 허용하세요."
+  },
+  "vortexDialogOpenBtn": {
+    "message": "Vortex 열기"
+  },
+  "vortexDialogCancelBtn": {
+    "message": "취소"
+  },
+  "vortexDialogDoneBtn": {
+    "message": "닫기"
+  },
   "appName": {
     "message": "NexusMods Bypass"
   },

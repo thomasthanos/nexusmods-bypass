@@ -1346,14 +1346,26 @@ test('welcome page: setup saves choices and Test Vortex asks when it cannot tell
   await expect.poll(async () => (await read('nxtk_settings')).NDC_downloadMethod).toBe(0);
   saved = await read('nxtk_settings');
   expect(saved.AutoCloseTab).toBe(false);
-  // Headless Chromium has no nxm:// handler and nothing takes the focus: the page asks.
-  await page.evaluate(() => { globalThis.__nav = []; });
+  // The new dialog explains the harmless test before opening an external app.
   await page.locator('#setupTestVortex').click();
-  await expect(page.locator('#setupAsk')).toBeVisible({ timeout: 10000 });
+  const dialog = page.locator('.vortex-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(/harmless test link/);
+  await page.locator('#vortexDialogCancel').click();
+  await expect(dialog).toHaveCount(0);
+  expect((await read('nxtk_vortex_open')).confirmed).toBe(false);
+  await page.locator('#setupTestVortex').click();
+  await page.locator('#vortexDialogOpen').click();
+  // Headless Chromium has no nxm:// handler and nothing takes the focus: the dialog asks.
+  await expect(page.locator('#vortexAskYes')).toBeVisible({ timeout: 15000 });
+  await expect(dialog).toContainText(/Did Vortex open/);
   // After a nxm:// navigation headless Chromium stops delivering real input, so the answer is clicked in the page.
-  await page.evaluate(() => document.getElementById('setupAskYes').click());
+  await page.evaluate(() => document.getElementById('vortexAskYes').click());
   await expect(page.locator('#setupStatus')).toContainText(/all set/);
   expect((await read('nxtk_vortex_open')).confirmed).toBe(true);
+  await page.evaluate(() => document.getElementById('vortexDialogDone').click());
+  await expect(dialog).toHaveCount(0);
+  await page.locator('#setup').scrollIntoViewIfNeeded();
   await assertFits(page, '#setup', 'welcome setup');
   await patch({ AutoCloseTab: true, DownloadFolder: '' });
   await page.close();

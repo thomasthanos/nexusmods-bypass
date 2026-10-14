@@ -1,4 +1,19 @@
 {
+  "vortexDialogTitle": {
+    "message": "Verbindung mit Vortex testen"
+  },
+  "vortexDialogText": {
+    "message": "Dabei wird nur ein harmloser Testlink gesendet, kein Mod heruntergeladen. Wenn dein Browser um Erlaubnis fragt, wähle „Öffnen“, damit Vortex starten kann."
+  },
+  "vortexDialogOpenBtn": {
+    "message": "Vortex öffnen"
+  },
+  "vortexDialogCancelBtn": {
+    "message": "Abbrechen"
+  },
+  "vortexDialogDoneBtn": {
+    "message": "Schließen"
+  },
   "appName": {
     "message": "NexusMods Bypass"
   },
