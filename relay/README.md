@@ -13,19 +13,25 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 
 ## Current deployment
 
-Updated on 2026-10-13 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev with compact auto-error embeds.
+Updated on 2026-10-14 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev from main commit `b06921c` (relay runtime source `a281919`).
+Active Worker version: `883a3b68-efbf-40b1-b08e-1dace26120c7` at 100% traffic.
 The Discord destination is stored as the Cloudflare Worker secret `DISCORD_WEBHOOK_URL`.
-The live health check returned `ok: true, configured: true`. Initial Discord delivery was verified
-on 2026-10-12; no Discord test message was sent for the compact-embed update.
+The live health check returned `ok: true, configured: true` (HTTP 200); JSON preflight returned 204.
+Real Edge and Firefox extension-origin requests passed, including CORS error responses and without
+additional relay host permissions. One clearly marked synthetic Discord report was accepted (HTTP 200,
+report `e0e83e8f`, reference `E-0880e90`); `wait=true` confirms Discord delivery before the relay returns success.
+Manual JSON attachments, limits, duplicate suppression and opt-out behavior were also checked offline.
 `RELAY_CONFIGURED` is enabled in the extension. The deployed Worker already allows extension
 origins through CORS. The 3.1.1 extension uses those ordinary CORS requests without asking for a relay
 host permission; earlier releases request the optional permission. KV-backed rate limiting and auto-report dedupe use the `RATE_LIMIT` binding in
 `wrangler.toml`. KV is eventually consistent: this shares counters across instances but does not
 provide a strict atomic limit. E-mail is not configured.
 
-## Pending update in this branch
+## Deployed 3.1.1 reporting update
 
-The 3.1.1 extension uses a durable opt-in queue and remains compatible with the currently deployed schema-1 relay. Deploy this branch's Worker to show the new error reference, occurrence count, observation times, redacted technical cause and packaged script position in Discord, and to separate the manual and automatic rate-limit allowances. The changes below have been tested offline; they have **not** been deployed by this change. No live Discord test message is sent by the test suites.
+The 3.1.1 extension uses a durable opt-in queue with the deployed schema-1 relay. Discord automatic-error embeds include the shared error reference, occurrence count, observation times, redacted technical cause and packaged script position. Manual and automatic reports have separate rate-limit allowances. User preferences were not changed; declining the invitation keeps automatic reports off. The test suites use mocked destinations and send no live Discord messages.
+
+The previously reported HTTP 403 / Cloudflare code 1010 did not reproduce in the live browser checks. No Cloudflare security settings were weakened, and the historical incident is not claimed as fixed.
 
 ## What it does
 - `POST /v1/report`, JSON only, at most 64 KB, schema version 1 (see `validateReport` in `worker.js`).

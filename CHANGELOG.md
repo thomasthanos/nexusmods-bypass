@@ -11,12 +11,13 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
-## 3.1.1 — 2026-10-14 (updated ZIPs in release 3.1.0)
+## 3.1.1 — 2026-10-14
 
 - **One-click technical reports:** a one-time invitation on Nexus Mods lets users opt in directly, without an extra browser permission. No thanks, Escape or no action keeps reports off. Greek/English copy, keyboard and screen-reader support, larger controls and scrolling improve accessibility.
 - **Reliable error delivery:** background and collection failures join the same persistent queue, with timeouts, retries and grouped repetitions. Distinct new faults can send immediately within daily limits; ordinary login/offline/cancellation/rate-limit conditions stay local. Opting out clears pending reports.
 - **Selected-incident reports:** Add details opens the error the user selected, with a stable reference shared by the dialog and diagnostics; manual reports retain their reviewed JSON attachment.
-- **Existing release refreshed:** both browser ZIPs are replaced in the 3.1.0 release with extension version 3.1.1. Build/package checks and the full Chromium CI suite passed. Richer Discord embeds and separate relay limits remain pending a Cloudflare Worker deployment.
+- **Release aligned:** the latest release tag, banner and both ZIPs use 3.1.1. The retained ZIPs match extension source at `a281919`; their prior build/package and Chromium CI checks passed. The later onboarding patch (`ddf4825`) is not included: its packaging gate stops on five missing English translation keys.
+- **Relay deployed:** the Cloudflare Worker was updated on 2026-10-14 with richer Discord embeds and separate manual/automatic report allowances. Health, JSON preflight, real Edge/Firefox CORS requests and one clearly marked Discord delivery test passed. The existing destination, secret and KV binding were retained; automatic reports remain opt-in.
 
 ## 2026-10-13 — v3.1.0
 
