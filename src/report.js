@@ -73,16 +73,7 @@
   // Only the file and position are kept, so the same fault gives the same ID everywhere.
   function errorFingerprint(error) {
     if (!error) return '';
-    const frame = String(error.stack || '')
-      .split('\n')
-      .map((line) => line.trim())
-      .map((line) => line.match(/([\w.-]+\.js):(\d+):(\d+)/))
-      .find(Boolean);
-    return shortHash([
-      String(error.code || ''),
-      String(error.context || ''),
-      frame ? `${frame[1]}:${frame[2]}` : ''
-    ].join('|'));
+    return NXTK.errorReference(error);
   }
 
   function relativeTime(at) {
@@ -550,6 +541,7 @@
         note: clean(note, 2000),
         contact: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) ? String(contact).slice(0, 120) : '',
         settings: settingsSnapshot(cfg),
+        reference: selectedError ? NXTK.errorReference(selectedError) : '',
         currentError: selectedError ? NXTK.buildErrorEntry(selectedError) : null,
         errors: errors.slice(-15).map((entry) => NXTK.buildErrorEntry(entry)),
         logs: debug.slice(-200).map((entry) => ({

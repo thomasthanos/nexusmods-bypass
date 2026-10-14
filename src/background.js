@@ -4,6 +4,7 @@ if (typeof importScripts === 'function') {
   if (!globalThis.NXTK) importScripts('shared.js');
   if (!globalThis.NXTKResponseClassifier) importScripts('response-classifier.js');
   if (!globalThis.NXTKDownloadParser) importScripts('download-url-parser.js');
+  if (!globalThis.NXTKAutoReports) importScripts('auto-reports.js');
 }
 
 const NXTK = globalThis.NXTK;
@@ -112,54 +113,42 @@ function errorEntrySignature(entry) {
   ].join('|');
 }
 
-// Optional anonymous error reports (setting AutoErrorReports, off by default). Sent only when the user
-// turned it on AND granted the relay origin; carries the error code, where it happened and the
-// extension/browser version, never page content or history. Throttled: one per fingerprint per day,
-// at most one every ten minutes and ten a day.
-const AUTO_REPORT_STATE_KEY = 'nxtk_auto_report_state';
-const AUTO_REPORT_MIN_GAP_MS = 10 * 60 * 1000;
-const AUTO_REPORT_DAILY_MAX = 10;
+// Reports are opt-in. The persisted queue survives worker suspension and marks delivery only
+// after the relay confirms it; repeated faults are grouped without delaying distinct new bugs.
+const autoReports = new globalThis.NXTKAutoReports.Reporter({
+  kit: NXTK, read: storageGetLocal, write: storageSetLocal, api: chrome
+});
 
-async function maybeAutoReport(entry, { now = Date.now(), fetchImpl = globalThis.fetch } = {}) {
-  const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-  if (!settings?.AutoErrorReports || !NXTK.RELAY_CONFIGURED) return false;
-  let granted = false;
-  try {
-    granted = await chrome.permissions.contains(NXTK.RELAY_PERMISSION);
-  } catch (_) {
-  }
-  if (!granted) return false;
-  const fingerprint = `${entry.code}|${entry.context}`.slice(0, 200);
-  const state = (await storageGetLocal(AUTO_REPORT_STATE_KEY, null)) || {};
-  const day = new Date(now).toISOString().slice(0, 10);
-  const today = state.day === day ? state : { day, count: 0, sent: {} };
-  if (now - (Number(state.lastAt) || 0) < AUTO_REPORT_MIN_GAP_MS) return false;
-  if (today.count >= AUTO_REPORT_DAILY_MAX || today.sent?.[fingerprint]) return false;
-  const manifest = chrome.runtime.getManifest();
-  const payload = {
-    schema: NXTK.REPORT_SCHEMA_VERSION,
-    kind: 'auto',
-    version: manifest.version,
-    browser: String(globalThis.navigator?.userAgent || '').replace(/\([^)]*\)/g, '').slice(0, 160),
-    error: {
-      code: entry.code,
-      status: entry.status,
-      context: entry.context,
-      message: String(entry.technicalMessage || '').slice(0, 300)
+function maybeAutoReport(entry) {
+  return autoReports.enqueue(entry);
+}
+
+const AUTO_REPORT_PROMPT_KEY = 'nxtk_auto_report_prompt_v1';
+
+async function armAutoReportPrompt() {
+  return enqueueStorageTask(AUTO_REPORT_PROMPT_KEY, async () => {
+    const seen = await storageGetLocal(AUTO_REPORT_PROMPT_KEY, null);
+    const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+    if (seen?.shown || !NXTK.RELAY_CONFIGURED) return;
+    if (settings?.AutoErrorReports) {
+      await storageSetLocal(AUTO_REPORT_PROMPT_KEY, { pending: false, shown: true });
+      return;
     }
-  };
-  const page = NXTK.reportPagePath(entry.url);
-  if (page) payload.page = page;
-  await storageSetLocal(AUTO_REPORT_STATE_KEY, {
-    ...today, lastAt: now, count: today.count + 1, sent: { ...(today.sent || {}), [fingerprint]: true }
+    await storageSetLocal(AUTO_REPORT_PROMPT_KEY, { pending: true, shown: false });
   });
-  const response = await fetchImpl(NXTK.RELAY_REPORT_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
-    credentials: 'omit'
+}
+
+async function claimAutoReportPrompt(_payload, sender) {
+  // A single visible Nexus tab claims the invitation, even when several load together.
+  if (typeof sender?.tab?.id !== 'number' || sender.frameId > 0
+    || !NXTK.isNexusPageUrl(sender.url)) return false;
+  return enqueueStorageTask(AUTO_REPORT_PROMPT_KEY, async () => {
+    const prompt = await storageGetLocal(AUTO_REPORT_PROMPT_KEY, null);
+    const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+    if (!prompt?.pending || prompt.shown || settings?.AutoErrorReports || !NXTK.RELAY_CONFIGURED) return false;
+    await storageSetLocal(AUTO_REPORT_PROMPT_KEY, { pending: false, shown: true });
+    return true;
   });
-  return !!response?.ok;
 }
 
 function appendErrorLogEntry(entry) {
@@ -185,12 +174,14 @@ function appendErrorLogEntry(entry) {
         url: entry.url || candidate.url
       };
       await storageSetLocal(NXTK.ERROR_LOG_KEY, log);
+      await maybeAutoReport(entry).catch(() => undefined);
       return log.length;
     }
 
     log.push(entry);
     while (log.length > NXTK.MAX_LOGGED_ERRORS) log.shift();
     await storageSetLocal(NXTK.ERROR_LOG_KEY, log);
+    await maybeAutoReport(entry).catch(() => undefined);
     return log.length;
   });
 }
@@ -239,6 +230,7 @@ async function mutateHistory(payload, mutate) {
 }
 
 const STORAGE_HANDLERS = {
+  AUTO_REPORT_PROMPT_CLAIM: claimAutoReportPrompt,
   async SETTINGS_PATCH(payload) {
     const patch = payload?.patch;
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new Error('invalid-settings-patch');
@@ -256,6 +248,9 @@ const STORAGE_HANDLERS = {
       const base = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
       const next = { ...NXTK.DEFAULTS, ...base, ...normalized };
       await storageSetLocal(NXTK.SETTINGS_KEY, next);
+      if (normalized.AutoErrorReports === true) {
+        await enqueueStorageTask(AUTO_REPORT_PROMPT_KEY, () => storageSetLocal(AUTO_REPORT_PROMPT_KEY, { pending: false, shown: true }));
+      }
       return next;
     });
   },
@@ -274,7 +269,6 @@ const STORAGE_HANDLERS = {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('invalid-error-entry');
     const built = NXTK.buildErrorEntry(entry, 'background_error');
     const result = await appendErrorLogEntry(built);
-    maybeAutoReport(built).catch(() => undefined);
     return result;
   },
 
@@ -1607,6 +1601,7 @@ function recordQueueItemFailure(job, item, code, detail = '') {
   const runType = String(job?.type || 'selection');
   return appendErrorLogEntry(NXTK.buildErrorEntry({
     code: 'queue_item_failed',
+    causeCode: rootCode,
     context: `Downloading queued file ${fileId} for game ${gameId} (${rootCode}, ${runType})`,
     userMessage: 'A file in the collection queue could not be downloaded.',
     technicalMessage: [rawCode, detail, `file ${fileId}`, `game ${gameId}`, runType]
@@ -2324,13 +2319,20 @@ const NDC_QUEUE_HANDLERS = {
 
 if (chrome.storage?.onChanged) {
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes?.[NXTK.SETTINGS_KEY]) syncDownloadUi();
+    if (area === 'local' && changes?.[NXTK.SETTINGS_KEY]) {
+      syncDownloadUi();
+      if (!changes[NXTK.SETTINGS_KEY].newValue?.AutoErrorReports) autoReports.stop().catch(() => undefined);
+    }
   });
 }
 
 if (chrome.alarms?.onAlarm) {
   chrome.alarms.onAlarm.addListener((alarm) => {
     const name = String(alarm?.name || '');
+    if (name === globalThis.NXTKAutoReports.ALARM) {
+      autoReports.flush().catch(() => undefined);
+      return;
+    }
     if (name === DOWNLOAD_UI_ALARM) {
       downloadUiEnabled = null;
       syncDownloadUi();
@@ -2497,6 +2499,22 @@ function pruneAfterBoot(context) {
     .catch((cause) => recordBackgroundError(context, cause));
 }
 
+if (chrome.permissions?.onRemoved) {
+  chrome.permissions.onRemoved.addListener(() => {
+    autoReports.enabled().then(async (enabled) => {
+      if (enabled) return;
+      await autoReports.stop();
+      const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+      if (settings?.AutoErrorReports) await STORAGE_HANDLERS.SETTINGS_PATCH({ patch: { AutoErrorReports: false } });
+    }).catch(() => undefined);
+  });
+}
+autoReports.flush().catch(() => undefined);
+if (typeof globalThis.addEventListener === 'function') {
+  globalThis.addEventListener('unhandledrejection', (event) => recordBackgroundError('Unhandled background promise', event.reason));
+  globalThis.addEventListener('error', (event) => recordBackgroundError('Uncaught background exception', event.error || event.message));
+}
+
 if (chrome.runtime?.onStartup) {
   chrome.runtime.onStartup.addListener(() => { pruneAfterBoot('prune on startup'); syncDownloadUi({ immediate: true }); });
 }
@@ -2577,8 +2595,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   // The report page: preview, send, copy or open as a GitHub issue. Opened from the popup and from
   // error dialogs on Nexus pages (content scripts cannot open extension pages themselves).
+  if (msg?.type === 'OPEN_AUTO_REPORT_CONSENT') {
+    const url = chrome.runtime.getURL('report-page/consent.html');
+    chrome.tabs.create({ url }, () => {
+      const error = getRuntimeError();
+      sendResponse(error ? { ok: false, error } : { ok: true });
+    });
+    return true;
+  }
+
   if (msg?.type === 'OPEN_REPORT_PAGE') {
-    chrome.tabs.create({ url: chrome.runtime.getURL('report-page/report.html') }, () => {
+    const error = msg.error && typeof msg.error === 'object'
+      ? NXTK.buildErrorEntry({ ...msg.error, url: sender.tab ? sender.url : msg.error.url }) : null;
+    const hash = error ? `#${encodeURIComponent(JSON.stringify(error))}` : '';
+    chrome.tabs.create({ url: chrome.runtime.getURL('report-page/report.html') + hash }, () => {
       const error = getRuntimeError();
       sendResponse(error ? { ok: false, error } : { ok: true });
     });
@@ -2615,6 +2645,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 chrome.runtime.onInstalled.addListener((details) => {
   // An update or reload mid-run restarts the worker with no memory of the download-popup state.
   syncDownloadUi({ immediate: true });
+  if (details?.reason === 'update') armAutoReportPrompt().catch(() => undefined);
   if (details?.reason === 'install') {
     chrome.tabs.create({ url: chrome.runtime.getURL('onboarding/welcome.html') }, () => {
       const error = getRuntimeError();

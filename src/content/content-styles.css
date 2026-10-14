@@ -2330,3 +2330,8 @@
 .nxtk-history-stat { padding: 10px; border-radius: 10px; background: rgba(255,255,255,0.05); text-align: center; font-size: 12px; }
 .nxtk-history-stat-num { display: block; font-size: 22px; font-weight: 700; color: var(--nxtk-accent); }
 @media (max-width: 520px) { .nxtk-history-stats { grid-template-columns: 1fr; } }
+
+/* Persistent update invitation: readable copy and controls on narrow Nexus pages. */
+.nxtk-report-invitation { max-width: min(560px, calc(100vw - 32px)); flex-wrap: wrap; }
+.nxtk-report-invitation .nxtk-close-toast-copy { flex-basis: 100%; }
+.nxtk-report-invitation .nxtk-close-toast-copy span { white-space: normal; line-height: 1.5; }

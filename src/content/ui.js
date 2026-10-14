@@ -109,6 +109,47 @@ window.NexusExt = window.NexusExt || {};
     openReportIssue(issueUrl);
   }
 
+  let promptCheck = null;
+  async function showAutoReportInvitation() {
+    if (document.hidden || window.top !== window || !NXTK.RELAY_CONFIGURED || promptCheck) return;
+    promptCheck = new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ type: 'AUTO_REPORT_PROMPT_CLAIM' }, (reply) => {
+          void chrome.runtime.lastError;
+          resolve(!!reply?.ok && reply.value === true);
+        });
+      } catch (_) { resolve(false); }
+    });
+    try {
+      if (!await promptCheck) return;
+      const notice = showNotice({
+        id: 'auto-reports-invitation', ms: 0,
+        title: NXTK.t('autoPromptTitle', null, 'Help fix errors faster'),
+        detail: NXTK.t('autoPromptBody', null, 'If something goes wrong, the extension can tell the developer automatically. Only a small technical report is sent. You choose whether to turn it on.'),
+        actions: [{
+          label: NXTK.t('autoEnable', null, 'Enable automatic reports'),
+          onClick: () => {
+            chrome.runtime.sendMessage({ type: 'OPEN_AUTO_REPORT_CONSENT' }, (reply) => {
+              const failed = chrome.runtime.lastError || !reply?.ok;
+              if (failed) showStatusToast(NXTK.t('autoEnableFailed', null, 'Reports could not be enabled. Please try again.'));
+            });
+          }
+        }]
+      });
+      const root = document.querySelector('[data-notice-id="auto-reports-invitation"]');
+      root?.classList.add('nxtk-report-invitation');
+      const dismiss = root?.querySelector('button:not(.nxtk-notice-action)');
+      if (dismiss) dismiss.textContent = NXTK.t('autoNoThanks', null, 'No thanks');
+      const changed = (changes, area) => {
+        if (area === 'local' && changes[NXTK.SETTINGS_KEY]?.newValue?.AutoErrorReports) {
+          notice.dismiss();
+          chrome.storage.onChanged.removeListener(changed);
+        }
+      };
+      chrome.storage.onChanged.addListener(changed);
+    } finally { promptCheck = null; }
+  }
+
   function runUiTask(task, { context = 'Running extension action', title = 'Extension action failed' } = {}) {
     Promise.resolve()
       .then(task)
@@ -600,12 +641,12 @@ window.NexusExt = window.NexusExt || {};
         <div class="nxtk-alert-body">
           <div class="nxtk-error-message">${escapeHtml(shown.message)}</div>
           <div class="nxtk-error-recovery">${escapeHtml(shown.recovery)}</div>
-          <div class="nxtk-error-code">${escapeHtml(NXTK.t('dlgErrorId', null, 'Error ID'))}: ${escapeHtml(normalized.code)}</div>
+          <div class="nxtk-error-code">${escapeHtml(NXTK.t('dlgErrorId', null, 'Error ID'))}: ${escapeHtml(NXTK.errorReference(normalized))} · ${escapeHtml(normalized.code)}</div>
         </div>
         <div class="nxtk-modal-footer nxtk-alert-footer nxtk-error-footer">
           ${normalized.blocking
             ? `<a class="nxtk-btn nxtk-btn-secondary" href="${escapeHtml(NXTK.TROUBLESHOOTING_URL)}" target="_blank" rel="noopener noreferrer">${escapeHtml(NXTK.t('dlgWhatDoesThisMean', null, 'What does this mean?'))}</a>`
-            : `<button class="nxtk-btn nxtk-btn-secondary" type="button" data-send-report>${escapeHtml(NXTK.t('btnSendReport', null, 'Send bug report'))}</button><button class="nxtk-btn nxtk-btn-secondary" type="button" data-report>${escapeHtml(NXTK.t('dlgReportBug', null, 'Report a bug'))}</button>`}
+            : `<button class="nxtk-btn nxtk-btn-secondary" type="button" data-send-report>${escapeHtml(NXTK.t('errorAddDetails', null, 'Add details'))}</button><button class="nxtk-btn nxtk-btn-secondary" type="button" data-report>${escapeHtml(NXTK.t('dlgReportBug', null, 'Report a bug'))}</button>`}
           ${secondaryActions}
           ${primaryAction
             ? actionButton(primaryAction)
@@ -615,10 +656,11 @@ window.NexusExt = window.NexusExt || {};
 
       const reportButton = modal.querySelector('[data-report]');
       reportButton?.addEventListener('click', () => copyReportAndOpenIssue(reportButton, normalized));
-      // The report page previews the exact payload; the error is already in the log it reads.
+      // Capture this incident, rather than whichever error is newest when the report page opens.
+      const reportError = NXTK.buildErrorEntry({ ...normalized, action: NXTK.describeActivity(), url: location.href });
       modal.querySelector('[data-send-report]')?.addEventListener('click', () => {
         try {
-          chrome.runtime.sendMessage({ type: 'OPEN_REPORT_PAGE' }, () => void chrome.runtime.lastError);
+          chrome.runtime.sendMessage({ type: 'OPEN_REPORT_PAGE', error: reportError }, () => void chrome.runtime.lastError);
         } catch (_) { }
       });
       modal.querySelector('[data-login]')?.addEventListener('click', () => {
@@ -996,6 +1038,7 @@ window.NexusExt = window.NexusExt || {};
 
   window.NexusExt.UI = {
     createSettingsFAB,
+    showAutoReportInvitation,
     closeExtensionOverlays,
     cleanupOrphanedPortals: () => kit.dropdowns?.cleanupOrphanedPortals(),
     disposeControlDeck: (deck) => kit.collection?.disposeControlDeck(deck),

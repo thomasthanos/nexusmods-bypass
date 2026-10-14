@@ -213,7 +213,7 @@ async function reportContentTests() {
 
   assert.match(report, /NEXUSMODS BYPASS — BUG REPORT/);
   assert.match(report, /Extension: NexusMods Bypass v2\.6\.0/);
-  assert.match(report, /Report ID: [0-9a-z]{7} \(same fault, same ID\)/, 'a fingerprint is included');
+  assert.match(report, /Report ID: E-[0-9a-z]{7} \(same fault, same ID\)/, 'a fingerprint is included');
   assert.match(report, /──────── What went wrong ────────/, 'the digest is included');
   assert.match(report, /12 × rate_limited/, 'repeat counts are totalled in the digest');
   assert.match(report, /×12/, 'the entry itself shows its repeat count');
@@ -231,8 +231,8 @@ async function reportContentTests() {
     code: 'no_nmm_link', userMessage: 'x', context: 'Generating Vortex download link',
     stack: 'at runDownload (chrome-extension://abcdefghij/content/nnw.js:1024:7)'
   });
-  const idOf = (url) => /Report\+ID%3A\+([0-9a-z]{7})/.exec(decodeURI(url).replace(/ /g, '+'))?.[1]
-    || /Report ID: ([0-9a-z]{7})/.exec(decodeURIComponent(url))?.[1];
+  const idOf = (url) => /Report\+ID%3A\+(E-[0-9a-z]{7})/.exec(decodeURI(url).replace(/ /g, '+'))?.[1]
+    || /Report ID: (E-[0-9a-z]{7})/.exec(decodeURIComponent(url))?.[1];
   assert.ok(idOf(shapeA.url), 'the report ID reaches the URL');
   assert.equal(idOf(shapeA.url), idOf(shapeB.url), 'the same fault gets the same ID on any install');
 }

@@ -7,10 +7,10 @@
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
 
-**Last updated:** 13 September 2026
+**Last updated:** 14 October 2026
 **Publisher:** Thomas Thanos
 
-NexusMods Bypass has no analytics SDK, advertising SDK, tracking pixel, telemetry, account system, or remote data service. The published extension source is not minified or obfuscated, so these claims can be audited.
+NexusMods Bypass has no analytics SDK, advertising SDK, tracking pixel, account system, or background analytics. Optional technical error reporting is described below. The published extension source is not minified or obfuscated, so these claims can be audited.
 
 ## Data stored on your device
 
@@ -26,7 +26,7 @@ All of this data is stored in local browser extension storage.
 
 ## Network activity
 
-The extension makes only the Nexus Mods requests needed to resolve and start downloads - the same requests the browser would make when the corresponding buttons are clicked manually. Collection, mod and file details are read from Nexus Mods' documented API (`api.nexusmods.com`) with your existing Nexus session, the same way the site does; no API key is stored. Endorse and Track are sent only when you click those buttons. "Identify archives by hash" hashes your files locally and sends only the MD5 to Nexus. It does not transmit extension data to the publisher or to an analytics service, except a bug report you choose to send (below).
+The extension makes only the Nexus Mods requests needed to resolve and start downloads - the same requests the browser would make when the corresponding buttons are clicked manually. Collection, mod and file details are read from Nexus Mods' documented API (`api.nexusmods.com`) with your existing Nexus session, the same way the site does; no API key is stored. Endorse and Track are sent only when you click those buttons. "Identify archives by hash" hashes your files locally and sends only the MD5 to Nexus. It does not transmit extension data to the publisher or to an analytics service, except manual reports you choose to send and technical errors after you enable automatic reporting (below).
 
 ## Cookies
 
@@ -34,11 +34,15 @@ While **Hide ads and Premium panels** is on, the extension writes one first-part
 
 ## Bug reports
 
-The **Report a bug** action opens a GitHub issue form with recent errors, and the last few actions the extension took, included in the draft. The **Send bug report** page shows the exact JSON that would be sent - version, browser, a settings snapshot (the download folder only as "custom"/"default"), recent errors and, only if you tick it, the local debug log - and you can copy it, open a GitHub issue, or send it. Everything is redacted first: usernames, emails, cookies, tokens, file paths and URL query strings are removed.
+The **Report a bug** action opens a GitHub issue form with recent errors, and the last few actions the extension took, included in the draft. The **Add details** button on an error opens the report page for that specific incident, with a stable error reference that also appears in Discord. The **Send bug report** page shows the exact JSON that would be sent - version, browser, a settings snapshot (the download folder only as "custom"/"default"), recent errors and, only if you tick it, the local debug log - and you can copy it, open a GitHub issue, or send it. Everything is redacted first: usernames, emails, cookies, tokens, file paths and URL query strings are removed.
 
-Sending goes to the maintainer's report relay (`nexusmods-bypass-relay.mariosthanos3.workers.dev`), a Cloudflare Worker that forwards the report to a private Discord channel (and optionally email). The browser asks for that site as an optional permission the first time you send; it is never requested otherwise. The relay keeps no copy of the report itself. It stores only a per-IP rate-limit counter (about an hour) and, for automatic error reports, a fingerprint of the version, error code, status and short context (10 minutes) so the same error is forwarded once.
+Sending goes to the maintainer's report relay (`nexusmods-bypass-relay.mariosthanos3.workers.dev`), a Cloudflare Worker that forwards the report to a private Discord channel (and optionally email). The browser asks for that site as an optional permission when you first send a manual report or explicitly enable automatic reporting. The Nexus page invitation opens a small extension confirmation page: only clicking Enable on that page requests the permission and saves the setting. The relay keeps no copy of the report itself. It stores only separate per-IP rate-limit counters for manual and automatic reports (about an hour) and, for automatic error reports, a fingerprint of the version and error reference (10 minutes) so duplicate deliveries are not forwarded repeatedly. The relay receives your IP address for rate limiting; it is not forwarded to Discord. Technical reporting is not a guarantee of anonymity.
 
-**Automatic error reports** are off by default. When turned on (on the report page, which also asks for the same optional permission), new errors are sent as a minimal anonymous record - version, browser and the redacted error - at most once per 10 minutes and 10 per day. Revoking the permission or turning the setting off stops them.
+**Automatic error reports** remain off by default. After an extension update, a dismissible invitation appears once across your Nexus Mods tabs, on the first visible page loaded with the updated extension. It does not enable anything. Choosing No thanks or closing it leaves reports off; future updates do not repeat the invitation. Users who already enabled reporting are not asked again. You can also enable or disable reporting from the report page.
+
+After you enable reporting and grant the optional permission, new extension faults send a small technical record: extension version, browser name and major version, stable error reference, error code and HTTP status, redacted technical cause and action, packaged script position, page **type** (collection/mod/Nexus/extension), occurrence count and first/last observation times. No complete page URL, page content, download history, settings snapshot, account details or full stack trace is included. Ordinary conditions such as being offline, needing to sign in, cancelling a download or Nexus rate limiting stay local. Background faults and confirmed collection-download failures use the same reporting path.
+
+Distinct faults can send immediately. Repetitions are grouped per fault and sent no sooner than ten minutes after its last confirmed report. Delivery is limited to ten confirmed reports and thirty delivery attempts per UTC day. Pending diagnostics are kept locally, with a maximum of twenty distinct faults and a lifetime of 24 hours. Failed sends retry with a 15-second request timeout and increasing delays, up to six attempts; rate limiting honours Retry-After. Invalid reports are discarded. Disabling reporting or revoking the relay permission aborts the current request where possible and clears the local pending queue. Reports already delivered cannot be withdrawn by disabling the setting.
 
 ## Downloads permission
 

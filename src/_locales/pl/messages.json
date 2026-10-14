@@ -1589,10 +1589,10 @@
     "message": "Zamiast tego otwórz zgłoszenie na GitHubie"
   },
   "rpAuto": {
-    "message": "Automatycznie wysyłaj anonimowe raporty o błędach"
+    "message": "Send technical error reports automatically"
   },
   "rpAutoDesc": {
-    "message": "Domyślnie wyłączone. Po włączeniu wysyłany jest tylko kod błędu, miejsce jego wystąpienia oraz wersje rozszerzenia i przeglądarki, najwyżej dziesięć dziennie. Bez treści stron, historii i ustawień."
+    "message": "Off by default. Sends only technical errors, extension and browser versions, action and page type. Repeated errors are grouped; up to ten reports a day. No page content, history or settings. Failed sends retry automatically."
   },
   "rpSent": {
     "message": "Raport wysłany. Dziękujemy! Numer: $1"
@@ -2269,5 +2269,44 @@
         "content": "$1"
       }
     }
+  },
+  "autoPromptTitle": {
+    "message": "Help fix errors faster"
+  },
+  "autoPromptBody": {
+    "message": "If something goes wrong, the extension can tell the developer automatically. Only a small technical report is sent. You choose whether to turn it on."
+  },
+  "autoConsentIntro": {
+    "message": "If the extension fails, it can send a small technical report to the developer's private Discord channel. You will not need to report each error yourself."
+  },
+  "autoConsentData": {
+    "message": "Includes the error, extension and browser versions, action and page type. No page content, download history, settings or account details."
+  },
+  "autoConsentControl": {
+    "message": "Off until you enable it. You can turn it off at any time in Help & Bugs → Send bug report."
+  },
+  "autoConsentPermission": {
+    "message": "Your browser may ask for permission to send reports. Allow it to finish enabling this feature."
+  },
+  "autoEnable": {
+    "message": "Enable automatic reports"
+  },
+  "autoNoThanks": {
+    "message": "No thanks"
+  },
+  "autoPrivacyLink": {
+    "message": "What is shared?"
+  },
+  "autoEnabled": {
+    "message": "Automatic reports are on. Thank you for helping improve the extension."
+  },
+  "autoPermissionDenied": {
+    "message": "Reports are still off. You can try again and allow the browser permission, or close this page."
+  },
+  "autoEnableFailed": {
+    "message": "Reports could not be enabled. Please try again."
+  },
+  "errorAddDetails": {
+    "message": "Add details"
   }
 }

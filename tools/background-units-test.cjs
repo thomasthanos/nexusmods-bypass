@@ -58,32 +58,28 @@ async function debugLogAndAutoReports() {
   await context.__STORAGE_HANDLERS.DEBUG_LOG_CLEAR();
   assert.deepEqual(await context.storageGetLocal(N.DEBUG_LOG_KEY, null), []);
 
-  const sent = [];
-  const fetchImpl = async (url, init) => { sent.push({ url, body: JSON.parse(init.body), init }); return { ok: true }; };
-  const entry = N.buildErrorEntry({ code: 'request_failed', context: 'Loading x', technicalMessage: 'boom' });
-  let granted = false;
-  global.chrome.permissions = { contains: async () => granted };
-  global.chrome.runtime.getManifest = () => ({ version: '2.9.0' });
-  await context.storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
   assert.equal(N.DEFAULTS.AutoErrorReports, false, 'auto reports are off by default');
-  assert.equal(await context.maybeAutoReport(entry, { fetchImpl }), false, 'off: nothing is sent');
-  await context.storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, AutoErrorReports: true });
-  assert.equal(await context.maybeAutoReport(entry, { fetchImpl }), false, 'on but no permission: nothing is sent');
-  granted = true;
-  N.RELAY_CONFIGURED = false;
-  assert.equal(await context.maybeAutoReport(entry, { fetchImpl }), false, 'relay not deployed: nothing is sent');
-  N.RELAY_CONFIGURED = true;
-  const t0 = Date.UTC(2026, 9, 12, 10);
-  assert.equal(await context.maybeAutoReport(entry, { fetchImpl, now: t0 }), true);
-  assert.equal(sent[0].url, N.RELAY_REPORT_URL);
-  assert.equal(sent[0].body.kind, 'auto');
-  assert.equal(sent[0].init.credentials, 'omit');
-  assert.deepEqual(Object.keys(sent[0].body).sort(), ['browser', 'error', 'kind', 'schema', 'version']);
-  assert.equal(await context.maybeAutoReport(entry, { fetchImpl, now: t0 + 60000 }), false, 'ten-minute gap');
-  assert.equal(await context.maybeAutoReport(entry, { fetchImpl, now: t0 + 20 * 60000 }), false, 'same fault once a day');
-  const other = N.buildErrorEntry({ code: 'timeout', context: 'Other' });
-  assert.equal(await context.maybeAutoReport(other, { fetchImpl, now: t0 + 20 * 60000 }), true, 'a different fault is sent');
-  delete global.chrome.permissions;
+  const entry = N.buildErrorEntry({ code: 'request_failed', context: 'Loading x' });
+  assert.equal(await context.maybeAutoReport(entry), false, 'off: nothing is queued');
+  const reporter = vm.runInContext('autoReports', context);
+  const previousEnqueue = reporter.enqueue;
+  const recorded = [];
+  reporter.enqueue = async (error) => { recorded.push(error.code); return false; };
+  try {
+    await context.__STORAGE_HANDLERS.ERROR_LOG_APPEND({ entry: { code: 'nexus_api_changed' } });
+    await context.__recordQueueItemFailure({ gameId: 'skyrim', type: 'all' }, { fileId: 1 }, 'NETWORK_FAILED');
+    context.recordBackgroundError('background test', new Error('boom'));
+    await context.__writeQueues.get(N.ERROR_LOG_KEY);
+    assert.deepEqual(recorded, ['nexus_api_changed', 'queue_item_failed', 'background_error'], 'all error writers use the reporting path once');
+  } finally { reporter.enqueue = previousEnqueue; }
+  await context.armAutoReportPrompt();
+  const sender = { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/mods/1', tab: { id: 7 }, frameId: 0 };
+  const claims = await Promise.all([context.claimAutoReportPrompt({}, sender), context.claimAutoReportPrompt({}, sender)]);
+  assert.equal(claims.filter(Boolean).length, 1, 'only one tab gets the update invitation');
+  await context.armAutoReportPrompt();
+  assert.equal(await context.claimAutoReportPrompt({}, sender), false, 'later updates do not show it again');
+  assert.equal(await context.claimAutoReportPrompt({}, { ...sender, frameId: 2 }), false, 'iframes do not claim it');
+
 }
 
 // The download bubble is hidden only for runs that download in the browser, and comes back at once

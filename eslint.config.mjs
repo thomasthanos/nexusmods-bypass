@@ -15,6 +15,7 @@ export default [
         ...globals.webextensions,
         ...globals.serviceworker,
         NXTK: 'writable',
+        NXTKAutoReports: 'readonly',
         NexusExt: 'writable',
         DOWNLOAD_PARSER: 'readonly',
         module: 'readonly',

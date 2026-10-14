@@ -87,6 +87,63 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { await context?.close(); });
 
+test('automatic reports: one-time Nexus invitation and explicit browser permission', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const id = new URL(worker.url()).host;
+  await worker.evaluate(async () => {
+    await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false }, nxtk_auto_report_prompt_v1: { pending: true, shown: false } });
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('https://www.nexusmods.com/skyrimspecialedition/mods/12604');
+  const notice = page.locator('.nxtk-report-invitation');
+  await expect(notice).toBeVisible({ timeout: 30000 });
+  expect(await worker.evaluate(async () => (await globalThis.chrome.storage.local.get('nxtk_settings')).nxtk_settings.AutoErrorReports)).toBe(false);
+  await page.screenshot({ path: path.join(shotDir, 'auto-reports-invitation.png') });
+  for (const width of [853, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    await expect(notice).toBeVisible();
+    const box = await notice.boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+    await page.screenshot({ path: path.join(shotDir, `auto-reports-invitation-${width}.png`) });
+  }
+  const opened = context.waitForEvent('page');
+  await notice.locator('.nxtk-notice-action').click();
+  const consent = await opened;
+  await consent.waitForURL(`chrome-extension://${id}/report-page/consent.html`);
+  await expect(consent.locator('#enable')).toBeVisible();
+  const greek = JSON.parse(fs.readFileSync(path.join(extensionDir, '_locales/el/messages.json'), 'utf8'));
+  await consent.evaluate((messages) => {
+    globalThis.chrome.i18n.getMessage = key => messages[key]?.message || '';
+    NXTK.setForceEnglish(false); NXTK.applyI18nTo(document);
+  }, greek);
+  for (const width of [1280, 390]) {
+    await consent.setViewportSize({ width, height: 800 });
+    expect(await consent.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    await consent.screenshot({ path: path.join(shotDir, `auto-reports-consent-greek-${width}.png`), fullPage: true });
+  }
+  await consent.evaluate(() => {
+    window.requests = [];
+    globalThis.chrome.permissions.request = () => {
+      window.requests.push(navigator.userActivation.isActive);
+      return Promise.resolve(window.requests.length > 1);
+    };
+  });
+  await consent.locator('#enable').click();
+  await expect(consent.locator('#status')).toContainText('παραμένουν κλειστές');
+  expect(await worker.evaluate(async () => (await globalThis.chrome.storage.local.get('nxtk_settings')).nxtk_settings.AutoErrorReports)).toBe(false);
+  await consent.locator('#enable').click();
+  await expect(consent.locator('#status')).toContainText('ενεργοποιήθηκαν');
+  expect(await consent.evaluate(() => window.requests)).toEqual([true, true]);
+  await worker.evaluate(async () => { await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false } }); });
+  await page.reload();
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 30000 });
+  await expect(notice).toHaveCount(0);
+  await consent.close(); await page.close();
+});
+
 async function openPage(url, width, height, zoom) {
   const page = await context.newPage();
   await page.setViewportSize({ width: Math.round(width / zoom), height: Math.round(height / zoom) });

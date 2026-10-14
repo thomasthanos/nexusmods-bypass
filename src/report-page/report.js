@@ -7,6 +7,15 @@
   const $ = (id) => document.getElementById(id);
   const T = (key, fallback, subs = null) => NXTK.t(key, subs, fallback);
   let payload = null;
+  let selectedError = null;
+  try {
+    if (location.hash.length > 1 && location.hash.length < 16000) {
+      const decoded = JSON.parse(decodeURIComponent(location.hash.slice(1)));
+      if (decoded && typeof decoded === 'object' && !Array.isArray(decoded)) selectedError = NXTK.buildErrorEntry(decoded);
+      history.replaceState(null, '', location.pathname);
+    }
+  } catch (_) { }
+
   let rebuildTimer = null;
   let rebuildSequence = 0;
   let sending = false;
@@ -67,7 +76,7 @@
     const signature = JSON.stringify(options);
     // Copy, save and send use the exact reviewed snapshot until a form field changes.
     if (payload && payloadInputSignature === signature) return;
-    const next = await NXTK.buildReportPayload(null, options);
+    const next = await NXTK.buildReportPayload(selectedError, options);
     if (sequence !== rebuildSequence) return;
     payload = next;
     payloadInputSignature = signature;
@@ -81,7 +90,7 @@
     const error = payload.currentError;
     $('rpErrorContext').hidden = !error;
     $('rpNoErrors').hidden = !!error;
-    $('rpErrorCode').textContent = error?.code || '';
+    $('rpErrorCode').textContent = error ? `${payload.reference} · ${error.code}` : '';
     $('rpErrorMessage').textContent = error?.userMessage || '';
     $('rpErrorUrl').textContent = error?.url || '';
     $('rpNotePreview').hidden = !payload.summary && !payload.note;

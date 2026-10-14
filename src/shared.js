@@ -807,6 +807,60 @@
     }
   }
 
+  function reportPageType(url) {
+    const path = reportPagePath(url);
+    if (/\/collections(?:\/|$)/.test(path)) return 'collection';
+    if (/\/mods(?:\/|$)/.test(path)) return 'mod';
+    return path ? 'nexus' : 'extension';
+  }
+
+  function reportBrowserName(value) {
+    const ua = String(value || '');
+    for (const [pattern, name] of [
+      [/\bEdg(?:A|iOS)?\/(\d+)/i, 'Edge'], [/\bOPR\/(\d+)/i, 'Opera'],
+      [/\b(?:Firefox|FxiOS)\/(\d+)/i, 'Firefox'], [/\b(?:Chrome|CriOS)\/(\d+)/i, 'Chrome']
+    ]) {
+      const match = ua.match(pattern);
+      if (match) return `${name} ${match[1]}`;
+    }
+    return 'Unknown browser';
+  }
+
+  function autoDiagnosticText(value, limit = 160) {
+    return sanitizeDiagnosticText(value, 1500)
+      .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, '[link]')
+      .replace(/\b(file|game|collection|mod)\s+[^\s,()|]+/gi, '$1 [id]')
+      .replace(/\b\d+\b/g, '#')
+      .slice(0, limit);
+  }
+
+  function errorReference(error) {
+    // Keep only a packaged script and position, never a user's extension ID or Nexus URL.
+    const frame = String(error?.stack || '').match(/(?:ext:\/\/|(?:chrome|moz)-extension:\/\/[^/]+\/)([\w/.-]+\.js):(\d+):(\d+)/);
+    const signature = [String(error?.code || ''), error?.causeCode || '', error?.status || '',
+      autoDiagnosticText(error?.context), frame ? `${frame[1]}:${frame[2]}:${frame[3]}` : ''].join('|');
+    let hash = 5381;
+    for (let i = 0; i < signature.length; i += 1) hash = (((hash << 5) + hash) ^ signature.charCodeAt(i)) >>> 0;
+    return `E-${hash.toString(36).padStart(7, '0')}`;
+  }
+
+  function autoReportDetails(entry) {
+    const frame = String(entry.stack || '').match(/ext:\/\/([\w/.-]+\.js):(\d+):(\d+)/);
+    return {
+      reference: errorReference(entry),
+      severity: /uncaught|unhandled|background_error/.test(entry.code) ? 'critical' : 'error',
+      page: reportPageType(entry.url),
+      error: {
+        code: String(entry.code || 'request_failed').slice(0, 80),
+        status: Number.isInteger(entry.status) ? entry.status : null,
+        context: autoDiagnosticText(entry.context),
+        message: autoDiagnosticText(entry.technicalMessage, 300),
+        action: autoDiagnosticText(entry.action),
+        frame: frame ? `${frame[1]}:${frame[2]}:${frame[3]}` : ''
+      }
+    };
+  }
+
   // Human-readable durations and sizes for the collection deck. Units come from Intl, so every UI
   // language gets its own short forms ("7d 8h", "7 T. 8 Std.") without extra catalogue strings.
   function uiLocale() {
@@ -1145,7 +1199,8 @@
   function buildErrorEntry(error, fallbackCode = 'request_failed') {
     return {
       at: Date.now(),
-      code: String(error?.code || fallbackCode),
+      code: String(error?.code || fallbackCode).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80),
+      ...(error?.causeCode ? { causeCode: String(error.causeCode).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80) } : {}),
       status: Number.isInteger(error?.status) ? error.status : null,
       context: sanitizeDiagnosticText(error?.context, 300),
       action: sanitizeDiagnosticText(error?.action, 200),
@@ -1378,6 +1433,10 @@
     sanitizeUrlForReport,
     sanitizeDiagnosticText,
     reportPagePath,
+    reportPageType,
+    reportBrowserName,
+    autoReportDetails,
+    errorReference,
     formatEta,
     uiLocale,
     PAGE_SETTINGS_HASH,

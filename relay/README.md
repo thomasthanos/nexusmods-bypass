@@ -8,7 +8,7 @@
 
 
 A small Cloudflare Worker that receives reports from the extension's **Send bug report** page (and
-the optional, off-by-default anonymous error reports), checks them, and forwards them to a Discord
+the optional, off-by-default technical error reports), checks them, and forwards them to a Discord
 channel (and optionally e-mail). The extension never contains the webhook or any other secret.
 
 ## Current deployment
@@ -22,13 +22,17 @@ host permission. KV-backed rate limiting and auto-report dedupe use the `RATE_LI
 `wrangler.toml`. KV is eventually consistent: this shares counters across instances but does not
 provide a strict atomic limit. E-mail is not configured.
 
+## Pending update in this branch
+
+The 3.1.1 extension uses a durable opt-in queue and remains compatible with the currently deployed schema-1 relay. Deploy this branch's Worker to show the new error reference, occurrence count, observation times, redacted technical cause and packaged script position in Discord, and to separate the manual and automatic rate-limit allowances. The changes below have been tested offline; they have **not** been deployed by this change. No live Discord test message is sent by the test suites.
+
 ## What it does
 - `POST /v1/report`, JSON only, at most 64 KB, schema version 1 (see `validateReport` in `worker.js`).
-- At most 10 reports per IP per hour. With a KV namespace bound as `RATE_LIMIT` the counters are
+- At most 10 reports **of each kind** per IP per hour, so automatic reports cannot exhaust the manual allowance. With a KV namespace bound as `RATE_LIMIT` the counters are
   shared across Cloudflare's edge. Without one, a per-isolate in-memory limiter only slows down bursts.
   For a hard limit, add a Cloudflare Rate Limiting rule on the route. No Durable Object is needed.
 - Posts one compact Discord embed for automatic errors, with a plain-language explanation,
-  page/action context and a short browser name. Automatic errors have no JSON attachment.
+  page type/action context, a short browser name, an error reference shared with manual reports, occurrence count, observation times, technical cause and packaged script position. Automatic errors have no JSON attachment.
 - Manual bug reports still include the full JSON file, preserving the description, reproduction
   steps, expected result and reviewed diagnostics. Mentions are disabled for both report types.
   If Resend is configured, it also e-mails the full JSON.
@@ -77,6 +81,8 @@ The relay origin is an *optional* host permission: users are asked for it the fi
 curl -X POST "$RELAY/v1/report" -H 'content-type: application/json' \
   -d '{"schema":1,"kind":"auto","version":"2.9.0","error":{"code":"test"}}'
 ```
+`node tools/auto-reports-test.cjs` checks opt-in, retries, aggregation, limits and revocation without network access.
+`node tools/report-consent-test.cjs` checks the one-time invitation, Greek copy and explicit permission flow.
 `node tools/relay-test.mjs` runs the validation, rate-limit and Discord-formatting tests offline.
 
 <img src="../docs/assets/divider.svg" alt="" width="100%" />
