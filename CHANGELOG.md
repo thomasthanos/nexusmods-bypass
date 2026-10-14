@@ -11,13 +11,12 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
-## 3.1.1 — 2026-10-14
+## 3.1.1 — 2026-10-14 (updated ZIPs in release 3.1.0)
 
-- Offer automatic technical error reports once on Nexus Mods after an update. Reports stay off until the user explicitly enables them with one click in the page. Ordinary CORS removes the extra relay host permission and confirmation page. The invitation includes Greek and English copy, screen-reader labels, large buttons and keyboard support.
-- Route background faults and confirmed collection-download failures through the same report queue. Capture extension promise rejections while leaving ordinary Nexus and user conditions local.
-- Persist pending reports before delivery, retry failed sends with timeouts/backoff, group repetitions per fault, and send distinct faults immediately within daily limits. Opting out clears pending reports and aborts delivery where possible.
-- Add a stable error reference to automatic reports, error dialogs and manual diagnostics. Add details opens the selected incident instead of whichever error happened most recently.
-- Prepare richer Discord embeds with technical cause, script position, counts and observation times; keep manual JSON attachments and separate manual/automatic rate limits. The relay changes require a separate Worker deployment.
+- **One-click technical reports:** a one-time invitation on Nexus Mods lets users opt in directly, without an extra browser permission. No thanks, Escape or no action keeps reports off. Greek/English copy, keyboard and screen-reader support, larger controls and scrolling improve accessibility.
+- **Reliable error delivery:** background and collection failures join the same persistent queue, with timeouts, retries and grouped repetitions. Distinct new faults can send immediately within daily limits; ordinary login/offline/cancellation/rate-limit conditions stay local. Opting out clears pending reports.
+- **Selected-incident reports:** Add details opens the error the user selected, with a stable reference shared by the dialog and diagnostics; manual reports retain their reviewed JSON attachment.
+- **Existing release refreshed:** both browser ZIPs are replaced in the 3.1.0 release with extension version 3.1.1. Build/package checks and the full Chromium CI suite passed. Richer Discord embeds and separate relay limits remain pending a Cloudflare Worker deployment.
 
 ## 2026-10-13 — v3.1.0
 
