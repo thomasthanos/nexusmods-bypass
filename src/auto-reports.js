@@ -29,9 +29,7 @@
     async enabled() {
       if (!this.kit.RELAY_CONFIGURED) return false;
       const settings = await this.read(this.kit.SETTINGS_KEY, null);
-      if (!settings?.AutoErrorReports) return false;
-      try { return !!await this.api.permissions.contains(this.kit.RELAY_PERMISSION); }
-      catch (_) { return false; }
+      return settings?.AutoErrorReports === true;
     }
 
     async state() {
@@ -139,7 +137,7 @@
           let result;
           try {
             response = await this.fetchImpl(this.kit.RELAY_REPORT_URL, {
-              method: 'POST', headers: { 'content-type': 'application/json' },
+              method: 'POST', mode: 'cors', headers: { 'content-type': 'application/json' },
               body: JSON.stringify(attempt.payload), credentials: 'omit', signal: controller.signal
             });
             if (response?.ok) result = await response.json();

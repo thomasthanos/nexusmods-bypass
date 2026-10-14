@@ -87,7 +87,6 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 | `scripting` | Injecting the extension's packaged UI on Nexus pages as needed. |
 | `alarms` | Pacing the background queue. |
 | `https://www.nexusmods.com/*` | The only site the extension operates on. |
-| `https://nexusmods-bypass-relay.mariosthanos3.workers.dev/*` (optional) | Requested when you first send a report or enable automatic reporting; delivers it to the maintainer via the [report relay](relay/README.md). |
 </details>
 
 <a id="bugs"></a>
@@ -96,7 +95,7 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 
 - **Send bug report** (popup → Help & Bugs, or **Add details** on an error): describe it, review the redacted JSON, then send through the [relay](relay/README.md), save/copy it, or open a prefilled [GitHub issue](https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose).
 - **Debug log** (Help & Bugs → Debug log): opt-in live log with filters, search and export.
-- **Automatic error reports**: off by default. A one-time invitation on Nexus Mods after an update lets you opt in. New extension faults send minimal technical diagnostics; repeated faults are grouped, failed sends retry, and you can switch reporting off at any time.
+- **Automatic error reports**: off by default. A one-time, keyboard-accessible invitation on Nexus Mods after an update lets you opt in with one click, without another browser permission. New extension faults send minimal technical diagnostics; repeated faults are grouped, failed sends retry, and you can switch reporting off at any time.
 </details>
 
 <a name="troubleshooting"></a>

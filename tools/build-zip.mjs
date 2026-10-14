@@ -320,8 +320,8 @@ const EXPECTED_PERMISSIONS = ['storage', 'downloads', 'downloads.ui', 'scripting
 // Chromium-only: Firefox has no downloads.setUiOptions and rejects the unknown permission.
 const CHROME_ONLY_PERMISSIONS = ['downloads.ui'];
 const EXPECTED_HOST_PERMISSIONS = ['https://www.nexusmods.com/*'];
-// Asked for only when the user sends a report or turns on automatic error reports (relay/README.md).
-const EXPECTED_OPTIONAL_HOST_PERMISSIONS = ['https://nexusmods-bypass-relay.mariosthanos3.workers.dev/*'];
+// Reports use ordinary CORS, without additional host permissions.
+const EXPECTED_OPTIONAL_HOST_PERMISSIONS = [];
 
 function assertPermissions(source) {
   const same = (actual, expected) => JSON.stringify([...(actual || [])].sort()) === JSON.stringify([...expected].sort());

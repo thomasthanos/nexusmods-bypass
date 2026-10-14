@@ -1,5 +1,5 @@
 // The report page: builds the exact payload, shows it, and sends it only on an explicit click. The
-// relay origin is an optional host permission requested here, inside that click, the first time.
+// relay accepts standard CORS requests, so sending needs no additional host permission.
 // Before sending, the relay's health is checked; any failure names its cause and offers a retry
 // (when retrying can help) and a prefilled GitHub issue with the full JSON on the clipboard.
 (function () {
@@ -136,51 +136,17 @@
     return true;
   }
 
-  // Known grant state, refreshed at load and whenever the permission changes, so the click handler
-  // never has to await anything before chrome.permissions.request.
-  let relayGranted = false;
-  function refreshRelayGrant() {
-    try {
-      chrome.permissions.contains(NXTK.RELAY_PERMISSION, (granted) => { void chrome.runtime.lastError; relayGranted = !!granted; });
-    } catch (_) {
-    }
-  }
-
-  // Must run synchronously inside the click/submit handler: Chrome and especially Firefox only show
-  // the prompt while the user gesture is still active, and any await before request() loses it.
-  function requestRelayPermissionNow() {
-    if (relayGranted) return Promise.resolve(true);
-    try {
-      // A plain (unfrozen) copy: some browsers' bindings reject frozen arrays.
-      return Promise.resolve(chrome.permissions.request({ origins: [...NXTK.RELAY_PERMISSION.origins] }))
-        .then((granted) => {
-          relayGranted = !!granted;
-          if (!granted) NXTK.queueDebugEntry?.('warn', 'Relay permission request returned false (dismissed, or no prompt shown)');
-          return relayGranted;
-        }, (cause) => {
-          // e.g. "Only permissions specified in the manifest may be requested" on a stale build.
-          NXTK.queueDebugEntry?.('error', `Relay permission request failed: ${String(cause?.message || cause).slice(0, 160)}`);
-          return false;
-        });
-    } catch (cause) {
-      NXTK.queueDebugEntry?.('error', `Relay permission request threw: ${String(cause?.message || cause).slice(0, 160)}`);
-      return Promise.resolve(false);
-    }
-  }
-
   function send() {
     if (sending || sent || !validate()) return undefined;
     if (!NXTK.RELAY_CONFIGURED) { showFailure('not_configured'); return undefined; }
-    return deliver(requestRelayPermissionNow());
+    return deliver();
   }
 
-  async function deliver(permission) {
+  async function deliver() {
     clearTimeout(rebuildTimer);
     setBusy(true);
     hideFailure();
     try {
-      // Requested synchronously in send(), while the click still counts as a user gesture.
-      if (!await permission) { showFailure('permission'); return; }
       status(T('rpChecking', 'Checking the report server…'));
       const health = await NXTK.checkRelayHealth();
       if (!health.ok) { showFailure(health.reason); return; }
@@ -270,12 +236,6 @@
     $('rpAuto').checked = NXTK.RELAY_CONFIGURED && !!stored?.[NXTK.SETTINGS_KEY]?.AutoErrorReports;
     $('rpAuto').addEventListener('change', async (event) => {
       const enabled = event.target.checked;
-      const permission = enabled ? requestRelayPermissionNow() : Promise.resolve(true);
-      if (!await permission) {
-        event.target.checked = false;
-        status(failureText('permission'), 'error');
-        return;
-      }
       event.target.disabled = true;
       try {
         const reply = await chrome.runtime.sendMessage({ type: 'SETTINGS_PATCH', payload: { patch: { AutoErrorReports: enabled } } });
@@ -294,9 +254,6 @@
     document.documentElement.lang = chrome.i18n.getUILanguage();
     $('rpVersion').textContent = `v${chrome.runtime.getManifest().version}`;
     applyRelayState();
-    refreshRelayGrant();
-    chrome.permissions.onAdded?.addListener(refreshRelayGrant);
-    chrome.permissions.onRemoved?.addListener(refreshRelayGrant);
     $('rpForm').addEventListener('submit', (event) => { event.preventDefault(); send(); });
     $('rpRetry').addEventListener('click', () => send());
     $('rpCopy').addEventListener('click', () => copy().catch(() => undefined));

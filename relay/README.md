@@ -17,8 +17,9 @@ Updated on 2026-10-13 at https://nexusmods-bypass-relay.mariosthanos3.workers.de
 The Discord destination is stored as the Cloudflare Worker secret `DISCORD_WEBHOOK_URL`.
 The live health check returned `ok: true, configured: true`. Initial Discord delivery was verified
 on 2026-10-12; no Discord test message was sent for the compact-embed update.
-`RELAY_CONFIGURED` is enabled in the extension. The first send still asks for the optional relay
-host permission. KV-backed rate limiting and auto-report dedupe use the `RATE_LIMIT` binding in
+`RELAY_CONFIGURED` is enabled in the extension. The deployed Worker already allows extension
+origins through CORS. The 3.1.1 extension uses those ordinary CORS requests without asking for a relay
+host permission; earlier releases request the optional permission. KV-backed rate limiting and auto-report dedupe use the `RATE_LIMIT` binding in
 `wrangler.toml`. KV is eventually consistent: this shares counters across instances but does not
 provide a strict atomic limit. E-mail is not configured.
 
@@ -56,9 +57,7 @@ npx wrangler deploy
 ```
 `wrangler deploy` prints the Worker URL, for example
 `https://nexusmods-bypass-relay.<your-subdomain>.workers.dev`. If it differs from the one in the
-extension, update **both**:
-- `RELAY_ORIGIN` in `src/shared.js`
-- `optional_host_permissions` in `src/manifest.json`
+extension, update `RELAY_ORIGIN` in `src/shared.js`. The manifest needs no relay host permission.
 
 Then check it and build the extension with the relay switched on:
 ```sh
@@ -71,10 +70,12 @@ GitHub issue (with the full JSON on the clipboard) instead of failing on click, 
 reports stay off.
 
 `GET /v1/health` answers `{ ok, configured }`; the report page calls it before every send so a failure
-names its cause (not configured, unreachable, rate limited, permission denied, too large, server error).
+names its cause (not configured, unreachable, rate limited, too large, server error).
 
-The relay origin is an *optional* host permission: users are asked for it the first time they press
-**Send report**, so updating the extension never shows a new permission warning.
+The extension requests no additional host permission for the relay. Requests use `mode: cors`
+and `credentials: omit`; the Worker replies to the extension origin and the JSON preflight. Missing
+or incorrect CORS headers fail delivery and leave automatic reports in the bounded retry queue.
+This removes a browser access prompt, while automatic reporting still requires the user to opt in.
 
 ## Test
 ```sh
@@ -82,7 +83,7 @@ curl -X POST "$RELAY/v1/report" -H 'content-type: application/json' \
   -d '{"schema":1,"kind":"auto","version":"2.9.0","error":{"code":"test"}}'
 ```
 `node tools/auto-reports-test.cjs` checks opt-in, retries, aggregation, limits and revocation without network access.
-`node tools/report-consent-test.cjs` checks the one-time invitation, Greek copy and explicit permission flow.
+`node tools/report-consent-test.cjs` checks the one-time invitation, Greek copy, keyboard accessibility and explicit opt-in without an access prompt.
 `node tools/relay-test.mjs` runs the validation, rate-limit and Discord-formatting tests offline.
 
 <img src="../docs/assets/divider.svg" alt="" width="100%" />

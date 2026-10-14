@@ -995,10 +995,8 @@
     return base.href;
   }
 
-  // Bug-report relay (relay/ in the repository). The extension holds no secret: the relay owns the
-  // Discord webhook. Its origin is an optional host permission, asked for the first time a report is
-  // sent, so installing this version adds no permission warning. Change RELAY_ORIGIN together with
-  // optional_host_permissions in manifest.json when the Worker is deployed elsewhere.
+  // The relay allows extension origins through standard CORS. Reporting is opt-in and requires
+  // no extra host permission or permission prompt. Secrets stay in the relay.
   const RELAY_ORIGIN = 'https://nexusmods-bypass-relay.mariosthanos3.workers.dev';
   // The deployed Worker is configured and has passed the live health and report-delivery checks.
   // Builds can override this with NXTK_RELAY_CONFIGURED=1/0 (tools/build-zip.mjs). While false,
@@ -1006,7 +1004,6 @@
   const RELAY_CONFIGURED = true;
   const RELAY_REPORT_URL = `${RELAY_ORIGIN}/v1/report`;
   const RELAY_HEALTH_URL = `${RELAY_ORIGIN}/v1/health`;
-  const RELAY_PERMISSION = Object.freeze({ origins: [`${RELAY_ORIGIN}/*`] });
   const REPORT_SCHEMA_VERSION = 1;
   const MAX_REPORT_BYTES = 60 * 1024;
 
@@ -1449,7 +1446,6 @@
     RELAY_CONFIGURED,
     RELAY_HEALTH_URL,
     RELAY_REPORT_URL,
-    RELAY_PERMISSION,
     REPORT_SCHEMA_VERSION,
     MAX_REPORT_BYTES,
     DEBUG_LOG_KEY,

@@ -10,7 +10,6 @@ function fixture() {
   const { Reporter, KEY, WINDOW } = context.NXTKAutoReports;
   const store = { [kit.SETTINGS_KEY]: { AutoErrorReports: false } };
   let now = Date.UTC(2026, 9, 14, 12);
-  let granted = false;
   let delivery = async () => ({ ok: true, status: 200, json: async () => ({ ok: true }) });
   const sent = [];
   const alarms = [];
@@ -18,7 +17,7 @@ function fixture() {
     kit, read: async (key, fallback) => structuredClone(store[key] ?? fallback),
     write: async (key, value) => { store[key] = structuredClone(value); }, clock: () => now,
     api: {
-      permissions: { contains: async () => granted }, runtime: { getManifest: () => ({ version: '3.1.1' }) },
+      runtime: { getManifest: () => ({ version: '3.1.1' }) },
       alarms: { create: async (name, value) => { alarms.push({ name, ...value }); }, clear: async () => {} }
     },
     fetchImpl: async (url, init) => { sent.push({ url, payload: JSON.parse(init.body), init }); return delivery(url, init); }
@@ -26,8 +25,8 @@ function fixture() {
   let reporter = new Reporter(deps);
   return {
     kit, KEY, WINDOW, store, sent, alarms, get reporter() { return reporter; },
-    enable: () => { store[kit.SETTINGS_KEY].AutoErrorReports = true; granted = true; },
-    grant: (value) => { granted = value; }, disable: () => { store[kit.SETTINGS_KEY].AutoErrorReports = false; },
+    enable: () => { store[kit.SETTINGS_KEY].AutoErrorReports = true; },
+    disable: () => { store[kit.SETTINGS_KEY].AutoErrorReports = false; },
     advance: (ms) => { now += ms; }, delivery: (fn) => { delivery = fn; }, restart: () => { reporter = new Reporter(deps); },
     entry: (overrides = {}) => kit.buildErrorEntry({ code: 'nexus_api_changed', context: 'Reading collection response', ...overrides })
   };
@@ -37,9 +36,8 @@ async function run() {
   {
     const f = fixture();
     assert.equal(await f.reporter.enqueue(f.entry()), false);
-    f.enable(); f.grant(false);
-    assert.equal(await f.reporter.enqueue(f.entry()), false, 'no host permission, no reports');
-    f.grant(true);
+    f.enable();
+    assert.equal(await f.reporter.enabled(), true, 'opt-in is enough: no permissions API is required');
     for (const code of ['offline', 'aborted', 'requires_login', 'rate_limited', 'context_invalid']) {
       assert.equal(await f.reporter.enqueue(f.entry({ code })), false, `${code} stays local`);
     }
@@ -126,8 +124,8 @@ async function run() {
     f.delivery(async () => ({ ok: true, json: async () => ({ ok: false }) }));
     await f.reporter.enqueue(f.entry()); await f.reporter.flush();
     assert.equal(f.store[f.KEY].count, 0, 'HTTP 200 without acknowledgement is not delivered');
-    f.grant(false); await f.reporter.flush();
-    assert.deepEqual(f.store[f.KEY], {}, 'permission revocation discards pending reports');
+    f.disable(); await f.reporter.flush();
+    assert.deepEqual(f.store[f.KEY], {}, 'opt-out discards pending reports');
   }
   {
     const f = fixture(); f.enable();
@@ -165,6 +163,6 @@ async function run() {
     assert.equal(f.sent[0].payload.error.frame, 'content/ndc.js:42:5');
     assert.equal(f.kit.errorReference(raw), f.kit.errorReference(f.entry({ ...raw, context: 'Downloading queued file 456 for game fallout' })), 'identifiers do not fragment the same fault');
   }
-  console.log('Auto-report tests passed: opt-in, durable retries, aggregation, caps, revocation and redaction.');
+  console.log('Auto-report tests passed: opt-in, durable retries, aggregation, caps, opt-out and redaction.');
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; });

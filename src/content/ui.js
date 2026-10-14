@@ -125,21 +125,62 @@ window.NexusExt = window.NexusExt || {};
       const notice = showNotice({
         id: 'auto-reports-invitation', ms: 0,
         title: NXTK.t('autoPromptTitle', null, 'Help fix errors faster'),
-        detail: NXTK.t('autoPromptBody', null, 'If something goes wrong, the extension can tell the developer automatically. Only a small technical report is sent. You choose whether to turn it on.'),
+        detail: NXTK.t('autoPromptBody', null, "If the extension fails, it can send a small technical report to the developer's private Discord channel. No page content, download history or settings is sent. Reports stay off unless you enable them; you can turn them off in Help & Bugs."),
         actions: [{
           label: NXTK.t('autoEnable', null, 'Enable automatic reports'),
           onClick: () => {
-            chrome.runtime.sendMessage({ type: 'OPEN_AUTO_REPORT_CONSENT' }, (reply) => {
-              const failed = chrome.runtime.lastError || !reply?.ok;
-              if (failed) showStatusToast(NXTK.t('autoEnableFailed', null, 'Reports could not be enabled. Please try again.'));
+            if (dismiss) dismiss.disabled = true;
+            return new Promise((resolve) => {
+              try {
+                chrome.runtime.sendMessage({ type: 'SETTINGS_PATCH', payload: { patch: { AutoErrorReports: true } } }, (reply) => {
+                  const failed = chrome.runtime.lastError || !reply?.ok;
+                  if (dismiss) dismiss.disabled = false;
+                  if (failed) {
+                    feedback.textContent = NXTK.t('autoEnableFailed', null, 'Reports could not be enabled. Please try again.');
+                    resolve(false);
+                  } else {
+                    showStatusToast(NXTK.t('autoEnabled', null, 'Automatic reports are on. Thank you for helping improve the extension.'));
+                    if (root?.contains(document.activeElement)) document.getElementById('nxtk-settings-fab')?.focus();
+                    resolve(true);
+                  }
+                });
+              } catch (_) {
+                if (dismiss) dismiss.disabled = false;
+                feedback.textContent = NXTK.t('autoEnableFailed', null, 'Reports could not be enabled. Please try again.');
+                resolve(false);
+              }
             });
           }
         }]
       });
       const root = document.querySelector('[data-notice-id="auto-reports-invitation"]');
       root?.classList.add('nxtk-report-invitation');
+      root?.setAttribute('role', 'region');
+      root?.setAttribute('aria-labelledby', 'nxtk-report-invitation-title');
+      root?.setAttribute('aria-describedby', 'nxtk-report-invitation-description');
+      const heading = root?.querySelector('.nxtk-close-toast-copy strong');
+      if (heading) heading.id = 'nxtk-report-invitation-title';
+      const body = root?.querySelector('.nxtk-close-toast-copy span');
+      if (body) body.id = 'nxtk-report-invitation-description';
+      const feedback = document.createElement('span');
+      feedback.className = 'nxtk-report-invitation-feedback';
+      feedback.setAttribute('role', 'alert');
+      root?.querySelector('.nxtk-close-toast-copy')?.appendChild(feedback);
+      const privacy = document.createElement('a');
+      privacy.className = 'nxtk-report-invitation-privacy';
+      privacy.href = 'https://github.com/thomasthanos/nexusmods-bypass/blob/main/PRIVACY.md';
+      privacy.target = '_blank';
+      privacy.rel = 'noopener noreferrer';
+      privacy.textContent = NXTK.t('autoPrivacyLink', null, 'What is shared?');
+      root?.querySelector('.nxtk-close-toast-copy')?.appendChild(privacy);
       const dismiss = root?.querySelector('button:not(.nxtk-notice-action)');
       if (dismiss) dismiss.textContent = NXTK.t('autoNoThanks', null, 'No thanks');
+      root?.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !dismiss?.disabled) {
+          notice.dismiss();
+          document.getElementById('nxtk-settings-fab')?.focus();
+        }
+      });
       const changed = (changes, area) => {
         if (area === 'local' && changes[NXTK.SETTINGS_KEY]?.newValue?.AutoErrorReports) {
           notice.dismiss();
@@ -859,8 +900,15 @@ window.NexusExt = window.NexusExt || {};
         el.type = 'button';
       }
       el.addEventListener('click', () => {
-        try { action.onClick?.(); } catch (_) { }
-        remove();
+        try {
+          const result = action.onClick?.();
+          if (result && typeof result.then === 'function') {
+            el.disabled = true;
+            el.setAttribute('aria-busy', 'true');
+            Promise.resolve(result).then((done) => { if (done !== false) remove(); })
+              .catch(() => undefined).finally(() => { el.disabled = false; el.removeAttribute('aria-busy'); });
+          } else if (result !== false) remove();
+        } catch (_) { }
       });
       return el;
     });

@@ -2332,6 +2332,11 @@
 @media (max-width: 520px) { .nxtk-history-stats { grid-template-columns: 1fr; } }
 
 /* Persistent update invitation: readable copy and controls on narrow Nexus pages. */
-.nxtk-report-invitation { max-width: min(560px, calc(100vw - 32px)); flex-wrap: wrap; }
+.nxtk-report-invitation { max-width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 110px); overflow: auto; flex-wrap: wrap; }
 .nxtk-report-invitation .nxtk-close-toast-copy { flex-basis: 100%; }
 .nxtk-report-invitation .nxtk-close-toast-copy span { white-space: normal; line-height: 1.5; }
+.nxtk-report-invitation button { min-height: 44px; }
+.nxtk-report-invitation .nxtk-btn-primary { color: #17120c; text-shadow: none; }
+.nxtk-report-invitation button:focus-visible, .nxtk-report-invitation a:focus-visible { outline: 3px solid #f8f8fc; outline-offset: 3px; }
+.nxtk-report-invitation .nxtk-report-invitation-privacy { display: inline-flex; align-items: center; min-height: 28px; color: var(--nxtk-text); text-decoration: underline; margin-top: 6px; }
+.nxtk-report-invitation-feedback:not(:empty) { color: var(--nxtk-error, #ffb4ab); margin-top: 8px; }

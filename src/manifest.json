@@ -15,9 +15,6 @@
   "host_permissions": [
     "https://www.nexusmods.com/*"
   ],
-  "optional_host_permissions": [
-    "https://nexusmods-bypass-relay.mariosthanos3.workers.dev/*"
-  ],
   "background": {
     "service_worker": "background.js"
   },

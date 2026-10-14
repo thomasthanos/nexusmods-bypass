@@ -13,7 +13,7 @@ the repository before NexusMods Bypass was split out (2026-08-24) are folded int
 
 ## 3.1.1 — 2026-10-14
 
-- Offer automatic technical error reports once on Nexus Mods after an update. Reports stay off until the user explicitly enables them and grants the browser permission; the invitation and confirmation include Greek and English copy.
+- Offer automatic technical error reports once on Nexus Mods after an update. Reports stay off until the user explicitly enables them with one click in the page. Ordinary CORS removes the extra relay host permission and confirmation page. The invitation includes Greek and English copy, screen-reader labels, large buttons and keyboard support.
 - Route background faults and confirmed collection-download failures through the same report queue. Capture extension promise rejections while leaving ordinary Nexus and user conditions local.
 - Persist pending reports before delivery, retry failed sends with timeouts/backoff, group repetitions per fault, and send distinct faults immediately within daily limits. Opting out clears pending reports and aborts delivery where possible.
 - Add a stable error reference to automatic reports, error dialogs and manual diagnostics. Add details opens the selected incident instead of whichever error happened most recently.

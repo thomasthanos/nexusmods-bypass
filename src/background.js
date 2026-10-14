@@ -2499,16 +2499,6 @@ function pruneAfterBoot(context) {
     .catch((cause) => recordBackgroundError(context, cause));
 }
 
-if (chrome.permissions?.onRemoved) {
-  chrome.permissions.onRemoved.addListener(() => {
-    autoReports.enabled().then(async (enabled) => {
-      if (enabled) return;
-      await autoReports.stop();
-      const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-      if (settings?.AutoErrorReports) await STORAGE_HANDLERS.SETTINGS_PATCH({ patch: { AutoErrorReports: false } });
-    }).catch(() => undefined);
-  });
-}
 autoReports.flush().catch(() => undefined);
 if (typeof globalThis.addEventListener === 'function') {
   globalThis.addEventListener('unhandledrejection', (event) => recordBackgroundError('Unhandled background promise', event.reason));
@@ -2595,15 +2585,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   // The report page: preview, send, copy or open as a GitHub issue. Opened from the popup and from
   // error dialogs on Nexus pages (content scripts cannot open extension pages themselves).
-  if (msg?.type === 'OPEN_AUTO_REPORT_CONSENT') {
-    const url = chrome.runtime.getURL('report-page/consent.html');
-    chrome.tabs.create({ url }, () => {
-      const error = getRuntimeError();
-      sendResponse(error ? { ok: false, error } : { ok: true });
-    });
-    return true;
-  }
-
   if (msg?.type === 'OPEN_REPORT_PAGE') {
     const error = msg.error && typeof msg.error === 'object'
       ? NXTK.buildErrorEntry({ ...msg.error, url: sender.tab ? sender.url : msg.error.url }) : null;

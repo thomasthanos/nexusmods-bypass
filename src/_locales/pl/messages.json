@@ -2274,19 +2274,7 @@
     "message": "Help fix errors faster"
   },
   "autoPromptBody": {
-    "message": "If something goes wrong, the extension can tell the developer automatically. Only a small technical report is sent. You choose whether to turn it on."
-  },
-  "autoConsentIntro": {
-    "message": "If the extension fails, it can send a small technical report to the developer's private Discord channel. You will not need to report each error yourself."
-  },
-  "autoConsentData": {
-    "message": "Includes the error, extension and browser versions, action and page type. No page content, download history, settings or account details."
-  },
-  "autoConsentControl": {
-    "message": "Off until you enable it. You can turn it off at any time in Help & Bugs → Send bug report."
-  },
-  "autoConsentPermission": {
-    "message": "Your browser may ask for permission to send reports. Allow it to finish enabling this feature."
+    "message": "If the extension fails, it can send a small technical report to the developer's private Discord channel. No page content, download history or settings is sent. Reports stay off unless you enable them; you can turn them off in Help & Bugs."
   },
   "autoEnable": {
     "message": "Enable automatic reports"
@@ -2299,9 +2287,6 @@
   },
   "autoEnabled": {
     "message": "Automatic reports are on. Thank you for helping improve the extension."
-  },
-  "autoPermissionDenied": {
-    "message": "Reports are still off. You can try again and allow the browser permission, or close this page."
   },
   "autoEnableFailed": {
     "message": "Reports could not be enabled. Please try again."

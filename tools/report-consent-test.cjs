@@ -20,7 +20,6 @@ function fixture(html = '<!doctype html><body></body>', url = 'https://www.nexus
   const sent = [];
   const changes = [];
   let claims = 0;
-  let permission = false;
   let failSave = false;
   const callbackOrPromise = (callback, value) => callback ? callback(value) : Promise.resolve(value);
   w.chrome = {
@@ -40,12 +39,11 @@ function fixture(html = '<!doctype html><body></body>', url = 'https://www.nexus
       get: (key, callback) => callbackOrPromise(callback, { [key]: store[key] }),
       set: (data, callback) => { Object.assign(store, data); return callbackOrPromise(callback); }
     }, onChanged: { addListener: (fn) => changes.push(fn), removeListener: (fn) => { const i = changes.indexOf(fn); if (i >= 0) changes.splice(i, 1); } } },
-    permissions: { contains: (_data, callback) => callbackOrPromise(callback, permission), request: () => Promise.resolve(permission) },
     tabs: { getCurrent: (callback) => callback({ id: 1 }), remove: () => {} },
     i18n: { getMessage: (key) => (locale === 'el' ? greek[key] : english[key])?.message || '', getUILanguage: () => locale }
   };
   script(w, 'src/shared.js');
-  return { w, store, sent, changes, permission: (value) => { permission = value; }, failSave: (value) => { failSave = value; }, close: () => { observers.forEach((o) => o.disconnect()); dom.window.close(); } };
+  return { w, store, sent, changes, failSave: (value) => { failSave = value; }, close: () => { observers.forEach((o) => o.disconnect()); dom.window.close(); } };
 }
 
 async function run() {
@@ -59,7 +57,7 @@ async function run() {
     Object.defineProperty(f.w.document, 'hidden', { configurable: true, value: false });
     await Promise.all([show(), show()]);
     assert.equal(f.w.document.querySelectorAll('.nxtk-report-invitation').length, 1);
-    assert.match(f.w.document.querySelector('.nxtk-report-invitation').textContent, /You choose/);
+    assert.match(f.w.document.querySelector('.nxtk-report-invitation').textContent, /stay off unless/);
     assert.equal(f.store.nxtk_settings?.AutoErrorReports, undefined, 'displaying invitation never enables reports');
     f.w.document.querySelector('.nxtk-report-invitation button:not(.nxtk-notice-action)').click();
     await show();
@@ -67,30 +65,32 @@ async function run() {
     f.close();
   }
   {
-    const f = fixture(); script(f.w, 'src/content/ui.js');
+    const f = fixture(undefined, undefined, 'el'); script(f.w, 'src/content/ui.js');
     await f.w.NexusExt.UI.showAutoReportInvitation();
-    f.w.document.querySelector('.nxtk-notice-action').click();
-    assert.equal(f.sent.at(-1).type, 'OPEN_AUTO_REPORT_CONSENT');
-    assert.equal(f.store.nxtk_settings?.AutoErrorReports, undefined, 'opening confirmation is not consent');
+    const root = f.w.document.querySelector('.nxtk-report-invitation');
+    assert.match(root.textContent, /ιδιωτικό Discord/);
+    assert.equal(root.getAttribute('role'), 'region');
+    assert.ok(f.w.document.getElementById(root.getAttribute('aria-labelledby')));
+    assert.ok(f.w.document.getElementById(root.getAttribute('aria-describedby')));
+    const enable = root.querySelector('.nxtk-notice-action');
+    f.failSave(true); enable.click(); await tick();
+    assert.notEqual(f.store.nxtk_settings?.AutoErrorReports, true, 'a failed write leaves reporting off');
+    assert.ok(!root.classList.contains('is-leaving'), 'a failed save keeps the invitation available');
+    assert.match(root.querySelector('[role="alert"]').textContent, /Δοκίμασε ξανά/);
+    f.failSave(false); enable.click(); await tick();
+    assert.equal(f.store.nxtk_settings.AutoErrorReports, true, 'one in-page click enables reports without another permission');
+    assert.equal(f.sent.filter(m => m.type === 'SETTINGS_PATCH').length, 2);
+    assert.equal(f.sent.some(m => m.type === 'OPEN_AUTO_REPORT_CONSENT'), false, 'no extra page opens');
+    assert.match(f.w.document.querySelector('.nxtk-status-toast').textContent, /ενεργοποιήθηκαν/);
     f.close();
   }
   {
-    const f = fixture(fs.readFileSync('src/report-page/consent.html', 'utf8'), 'https://extension.test/report-page/consent.html', 'el');
-    script(f.w, 'src/report-page/consent.js'); await tick();
-    assert.match(f.w.document.querySelector('h1').textContent, /Βοήθησε/);
-    f.w.document.getElementById('enable').click(); await tick();
-    assert.equal(f.sent.filter((m) => m.type === 'SETTINGS_PATCH').length, 0, 'denied permission does not enable');
-    assert.match(f.w.document.getElementById('status').textContent, /παραμένουν κλειστές/);
-    f.permission(true); f.failSave(true);
-    f.w.document.getElementById('enable').click(); await tick();
-    assert.notEqual(f.store.nxtk_settings?.AutoErrorReports, true, 'a rejected settings write remains off');
-    f.failSave(false);
-    let inClick = false;
-    f.w.chrome.permissions.request = () => { assert.ok(inClick, 'permission request must happen during the actual click'); return Promise.resolve(true); };
-    inClick = true; f.w.document.getElementById('enable').click(); inClick = false; await tick();
-    assert.equal(f.store.nxtk_settings.AutoErrorReports, true);
-    assert.equal(f.w.document.getElementById('enable').hidden, true);
-    assert.match(f.w.document.getElementById('status').textContent, /ενεργοποιήθηκαν/);
+    const f = fixture(); script(f.w, 'src/content/ui.js');
+    await f.w.NexusExt.UI.showAutoReportInvitation();
+    const enable = f.w.document.querySelector('.nxtk-notice-action');
+    enable.focus(); enable.dispatchEvent(new f.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.ok(f.w.document.querySelector('.nxtk-report-invitation').classList.contains('is-leaving'));
+    assert.equal(f.sent.some(m => m.type === 'SETTINGS_PATCH'), false, 'Escape dismisses without consenting');
     f.close();
   }
   {
@@ -117,6 +117,6 @@ async function run() {
     assert.match(f.w.document.getElementById('rpErrorCode').textContent, /E-[a-z0-9]{7}/);
     f.close();
   }
-  console.log('Report consent/UI tests passed: one-time invitation, explicit opt-in, Greek copy and selected-error details.');
+  console.log('Report consent/UI tests passed: one-time invitation, explicit opt-in, keyboard/accessibility, Greek copy and selected-error details.');
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; });
