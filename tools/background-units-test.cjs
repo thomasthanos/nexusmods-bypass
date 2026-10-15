@@ -110,6 +110,76 @@ async function downloadPopupFollowsBrowserRuns() {
   assert.deepEqual(calls, [false, true], 'released: shown again straight away');
 }
 
+async function downloadPopupRespectsOtherExtensions() {
+  const savedDownloads = global.chrome.downloads;
+  const savedAlarms = global.chrome.alarms;
+  const savedRecord = context.recordBackgroundError;
+  const calls = [];
+  const errors = [];
+  const alarms = [];
+  const conflict = new Error('Another extension has disabled the download UI');
+  let rejection = conflict;
+  global.chrome.downloads = { ...savedDownloads, setUiOptions: async ({ enabled }) => {
+    calls.push(enabled);
+    if (rejection && (enabled || rejection !== conflict)) throw rejection;
+  } };
+  global.chrome.alarms = {
+    ...savedAlarms,
+    create: (name) => alarms.push(['create', name]),
+    clear: (name) => alarms.push(['clear', name])
+  };
+  context.recordBackgroundError = (action, cause) => errors.push([action, cause.message]);
+  try {
+    vm.runInContext('downloadUiEnabled = null', context); // A fresh worker has no cached request.
+    await context.syncDownloadUi({ immediate: true });
+    await context.syncDownloadUi({ immediate: true });
+    assert.deepEqual(errors, [], 'another extension retaining its UI restriction is not a task failure');
+    assert.deepEqual(calls, [true], 'our restriction was released; queue events need not repeat the request');
+    assert.deepEqual(alarms, [['clear', 'nxtk-download-ui']], 'the restoration alarm is cleared despite the conflict');
+
+    await context.storageSetLocal('nxtk_ndc_run_claims', { 'g/c': { tabId: 4, at: Date.now(), method: 'browser' } });
+    await context.syncDownloadUi({ immediate: true });
+    await context.storageSetLocal('nxtk_ndc_run_claims', {});
+    await context.syncDownloadUi({ immediate: true });
+    await context.syncDownloadUi({ immediate: true });
+    assert.deepEqual(calls, [true, false, true], 'a later collection can still hide and release our UI restriction');
+    assert.deepEqual(alarms.slice(1), [['create', 'nxtk-download-ui'], ['clear', 'nxtk-download-ui']]);
+    assert.deepEqual(errors, [], 'restoring after a collection also respects other extensions');
+
+    vm.runInContext('downloadUiEnabled = null', context);
+    await context.syncDownloadUi({ immediate: true });
+    assert.equal(errors.length, 0, 'a worker restart handles the same conflict without a report');
+
+    rejection = new Error('downloads.setUiOptions requires the "downloads.ui" permission');
+    vm.runInContext('downloadUiEnabled = null', context);
+    await context.syncDownloadUi({ immediate: true });
+    assert.deepEqual(errors, [['download popup toggle', rejection.message]], 'unexpected enabling failures remain reportable');
+    rejection = null;
+    await context.syncDownloadUi({ immediate: true });
+    assert.equal(calls.filter(Boolean).length, 5, 'an unexpected failure is retried rather than cached as success');
+
+    // The known message is expected only when enabling; do not hide failures to disable the UI.
+    global.chrome.downloads.setUiOptions = async () => { throw conflict; };
+    await context.storageSetLocal('nxtk_ndc_run_claims', { 'g/c': { tabId: 4, at: Date.now(), method: 'browser' } });
+    await context.syncDownloadUi({ immediate: true });
+    assert.deepEqual(errors[1], ['download popup toggle', conflict.message]);
+    global.chrome.downloads.setUiOptions = async ({ enabled }) => { calls.push(enabled); };
+    await context.syncDownloadUi({ immediate: true });
+    assert.equal(calls.at(-1), false, 'a failed hide is retried');
+    await context.storageSetLocal('nxtk_ndc_run_claims', {});
+    await context.syncDownloadUi({ immediate: true });
+
+    delete global.chrome.downloads.setUiOptions;
+    await context.syncDownloadUi({ immediate: true });
+    assert.equal(errors.length, 2, 'browsers without the UI API remain supported');
+  } finally {
+    global.chrome.downloads = savedDownloads;
+    global.chrome.alarms = savedAlarms;
+    context.recordBackgroundError = savedRecord;
+    await context.storageSetLocal('nxtk_ndc_run_claims', {});
+  }
+}
+
 // One user action, one file: the worker drops a second start for the same game+file, and a start for a
 // file the browser is already downloading (Nexus's own native download included).
 async function downloadStartsAreDeduplicated() {
@@ -2287,6 +2357,7 @@ jobStateBehaviour()
   .then(debugLogAndAutoReports)
   .then(downloadStartsAreDeduplicated)
   .then(downloadPopupFollowsBrowserRuns)
+  .then(downloadPopupRespectsOtherExtensions)
   .then(vortexSentHistoryIsAccepted)
   .then(largeHistoryFitsTheQuota)
   .then(() => console.log('background.js unit behavior OK'))

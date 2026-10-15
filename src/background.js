@@ -1908,6 +1908,7 @@ function downloadUiShouldBeEnabled({ setting, claims, jobs }) {
 }
 
 const DOWNLOAD_UI_ALARM = 'nxtk-download-ui';
+// Our last applied preference, not the global visibility: other extensions may also hide the UI.
 let downloadUiEnabled = null;
 let downloadUiSync = Promise.resolve();
 let downloadUiTimer = null;
@@ -1942,16 +1943,22 @@ function runDownloadUiSync() {
     if (enabled === downloadUiEnabled) return;
     try {
       await chrome.downloads.setUiOptions({ enabled });
-      downloadUiEnabled = enabled;
-      // While it is off, re-check every minute so a run that ended without a release (a crashed
-      // or closed tab, whose claim simply expires) still gives the popup back.
-      try {
-        if (!enabled) chrome.alarms?.create?.(DOWNLOAD_UI_ALARM, { delayInMinutes: 1 });
-        else chrome.alarms?.clear?.(DOWNLOAD_UI_ALARM);
-      } catch (_) {
-      }
     } catch (cause) {
-      recordBackgroundError('download popup toggle', cause);
+      // Chromium releases our restriction before checking whether another extension still hides
+      // the UI. That specific enabling rejection means our work is done; it is not a task failure
+      // and retrying cannot override the other extension. All other failures remain reportable.
+      if (!enabled || String(cause?.message || cause || '') !== 'Another extension has disabled the download UI') {
+        recordBackgroundError('download popup toggle', cause);
+        return;
+      }
+    }
+    downloadUiEnabled = enabled;
+    // While it is off, re-check every minute so a run that ended without a release (a crashed
+    // or closed tab, whose claim simply expires) still gives the popup back.
+    try {
+      if (!enabled) chrome.alarms?.create?.(DOWNLOAD_UI_ALARM, { delayInMinutes: 1 });
+      else chrome.alarms?.clear?.(DOWNLOAD_UI_ALARM);
+    } catch (_) {
     }
   }).catch(() => undefined);
   return downloadUiSync;
