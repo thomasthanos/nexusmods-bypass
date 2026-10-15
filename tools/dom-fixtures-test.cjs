@@ -248,6 +248,25 @@ function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/1
   container.className = 'next-container';
   w.document.querySelector('#mainContent .relative').appendChild(container);
   assert.equal(find()?.container, container, 'the spot is found once hydration adds it');
+  container.remove();
+  const mainContent = w.document.getElementById('mainContent');
+  const heading = w.document.createElement('h1');
+  heading.textContent = 'Example collection';
+  mainContent.append(heading);
+  assert.equal(find()?.container, mainContent, 'rendered content works without next-container classes');
+  assert.equal(find()?.layout, 'page-content');
+  mainContent.setAttribute('aria-busy', 'true');
+  assert.equal(find(), null, 'busy content is not used as a fallback');
+  mainContent.removeAttribute('aria-busy');
+  mainContent.replaceWith(...mainContent.childNodes);
+  assert.equal(find(), null, 'a heading in the body alone is not a safe mount point');
+  const semantic = w.document.createElement('main');
+  semantic.append(heading);
+  w.document.body.append(semantic);
+  assert.equal(find()?.container, semantic, 'semantic main works without #mainContent');
+  const result = w.NexusExt.PageCheck.runChecks({ doc: w.document, loc: w.location, findCollectionHost: find,
+    isCollectionRoute: () => true });
+  assert.equal(result.checks.find(c => c.id === 'deck-spot').ok, true);
   assert.ok(main.includes('scheduleDeckMountRetry(ndc)'), 'a missing spot schedules a retry instead of giving up');
 }
 

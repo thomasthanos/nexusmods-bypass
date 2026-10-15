@@ -108,6 +108,7 @@ window.NexusExt = window.NexusExt || {};
     auth = window.NexusExt.Auth,
     nnw = window.NexusExt.NNW,
     findCollectionHost = deps.findCollectionHost,
+    collectionMountPending = deps.collectionMountPending,
     isCollectionRoute = deps.isCollectionRoute
   } = {}) {
     const page = pageTypeOf(doc, loc, isCollectionRoute);
@@ -127,8 +128,12 @@ window.NexusExt = window.NexusExt || {};
       try {
         host = typeof findCollectionHost === 'function' ? findCollectionHost() : null;
       } catch (_) { }
-      checks.push(check('deck-spot', 'spot for the collection panel', !!host?.container,
-        host?.container ? (host.legacy ? 'classic layout' : 'next-container') : 'findCollectionHost found nothing'));
+      const mounted = !!doc.getElementById?.('nxtk-control-deck');
+      if (!host?.container && !mounted && collectionMountPending?.()) {
+        return { ...base, skipped: 'Collection panel still loading', checks: [] };
+      }
+      checks.push(check('deck-spot', 'mount point for download panel', !!host?.container || mounted,
+        mounted ? 'panel mounted' : host?.container ? (host.legacy ? 'classic layout' : host.layout || 'next-container') : 'no supported content root after mount retries'));
     }
 
     if (page === 'mod' || page === 'mod-file') {

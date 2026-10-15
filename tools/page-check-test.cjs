@@ -132,6 +132,21 @@ result = PageCheck.runChecks({
   findCollectionHost: () => ({ container: {}, legacy: null }), isCollectionRoute
 });
 assert.equal(ids(result)['deck-spot'], true);
+result = PageCheck.runChecks({
+  doc: fakeDoc(), loc: at('/games/newvegas/collections/jscbqj'), auth: signedIn,
+  findCollectionHost: () => null, isCollectionRoute, collectionMountPending: () => true
+});
+assert.equal(result.skipped, 'Collection panel still loading', 'mount retries are not a site change');
+result = PageCheck.runChecks({
+  doc: fakeDoc(), loc: at('/games/newvegas/collections/jscbqj'), auth: signedIn,
+  findCollectionHost: () => null, isCollectionRoute, collectionMountPending: () => false
+});
+assert.equal(ids(result)['deck-spot'], false, 'exhausted mount recovery still reports a genuine failure');
+result = PageCheck.runChecks({
+  doc: fakeDoc({ ids: { 'nxtk-control-deck': {} } }), loc: at('/games/newvegas/collections/jscbqj'), auth: signedIn,
+  findCollectionHost: () => null, isCollectionRoute
+});
+assert.equal(ids(result)['deck-spot'], true, 'a mounted panel proves the mount worked');
 
 // A Cloudflare check on screen is not the page at all.
 result = PageCheck.runChecks({

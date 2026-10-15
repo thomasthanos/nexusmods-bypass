@@ -88,6 +88,65 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { await context?.close(); });
 
+for (const semanticMain of [false, true]) {
+  test(`collection mounts and recovers without legacy container classes (${semanticMain ? 'semantic main' : 'mainContent'})`, async () => {
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const url = 'https://www.nexusmods.com/games/skyrimspecialedition/collections/fallback';
+    const root = semanticMain ? 'main' : '#mainContent';
+    const html = semanticMain
+      ? '<!doctype html><title>Collection</title><header><a href="/auth/sign_out">Sign out</a></header><main><h1>Test collection</h1><p>Collection content</p></main>'
+      : fixture('visual-collection-page.html').replaceAll('class="next-container"', 'class="collection-content"');
+    await page.route(url, route => route.fulfill({ status: 200, contentType: 'text/html', body: html }));
+    await page.goto(url);
+    const deck = page.locator('#nxtk-control-deck');
+    await expect(deck).toBeVisible({ timeout: 30000 });
+    expect(await deck.evaluate((node, selector) => node.parentElement.matches(selector), root)).toBe(true);
+    let [worker] = context.serviceWorkers();
+    if (!worker) worker = await context.waitForEvent('serviceworker');
+    const check = await worker.evaluate(async url => {
+      const [tab] = await globalThis.chrome.tabs.query({ url });
+      const [check] = await globalThis.chrome.scripting.executeScript({ target: { tabId: tab.id },
+        func: () => globalThis.NexusExt.PageCheck.runChecks() });
+      return check.result;
+    }, url);
+    expect(check.checks.find(c => c.id === 'deck-spot').ok).toBe(true);
+    // Nexus re-renders the page while keeping the same route: the panel must self-heal once.
+    await page.evaluate(() => document.getElementById('nxtk-control-deck').remove());
+    await expect(deck).toBeVisible({ timeout: 15000 });
+    await expect(deck).toHaveCount(1);
+    await assertFits(page, '#nxtk-control-deck', 'fallback collection panel');
+    await page.close();
+  });
+}
+
+test('late collection content waits for mounting instead of declaring a page change', async () => {
+  const page = await context.newPage();
+  const url = 'https://www.nexusmods.com/games/skyrimspecialedition/collections/latecontent';
+  await page.route(url, route => route.fulfill({ status: 200, contentType: 'text/html',
+    body: fixture('collection-late-hydration.html') }));
+  await page.goto(url);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const check = await worker.evaluate(async url => {
+    const [tab] = await globalThis.chrome.tabs.query({ url });
+    const [check] = await globalThis.chrome.scripting.executeScript({ target: { tabId: tab.id },
+      func: () => globalThis.NexusExt.PageCheck.runChecks() });
+    return check.result;
+  }, url);
+  expect(check.skipped).toBe('Collection panel still loading');
+  expect(check.checks).toEqual([]);
+  await page.evaluate(() => {
+    const heading = document.createElement('h1');
+    heading.textContent = 'Collection finally rendered';
+    document.getElementById('mainContent').append(heading);
+  });
+  await expect(page.locator('#nxtk-control-deck')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('#nxtk-control-deck')).toHaveCount(1);
+  await page.close();
+});
+
 test('download API fetch failure recovers through the generator without reporting a failed download', async () => {
   let [worker] = context.serviceWorkers();
   if (!worker) worker = await context.waitForEvent('serviceworker');
