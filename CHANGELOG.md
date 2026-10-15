@@ -11,7 +11,7 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
-## 3.1.2 — Unreleased
+## 3.1.2 — 2026-10-15
 
 - **Download recovery:** an unreadable `/api/files/` response can fall back to the existing download generator. Authentication, browser verification, access denials and rate limits still stop the attempt. Only the final failure is recorded; successful recovery does not send an error report.
 - **Accurate page checks:** missing account controls mean unknown sign-in state. Rendered mod content and JSON-backed download components are recognised without the legacy `#section` / `file-id` attributes; loading pages are skipped.
