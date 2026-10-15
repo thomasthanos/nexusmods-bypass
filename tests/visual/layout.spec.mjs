@@ -88,6 +88,38 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { await context?.close(); });
 
+test('download API fetch failure recovers through the generator without reporting a failed download', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  await worker.evaluate(async () => {
+    await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false } });
+  });
+  const page = await openPage('https://www.nexusmods.com/newvegas/mods/100?tab=files', 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  await page.route('**/api/files/**', route => route.abort('failed'));
+  const signed = 'nxm://newvegas/mods/100/files/200?key=test&expires=2000000000&user_id=7';
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ url: signed })
+  }));
+  const recovered = await worker.evaluate(async () => {
+    const [tab] = await globalThis.chrome.tabs.query({ url: 'https://www.nexusmods.com/newvegas/mods/100?tab=files' });
+    const [result] = await globalThis.chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+      const errors = [];
+      const record = globalThis.NXTK.recordError;
+      globalThis.NXTK.recordError = entry => errors.push(entry);
+      try {
+        const result = await globalThis.NexusExt.NNW.getDownloadUrl({ fileId: '200', gameId: '130', isNMM: true,
+          href: 'https://www.nexusmods.com/api/files/200?game=130' });
+        return { result, errors };
+      } finally { globalThis.NXTK.recordError = record; }
+    } });
+    return result.result;
+  });
+  expect(recovered.result.url).toBe(signed);
+  expect(recovered.errors).toEqual([]);
+  await page.close();
+});
+
 test('automatic reports: accessible one-time Nexus invitation without extra permissions', async () => {
   let [worker] = context.serviceWorkers();
   if (!worker) worker = await context.waitForEvent('serviceworker');

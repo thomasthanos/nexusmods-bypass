@@ -7,7 +7,7 @@ function fixture() {
     navigator: { userAgent: 'Mozilla/5.0 Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0' } });
   for (const name of ['shared.js', 'auto-reports.js']) vm.runInContext(fs.readFileSync(`src/${name}`, 'utf8'), context);
   const kit = context.NXTK;
-  const { Reporter, KEY, WINDOW } = context.NXTKAutoReports;
+  const { Reporter, KEY, WINDOW, NETWORK_WINDOW } = context.NXTKAutoReports;
   const store = { [kit.SETTINGS_KEY]: { AutoErrorReports: false } };
   let now = Date.UTC(2026, 9, 14, 12);
   let delivery = async () => ({ ok: true, status: 200, json: async () => ({ ok: true }) });
@@ -24,7 +24,7 @@ function fixture() {
   };
   let reporter = new Reporter(deps);
   return {
-    kit, KEY, WINDOW, store, sent, alarms, get reporter() { return reporter; },
+    kit, KEY, WINDOW, NETWORK_WINDOW, store, sent, alarms, get reporter() { return reporter; },
     enable: () => { store[kit.SETTINGS_KEY].AutoErrorReports = true; },
     disable: () => { store[kit.SETTINGS_KEY].AutoErrorReports = false; },
     advance: (ms) => { now += ms; }, delivery: (fn) => { delivery = fn; }, restart: () => { reporter = new Reporter(deps); },
@@ -57,6 +57,23 @@ async function run() {
     f.advance(f.WINDOW); await f.reporter.flush();
     assert.equal(f.sent.length, 3);
     assert.equal(f.sent[2].payload.occurrences, 4);
+  }
+  {
+    for (const entry of [{ code: 'network_error' }, { code: 'queue_item_failed', causeCode: 'timeout' }]) {
+      const f = fixture(); f.enable();
+      await f.reporter.enqueue(f.entry(entry)); await f.reporter.flush();
+      await f.reporter.enqueue(f.entry(entry)); await f.reporter.flush();
+      f.advance(f.WINDOW); f.restart(); await f.reporter.flush();
+      assert.equal(f.sent.length, 1, 'network repeats do not send hourly, including after restart');
+      // An existing pending report created with the old ten-minute policy is also held back.
+      f.store[f.KEY].pending[0].nextAt = 0;
+      await f.reporter.flush();
+      assert.equal(f.sent.length, 1, 'stored pending diagnostics respect the new repeat policy');
+      f.advance(f.NETWORK_WINDOW - f.WINDOW); await f.reporter.flush();
+      assert.equal(f.sent.length, 2, 'network repeats are summarised after six hours');
+      assert.equal(f.sent[1].payload.occurrences, 1);
+      assert.equal(f.sent[1].payload.error.causeCode, entry.causeCode || '');
+    }
   }
   {
     const f = fixture(); f.enable();

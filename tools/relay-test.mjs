@@ -1,6 +1,6 @@
 // Offline tests for relay/worker.js: validation, size limit, rate limit, Discord formatting.
 import assert from 'node:assert/strict';
-import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf } from '../relay/worker.js';
+import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../relay/worker.js';
 
 const auto = { schema: 1, kind: 'auto', version: '2.9.0', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
 assert.equal(validateReport(auto), '');
@@ -12,6 +12,7 @@ assert.equal(validateReport({ ...detailed, occurrences: -1 }), 'bad occurrences'
 assert.equal(validateReport({ ...detailed, reference: '@everyone' }), 'bad reference');
 assert.equal(validateReport({ ...detailed, error: { ...detailed.error, frame: 'https://private.example/user' } }), 'bad error frame');
 assert.equal(validateReport({ ...detailed, error: { ...detailed.error, status: '503' } }), 'bad error status');
+assert.equal(validateReport({ ...detailed, error: { ...detailed.error, causeCode: '<@123>' } }), 'bad cause code');
 assert.equal(validateReport({ ...detailed, firstAt: 'yesterday' }), 'bad timestamp');
 const detailedEmbed = discordMessage(detailed, 'id').embeds[0];
 assert.match(detailedEmbed.footer.text, /E-001abcd/);
@@ -37,7 +38,7 @@ for (const report of [auto, { schema: 1, kind: 'manual', version: '3.1.1', summa
   assert.equal(alert.content, `<@${ownerId}>`, 'only the configured owner is mentioned');
   assert.deepEqual(alert.allowed_mentions, { parse: [], users: [ownerId] });
   assert.equal(alert.embeds[0].color, 0xd9433b, 'all user reports are red');
-  assert.match(alert.embeds[0].title, report.kind === 'auto' ? /^User error · / : /^Bug report · /);
+  assert.match(alert.embeds[0].title, report.kind === 'auto' ? /^Automatic report · / : /^Bug report · /);
 }
 for (const invalidId of ['@everyone', '706932839907852389 <@123>', 42, '']) {
   const alert = discordMessage(auto, 'invalid', invalidId);
@@ -198,5 +199,72 @@ globalThis.fetch = async () => new Response(null, { status: 500 });
 assert.equal((await post(dup2, '4.4.4.5')).status, 502);
 globalThis.fetch = realFetch;
 assert.equal((await (await post(dup2, '4.4.4.6')).json()).duplicate, undefined, 'retry after failure is not a duplicate');
+assert.equal(sent.at(-1).body.content, `<@${ownerId}>`, 'a failed delivery also leaves the mention eligible');
+
+// New summaries do not create a new mention each time. This policy also applies to older clients
+// without causeCode; manually submitted reports still notify the maintainer normally.
+const actualNow = Date.now;
+let now = actualNow();
+Date.now = () => now;
+try {
+  const before = sent.length;
+  const repeated = { ...auto, reference: 'E-repeat1', error: { code: 'nexus_page_changed' } };
+  assert.equal((await post(repeated, '6.1.0.1')).status, 200);
+  now += 10 * 60 * 1000;
+  assert.equal((await (await post(repeated, '6.1.0.2')).json()).duplicate, true, 'old ten-minute clients are suppressed');
+  assert.equal(sent.length, before + 1);
+  now += DEDUPE_WINDOW_MS;
+  await post(repeated, '6.1.0.3');
+  assert.equal(sent.length, before + 2, 'the next summary is forwarded');
+  assert.equal(sent.at(-1).body.content, undefined, 'the summary does not ping');
+  assert.deepEqual(sent.at(-1).body.allowed_mentions, { parse: [] });
+  now += MENTION_WINDOW_MS;
+  await post(repeated, '6.1.0.4');
+  assert.equal(sent.at(-1).body.content, `<@${ownerId}>`, 'a daily alert can notify again');
+  const network = { ...auto, reference: 'E-network', error: { code: 'network_error' } };
+  await post(network, '6.2.0.1');
+  now += DEDUPE_WINDOW_MS;
+  assert.equal((await (await post(network, '6.2.0.2')).json()).duplicate, true);
+  now += NETWORK_WINDOW_MS;
+  await post(network, '6.2.0.3');
+  assert.equal(sent.at(-1).body.content, undefined, 'network summaries also stay quiet');
+  const blocked = discordMessage({ ...auto, error: { code: 'queue_item_failed', causeCode: 'FILE_VIRUS_INFECTED' } }, 'blocked').embeds[0];
+  assert.match(blocked.title, /blocked by security software/);
+  assert.match(blocked.description, /Keep the protection enabled/);
+  assert.match(discordMessage({ ...auto, error: { code: 'queue_item_failed', message: 'FILE_VIRUS_INFECTED [blocked]' } }, 'old').embeds[0].title, /blocked by security software/, 'old clients also get the correct explanation');
+} finally {
+  Date.now = actualNow;
+}
+
+// KV persistence uses different TTLs for delivery and mentions, so edge-isolate restarts cannot
+// turn hourly summaries into hourly pings. No real Cloudflare or Discord service is contacted.
+const written = new Map();
+const expiry = new Map();
+let kvNow = actualNow();
+const persistedEnv = { ...env, RATE_LIMIT: {
+  get: async key => (expiry.get(key) || 0) > kvNow ? written.get(key) : null,
+  put: async (key, value, options) => {
+    written.set(key, value);
+    expiry.set(key, kvNow + options.expirationTtl * 1000);
+  }
+} };
+const persistentReport = { ...auto, reference: 'E-persist', error: { code: 'network_error' } };
+const persistentPost = () => worker.fetch(new Request('https://relay.test/v1/report', {
+  method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '10.0.0.1' },
+  body: JSON.stringify(persistentReport)
+}), persistedEnv, {});
+Date.now = () => kvNow;
+try {
+  await persistentPost();
+  const fp = fingerprintOf(persistentReport);
+  assert.equal(expiry.get(`fp:${fp}`) - kvNow, NETWORK_WINDOW_MS);
+  assert.equal(expiry.get(`ping:${fp}`) - kvNow, MENTION_WINDOW_MS);
+  kvNow += NETWORK_WINDOW_MS + 1;
+  await persistentPost();
+  assert.equal(sent.at(-1).body.content, undefined, 'persisted mention cooldown outlasts the delivery cooldown');
+  kvNow += MENTION_WINDOW_MS;
+  await persistentPost();
+  assert.equal(sent.at(-1).body.content, `<@${ownerId}>`);
+} finally { Date.now = actualNow; }
 
 console.log('relay worker behavior OK');

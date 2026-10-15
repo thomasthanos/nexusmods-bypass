@@ -35,14 +35,31 @@ The 3.1.1 extension uses a durable opt-in queue with the deployed schema-1 relay
 
 The previously reported HTTP 403 / Cloudflare code 1010 did not reproduce in the live browser checks. No Cloudflare security settings were weakened, and the historical incident is not claimed as fixed.
 
-## What it does
+## Prepared 3.1.2 update (separate deployment required)
+
+This branch changes the Worker; it does not describe a completed production deployment.
+Automatic reports use the title `Automatic report`, while manual reports retain `Bug report`.
+The red user-report branding and configured maintainer are retained. The same fault/version is
+forwarded at most hourly, or every six hours for network/timeout errors. An automatic fault/version
+can mention the maintainer once in 24 hours; manual reports retain their explicit notification.
+Both windows live in the existing `RATE_LIMIT` KV binding, with per-isolate memory as a fallback.
+Counters are occurrences in the forwarded client report, not unique users or global totals.
+Optional `error.causeCode` is backwards compatible with schema 1 and lets security-blocked files be
+labelled explicitly. Older clients' blocked-file messages are also recognised. No browser or
+antivirus block is bypassed. Test destinations are mocked; no live Discord message is sent.
+
+For an existing deployment, authenticate with Cloudflare and run `npx wrangler deploy` from `relay/`.
+Keep the existing `DISCORD_WEBHOOK_URL`, `REPORT_MENTION_USER_ID`, CORS origins and `RATE_LIMIT` binding.
+Do not rotate or overwrite the existing destination secret just to update the Worker.
+
+## What the updated Worker does
 - `POST /v1/report`, JSON only, at most 64 KB, schema version 1 (see `validateReport` in `worker.js`).
 - At most 10 reports **of each kind** per IP per hour, so automatic reports cannot exhaust the manual allowance. With a KV namespace bound as `RATE_LIMIT` the counters are
   shared across Cloudflare's edge. Without one, a per-isolate in-memory limiter only slows down bursts.
   For a hard limit, add a Cloudflare Rate Limiting rule on the route. No Durable Object is needed.
 - Posts one compact Discord embed for automatic errors, with a plain-language explanation,
   page type/action context, a short browser name, an error reference shared with manual reports, occurrence count, observation times, technical cause and packaged script position. Automatic errors have no JSON attachment.
-- User reports have a red accent and a distinct `User error` / `Bug report` title and sender name.
+- User reports have a red accent and a distinct `Automatic report` / `Bug report` title and sender name.
   `REPORT_MENTION_USER_ID` in `wrangler.toml` allows one explicit maintainer mention; it is a public
   Discord user ID, not a secret. Report input cannot choose recipients, mention roles or ping everyone.
 - Manual bug reports still include the full JSON file, preserving the description, reproduction

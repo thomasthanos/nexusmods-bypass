@@ -1036,7 +1036,8 @@ async function requestClassifierForwardingTests() {
   const responseClassifier = fs.readFileSync('src/response-classifier.js', 'utf8');
   const errorsSource = fs.readFileSync('src/content/errors.js', 'utf8');
 
-  const requestWith = async ({ body = '<html></html>', finalUrl = 'https://www.nexusmods.com/', headers = {} }) => {
+  const requestWith = async ({ body = '<html></html>', finalUrl = 'https://www.nexusmods.com/', headers = {}, failure = null, readFailure = null, cancelDuringBody = false } = {}) => {
+    const external = new AbortController();
     const runtime = vm.createContext({
       console,
       URL,
@@ -1052,20 +1053,27 @@ async function requestClassifierForwardingTests() {
         recordError: () => {},
         sanitizeUrlForReport: (value) => String(value || '')
       },
-      fetch: async () => ({
+      fetch: async () => {
+        if (failure) throw failure;
+        return {
         ok: true,
         status: 200,
         url: finalUrl,
-        text: async () => body,
+        text: async () => {
+          if (cancelDuringBody) external.abort();
+          if (readFailure) throw readFailure;
+          return body;
+        },
         headers: {
           get: (name) => Object.entries(headers)
             .find(([key]) => key.toLowerCase() === String(name).toLowerCase())?.[1] || ''
         }
-      })
+        };
+      }
     });
     vm.runInContext(responseClassifier, runtime, { filename: 'src/response-classifier.js' });
     vm.runInContext(errorsSource, runtime, { filename: 'src/content/errors.js' });
-    return runtime.window.NexusExt.Errors.request('https://www.nexusmods.com/source');
+    return runtime.window.NexusExt.Errors.request('https://www.nexusmods.com/api/files/200?token=private', { method: 'GET' }, { signal: external.signal });
   };
 
   const redirected = await requestWith({ finalUrl: 'https://users.nexusmods.com/auth/sign_in' });
@@ -1075,6 +1083,18 @@ async function requestClassifierForwardingTests() {
   const challenged = await requestWith({ headers: { 'Cf-Mitigated': 'challenge' } });
   assert.equal(challenged.error?.code, 'cloudflare',
     'the real request path forwards Cf-Mitigated to the classifier');
+
+  const unreadable = await requestWith({ failure: new TypeError('Failed to fetch') });
+  assert.equal(unreadable.error.code, 'network_error');
+  assert.match(unreadable.error.technicalMessage, /fetch failed: GET Nexus API download endpoint; no readable HTTP response/);
+  assert.doesNotMatch(unreadable.error.technicalMessage, /token=|private|api\/files\/200|cloudflare|CORS/i,
+    'diagnostics expose neither the URL nor a guessed network cause');
+  const interrupted = await requestWith({ readFailure: new TypeError('Failed to fetch') });
+  assert.equal(interrupted.error.status, 200, 'the received HTTP status survives a body read failure');
+  assert.match(interrupted.error.technicalMessage, /reading response: GET Nexus API download endpoint; HTTP 200/,
+    'a response body failure is distinct from failing before an HTTP response');
+  const cancelled = await requestWith({ readFailure: Object.assign(new Error('The request was aborted'), { name: 'AbortError' }), cancelDuringBody: true });
+  assert.equal(cancelled.error.code, 'aborted', 'cancelling during a body read is not reported as a timeout');
 }
 
 // What the deck shows when a file fails. The worker sends a code with its measurements

@@ -31,6 +31,8 @@ const SCRIPTS = [
 function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=734848') {
   const dom = new JSDOM(fixture(name), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
+  // These synchronous snapshots represent a loaded page; jsdom's load event runs later.
+  Object.defineProperty(window.document, 'readyState', { configurable: true, value: 'complete' });
   window.chrome = {
     runtime: { id: 'test', getURL: (p) => `chrome-extension://test/${p}`, sendMessage: () => Promise.resolve(), onMessage: { addListener() {} } },
     storage: { local: { get: (_k, cb) => (cb ? cb({}) : Promise.resolve({})), set: (_v, cb) => (cb ? cb() : Promise.resolve()) }, onChanged: { addListener() {} } },
@@ -75,8 +77,15 @@ function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/1
   const w = load('file-page-signed-in-no-markers.html');
   const result = w.NexusExt.PageCheck.runChecks({ doc: w.document, loc: w.location, nnw: { getGameId: () => '1704', getSearchRoots: (d) => [d] } });
   const signIn = result.checks.find((c) => c.id === 'sign-in');
-  assert.equal(signIn.ok, true, 'no log-in control anywhere is read as signed in, not as a site change');
-  assert.match(signIn.detail, /inferred/);
+  assert.equal(signIn.ok, true, 'missing account controls do not imply a site change');
+  assert.match(signIn.detail, /unknown/);
+  w.document.getElementById('section').replaceWith(...w.document.getElementById('section').childNodes);
+  const heading = w.document.createElement('h1');
+  heading.textContent = 'Example mod';
+  w.document.getElementById('mainContent').prepend(heading);
+  const modern = w.NexusExt.PageCheck.runChecks({ doc: w.document, loc: w.location,
+    nnw: { getGameId: () => '1704', getSearchRoots: (d) => [d] } });
+  assert.ok(modern.checks.every((c) => c.ok), 'a rendered page without the legacy section or account menu is valid');
 }
 {
   const w = load('file-page-signed-out.html');

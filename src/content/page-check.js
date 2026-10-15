@@ -1,7 +1,6 @@
-// Checks that a Nexus page still has what the extension finds its way by: the game id, the mod section,
-// the download control for a file, the spot the collection deck goes into, and a way to tell whether
-// someone is signed in. When Nexus changes its site, one of these is usually the first thing to go, and
-// until now that showed only as a feature quietly doing nothing. A check that keeps failing is logged
+// Checks that a Nexus page has the game id, rendered mod content, download controls and a spot for the
+// collection deck. Sign-in evidence is included when available; missing account controls are unknown.
+// When Nexus changes its site, a check that keeps failing is logged
 // once per tab, named in the console, and shown in the bug report beside the Nexus build it happened on.
 window.NexusExt = window.NexusExt || {};
 
@@ -68,18 +67,11 @@ window.NexusExt = window.NexusExt || {};
       if (auth?.getDocumentLoginError?.(doc)) {
         return { result: check('sign-in', 'sign-in state', true, 'signed out'), signedOut: true };
       }
-      // Some Nexus layouts (the file page among them) render the account menu late or only on demand.
-      // A visible log-in link would have been caught above, so a page with no log-in control at all
-      // is read as signed in, noted as inferred, rather than reported as a site change.
-      const Sel = globalThis.NexusSelectors;
-      if (Sel && !Sel.find(doc, 'loginLink') && !Sel.find(doc, 'loginForm')
-        && (doc.querySelector?.('header, nav, #head') || doc.getElementById?.('section'))) {
-        return { result: check('sign-in', 'sign-in state', true, 'signed in (inferred: no log-in control)'), signedOut: false };
-      }
     } catch (_) { }
+    // Account controls can be lazy-rendered or hidden by the layout. Their absence proves neither
+    // a signed-in session nor a broken page. Authentication remains the request's responsibility.
     return {
-      result: check('sign-in', 'sign-in state', false,
-        'neither the profile menu nor a log-in control was found'),
+      result: check('sign-in', 'sign-in state', true, 'unknown (account controls not rendered)'),
       signedOut: false
     };
   }
@@ -96,6 +88,12 @@ window.NexusExt = window.NexusExt || {};
         try {
           if (root.querySelector?.(selector)) return check('download-control', 'download control for this file', true, selector);
         } catch (_) { }
+      }
+      // Current Nexus components carry the file as JSON rather than a file-id attribute.
+      for (const host of root.querySelectorAll?.('mod-file-download, mod-download-buttons, mod-download-modal') || []) {
+        if (nnw?.fileIdFromNode?.(host) === fileId) {
+          return check('download-control', 'download control for this file', true, `${host.tagName.toLowerCase()} (file data)`);
+        }
       }
     }
     return check('download-control', 'download control for this file', false,
@@ -116,6 +114,9 @@ window.NexusExt = window.NexusExt || {};
     if (!page) return null;
     const base = { page, label: PAGE_LABELS[page] || page, url: navKey(loc) };
     if (isChallengeDocument(doc)) return { ...base, skipped: 'Cloudflare check on screen', checks: [] };
+    if (doc.readyState === 'loading' || doc.querySelector?.('main[aria-busy="true"], #mainContent[aria-busy="true"]')) {
+      return { ...base, skipped: 'Nexus page still loading', checks: [] };
+    }
 
     const checks = [];
     const signIn = signInCheck(doc, auth);
@@ -136,7 +137,9 @@ window.NexusExt = window.NexusExt || {};
         gameId = String(nnw?.getGameId?.(loc.href) || '');
       } catch (_) { }
       checks.push(check('game-id', 'game id', /^\d+$/.test(gameId), gameId || 'no numeric game id on the page'));
-      checks.push(check('mod-section', 'mod section', !!doc.getElementById?.('section'), '#section'));
+      // The live download components work without the legacy #section wrapper.
+      const content = doc.getElementById?.('section') || doc.querySelector?.('mod-file-download, mod-download-buttons, #mainContent h1, main h1');
+      checks.push(check('mod-section', 'page content region', !!content, '#section or rendered page content'));
     }
 
     if (page === 'mod-file' && !signIn.signedOut) checks.push(downloadControlCheck(doc, loc, nnw));
@@ -289,7 +292,7 @@ window.NexusExt = window.NexusExt || {};
     notifyDegraded(result, failed);
     globalThis.NXTK?.recordError?.({
       code: 'nexus_page_changed',
-      context: `Nexus page check (${result.label})`,
+      context: `Nexus page check (${result.page})`,
       technicalMessage: `missing: ${missing} | Nexus build: ${build?.id || 'not detected'}`
     });
   }
