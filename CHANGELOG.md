@@ -16,9 +16,9 @@ the repository before NexusMods Bypass was split out (2026-08-24) are folded int
 - **Download recovery:** an unreadable `/api/files/` response can fall back to the existing download generator. Authentication, browser verification, access denials and rate limits still stop the attempt. Only the final failure is recorded; successful recovery does not send an error report.
 - **Accurate page checks:** missing account controls mean unknown sign-in state. Rendered mod content and JSON-backed download components are recognised without the legacy `#section` / `file-id` attributes; loading pages are skipped.
 - **Collection layouts:** the download panel can mount in rendered main content without Nexus's old `next-container` classes and recover after a page re-render. Mount retries and collection initialisation are distinguished from an actual missing mount point.
-- **Quieter diagnostics:** repeated errors are summarised hourly, and network/timeout failures every six hours. The prepared Worker update applies the same limits to older clients and mentions the maintainer once per fault/version per 24 hours; manual reports continue to notify normally.
+- **Quieter diagnostics:** repeated errors are summarised hourly, and network/timeout failures every six hours. The deployed Worker applies the same limits to older clients and mentions the maintainer once per fault/version per 24 hours; manual reports continue to notify normally.
 - **Clearer causes:** failed requests identify the method, route category and response phase without sending URLs or credentials. Security-blocked files get an explicit explanation and keep browser/antivirus protection intact.
-- **Deployment:** Chrome and Firefox packages use 3.1.2. The updated Worker must be deployed separately for the server-side cooldowns and revised Discord messages.
+- **Deployment:** Chrome and Firefox packages use 3.1.2. The Worker was deployed separately on 2026-10-15 with the server-side cooldowns and revised Discord messages, preserving existing bindings. Source read-back, live health, extension-origin preflights and invalid-report CORS checks passed.
 
 ## 3.1.1 — 2026-10-14
 

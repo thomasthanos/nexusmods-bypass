@@ -13,18 +13,21 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 
 ## Current deployment
 
-Updated on 2026-10-14 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev.
-The latest notification update distinguishes red user reports from GitHub automation and configures
-one explicit maintainer mention. Its formatting and mention policy were verified offline; no new
-test message or ping was sent for this update.
-The Discord destination is stored as the Cloudflare Worker secret `DISCORD_WEBHOOK_URL`.
-The live health check returned `ok: true, configured: true` (HTTP 200); JSON preflight returned 204.
-Real Edge and Firefox extension-origin requests passed, including CORS error responses and without
-additional relay host permissions. During the earlier 3.1.1 deployment validation, one clearly marked synthetic Discord report was accepted (HTTP 200,
-report `e0e83e8f`, reference `E-0880e90`); `wait=true` confirms Discord delivery before the relay returns success.
-Manual JSON attachments, limits, duplicate suppression and opt-out behavior were also checked offline.
+Updated on 2026-10-15 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev with the 3.1.2 Worker.
+Production version `68f921b1-01e1-474b-88ec-cbc7a2d9aa48` serves 100% of traffic.
+Read-back of the deployed module exactly matched `relay/worker.js` from
+[`1c98652`](https://github.com/thomasthanos/nexusmods-bypass/commit/1c9865299dfd0a212c1813b0e2cde723b0828ff0)
+(source SHA-256 `9b338e00637e45bfd791cfa9e0f5b32eb2968b4e249ba8724f04230ed9d71ed0`).
+The existing `DISCORD_WEBHOOK_URL` secret, maintainer setting, CORS origins and KV binding were inherited.
+No secret value was retrieved or replaced.
+
+Live checks passed: health returned `ok: true, configured: true` (HTTP 200), Chrome and Firefox
+extension-origin JSON preflights returned 204, and an invalid-schema report returned 422 with the
+correct CORS header. The invalid report stops before forwarding. No live Discord test message or ping
+was sent for this deployment. Formatting, memory/KV cooldowns, manual attachments and delivery retries
+were checked with the offline relay suite; ESLint also passed.
 `RELAY_CONFIGURED` is enabled in the extension. The deployed Worker already allows extension
-origins through CORS. The 3.1.1 extension uses those ordinary CORS requests without asking for a relay
+origins through CORS. The 3.1.1 and 3.1.2 extensions use ordinary CORS requests without asking for a relay
 host permission; earlier releases request the optional permission. KV-backed rate limiting and auto-report dedupe use the `RATE_LIMIT` binding in
 `wrangler.toml`. KV is eventually consistent: this shares counters across instances but does not
 provide a strict atomic limit. E-mail is not configured.
@@ -35,9 +38,9 @@ The 3.1.1 extension uses a durable opt-in queue with the deployed schema-1 relay
 
 The previously reported HTTP 403 / Cloudflare code 1010 did not reproduce in the live browser checks. No Cloudflare security settings were weakened, and the historical incident is not claimed as fixed.
 
-## Prepared 3.1.2 update (separate deployment required)
+## Deployed 3.1.2 reporting update
 
-This branch changes the Worker; it does not describe a completed production deployment.
+The Worker update is deployed independently of the extension packages.
 Automatic reports use the title `Automatic report`, while manual reports retain `Bug report`.
 The red user-report branding and configured maintainer are retained. The same fault/version is
 forwarded at most hourly, or every six hours for network/timeout errors. An automatic fault/version
@@ -48,7 +51,7 @@ Optional `error.causeCode` is backwards compatible with schema 1 and lets securi
 labelled explicitly. Older clients' blocked-file messages are also recognised. No browser or
 antivirus block is bypassed. Test destinations are mocked; no live Discord message is sent.
 
-For an existing deployment, authenticate with Cloudflare and run `npx wrangler deploy` from `relay/`.
+To redeploy, authenticate with Cloudflare and run `npx wrangler deploy` from `relay/`.
 Keep the existing `DISCORD_WEBHOOK_URL`, `REPORT_MENTION_USER_ID`, CORS origins and `RATE_LIMIT` binding.
 Do not rotate or overwrite the existing destination secret just to update the Worker.
 
