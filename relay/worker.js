@@ -48,6 +48,7 @@ export function validateReport(p) {
     const e = p.error;
     if (!e || typeof e !== 'object' || !isStr(e.code, 80)) return 'bad error';
     if (e.context !== undefined && !isStr(e.context, 400)) return 'bad error context';
+    if (e.causeCode !== undefined && (!isStr(e.causeCode, 80) || !/^[A-Za-z0-9_-]*$/.test(e.causeCode))) return 'bad cause code';
     if (e.message !== undefined && !isStr(e.message, 400)) return 'bad error message';
     if (e.status !== undefined && e.status !== null && (!Number.isInteger(e.status) || e.status < 100 || e.status > 599)) return 'bad error status';
     if (e.action !== undefined && !isStr(e.action, 200)) return 'bad error action';
@@ -116,27 +117,38 @@ export function fitEmbed(embed) {
   return embed;
 }
 
-// Auto errors from many users hit the same bug; forward one per fingerprint per window.
-export const DEDUPE_WINDOW_MS = 10 * 60 * 1000;
-const recentFingerprints = new Map();
+// Old and new clients share these limits. Summaries have a separate daily mention cooldown.
+export const DEDUPE_WINDOW_MS = 60 * 60 * 1000;
+export const NETWORK_WINDOW_MS = 6 * DEDUPE_WINDOW_MS;
+export const MENTION_WINDOW_MS = 24 * DEDUPE_WINDOW_MS;
+const recentSignals = new Map();
+function reportWindow(p) {
+  return ['network_error', 'timeout'].includes(p.error?.causeCode || p.error?.code) ? NETWORK_WINDOW_MS : DEDUPE_WINDOW_MS;
+}
 export function fingerprintOf(p) {
   if (p.kind !== 'auto') return '';
   if (p.reference) return [p.version, p.reference].join('|');
   return [p.version, p.error?.code, p.error?.status || '', String(p.error?.context || '').slice(0, 80)].join('|');
 }
-export async function isDuplicate(env, fp, now = Date.now()) {
+async function hasSignal(env, scope, fp, now) {
   if (!fp) return false;
-  const key = `fp:${fp}`;
+  const key = `${scope}:${fp}`;
   if (env.RATE_LIMIT) return !!await env.RATE_LIMIT.get(key);
-  for (const [k, at] of recentFingerprints) if (now - at > DEDUPE_WINDOW_MS) recentFingerprints.delete(k);
-  return recentFingerprints.has(key);
+  for (const [k, until] of recentSignals) if (now >= until) recentSignals.delete(k);
+  return (recentSignals.get(key) || 0) > now;
+}
+async function rememberSignal(env, scope, fp, windowMs, now) {
+  if (!fp) return;
+  const key = `${scope}:${fp}`;
+  if (env.RATE_LIMIT) await env.RATE_LIMIT.put(key, '1', { expirationTtl: Math.ceil(windowMs / 1000) });
+  else recentSignals.set(key, now + windowMs);
+}
+export async function isDuplicate(env, fp, now = Date.now()) {
+  return hasSignal(env, 'fp', fp, now);
 }
 // Marked only after Discord accepted the report, so a failed delivery can be retried.
-export async function markSeen(env, fp, now = Date.now()) {
-  if (!fp) return;
-  const key = `fp:${fp}`;
-  if (env.RATE_LIMIT) await env.RATE_LIMIT.put(key, '1', { expirationTtl: Math.ceil(DEDUPE_WINDOW_MS / 1000) });
-  else recentFingerprints.set(key, now);
+export async function markSeen(env, fp, now = Date.now(), windowMs = DEDUPE_WINDOW_MS) {
+  return rememberSignal(env, 'fp', fp, windowMs, now);
 }
 
 // Keep technical identifiers in the footer; the body explains what happened in plain language.
@@ -151,7 +163,7 @@ const AUTO_ERROR_COPY = {
   account_suspended: ['Downloads temporarily paused by Nexus', 'Nexus has temporarily stopped further download requests. Wait before trying again; repeated attempts may extend the pause.'],
   timeout: ['Nexus took too long to respond', 'A download link did not arrive in time. Check your connection, then retry.'],
   offline: ['No internet connection', 'Reconnect to the internet, then retry.'],
-  network_error: ['Could not connect to Nexus', 'Check your connection, then retry.'],
+  network_error: ['Nexus request could not complete', 'The browser could not complete the request or read the response. The cause may be a connection problem, a blocked request or an unreadable redirect. See the technical cause below.'],
   request_failed: ['Download request failed', 'The request could not be completed. Retry; if it keeps happening, send a bug report from Help & Bugs.'],
   server_error: ['Nexus is having trouble', 'Nexus returned a server error. Wait a little, then retry.'],
   access_denied: ['Download access denied', 'Check your Nexus account permissions and the file page before retrying.'],
@@ -197,7 +209,11 @@ export function discordMessage(p, id, mentionUserId = '') {
   };
   if (p.kind === 'auto') {
     const error = p.error;
-    const [title, description] = Object.hasOwn(AUTO_ERROR_COPY, error.code)
+    const securityBlocked = ['FILE_VIRUS_INFECTED', 'FILE_BLOCKED', 'FILE_SECURITY_CHECK_FAILED'].includes(error.causeCode)
+      || /\b(?:FILE_VIRUS_INFECTED|FILE_BLOCKED|FILE_SECURITY_CHECK_FAILED)\b/.test(error.message || '');
+    const [title, description] = securityBlocked
+      ? ['Download blocked by security software', 'The browser or security software blocked this file. Keep the protection enabled and check the file with its author or Nexus Mods.']
+      : Object.hasOwn(AUTO_ERROR_COPY, error.code)
       ? AUTO_ERROR_COPY[error.code]
       : ['Action could not complete', error.message?.trim()
         ? 'An extension action could not complete. See the technical cause below.'
@@ -207,6 +223,7 @@ export function discordMessage(p, id, mentionUserId = '') {
     if (error.context?.trim()) fields.push({ name: 'Action', value: clip(quiet(error.context.trim().split(/\r?\n/)[0]), 160), inline: false });
     if (error.action?.trim()) fields.push({ name: 'Download flow', value: clip(quiet(error.action), 200), inline: false });
     if (error.message?.trim()) fields.push({ name: 'Technical cause', value: clip(quiet(error.message), 300), inline: false });
+    if (error.causeCode) fields.push({ name: 'Cause code', value: quiet(error.causeCode), inline: false });
     if (error.frame) fields.push({ name: 'Script', value: quiet(error.frame), inline: true });
     if (p.occurrences) fields.push({ name: 'Occurrences in this report', value: String(p.occurrences), inline: true });
     if (p.firstAt && p.lastAt) fields.push({ name: 'Observed (UTC)', value: `${p.firstAt}\n${p.lastAt}`, inline: false });
@@ -215,7 +232,7 @@ export function discordMessage(p, id, mentionUserId = '') {
     return {
       ...identity,
       embeds: [fitEmbed({
-        title: `User error · ${title}`, description, color: SEVERITY_COLORS[severityOf(p)], fields,
+        title: `Automatic report · ${title}`, description, color: SEVERITY_COLORS[severityOf(p)], fields,
         footer: { text: quiet(`v${clip(p.version, 20)} · ${compactBrowser(p.browser)} · ${clip(error.code, 80)}${http}${p.reference ? ` · ${p.reference}` : ''} · id ${clip(id, 40)}`) },
         timestamp: new Date().toISOString()
       })]
@@ -296,8 +313,11 @@ export default {
     if (await isDuplicate(env, fp)) return json({ ok: true, duplicate: true }, 200, headers);
     const id = crypto.randomUUID().slice(0, 8);
     let discord;
+    let mentioned = false;
     try {
-      const message = discordMessage(payload, id, env.REPORT_MENTION_USER_ID);
+      const mention = !fp || !await hasSignal(env, 'ping', fp, Date.now());
+      const message = discordMessage(payload, id, mention ? env.REPORT_MENTION_USER_ID : '');
+      mentioned = !!message.content;
       const body = new FormData();
       body.set('payload_json', JSON.stringify(message));
       // Manual reports retain the exact reviewed diagnostics. Auto errors are already
@@ -318,7 +338,8 @@ export default {
     const email = sendEmail(env, payload, id).catch(() => undefined);
     if (ctx?.waitUntil) ctx.waitUntil(email);
     if (!discord.ok) return json({ error: 'upstream failed' }, 502, headers);
-    await markSeen(env, fp);
+    await markSeen(env, fp, Date.now(), reportWindow(payload));
+    if (mentioned) await rememberSignal(env, 'ping', fp, MENTION_WINDOW_MS, Date.now());
     return json({ ok: true, id }, 200, headers);
   }
 };

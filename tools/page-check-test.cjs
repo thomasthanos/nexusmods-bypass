@@ -64,8 +64,29 @@ assert.deepEqual(ids(result), { 'sign-in': true, 'game-id': true, 'mod-section':
 result = PageCheck.runChecks({
   doc: fakeDoc(), loc: at('/skyrimspecialedition/mods/266'), auth: unreadable, nnw: nnwWith('')
 });
-assert.deepEqual(ids(result), { 'sign-in': false, 'game-id': false, 'mod-section': false },
-  'a missing game id, section and sign-in marker are each named');
+assert.deepEqual(ids(result), { 'sign-in': true, 'game-id': false, 'mod-section': false },
+  'missing content is a failure; missing account controls are inconclusive');
+assert.match(result.checks[0].detail, /unknown/);
+
+// A modern mod page can have usable content without the legacy wrapper or account controls.
+result = PageCheck.runChecks({
+  doc: fakeDoc({ present: ['mod-download-buttons'] }), loc: at('/skyrimspecialedition/mods/266'),
+  auth: unreadable, nnw: nnwWith('1704')
+});
+assert.ok(result.checks.every((entry) => entry.ok), 'rendered mod components count as content');
+const loading = PageCheck.runChecks({
+  doc: { ...fakeDoc(), readyState: 'loading' }, loc: at('/skyrimspecialedition/mods/266'), auth: unreadable, nnw: nnwWith('')
+});
+assert.equal(loading.skipped, 'Nexus page still loading');
+assert.equal(loading.checks.length, 0);
+
+const jsonHost = { tagName: 'MOD-FILE-DOWNLOAD', fileId: '99' };
+result = PageCheck.runChecks({
+  doc: { ...fakeDoc({ ids: { section: {} } }), querySelectorAll: () => [jsonHost] },
+  loc: at('/skyrimspecialedition/mods/266', '?tab=files&file_id=99'), auth: unreadable,
+  nnw: { ...nnwWith('1704'), fileIdFromNode: (node) => node.fileId }
+});
+assert.ok(result.checks.every((entry) => entry.ok), 'JSON file data is a valid download control');
 
 // A file page finds its download control, including one inside a shadow root.
 const shadow = fakeDoc({ present: ['mod-file-download[file-id="99"]'] });
@@ -111,6 +132,21 @@ result = PageCheck.runChecks({
   findCollectionHost: () => ({ container: {}, legacy: null }), isCollectionRoute
 });
 assert.equal(ids(result)['deck-spot'], true);
+result = PageCheck.runChecks({
+  doc: fakeDoc(), loc: at('/games/newvegas/collections/jscbqj'), auth: signedIn,
+  findCollectionHost: () => null, isCollectionRoute, collectionMountPending: () => true
+});
+assert.equal(result.skipped, 'Collection panel still loading', 'mount retries are not a site change');
+result = PageCheck.runChecks({
+  doc: fakeDoc(), loc: at('/games/newvegas/collections/jscbqj'), auth: signedIn,
+  findCollectionHost: () => null, isCollectionRoute, collectionMountPending: () => false
+});
+assert.equal(ids(result)['deck-spot'], false, 'exhausted mount recovery still reports a genuine failure');
+result = PageCheck.runChecks({
+  doc: fakeDoc({ ids: { 'nxtk-control-deck': {} } }), loc: at('/games/newvegas/collections/jscbqj'), auth: signedIn,
+  findCollectionHost: () => null, isCollectionRoute
+});
+assert.equal(ids(result)['deck-spot'], true, 'a mounted panel proves the mount worked');
 
 // A Cloudflare check on screen is not the page at all.
 result = PageCheck.runChecks({

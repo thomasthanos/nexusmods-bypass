@@ -852,6 +852,7 @@
       page: reportPageType(entry.url),
       error: {
         code: String(entry.code || 'request_failed').slice(0, 80),
+        causeCode: String(entry.causeCode || '').slice(0, 80),
         status: Number.isInteger(entry.status) ? entry.status : null,
         context: autoDiagnosticText(entry.context),
         message: autoDiagnosticText(entry.technicalMessage, 300),

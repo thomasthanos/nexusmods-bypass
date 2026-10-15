@@ -59,6 +59,7 @@ function createHarness({
 } = {}) {
   const parsedLocation = new URL(href);
   const calls = [];
+  const recorded = [];
   const state = {
     sectionGameId,
     dataGameIds: [...dataGameIds],
@@ -93,6 +94,7 @@ function createHarness({
   const Errors = {
     DEFAULT_TIMEOUT_MS: 30000,
     create: (code, details = {}) => ({ code, retryable: false, ...details }),
+    record: (error) => recorded.push(error),
     isBlocking: () => false,
     request: async (url, options = {}, metadata = {}) => {
       calls.push({ url, options, metadata });
@@ -110,11 +112,12 @@ function createHarness({
   const fetch = async (url, options = {}) => {
     calls.push({ url: String(url), options });
     if (!state.pages.length) throw new Error(`Unexpected request: ${url}`);
-    const { status = 200, body = '' } = state.pages.shift();
+    const { status = 200, body = '', failure, finalUrl } = state.pages.shift();
+    if (failure) throw failure;
     return {
       ok: status >= 200 && status < 300,
       status,
-      url: String(url),
+      url: finalUrl || String(url),
       text: async () => body,
       headers: { get: () => '' }
     };
@@ -156,7 +159,10 @@ function createHarness({
     setInterval,
     setTimeout,
     chrome: {
-      runtime: { id: 'test-extension-id', sendMessage: () => Promise.resolve() },
+      runtime: { id: 'test-extension-id', sendMessage: (message) => {
+        if (message.type === 'ERROR_LOG_APPEND') recorded.push(message.payload.entry);
+        return Promise.resolve();
+      } },
       storage: { onChanged: { addListener: () => {} } }
     }
   };
@@ -169,7 +175,43 @@ function createHarness({
   for (const file of files) {
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
-  return { api: context.NexusExt.NNW, calls, state };
+  return { api: context.NexusExt.NNW, calls, state, recorded };
+}
+
+// Discord reports from 3.1.1: an unreadable /api/files redirect stopped the flow before the
+// same-origin generator could answer. Exercise actual Errors.request, not a canned error object.
+async function apiRouteRecoveryTests() {
+  const href = 'https://www.nexusmods.com/api/files/200?game=130';
+  for (const isNMM of [false, true]) {
+    const link = isNMM ? VORTEX_URL : MANUAL_URL;
+    const h = createHarness({ sectionGameId: '130', pages: [
+      { failure: new TypeError('Failed to fetch') },
+      { body: JSON.stringify({ url: link }) }
+    ] });
+    const result = await h.api.getDownloadUrl({ isNMM, href });
+    assert.equal(result.url, link, 'the generator recovers an unreadable API route');
+    assert.equal(h.calls.length, 2, 'one route attempt and one generator attempt');
+    const body = new URLSearchParams(h.calls[1].options.body);
+    assert.equal(body.get('fid'), '200', 'the clicked file is recovered from the API path');
+    assert.equal(body.get('game_id'), '130');
+    assert.equal(body.get('nmm'), isNMM ? '1' : null);
+    assert.equal(h.recorded.length, 0, 'a successful fallback creates no error report');
+  }
+  for (const status of [401, 403, 404, 429]) {
+    const h = createHarness({ pages: [{ status }] });
+    const result = await h.api.getDownloadUrl({ fileId: '200', isNMM: false, href });
+    assert.ok(result.error, `HTTP ${status} remains an error`);
+    assert.equal(h.calls.length, 1, 'authentication, access and rate limits are not worked around');
+    assert.equal(h.recorded.length, 1, 'one final failure is recorded');
+  }
+  const failed = createHarness({ sectionGameId: '130', pages: Array.from({ length: 4 }, () => ({ failure: new TypeError('Failed to fetch') })) });
+  const result = await failed.api.getDownloadUrl({ fileId: '200', isNMM: false, href });
+  assert.equal(result.error.code, 'network_error');
+  assert.equal(failed.recorded.length, 1, 'multiple failed attempts record just the final failure');
+  assert.match(result.error.technicalMessage, /GET|POST/);
+  assert.match(result.error.technicalMessage, /no readable HTTP response/);
+  assert.doesNotMatch(result.error.technicalMessage, /api\/files\/200|\?game=|https:/);
+  assert.equal(failed.calls[2].url, 'https://www.nexusmods.com/newvegas/mods/100?tab=files&file_id=200', 'the page fallback loads the file page, not the failed API route again');
 }
 
 // nnw.js reads responses through download-url-parser.js; every parser case has to hold through its wrappers.
@@ -401,6 +443,7 @@ Promise.resolve()
   .then(parserTests)
   .then(modPageDetectionTests)
   .then(downloadFlowTests)
+  .then(apiRouteRecoveryTests)
   .then(removedModFlowTests)
   .then(legacyChromiumVortexTests)
   .then(vortexGeneratorFirstTests)

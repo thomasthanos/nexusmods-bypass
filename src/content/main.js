@@ -120,12 +120,24 @@
       return { container: legacy.parentElement, legacy };
     }
 
-    const container = document.querySelector('#mainContent > div > div.relative > div.next-container')
+    let container = document.querySelector('#mainContent > div > div.relative > div.next-container')
       || document.querySelector('#mainContent .next-container');
+    let layout = 'next-container';
+    if (!container) {
+      // Nexus can change its utility classes without changing the actual collection page. Mount
+      // inside rendered main content, never in the body/header or a still-loading skeleton.
+      const main = document.getElementById('mainContent') || document.querySelector('main, [role="main"]');
+      if (main?.querySelector('h1') && !main.matches('[aria-busy="true"]')
+        && !main.querySelector('[aria-busy="true"]')) {
+        container = main;
+        layout = 'page-content';
+      }
+    }
     if (!container) return null;
 
     return {
       container,
+      layout,
       legacy: container.querySelector('.bg-surface-low.w-full.space-y-3.rounded-lg.p-4.mt-4')
     };
   }
@@ -176,6 +188,8 @@
     if (host.legacy) {
       host.legacy.classList.add('nxtk-hidden');
       host.legacy.insertAdjacentElement('afterend', deck);
+    } else if (host.layout === 'page-content') {
+      host.container.prepend(deck);
     } else {
       host.container.appendChild(deck);
     }
@@ -193,6 +207,9 @@
     if (deckMountRetryTimer || deckMountAttempts >= DECK_MOUNT_MAX_ATTEMPTS) return;
     const delay = Math.min(DECK_MOUNT_RETRY_BASE_MS * Math.pow(2, deckMountAttempts), DECK_MOUNT_RETRY_MAX_MS);
     deckMountAttempts += 1;
+    // A genuine mount failure is checked after the bounded recovery period, not while Nexus is
+    // hydrating. This runs once; the normal page poll must not continually restart the check.
+    if (deckMountAttempts === DECK_MOUNT_MAX_ATTEMPTS) window.NexusExt.PageCheck?.schedule();
     deckMountRetryTimer = setTimeout(() => {
       deckMountRetryTimer = null;
       if (activeNdc === ndc && !document.getElementById('nxtk-control-deck')) handleRouteChange();
@@ -392,6 +409,8 @@
 
     window.NexusExt.PageCheck?.configure({
       findCollectionHost,
+      collectionMountPending: () => !activeNdc?.initialized ||
+        (!document.getElementById('nxtk-control-deck') && deckMountAttempts < DECK_MOUNT_MAX_ATTEMPTS),
       isCollectionRoute: (pathname) => !!extractRouteDetails(pathname)
     });
     window.NexusExt.PageCheck?.schedule();

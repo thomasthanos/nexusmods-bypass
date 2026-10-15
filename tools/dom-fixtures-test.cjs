@@ -31,6 +31,8 @@ const SCRIPTS = [
 function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=734848') {
   const dom = new JSDOM(fixture(name), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
+  // These synchronous snapshots represent a loaded page; jsdom's load event runs later.
+  Object.defineProperty(window.document, 'readyState', { configurable: true, value: 'complete' });
   window.chrome = {
     runtime: { id: 'test', getURL: (p) => `chrome-extension://test/${p}`, sendMessage: () => Promise.resolve(), onMessage: { addListener() {} } },
     storage: { local: { get: (_k, cb) => (cb ? cb({}) : Promise.resolve({})), set: (_v, cb) => (cb ? cb() : Promise.resolve()) }, onChanged: { addListener() {} } },
@@ -75,8 +77,15 @@ function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/1
   const w = load('file-page-signed-in-no-markers.html');
   const result = w.NexusExt.PageCheck.runChecks({ doc: w.document, loc: w.location, nnw: { getGameId: () => '1704', getSearchRoots: (d) => [d] } });
   const signIn = result.checks.find((c) => c.id === 'sign-in');
-  assert.equal(signIn.ok, true, 'no log-in control anywhere is read as signed in, not as a site change');
-  assert.match(signIn.detail, /inferred/);
+  assert.equal(signIn.ok, true, 'missing account controls do not imply a site change');
+  assert.match(signIn.detail, /unknown/);
+  w.document.getElementById('section').replaceWith(...w.document.getElementById('section').childNodes);
+  const heading = w.document.createElement('h1');
+  heading.textContent = 'Example mod';
+  w.document.getElementById('mainContent').prepend(heading);
+  const modern = w.NexusExt.PageCheck.runChecks({ doc: w.document, loc: w.location,
+    nnw: { getGameId: () => '1704', getSearchRoots: (d) => [d] } });
+  assert.ok(modern.checks.every((c) => c.ok), 'a rendered page without the legacy section or account menu is valid');
 }
 {
   const w = load('file-page-signed-out.html');
@@ -239,6 +248,25 @@ function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/1
   container.className = 'next-container';
   w.document.querySelector('#mainContent .relative').appendChild(container);
   assert.equal(find()?.container, container, 'the spot is found once hydration adds it');
+  container.remove();
+  const mainContent = w.document.getElementById('mainContent');
+  const heading = w.document.createElement('h1');
+  heading.textContent = 'Example collection';
+  mainContent.append(heading);
+  assert.equal(find()?.container, mainContent, 'rendered content works without next-container classes');
+  assert.equal(find()?.layout, 'page-content');
+  mainContent.setAttribute('aria-busy', 'true');
+  assert.equal(find(), null, 'busy content is not used as a fallback');
+  mainContent.removeAttribute('aria-busy');
+  mainContent.replaceWith(...mainContent.childNodes);
+  assert.equal(find(), null, 'a heading in the body alone is not a safe mount point');
+  const semantic = w.document.createElement('main');
+  semantic.append(heading);
+  w.document.body.append(semantic);
+  assert.equal(find()?.container, semantic, 'semantic main works without #mainContent');
+  const result = w.NexusExt.PageCheck.runChecks({ doc: w.document, loc: w.location, findCollectionHost: find,
+    isCollectionRoute: () => true });
+  assert.equal(result.checks.find(c => c.id === 'deck-spot').ok, true);
   assert.ok(main.includes('scheduleDeckMountRetry(ndc)'), 'a missing spot schedules a retry instead of giving up');
 }
 

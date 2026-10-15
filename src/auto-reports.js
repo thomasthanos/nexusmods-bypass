@@ -3,13 +3,17 @@
   'use strict';
   const KEY = 'nxtk_auto_report_queue';
   const ALARM = 'nxtk-auto-reports';
-  const WINDOW = 10 * 60 * 1000;
+  const WINDOW = 60 * 60 * 1000;
+  const NETWORK_WINDOW = 6 * WINDOW;
   const DAY = 24 * 60 * 60 * 1000;
   const MAX_PENDING = 20;
   const DAILY_MAX = 10;
   const LOCAL_ONLY = new Set(['offline', 'aborted', 'context_invalid', 'requires_login', 'cloudflare',
     'rate_limited', 'account_suspended', 'access_denied', 'file_not_found', 'mod_unavailable',
     'moderation_hold', 'missing_file', 'USER_CANCELED', 'USER_SHUTDOWN']);
+
+  const repeatWindow = (payload) => ['network_error', 'timeout'].includes(payload.error?.causeCode || payload.error?.code)
+    ? NETWORK_WINDOW : WINDOW;
 
   class Reporter {
     constructor({ kit, read, write, api, fetchImpl = (...args) => globalThis.fetch(...args), clock = () => Date.now() }) {
@@ -42,6 +46,7 @@
         cooldownUntil: Number(saved.cooldownUntil) || 0,
         sent: Object.fromEntries(Object.entries(saved.sent || {}).filter(([, at]) => now - at < DAY)),
         pending: (Array.isArray(saved.pending) ? saved.pending : []).filter((p) => now - p.createdAt < DAY).slice(0, MAX_PENDING)
+          .map((p) => ({ ...p, nextAt: Math.max(p.nextAt, (saved.sent?.[p.fingerprint] || 0) + repeatWindow(p.payload)) }))
       };
     }
 
@@ -80,7 +85,7 @@
           }
           pending = {
             fingerprint, createdAt: now, attempts: 0,
-            nextAt: Math.max(now, (state.sent[fingerprint] || 0) + WINDOW),
+            nextAt: Math.max(now, (state.sent[fingerprint] || 0) + repeatWindow(details)),
             payload: {
               schema: this.kit.REPORT_SCHEMA_VERSION, kind: 'auto', version,
               browser: this.kit.reportBrowserName(globalThis.navigator?.userAgent),
@@ -166,7 +171,7 @@
                 item.payload.occurrences = remaining;
                 item.payload.firstAt = item.extraFirstAt || item.payload.lastAt;
                 delete item.extraFirstAt;
-                item.nextAt = this.clock() + WINDOW;
+                item.nextAt = this.clock() + repeatWindow(item.payload);
                 item.attempts = 0;
               } else state.pending = state.pending.filter((p) => p !== item);
             } else if ([400, 413, 415, 422].includes(response?.status) || item.attempts >= 6) {
@@ -199,5 +204,5 @@
     }
   }
 
-  globalThis.NXTKAutoReports = { Reporter, KEY, ALARM, WINDOW, DAILY_MAX };
+  globalThis.NXTKAutoReports = { Reporter, KEY, ALARM, WINDOW, NETWORK_WINDOW, DAILY_MAX };
 })();

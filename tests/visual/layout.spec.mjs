@@ -88,6 +88,97 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { await context?.close(); });
 
+for (const semanticMain of [false, true]) {
+  test(`collection mounts and recovers without legacy container classes (${semanticMain ? 'semantic main' : 'mainContent'})`, async () => {
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const url = 'https://www.nexusmods.com/games/skyrimspecialedition/collections/fallback';
+    const root = semanticMain ? 'main' : '#mainContent';
+    const html = semanticMain
+      ? '<!doctype html><title>Collection</title><header><a href="/auth/sign_out">Sign out</a></header><main><h1>Test collection</h1><p>Collection content</p></main>'
+      : fixture('visual-collection-page.html').replaceAll('class="next-container"', 'class="collection-content"');
+    await page.route(url, route => route.fulfill({ status: 200, contentType: 'text/html', body: html }));
+    await page.goto(url);
+    const deck = page.locator('#nxtk-control-deck');
+    await expect(deck).toBeVisible({ timeout: 30000 });
+    expect(await deck.evaluate((node, selector) => node.parentElement.matches(selector), root)).toBe(true);
+    let [worker] = context.serviceWorkers();
+    if (!worker) worker = await context.waitForEvent('serviceworker');
+    const check = await worker.evaluate(async url => {
+      const [tab] = await globalThis.chrome.tabs.query({ url });
+      const [check] = await globalThis.chrome.scripting.executeScript({ target: { tabId: tab.id },
+        func: () => globalThis.NexusExt.PageCheck.runChecks() });
+      return check.result;
+    }, url);
+    expect(check.checks.find(c => c.id === 'deck-spot').ok).toBe(true);
+    // Nexus re-renders the page while keeping the same route: the panel must self-heal once.
+    await page.evaluate(() => document.getElementById('nxtk-control-deck').remove());
+    await expect(deck).toBeVisible({ timeout: 15000 });
+    await expect(deck).toHaveCount(1);
+    await assertFits(page, '#nxtk-control-deck', 'fallback collection panel');
+    await page.close();
+  });
+}
+
+test('late collection content waits for mounting instead of declaring a page change', async () => {
+  const page = await context.newPage();
+  const url = 'https://www.nexusmods.com/games/skyrimspecialedition/collections/latecontent';
+  await page.route(url, route => route.fulfill({ status: 200, contentType: 'text/html',
+    body: fixture('collection-late-hydration.html') }));
+  await page.goto(url);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const check = await worker.evaluate(async url => {
+    const [tab] = await globalThis.chrome.tabs.query({ url });
+    const [check] = await globalThis.chrome.scripting.executeScript({ target: { tabId: tab.id },
+      func: () => globalThis.NexusExt.PageCheck.runChecks() });
+    return check.result;
+  }, url);
+  expect(check.skipped).toBe('Collection panel still loading');
+  expect(check.checks).toEqual([]);
+  await page.evaluate(() => {
+    const heading = document.createElement('h1');
+    heading.textContent = 'Collection finally rendered';
+    document.getElementById('mainContent').append(heading);
+  });
+  await expect(page.locator('#nxtk-control-deck')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('#nxtk-control-deck')).toHaveCount(1);
+  await page.close();
+});
+
+test('download API fetch failure recovers through the generator without reporting a failed download', async () => {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker');
+  await worker.evaluate(async () => {
+    await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false } });
+  });
+  const page = await openPage('https://www.nexusmods.com/newvegas/mods/100?tab=files', 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  await page.route('**/api/files/**', route => route.abort('failed'));
+  const signed = 'nxm://newvegas/mods/100/files/200?key=test&expires=2000000000&user_id=7';
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ url: signed })
+  }));
+  const recovered = await worker.evaluate(async () => {
+    const [tab] = await globalThis.chrome.tabs.query({ url: 'https://www.nexusmods.com/newvegas/mods/100?tab=files' });
+    const [result] = await globalThis.chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+      const errors = [];
+      const record = globalThis.NXTK.recordError;
+      globalThis.NXTK.recordError = entry => errors.push(entry);
+      try {
+        const result = await globalThis.NexusExt.NNW.getDownloadUrl({ fileId: '200', gameId: '130', isNMM: true,
+          href: 'https://www.nexusmods.com/api/files/200?game=130' });
+        return { result, errors };
+      } finally { globalThis.NXTK.recordError = record; }
+    } });
+    return result.result;
+  });
+  expect(recovered.result.url).toBe(signed);
+  expect(recovered.errors).toEqual([]);
+  await page.close();
+});
+
 test('automatic reports: accessible one-time Nexus invitation without extra permissions', async () => {
   let [worker] = context.serviceWorkers();
   if (!worker) worker = await context.waitForEvent('serviceworker');
@@ -881,7 +972,9 @@ test('Vortex button state shows on a real-style label (icon span + bare text, re
   await page.waitForTimeout(400);
   await expect(button, 'the label survives the re-render').toHaveText(/Sending to Vortex/);
   expect(await button.locator('svg').count(), 'the icon is kept').toBe(1);
-  await page.waitForTimeout(3500);
+  // Both routes are intentionally delayed. Wait for the final failure, not the first attempt.
+  await expect(page.locator('[data-retry]').first()).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.nxtk-status-toast'), 'a failed send removes the toast').toHaveCount(0);
   for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
@@ -1522,12 +1615,12 @@ for (const lang of ['de', 'ru', 'el']) {
   });
 }
 
-test('rapid double and triple clicks on a Vortex button start one request', async () => {
+test('rapid double and triple clicks on a Vortex button start one attempt including its fallback', async () => {
   const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
   await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
-  let hits = 0;
+  const hits = [];
   const slow = async (route) => {
-    hits += 1;
+    hits.push(new URL(route.request().url()).pathname.startsWith('/api/files/') ? 'api' : 'generator');
     await new Promise((r) => setTimeout(r, 1500));
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
   };
@@ -1547,9 +1640,9 @@ test('rapid double and triple clicks on a Vortex button start one request', asyn
   const button = page.locator('mod-file-download').locator('#v');
   await button.dblclick();
   await button.click({ delay: 0 });
-  await page.waitForTimeout(2500);
-  expect(hits, 'one link request for a burst of clicks').toBe(1);
   expect(await page.locator('.nxtk-status-toast').count(), 'at most one status toast').toBeLessThanOrEqual(1);
+  await expect(page.locator('[data-retry]').first()).toBeVisible({ timeout: 15000 });
+  expect(hits, 'one API call and one fallback, regardless of the click burst').toEqual(['api', 'generator']);
   for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);

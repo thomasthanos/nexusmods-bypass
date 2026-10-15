@@ -584,7 +584,15 @@ window.NexusExt = window.NexusExt || {};
     return DownloadParser.findDownloadLink(text, { ...given, baseUrl: location.href });
   }
 
-  async function getDownloadUrl({
+  // Only the final outcome is an error. A failed route answered by a fallback must not trigger
+  // a user error report (or consume the automatic reporting allowance).
+  async function getDownloadUrl(options = {}) {
+    const result = await resolveDownloadUrl(options);
+    if (result?.error) Errors.record?.(result.error);
+    return result;
+  }
+
+  async function resolveDownloadUrl({
     fileId,
     gameId,
     isNMM,
@@ -595,9 +603,18 @@ window.NexusExt = window.NexusExt || {};
     prefetchedError = null,
     signal = null
   } = {}) {
-    if (!fileId && !href) return { url: null, error: Errors.create('missing_file') };
+    if (!fileId && !href) return { url: null, error: Errors.create('missing_file', { record: false }) };
 
-    const filePageUrl = href || `${location.origin}${location.pathname}?tab=files&file_id=${encodeURIComponent(fileId)}`;
+    let isApiFileHref = false;
+    try {
+      const link = href ? new URL(href, location.href) : null;
+      isApiFileHref = !!link?.pathname.startsWith('/api/files/');
+      if (isApiFileHref) fileId ||= link.pathname.match(/^\/api\/files\/(\d+)(?:\/|$)/)?.[1];
+    } catch (_) {
+      return { url: null, error: Errors.create('invalid_response', { context: 'Reading download link', record: false }) };
+    }
+    const canonicalFilePage = `${location.origin}${location.pathname}?tab=files&file_id=${encodeURIComponent(fileId || '')}`;
+    const filePageUrl = isApiFileHref ? canonicalFilePage : (href || canonicalFilePage);
     let resolvedGameId = normalizeGameId(gameId) || getGameId(filePageUrl);
     const gameDomain = getGameDomainFromUrl(filePageUrl) || getGameDomainFromUrl(location.href);
     refreshAdTimerCookie();
@@ -609,7 +626,8 @@ window.NexusExt = window.NexusExt || {};
     const requestOptions = (context) => ({
       timeoutMs: cfg.RequestTimeout || Errors.DEFAULT_TIMEOUT_MS,
       context,
-      signal
+      signal,
+      record: false
     });
 
     let pendingPrefetch = (prefetchedText === null && !prefetchedError) ? null : {
@@ -634,6 +652,7 @@ window.NexusExt = window.NexusExt || {};
     };
 
     const fetchText = async (url, { ajax = true, context = 'Loading Nexus download page' } = {}) => {
+      if (signal?.aborted) return { ok: false, error: Errors.create('aborted', { record: false }) };
       const absoluteUrl = new URL(url, location.href).href;
       const reused = takePrefetch(absoluteUrl);
       if (reused) {
@@ -647,7 +666,8 @@ window.NexusExt = window.NexusExt || {};
     };
 
     const fetchGeneratedDownloadUrl = async (nmm = false) => {
-      if (!fileId) return { url: null, text: '', error: Errors.create('missing_file') };
+      if (!fileId) return { url: null, text: '', error: Errors.create('missing_file', { record: false }) };
+      if (signal?.aborted) return { url: null, error: Errors.create('aborted', { record: false }) };
 
       const body = `fid=${encodeURIComponent(fileId)}&game_id=${encodeURIComponent(resolvedGameId || gameDomain)}${nmm ? '&nmm=1' : ''}`;
       const response = await Errors.request(endpoint, {
@@ -713,19 +733,18 @@ window.NexusExt = window.NexusExt || {};
         if (!isNMM) return { url: extracted.url };
       }
 
-      return { url: null, error: Errors.create(isNMM ? 'no_nmm_link' : 'no_download_url') };
+      return { url: null, error: Errors.create(isNMM ? 'no_nmm_link' : 'no_download_url', { record: false }) };
     };
-
-    let isApiFileHref = false;
-    try {
-      isApiFileHref = !!href && new URL(href, location.href).pathname.includes('/api/files/');
-    } catch (_) {
-      return { url: null, error: Errors.create('invalid_response', { context: 'Reading download link' }) };
-    }
 
     if (isApiFileHref) {
       const result = await resolveApiFileUrl(href);
-      if (result.url || result.error) return result;
+      if (result.url) return result;
+      // A redirecting API route may be unreadable to fetch, even when the same-origin generator
+      // works. Never fall back around authentication, verification, rate limits or cancellation.
+      const recoverable = ['network_error', 'timeout', 'server_error', 'invalid_response', 'no_download_url', 'no_nmm_link'];
+      if (!fileId || signal?.aborted || !recoverable.includes(result.error?.code)) return result;
+      NXTK.queueDebugEntry?.('debug', `Download API route failed (${result.error.code}); trying the download generator.`);
+      href = filePageUrl;
     }
 
     if (isNMM && href) {
@@ -781,7 +800,7 @@ window.NexusExt = window.NexusExt || {};
         }
       }
 
-      return { url: null, error: latestError || quick?.error || Errors.create('no_nmm_link') };
+      return { url: null, error: latestError || quick?.error || Errors.create('no_nmm_link', { record: false }) };
     }
 
     if (isNMM) {
@@ -789,7 +808,7 @@ window.NexusExt = window.NexusExt || {};
       const generatedNxm = parseNxmDownloadLink(generated?.url);
       return generatedNxm
         ? { url: generatedNxm }
-        : { url: null, error: generated?.error || Errors.create('no_nmm_link') };
+        : { url: null, error: generated?.error || Errors.create('no_nmm_link', { record: false }) };
     }
 
     const fetchFilePageFallback = async () => {
@@ -812,10 +831,11 @@ window.NexusExt = window.NexusExt || {};
         Logger.info('Manual download URL found from file page:', extracted.source);
         return { url: extracted.url };
       }
-      return { url: null, error: Errors.create('no_download_url', { context: 'Reading manual download page' }) };
+      return { url: null, error: Errors.create('no_download_url', { context: 'Reading manual download page', record: false }) };
     };
 
     const attemptFetch = async (attempt, didPageFallback = false, lastError = null) => {
+      if (signal?.aborted) return { url: null, error: Errors.create('aborted', { record: false }) };
       const generated = await fetchGeneratedDownloadUrl(false);
       if (generated?.url) {
         Logger.info('Manual download URL found from GenerateDownloadUrl');
@@ -837,7 +857,7 @@ window.NexusExt = window.NexusExt || {};
         return attemptFetch(attempt + 1, true, latestError);
       }
 
-      return { url: null, error: latestError || Errors.create('no_download_url') };
+      return { url: null, error: latestError || Errors.create('no_download_url', { record: false }) };
     };
     return attemptFetch(1);
   }

@@ -245,20 +245,20 @@ window.NexusExt = window.NexusExt || {};
     return create('invalid_response', detail(`HTTP ${status}`));
   }
 
-  function fromException(cause, { context = '', record = true } = {}) {
-    const technicalMessage = String(cause?.message || cause || '');
+  function fromException(cause, { context = '', record = true, extra = '', status = null } = {}) {
+    const technicalMessage = [String(cause?.message || cause || ''), extra].filter(Boolean).join(' | ');
     const stack = String(cause?.stack || '');
     const name = String(cause?.name || '');
     if (name === 'AbortError' || /timed?\s*out/i.test(technicalMessage)) {
-      return create('timeout', { context, technicalMessage, stack, record });
+      return create('timeout', { context, technicalMessage, stack, record, status });
     }
     if (/extension context invalidated|message port closed/i.test(technicalMessage)) {
-      return create('context_invalid', { context, technicalMessage, stack, record });
+      return create('context_invalid', { context, technicalMessage, stack, record, status });
     }
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      return create('offline', { context, technicalMessage, stack, record });
+      return create('offline', { context, technicalMessage, stack, record, status });
     }
-    return create('network_error', { context, technicalMessage, stack, record });
+    return create('network_error', { context, technicalMessage, stack, record, status });
   }
 
   function normalizeTimeout(value) {
@@ -276,7 +276,27 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
+  // Fixed route categories give a failed fetch useful context without logging signed links,
+  // query strings, file identifiers, cookies or arbitrary hostnames.
+  function requestDiagnostic(url, options, phase, status = 0) {
+    let route = 'external request';
+    try {
+      const parsed = new URL(url, typeof location === 'undefined' ? undefined : location.href);
+      if (/(^|\.)nexusmods\.com$/i.test(parsed.hostname)) {
+        route = parsed.pathname.startsWith('/api/files/') ? 'Nexus API download endpoint'
+          : parsed.searchParams.has('GenerateDownloadUrl') ? 'Nexus download generator'
+            : /\/mods\/\d+/.test(parsed.pathname) ? 'Nexus download page' : 'Nexus request';
+      }
+    } catch (_) { }
+    const method = String(options.method || 'GET').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 12);
+    const online = typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'not known to be offline';
+    return `${phase}: ${method} ${route}; ${status ? `HTTP ${status}` : 'no readable HTTP response'}; ${online}`;
+  }
+
   async function request(url, options = {}, { timeoutMs = DEFAULT_TIMEOUT_MS, context = 'Nexus request', signal = null, record = true } = {}) {
+    if (signal?.aborted) {
+      return { ok: false, status: 0, text: '', finalUrl: String(url), error: normalize({ code: 'aborted', context }) };
+    }
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     let timedOut = false;
     const timer = controller
@@ -306,7 +326,10 @@ window.NexusExt = window.NexusExt || {};
           status: response.status || 0,
           text: '',
           finalUrl: response.url || String(url),
-          error: fromException(cause, { context, record })
+          error: !timedOut && signal?.aborted
+            ? normalize({ code: 'aborted', context })
+            : fromException(cause, { context, record, status: response.status || null,
+              extra: requestDiagnostic(url, options, 'reading response', response.status) })
         };
       }
 
@@ -375,8 +398,8 @@ window.NexusExt = window.NexusExt || {};
         text: '',
         finalUrl: String(url),
         error: timedOut
-          ? create('timeout', { context, technicalMessage: String(cause?.message || ''), record })
-          : fromException(cause, { context, record })
+          ? create('timeout', { context, technicalMessage: [String(cause?.message || ''), requestDiagnostic(url, options, 'request timed out')].join(' | '), record })
+          : fromException(cause, { context, record, extra: requestDiagnostic(url, options, 'fetch failed') })
       };
     } finally {
       if (timer) clearTimeout(timer);
