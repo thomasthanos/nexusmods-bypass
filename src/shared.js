@@ -786,8 +786,23 @@
     return text;
   }
 
+  // Several of the patterns above backtrack quadratically on a long run without whitespace (100 KB
+  // took 15-28 s, blocking the worker or the page), and everything past maxLength is cut anyway. So
+  // only a bounded head is scanned. A secret cut at that boundary would no longer match its pattern,
+  // so the run the cut lands in is dropped whole instead of being kept half-redacted.
+  const SCAN_SLACK_CHARS = 512;
+  function boundForScan(text, maxLength) {
+    if (!Number.isFinite(maxLength) || maxLength < 0) return text;
+    const limit = Math.floor(maxLength) * 2 + SCAN_SLACK_CHARS;
+    if (text.length <= limit) return text;
+    if (/\s/.test(text.charAt(limit))) return text.slice(0, limit);
+    let cut = limit;
+    while (cut > 0 && !/\s/.test(text.charAt(cut - 1))) cut -= 1;
+    return `${text.slice(0, cut)}…`;
+  }
+
   function sanitizeDiagnosticText(value, maxLength = 1500) {
-    let text = String(value ?? '');
+    let text = boundForScan(String(value ?? ''), maxLength);
     if (!text) return text;
     text = text.replace(EXTENSION_ORIGIN_PATTERN, 'ext://');
     text = text.replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, (match) => sanitizeUrlForReport(match));
@@ -1202,12 +1217,40 @@
       status: Number.isInteger(error?.status) ? error.status : null,
       context: sanitizeDiagnosticText(error?.context, 300),
       action: sanitizeDiagnosticText(error?.action, 200),
-      userMessage: String(error?.userMessage || ''),
+      userMessage: sanitizeDiagnosticText(error?.userMessage, 300),
       technicalMessage: sanitizeDiagnosticText(error?.technicalMessage, 600),
       stack: sanitizeDiagnosticText(error?.stack, 1500),
       url: sanitizeUrlForReport(error?.url)
     };
   }
+
+  // A fault repeating in a tight loop (a throwing observer callback, a retry storm) would otherwise
+  // cost a message, two storage writes and an auto-report check per repetition. One context sends the
+  // same fault at most once per repeatMs and at most burstLimit entries a minute; what does arrive is
+  // still counted and grouped by the background log.
+  function createErrorThrottle({ now = () => Date.now(), repeatMs = 2000, burstLimit = 20, windowMs = 60 * 1000 } = {}) {
+    const lastSent = new Map();
+    let windowStart = -Infinity;
+    let sentInWindow = 0;
+    return function admit(entry) {
+      const at = now();
+      if (at - windowStart >= windowMs) {
+        windowStart = at;
+        sentInWindow = 0;
+      }
+      const signature = `${entry?.code || ''}|${entry?.context || ''}|${entry?.status ?? ''}`;
+      const previous = lastSent.get(signature);
+      if (previous !== undefined && at - previous < repeatMs) return false;
+      if (sentInWindow >= burstLimit) return false;
+      sentInWindow += 1;
+      lastSent.delete(signature);
+      lastSent.set(signature, at);
+      if (lastSent.size > 100) lastSent.delete(lastSent.keys().next().value);
+      return true;
+    };
+  }
+
+  const admitRecordedError = createErrorThrottle();
 
   function recordError(error) {
     const entry = buildErrorEntry({
@@ -1215,6 +1258,7 @@
       action: describeActivity(),
       url: typeof location !== 'undefined' && location?.href ? location.href : ''
     });
+    if (!admitRecordedError(entry)) return;
     try {
       if (!chrome?.runtime?.id) return;
       chrome.runtime.sendMessage({ type: 'ERROR_LOG_APPEND', payload: { entry } }, () => {
@@ -1455,6 +1499,7 @@
     validateDownloadTarget,
     isSafeNexusPageUrl,
     buildErrorEntry,
+    createErrorThrottle,
     recordError,
     setActivity,
     noteActivity,

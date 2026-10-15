@@ -41,14 +41,20 @@ function getRuntimeError() {
   }
 }
 
+// The worker's own storms (an alarm or listener failing on every event) are held back the same way
+// pages hold back theirs (NXTK.recordError).
+const admitBackgroundError = NXTK.createErrorThrottle();
+
 function recordBackgroundError(context, cause) {
-  appendErrorLogEntry(NXTK.buildErrorEntry({
+  const entry = NXTK.buildErrorEntry({
     code: 'background_error',
     context,
     userMessage: 'A background extension task failed.',
     technicalMessage: String(cause?.message || cause || ''),
     stack: String(cause?.stack || '')
-  })).catch(() => undefined);
+  });
+  if (!admitBackgroundError(entry)) return;
+  appendErrorLogEntry(entry).catch(() => undefined);
 }
 
 const STORAGE_HISTORY_KEY = 'nxtk_ndc_history';

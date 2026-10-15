@@ -11,6 +11,15 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
+## Unreleased
+
+- **Relay resilience:** the Worker answers every failure with CORS headers instead of an opaque 500. KV read/write failures (daily write cap, one write per key per second) fall back to memory instead of refusing reports, and post-delivery bookkeeping can no longer trigger a duplicate Discord post. Bodies without a `Content-Length` are capped while streaming. Needs `npx wrangler deploy`.
+- **Discord delivery:** one shared dispatcher (`relay/discord.js`) for the Worker and the GitHub workflows waits out 429s using Discord's `retry_after` plus jitter, retries 502/503/504 and network errors with bounded exponential backoff, and never retries a payload Discord rejected. A long upstream limit reaches the extension as `429` + `Retry-After`, so its queue pauses for that long. Embed text is clipped without splitting emoji, lone surrogates are repaired, and empty fields are dropped.
+- **Severity colours:** crashes and manual bug reports are red (`#ED4245`), other automatic faults amber (`#E8B339`), releases green (`#57F287`); neutral GitHub notices stay blue.
+- **Fallback log:** an undeliverable report, KV failure or e-mail failure is written to the Worker log as one secret-free JSON line; the e-mail copy remains the fallback destination when configured.
+- **Error pipeline:** report sanitizing scans a bounded head of each text (100 KB without whitespace used to block for 15–28 s) and drops a token cut at the boundary. User messages in the error log are redacted and bounded too. A fault repeating in a loop reaches the worker once per two seconds and at most 20 entries a minute from one page or the worker. The report page no longer reads every 503 as "server not set up", and HTTP-date `Retry-After` values are understood.
+- **Workflows:** release, issue, manifest and schema notices post with `node tools/discord-notification.mjs … --send` instead of `curl`, keeping the webhook off the command line.
+
 ## 3.1.3 — 2026-10-15
 
 - **Download UI conflicts:** Chrome's “Another extension has disabled the download UI” response when restoring the popup no longer produces a false background-error report. Our restriction is released and the other extension's preference is respected.

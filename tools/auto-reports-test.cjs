@@ -180,6 +180,28 @@ async function run() {
     assert.equal(f.sent[0].payload.error.frame, 'content/ndc.js:42:5');
     assert.equal(f.kit.errorReference(raw), f.kit.errorReference(f.entry({ ...raw, context: 'Downloading queued file 456 for game fallout' })), 'identifiers do not fragment the same fault');
   }
+  {
+    // A 503 that says when to come back pauses the queue like a 429; one that does not is retried.
+    const f = fixture(); f.enable();
+    f.delivery(async () => ({ ok: false, status: 503, headers: { get: (name) => (name === 'retry-after' ? '600' : null) } }));
+    await f.reporter.enqueue(f.entry()); await f.reporter.flush();
+    const state = f.store[f.KEY];
+    assert.equal(state.pending.length, 1);
+    assert.equal(state.cooldownUntil - Date.UTC(2026, 9, 14, 12), 600000, 'Retry-After on a 503 is honoured');
+    // Discord throttling relayed as 429 + Retry-After pauses everything for that long.
+    const g = fixture(); g.enable();
+    g.delivery(async () => ({ ok: false, status: 429, headers: { get: (name) => (name === 'retry-after' ? '43' : null) } }));
+    await g.reporter.enqueue(g.entry()); await g.reporter.flush();
+    assert.equal(g.store[g.KEY].cooldownUntil - Date.UTC(2026, 9, 14, 12), 60000, 'never sooner than a minute');
+  }
+  {
+    // Damaged entries in storage are dropped instead of stopping the queue.
+    const f = fixture(); f.enable();
+    f.store[f.KEY] = { pending: [null, 'x', { fingerprint: 'a' }, { payload: {} }] };
+    await f.reporter.enqueue(f.entry()); await f.reporter.flush();
+    assert.equal(f.sent.length, 1, 'the queue still delivers');
+    assert.equal(f.store[f.KEY].pending.length, 0);
+  }
   console.log('Auto-report tests passed: opt-in, durable retries, aggregation, caps, opt-out and redaction.');
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; });

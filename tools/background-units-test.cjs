@@ -71,6 +71,10 @@ async function debugLogAndAutoReports() {
     context.recordBackgroundError('background test', new Error('boom'));
     await context.__writeQueues.get(N.ERROR_LOG_KEY);
     assert.deepEqual(recorded, ['nexus_api_changed', 'queue_item_failed', 'background_error'], 'all error writers use the reporting path once');
+    // A listener failing on every event writes the log once, not once per event.
+    for (let i = 0; i < 200; i += 1) context.recordBackgroundError('alarm storm', new Error('same failure'));
+    await context.__writeQueues.get(N.ERROR_LOG_KEY);
+    assert.deepEqual(recorded.slice(3), ['background_error'], 'a background error storm is held back at the source');
   } finally { reporter.enqueue = previousEnqueue; }
   await context.armAutoReportPrompt();
   const sender = { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/mods/1', tab: { id: 7 }, frameId: 0 };

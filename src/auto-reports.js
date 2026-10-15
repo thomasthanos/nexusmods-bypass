@@ -45,7 +45,11 @@
         attempts: saved.day === day ? Number(saved.attempts) || 0 : 0,
         cooldownUntil: Number(saved.cooldownUntil) || 0,
         sent: Object.fromEntries(Object.entries(saved.sent || {}).filter(([, at]) => now - at < DAY)),
-        pending: (Array.isArray(saved.pending) ? saved.pending : []).filter((p) => now - p.createdAt < DAY).slice(0, MAX_PENDING)
+        // A damaged entry (an older build, a storage fault) is dropped instead of stopping the queue.
+        pending: (Array.isArray(saved.pending) ? saved.pending : [])
+          .filter((p) => p && typeof p === 'object' && p.payload && typeof p.payload === 'object'
+            && typeof p.fingerprint === 'string' && now - p.createdAt < DAY)
+          .slice(0, MAX_PENDING)
           .map((p) => ({ ...p, nextAt: Math.max(p.nextAt, (saved.sent?.[p.fingerprint] || 0) + repeatWindow(p.payload)) }))
       };
     }
@@ -176,7 +180,10 @@
               } else state.pending = state.pending.filter((p) => p !== item);
             } else if ([400, 413, 415, 422].includes(response?.status) || item.attempts >= 6) {
               state.pending = state.pending.filter((p) => p !== item);
-            } else if (response?.status === 429) {
+            } else if (response?.status === 429
+              || (response?.status === 503 && response.headers?.get?.('retry-after'))) {
+              // The relay's own allowance, Discord throttling the relay, or a Worker that said when to
+              // come back: the whole queue waits, since every report would meet the same answer.
               const raw = response.headers?.get?.('retry-after');
               const seconds = Number(raw);
               const wait = raw && Number.isFinite(seconds) ? seconds * 1000 : Date.parse(raw) - this.clock();

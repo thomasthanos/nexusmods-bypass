@@ -606,9 +606,12 @@
 
   // Why a relay call failed, as one of a few reasons the report page has a message for:
   // not_configured, unreachable, rate_limited, too_large, rejected, server_error.
+  // Only the relay's own words mean "not configured": Cloudflare also answers 503 when a Worker is
+  // briefly unavailable, and that one is worth a retry. A 429 the relay passes on from Discord is the
+  // destination being busy, not this network's report allowance.
   function relayFailure(status, error = '') {
-    if (status === 503 || /not configured/i.test(error)) return 'not_configured';
-    if (status === 429) return 'rate_limited';
+    if (/not configured/i.test(error)) return 'not_configured';
+    if (status === 429) return /upstream/i.test(error) ? 'server_error' : 'rate_limited';
     if (status === 413) return 'too_large';
     if (status === 400 || status === 415 || status === 422) return 'rejected';
     if (!status) return 'unreachable';
@@ -658,7 +661,7 @@
     }
     let body = null;
     try { body = await response.json(); } catch (_) { }
-    const retryAfter = Number(response.headers?.get?.('retry-after')) || 0;
+    const retryAfter = NXTK.parseRetryAfterSeconds(response.headers?.get?.('retry-after')) || 0;
     return {
       ok: !!response.ok,
       status: response.status,

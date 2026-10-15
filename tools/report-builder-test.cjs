@@ -64,7 +64,7 @@ function loadShared({
   for (const file of ['src/shared.js', 'src/report.js']) {
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
-  return { NXTK: context.NXTK, reads, store };
+  return { NXTK: context.NXTK, reads, store, context };
 }
 
 function personalRedactionTests() {
@@ -562,6 +562,61 @@ async function pageCheckSectionTests() {
   assert.doesNotMatch(await NXTK.buildBugReport(), /Nexus page check/, 'and so is a missing one');
 }
 
+// The error pipeline: a bounded sanitizer, sanitized user messages, a throttle against storms and
+// relay answers mapped to what a retry can and cannot fix.
+async function errorPipelineTests() {
+  const { NXTK } = loadShared();
+  // Quadratic backtracking is bounded: 200 KB without whitespace used to take tens of seconds.
+  for (const blob of ['a'.repeat(200000), `a@${'a.'.repeat(100000)}`, 'abc+'.repeat(50000)]) {
+    const started = Date.now();
+    NXTK.sanitizeDiagnosticText(blob, 300);
+    assert.ok(Date.now() - started < 1000, 'large diagnostics are sanitized quickly');
+  }
+  // A secret the scan boundary cuts through is dropped, not kept half redacted. The long URL shrinks
+  // once its query is removed, which would pull a half e-mail address into the visible text.
+  const url = `https://www.nexusmods.com/p?x=${'z'.repeat(1070)}`;
+  const cutEmail = NXTK.sanitizeDiagnosticText(`${url} jane.doe@example.com and more`, 300);
+  assert.equal(cutEmail, 'https://www.nexusmods.com/p …');
+  assert.doesNotMatch(cutEmail, /jane/);
+  assert.equal(NXTK.sanitizeDiagnosticText(`${'word '.repeat(300)}x`, 400), 'word '.repeat(80), 'ordinary long text is only shortened');
+  assert.equal(NXTK.sanitizeDiagnosticText('short token=abc', 300), 'short token=[redacted]', 'short text is unchanged in behaviour');
+  // Every free-text field of a log entry is redacted and bounded, the user message included.
+  const entry = NXTK.buildErrorEntry({ code: 'x', userMessage: `Failed for jane@example.com ${'m'.repeat(1000)}` });
+  assert.doesNotMatch(entry.userMessage, /jane@example\.com/);
+  assert.ok(entry.userMessage.length <= 300);
+
+  // The throttle: one fault at most once per two seconds, and at most 20 entries a minute.
+  let now = 0;
+  const admit = NXTK.createErrorThrottle({ now: () => now });
+  assert.equal(admit({ code: 'a', context: 'x' }), true);
+  assert.equal(admit({ code: 'a', context: 'x' }), false, 'an immediate repeat is held back');
+  assert.equal(admit({ code: 'a', context: 'y' }), true, 'a different fault is not');
+  now += 2000;
+  assert.equal(admit({ code: 'a', context: 'x' }), true, 'the same fault is admitted again later');
+  let admitted = 3;
+  for (let i = 0; i < 50; i += 1) if (admit({ code: 'storm', context: `c${i}` })) admitted += 1;
+  assert.equal(admitted, 20, 'a burst is capped per minute');
+  now += 60000;
+  assert.equal(admit({ code: 'storm', context: 'late' }), true, 'and the cap resets');
+  // recordError itself: a throwing loop sends a bounded number of messages.
+  const page = loadShared();
+  const messages = [];
+  page.context.chrome.runtime.sendMessage = (message, callback) => { messages.push(message); callback?.(); };
+  for (let i = 0; i < 500; i += 1) page.NXTK.recordError({ code: 'uncaught_exception', context: 'Uncaught at content/ui.js:1:1' });
+  assert.equal(messages.length, 1, 'a fault thrown in a loop reaches the worker once');
+  assert.equal(messages[0].type, 'ERROR_LOG_APPEND');
+
+  // Relay answers.
+  assert.equal(NXTK.relayFailure(503, ''), 'server_error', 'an unexplained 503 is worth a retry');
+  assert.equal(NXTK.relayFailure(503, 'relay not configured'), 'not_configured');
+  assert.equal(NXTK.relayFailure(429, 'upstream rate limited'), 'server_error', 'Discord being busy is not the user\'s quota');
+  assert.equal(NXTK.relayFailure(429, 'rate limited'), 'rate_limited');
+  assert.equal(NXTK.relayFailure(500, 'internal error'), 'server_error');
+  const at = new Date(Date.now() + 120000).toUTCString();
+  const dated = await NXTK.sendReportPayload({}, { fetchImpl: async () => ({ ok: false, status: 429, json: async () => ({ error: 'rate limited' }), headers: { get: () => at } }) });
+  assert.ok(dated.retryAfterSeconds >= 118 && dated.retryAfterSeconds <= 120, 'an HTTP-date Retry-After is understood');
+}
+
 Promise.resolve()
   .then(reportContentTests)
   .then(pageCheckSectionTests)
@@ -577,6 +632,7 @@ Promise.resolve()
   .then(personalRedactionTests)
   .then(reportPayloadTests)
   .then(runPromptTests)
+  .then(errorPipelineTests)
   .then(() => console.log('bug report builder behavior OK'))
   .catch((error) => {
     console.error(error);
