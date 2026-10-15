@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { githubMessage, sendGithubMessage } from './discord-notification.mjs';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-discord-format-'));
 try {
@@ -30,6 +31,42 @@ try {
   assert.equal(run('issue', { I_TITLE: 'A bug', I_URL: 'https://github.com/thomasthanos/nexusmods-bypass/issues/1', I_USER: 'tester' }).embeds[0].color, 0x3498db);
   fs.writeFileSync(summary, 'x'.repeat(7000));
   assert.ok(run('schema').embeds[0].description.length <= 3900);
+  // Release notes full of emoji are cut between characters, never inside one.
+  fs.writeFileSync(summary, `${'x'.repeat(3898)}🚀🚀🚀`);
+  const cut = run('schema').embeds[0].description;
+  assert.equal(cut, cut.toWellFormed(), 'no half emoji reaches Discord');
+  // A link Discord would refuse is left out rather than losing the whole notice.
+  assert.equal(run('manifest', { LINK: 'javascript:alert(1)' }).embeds[0].url, undefined);
+
+  // --send: a missing secret is a quiet skip; an unusable one is a warning, never a failed job and
+  // never echoed.
+  const send = (extra) => spawnSync(process.execPath, ['tools/discord-notification.mjs', 'schema', summary, '--send'], {
+    encoding: 'utf8', env: { ...process.env, DISCORD_WEBHOOK_URL: '', ...extra }
+  });
+  const skipped = send({});
+  assert.equal(skipped.status, 0);
+  assert.match(skipped.stdout, /not set; skipping/);
+  const refused = send({ DISCORD_WEBHOOK_URL: 'http://discord.invalid/api/webhooks/1/SECRET-TOKEN' });
+  assert.equal(refused.status, 0, 'a failed post does not fail the workflow');
+  assert.match(refused.stdout, /^::warning::Discord notification not delivered: invalid webhook URL/m);
+  assert.doesNotMatch(refused.stdout + refused.stderr, /SECRET-TOKEN/);
+  const bad = spawnSync(process.execPath, ['tools/discord-notification.mjs', 'nonsense'], { encoding: 'utf8' });
+  assert.notEqual(bad.status, 0, 'a workflow typo still fails loudly');
+
+  // In process: Discord's 429 is waited out through the shared dispatcher.
+  const replies = [
+    new Response(JSON.stringify({ retry_after: 2 }), { status: 429 }),
+    new Response(JSON.stringify({ id: '1' }), { status: 200 })
+  ];
+  const waits = [];
+  const delivered = await sendGithubMessage(githubMessage('release', { R_NAME: '9.9.9', R_URL: 'https://github.com/x' }), {
+    webhookUrl: 'https://discord.invalid/api/webhooks/1/token',
+    fetchImpl: async () => replies.shift(),
+    sleep: async (ms) => { waits.push(ms); },
+    random: () => 0
+  });
+  assert.equal(delivered.ok, true);
+  assert.deepEqual(waits, [2000]);
   console.log('Discord GitHub formatting OK: distinct source, colours, safe mentions and bounded payloads.');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });

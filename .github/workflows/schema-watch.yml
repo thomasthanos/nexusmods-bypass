@@ -40,10 +40,8 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set; skipping."; exit 0; fi
           [ -f /tmp/schema-watch.md ] || echo "Schema watch could not run (see the log)." > /tmp/schema-watch.md
-          body=$(node tools/discord-notification.mjs schema /tmp/schema-watch.md)
-          curl -fsS -X POST -H 'content-type: application/json' -d "$body" "$DISCORD_WEBHOOK_URL" > /dev/null || echo "Discord post failed (ignored)."
+          node tools/discord-notification.mjs schema /tmp/schema-watch.md --send
       - name: Fail the run
         if: steps.watch.outputs.failed == 'true'
         run: exit 1

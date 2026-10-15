@@ -34,11 +34,10 @@ jobs:
           I_TITLE: ${{ github.event.issue.title }}
           I_URL: ${{ github.event.issue.html_url }}
           I_USER: ${{ github.event.issue.user.login }}
+        # Skips without the secret; waits out Discord rate limits; a failed post is a warning only.
         run: |
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set; skipping."; exit 0; fi
           if [ "$KIND" = "release" ]; then
-            body=$(node tools/discord-notification.mjs release)
+            node tools/discord-notification.mjs release --send
           else
-            body=$(node tools/discord-notification.mjs issue)
+            node tools/discord-notification.mjs issue --send
           fi
-          curl -fsS -X POST -H 'content-type: application/json' -d "$body" "$DISCORD_WEBHOOK_URL" > /dev/null || echo "Discord post failed (ignored)."

@@ -76,10 +76,7 @@ jobs:
           LINK: ${{ github.event.pull_request.html_url || github.event.compare }}
           EXPANDED: ${{ steps.diff.outputs.expanded }}
           INCOMPLETE: ${{ steps.diff.outputs.incomplete }}
-        run: |
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set; skipping."; exit 0; fi
-          body=$(node tools/discord-notification.mjs manifest /tmp/mw/summary-discord.md)
-          curl -fsS -X POST -H 'content-type: application/json' -d "$body" "$DISCORD_WEBHOOK_URL" > /dev/null || echo "Discord post failed (ignored)."
+        run: node tools/discord-notification.mjs manifest /tmp/mw/summary-discord.md --send
 
       - name: Comment on the PR
         if: github.event_name == 'pull_request' && steps.diff.outputs.changed == 'true' && github.event.pull_request.head.repo.full_name == github.repository
