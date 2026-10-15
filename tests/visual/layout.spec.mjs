@@ -913,7 +913,9 @@ test('Vortex button state shows on a real-style label (icon span + bare text, re
   await page.waitForTimeout(400);
   await expect(button, 'the label survives the re-render').toHaveText(/Sending to Vortex/);
   expect(await button.locator('svg').count(), 'the icon is kept').toBe(1);
-  await page.waitForTimeout(3500);
+  // Both routes are intentionally delayed. Wait for the final failure, not the first attempt.
+  await expect(page.locator('[data-retry]').first()).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.nxtk-status-toast'), 'a failed send removes the toast').toHaveCount(0);
   for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
@@ -1554,12 +1556,12 @@ for (const lang of ['de', 'ru', 'el']) {
   });
 }
 
-test('rapid double and triple clicks on a Vortex button start one request', async () => {
+test('rapid double and triple clicks on a Vortex button start one attempt including its fallback', async () => {
   const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
   await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
-  let hits = 0;
+  const hits = [];
   const slow = async (route) => {
-    hits += 1;
+    hits.push(new URL(route.request().url()).pathname.startsWith('/api/files/') ? 'api' : 'generator');
     await new Promise((r) => setTimeout(r, 1500));
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
   };
@@ -1579,9 +1581,9 @@ test('rapid double and triple clicks on a Vortex button start one request', asyn
   const button = page.locator('mod-file-download').locator('#v');
   await button.dblclick();
   await button.click({ delay: 0 });
-  await page.waitForTimeout(2500);
-  expect(hits, 'one link request for a burst of clicks').toBe(1);
   expect(await page.locator('.nxtk-status-toast').count(), 'at most one status toast').toBeLessThanOrEqual(1);
+  await expect(page.locator('[data-retry]').first()).toBeVisible({ timeout: 15000 });
+  expect(hits, 'one API call and one fallback, regardless of the click burst').toEqual(['api', 'generator']);
   for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
