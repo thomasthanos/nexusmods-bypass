@@ -1,6 +1,6 @@
 // Offline tests for relay/worker.js: validation, size limit, rate limit, Discord formatting.
 import assert from 'node:assert/strict';
-import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../relay/worker.js';
+import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../relay/worker.js';
 
 const auto = { schema: 1, kind: 'auto', version: '2.9.0', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
 assert.equal(validateReport(auto), '');
@@ -37,7 +37,8 @@ for (const report of [auto, { schema: 1, kind: 'manual', version: '3.1.1', summa
   const alert = discordMessage({ ...report, mentionUserId: '123456789012345678', note: '@everyone <@123456789012345678>' }, 'owner', ownerId);
   assert.equal(alert.content, `<@${ownerId}>`, 'only the configured owner is mentioned');
   assert.deepEqual(alert.allowed_mentions, { parse: [], users: [ownerId] });
-  assert.equal(alert.embeds[0].color, 0xd9433b, 'all user reports are red');
+  assert.equal(alert.embeds[0].color, report.kind === 'auto' ? 0xe8b339 : 0xed4245,
+    'user bug reports are red; an ordinary automatic fault is amber');
   assert.match(alert.embeds[0].title, report.kind === 'auto' ? /^Automatic report · / : /^Bug report · /);
 }
 for (const invalidId of ['@everyone', '706932839907852389 <@123>', 42, '']) {
@@ -55,7 +56,9 @@ globalThis.fetch = async (url, init) => {
   sent.push({ url, body: JSON.parse(init.body.get('payload_json')), attachment: init.body.get('files[0]') });
   return new Response(null, { status: 204 });
 };
-const env = { DISCORD_WEBHOOK_URL: 'https://discord.invalid/webhook', REPORT_MENTION_USER_ID: ownerId };
+// Incident lines go to this list instead of the console, so failures below can be asserted on.
+const incidents = [];
+const env = { DISCORD_WEBHOOK_URL: 'https://discord.invalid/webhook', REPORT_MENTION_USER_ID: ownerId, INCIDENT_LOG: (line) => incidents.push(JSON.parse(line)) };
 const post = (body, ip = '1.1.1.1', extra = {}) => worker.fetch(new Request('https://relay.test/v1/report', {
   method: 'POST',
   headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip, origin: 'chrome-extension://abc', ...extra },
@@ -132,6 +135,8 @@ globalThis.fetch = async () => { throw new TypeError('network'); };
 res = await post(fresh(), '3.3.3.3');
 assert.equal(res.status, 502);
 assert.equal(res.headers.get('access-control-allow-origin'), 'chrome-extension://abc');
+assert.deepEqual(incidents.at(-1) && { event: incidents.at(-1).event, status: incidents.at(-1).status, attempts: incidents.at(-1).attempts },
+  { event: 'discord_delivery_failed', status: 0, attempts: 3 }, 'a lost report is logged, after bounded retries');
 globalThis.fetch = realFetch;
 // Worst-case embed stays under Discord's 6000-character limit.
 const big = discordMessage({ ...auto, kind: 'manual', note: 'n'.repeat(2000), contact: 'c'.repeat(120), browser: 'b'.repeat(200), currentError: { code: 'x'.repeat(80) } }, 'id');
@@ -266,5 +271,131 @@ try {
   await persistentPost();
   assert.equal(sent.at(-1).body.content, `<@${ownerId}>`);
 } finally { Date.now = actualNow; }
+
+// ---- Resilience: Discord throttling, failing KV, unexpected throws, secret-free logs ----------
+const report = (ip, body, targetEnv = env, ctx = {}) => worker.fetch(new Request('https://relay.test/v1/report', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip, origin: 'chrome-extension://abc' },
+  body: JSON.stringify(body)
+}), targetEnv, ctx);
+{
+  // A short Discord limit is waited out inside the request; the report arrives on the next try.
+  let calls = 0;
+  globalThis.fetch = async (url, init) => {
+    calls += 1;
+    if (calls === 1) {
+      return new Response(JSON.stringify({ message: 'You are being rate limited.', retry_after: 0.05, global: false }), { status: 429 });
+    }
+    return realFetch(url, init);
+  };
+  const before = sent.length;
+  assert.equal((await report('11.0.0.1', fresh())).status, 200, 'a short Discord limit is waited out');
+  assert.equal(calls, 2);
+  assert.equal(sent.length, before + 1);
+
+  // A long one goes back to the client with Discord's own wait, and nothing is marked delivered.
+  globalThis.fetch = async () => new Response(JSON.stringify({ retry_after: 42.5 }), { status: 429 });
+  const throttledReport = { ...auto, reference: 'E-throttl', error: { code: 'throttle_test' } };
+  const throttled = await report('11.0.0.2', throttledReport);
+  assert.equal(throttled.status, 429);
+  assert.equal(throttled.headers.get('retry-after'), '43', 'the client is told how long Discord asked for');
+  assert.equal((await throttled.json()).error, 'upstream rate limited');
+  assert.equal(throttled.headers.get('access-control-allow-origin'), 'chrome-extension://abc');
+  globalThis.fetch = realFetch;
+  assert.equal((await (await report('11.0.0.3', throttledReport)).json()).duplicate, undefined, 'a throttled report stays deliverable');
+}
+{
+  // The relay's own rate limit points at the end of the current hour, not a fixed hour from now.
+  let limited = null;
+  for (let i = 0; i <= LIMIT_PER_HOUR; i += 1) limited = await report('11.1.0.1', fresh());
+  const wait = Number(limited.headers.get('retry-after'));
+  assert.equal(limited.status, 429);
+  assert.ok(wait >= 1 && wait <= 3600, 'Retry-After ends with the counting hour');
+}
+{
+  // KV failing on every call (daily write cap, one write per key per second): reports still go
+  // through, the failure is logged, and this isolate's memory keeps the cooldowns.
+  const kvDown = { ...env, RATE_LIMIT: {
+    get: async () => { throw new Error('KV GET failed: 503 Service Unavailable'); },
+    put: async () => { throw new Error('KV PUT failed: 429 Too Many Requests'); }
+  } };
+  const kvReport = { ...auto, reference: 'E-kvdown1', error: { code: 'kv_test' } };
+  const first = incidents.length;
+  assert.equal((await report('12.0.0.1', kvReport, kvDown)).status, 200, 'a KV outage does not refuse reports');
+  const events = incidents.slice(first).map((entry) => entry.event);
+  assert.ok(events.includes('kv_read_failed') && events.includes('kv_write_failed'), 'KV failures are logged');
+  assert.ok(incidents.slice(first).every((entry) => !('key' in entry) && entry.scope), 'logs name the counter type, not the client IP');
+  assert.equal((await (await report('12.0.0.2', kvReport, kvDown)).json()).duplicate, true, 'dedupe falls back to memory');
+  let last = null;
+  for (let i = 0; i <= LIMIT_PER_HOUR; i += 1) last = await report('12.0.0.9', fresh(), kvDown);
+  assert.equal(last.status, 429, 'the rate limit falls back to memory too');
+}
+{
+  // Anything else that throws still answers with CORS headers and a status the client understands.
+  const poisoned = { ...env, RATE_LIMIT: { get: async () => ({ valueOf() { throw new Error('poisoned counter'); } }), put: async () => {} } };
+  const crashed = await report('12.1.0.1', fresh(), poisoned);
+  assert.equal(crashed.status, 500);
+  assert.equal(crashed.headers.get('access-control-allow-origin'), 'chrome-extension://abc');
+  assert.equal((await crashed.json()).error, 'internal error');
+  assert.equal(incidents.at(-1).event, 'unhandled_error');
+  assert.match(incidents.at(-1).cause, /poisoned counter/);
+}
+{
+  // An oversized body without a Content-Length is cut off while streaming.
+  const stream = new ReadableStream({
+    start(controller) {
+      for (let i = 0; i < 80; i += 1) controller.enqueue(new TextEncoder().encode('x'.repeat(1024)));
+      controller.close();
+    }
+  });
+  const res = await worker.fetch(new Request('https://relay.test/v1/report', {
+    method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '13.0.0.1' }, body: stream, duplex: 'half'
+  }), env, {});
+  assert.equal(res.status, 413);
+}
+{
+  // E-mail is the fallback copy when Discord refuses the message, and the refusal is logged.
+  const emailed = [];
+  globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith('https://api.resend.com/')) {
+      emailed.push(JSON.parse(init.body));
+      return new Response('{"id":"mail"}', { status: 200 });
+    }
+    return new Response(JSON.stringify({ message: 'Invalid Form Body', code: 50035 }), { status: 400 });
+  };
+  const waits = [];
+  const mailEnv = { ...env, RESEND_API_KEY: 're_test_key_123', REPORT_EMAIL_TO: 'owner@example.com', REPORT_EMAIL_FROM: 'relay@example.com' };
+  const refused = await report('14.0.0.1', { schema: 1, kind: 'manual', version: '3.1.3', summary: 'Refused' }, mailEnv, { waitUntil: (task) => waits.push(task) });
+  await Promise.all(waits);
+  globalThis.fetch = realFetch;
+  assert.equal(refused.status, 502);
+  assert.equal(emailed.length, 1, 'the report still reaches the e-mail destination');
+  const failure = incidents.findLast((entry) => entry.event === 'discord_delivery_failed');
+  assert.equal(failure.status, 400);
+  assert.equal(failure.attempts, 1, 'an invalid payload is not retried');
+  assert.match(failure.detail, /50035: Invalid Form Body/);
+}
+{
+  // Secrets never reach the log, even inside an error message that repeats them.
+  const secretEnv = { DISCORD_WEBHOOK_URL: 'https://discord.invalid/api/webhooks/123/TOPSECRET', RESEND_API_KEY: 're_SECRETKEY123' };
+  const lines = [];
+  const log = incidentLogger({ ...secretEnv, INCIDENT_LOG: (line) => lines.push(line) });
+  log('probe', { cause: new Error(`Invalid URL: ${secretEnv.DISCORD_WEBHOOK_URL} with ${secretEnv.RESEND_API_KEY}`), detail: 'see https://discord.com/api/webhooks/9/other-token' });
+  assert.equal(lines.length, 1);
+  assert.doesNotMatch(lines[0], /TOPSECRET|SECRETKEY|other-token/);
+  // A malformed webhook secret fails closed, without echoing it.
+  const badEnv = { ...env, DISCORD_WEBHOOK_URL: 'not a url TOPSECRET' };
+  const bad = await report('15.0.0.1', fresh(), badEnv);
+  assert.equal(bad.status, 502);
+  assert.doesNotMatch(JSON.stringify(incidents), /TOPSECRET/);
+}
+{
+  // Lone surrogates from a client become U+FFFD, so Discord cannot reject the message as invalid UTF-8.
+  const embed = discordMessage({ schema: 1, kind: 'manual', version: '3.1.3', summary: 'half \ud83d', note: 'broken \udc00 note' }, 'u').embeds[0];
+  for (const text of [embed.title, embed.description]) assert.equal(text, text.toWellFormed());
+  // A report's own code fences cannot close the code block it is shown in.
+  const fenced = discordMessage({ schema: 1, kind: 'manual', version: '3.1.3', report: 'a\n```\n@everyone' }, 'f').embeds[0];
+  assert.equal(fenced.description.split('```').length - 1, 2, 'only the wrapping fences remain');
+}
 
 console.log('relay worker behavior OK');
