@@ -11,6 +11,13 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
+## 3.1.3 — 2026-10-15
+
+- **Download UI conflicts:** Chrome's “Another extension has disabled the download UI” response when restoring the popup no longer produces a false background-error report. Our restriction is released and the other extension's preference is respected.
+- **Reliable cleanup:** the restoration alarm is cleared in that case, repeated queue events do not repeat the request, and later collection runs can still hide and release the popup normally. Unexpected failures remain reportable and retryable.
+- **Regression coverage:** tests cover the reported conflict at idle, after a collection and after a worker restart, plus alarm cleanup, recovery from unexpected failures and browsers without the optional UI API.
+- **Packages:** Chrome and Firefox use 3.1.3. No additional permissions or Cloudflare Worker changes are required.
+
 ## 3.1.2 — 2026-10-15
 
 - **Download recovery:** an unreadable `/api/files/` response can fall back to the existing download generator. Authentication, browser verification, access denials and rate limits still stop the attempt. Only the final failure is recorded; successful recovery does not send an error report.
