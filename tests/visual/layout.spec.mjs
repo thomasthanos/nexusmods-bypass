@@ -629,6 +629,9 @@ test('popup controls and help: raised actions, compact layout, sentence case, to
     await page.click('#tabHelp');
     const primary = page.locator('#sendReport');
     await expect(primary).toBeVisible();
+    // Even reduced-motion panels finish their entrance on a paint; sequential measurements must
+    // not compare the first button mid-animation with the second one after it has settled.
+    await settle(page);
     const style = await primary.evaluate((el) => {
       const cs = getComputedStyle(el);
       return { opacity: cs.opacity, transform: cs.textTransform, color: cs.color, h: el.getBoundingClientRect().height };
