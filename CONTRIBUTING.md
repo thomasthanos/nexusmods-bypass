@@ -33,7 +33,9 @@ Do not include Nexus credentials, cookies, tokens, or private URLs.
    `dist/nexus.mods.bypass-<version>-firefox.zip` instead — `src/manifest.json` declares a
    `background.service_worker`, which Firefox does not accept; the Firefox manifest is generated
    by `tools/build-zip.mjs`.
-4. Run the locale validator when strings change:
+4. Run the locale validator when strings change. It fails on a missing or extra key, a placeholder a
+   translation drops or points at another argument, a key defined twice, a key no code uses, and a
+   store name or description over the Chrome Web Store limits:
 
    ```bash
    node tools/check-locales.mjs
@@ -46,7 +48,12 @@ Do not include Nexus credentials, cookies, tokens, or private URLs.
    node tools/build-zip.mjs
    ```
 
-6. Explain what changed and how it was tested.
+   A new `tools/*-test.cjs|mjs` file goes into `CHECKS` in `tools/build-zip.mjs` (the gate refuses a test
+   it does not run) and ends by printing a line with `OK`: a test that exits without it is treated as
+   one that stopped half-way.
+6. Playwright tests (`npm run test:visual`) start the browser through `tests/visual/helpers.mjs`, which
+   keeps it offline, and wait for states rather than for time; lint refuses `waitForTimeout`.
+7. Explain what changed and how it was tested.
 
 Keep permissions narrow, do not add remote code or telemetry, and do not commit generated archives from `dist/`.
 

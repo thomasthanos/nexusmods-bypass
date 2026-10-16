@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSy
 import { join, dirname, extname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { deflateRawSync } from 'node:zlib';
+import { deflateRawSync, inflateRawSync } from 'node:zlib';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = join(root, 'src');
@@ -29,7 +29,9 @@ const ALLOWLIST = [
 
 const FORBIDDEN = [
   /^tools\//, /^internal\//, /^dist\//, /^\.claude\//,
-  /\.md$/i, /\.zip$/i, /\.aep$/i, /\.mp4$/i, /(^|\/)\.[^/]/
+  /\.md$/i, /\.zip$/i, /\.aep$/i, /\.mp4$/i, /(^|\/)\.[^/]/,
+  // Test code and fixtures inside a packaged folder would ship with the extension.
+  /(^|\/)(?:tests?|__tests__|fixtures|node_modules)\//i, /\.(?:test|spec)\.[cm]?js$/i
 ];
 
 const fail = (message) => {
@@ -38,8 +40,9 @@ const fail = (message) => {
 };
 
 // The release gate: nothing is packaged unless every check passes.
-for (const check of [
+const CHECKS = [
   'check-locales.mjs',
+  'check-locales-test.mjs',
   'vortex-preflight-test.cjs',
   'nnw-parser-test.cjs',
   'download-parser-test.cjs',
@@ -59,9 +62,32 @@ for (const check of [
   'debug-view-test.cjs',
   'ux-friendly-test.cjs',
   'settings-ui-test.cjs'
-]) {
-  const run = spawnSync(process.execPath, [join(root, 'tools', check)], { cwd: root, stdio: 'inherit' });
-  if (run.status !== 0) fail(`${check} did not pass — package not built.`);
+];
+const CHECK_TIMEOUT_MS = 5 * 60 * 1000;
+
+// A test file this list does not name never runs, so it cannot fail.
+const unlisted = readdirSync(join(root, 'tools')).filter((name) => /-test\.[cm]?js$/.test(name) && !CHECKS.includes(name));
+if (unlisted.length) fail(`tools/ has tests the release gate does not run: ${unlisted.join(', ')} — add them to CHECKS.`);
+
+for (const check of CHECKS) {
+  const run = spawnSync(process.execPath, [join(root, 'tools', check)], {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+    timeout: CHECK_TIMEOUT_MS,
+    killSignal: 'SIGKILL',
+    maxBuffer: 64 * 1024 * 1024
+  });
+  process.stdout.write(run.stdout || '');
+  if (run.error?.code === 'ETIMEDOUT') fail(`${check} did not finish within ${CHECK_TIMEOUT_MS / 60000} minutes — package not built.`);
+  if (run.error) fail(`${check} could not run: ${run.error.message} — package not built.`);
+  if (run.status !== 0) fail(`${check} did not pass (${run.status ?? run.signal}) — package not built.`);
+  // A test whose promise chain stalls on a promise that never settles exits 0 having skipped every step
+  // after it. Each test ends by printing an OK line, which only a run that got there prints.
+  const last = String(run.stdout || '').trim().split(/\r?\n/).pop() || '';
+  if (!/\b(?:OK|passed)\b/.test(last)) {
+    fail(`${check} exited 0 without its closing OK line (last line: "${last.slice(0, 120)}") — a step in it never finished. Package not built.`);
+  }
 }
 
 function walk(absolute, prefix, allowedExt) {
@@ -116,6 +142,27 @@ try {
 const version = String(manifest.version || '');
 if (!/^\d+\.\d+\.\d+$/.test(version)) fail(`manifest version is not x.y.z: "${version}"`);
 
+// The release workflow refuses a tag whose package files disagree; this says so before a PR is merged.
+{
+  const read = (file) => (existsSync(join(root, file)) ? JSON.parse(readFileSync(join(root, file), 'utf8')) : null);
+  const npmPackage = read('package.json');
+  const lock = read('package-lock.json');
+  for (const [label, value] of [
+    ['package.json version', npmPackage?.version],
+    ['package-lock.json version', lock?.version],
+    ['package-lock.json packages[""].version', lock?.packages?.['']?.version]
+  ]) {
+    if (value !== undefined && value !== version) fail(`${label} is ${value}, but manifest.json is ${version}`);
+  }
+}
+
+// Only <locale>/messages.json belongs under _locales; anything else there would be packaged as is.
+for (const name of entryNames.filter((n) => n.startsWith('_locales/'))) {
+  if (!/^_locales\/[A-Za-z]{2,3}(?:_[A-Za-z0-9]{2,4})?\/messages\.json$/.test(name)) {
+    fail(`${name} is not a locale catalogue (_locales/<locale>/messages.json)`);
+  }
+}
+
 for (const name of entryNames.filter((n) => n.startsWith('_locales/'))) {
   try {
     JSON.parse(readFileSync(join(pkg, name), 'utf8'));
@@ -134,6 +181,14 @@ function collectReferenced(source) {
   if (source.action?.default_popup) referenced.add(source.action.default_popup);
   for (const icons of [source.icons, source.action?.default_icon]) {
     for (const path of Object.values(icons || {})) referenced.add(path);
+  }
+  // Pages and resources a manifest can name besides those, so adding one cannot ship a dead link.
+  for (const page of [source.options_ui?.page, source.options_page, source.devtools_page, source.side_panel?.default_path,
+    ...Object.values(source.chrome_url_overrides || {})]) {
+    if (page) referenced.add(page);
+  }
+  for (const entry of source.web_accessible_resources || []) {
+    for (const resource of entry.resources || []) if (!resource.includes('*')) referenced.add(resource);
   }
   return referenced;
 }
@@ -188,7 +243,7 @@ for (const [index, script] of (manifest.content_scripts || []).entries()) {
   }
 }
 
-const HTML_REFERENCE = /<(?:script|link|img)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"']+)["']/gi;
+const HTML_REFERENCE = /<(script|link|img)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"']+)["']/gi;
 const EXTERNAL_REFERENCE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i;
 
 function assertHtmlReferencesArePackaged() {
@@ -196,7 +251,12 @@ function assertHtmlReferencesArePackaged() {
   for (const name of entryNames.filter((n) => n.endsWith('.html'))) {
     const source = readFileSync(join(pkg, name), 'utf8');
     const baseDir = name.includes('/') ? name.slice(0, name.lastIndexOf('/')) : '';
-    for (const [, reference] of source.matchAll(HTML_REFERENCE)) {
+    for (const [, tag, reference] of source.matchAll(HTML_REFERENCE)) {
+      // Manifest V3 runs no code it did not ship: a remote script or stylesheet is refused by the stores.
+      if (/^(?:https?:)?\/\//i.test(reference) && tag.toLowerCase() !== 'img') {
+        problems.push(`${name}: <${tag}> loads ${reference} from the network; package it instead`);
+        continue;
+      }
       if (EXTERNAL_REFERENCE.test(reference)) continue;
       if (reference.startsWith('/')) {
         problems.push(`${name}: "${reference}" is an absolute path — nothing resolves it inside the package`);
@@ -210,6 +270,14 @@ function assertHtmlReferencesArePackaged() {
 }
 
 assertHtmlReferencesArePackaged();
+
+// The extension pages' CSP has no 'unsafe-eval', so eval and new Function throw at run time instead of
+// failing a test; and a store review rejects them.
+for (const name of entryNames.filter((entry) => entry.endsWith('.js'))) {
+  const source = readFileSync(join(pkg, name), 'utf8');
+  const hit = source.match(/(?<![\w$.])eval\s*\(|\bnew\s+Function\s*\(/);
+  if (hit) fail(`${name} uses ${hit[0].trim()} — not allowed in a Manifest V3 package`);
+}
 
 // The worker loads shared.js rather than carrying copies of its defaults, redaction rules and
 // download-target checks, so a copy creeping back in is the drift this build refuses.
@@ -340,6 +408,19 @@ function assertPermissions(source) {
 
 assertPermissions(manifest);
 
+function assertChromeManifest(source) {
+  if (source.manifest_version !== 3) fail(`manifest_version is ${source.manifest_version}, expected 3`);
+  for (const key of ['name', 'description', 'default_locale']) {
+    if (!source[key]) fail(`manifest.json has no ${key}`);
+  }
+  if (source.background?.scripts) fail('manifest.json declares background.scripts; Chromium needs service_worker (the Firefox build adds scripts)');
+  if (source.browser_specific_settings) fail('manifest.json carries browser_specific_settings; the Firefox build adds them, Chromium warns about them');
+  const csp = JSON.stringify(source.content_security_policy || {});
+  if (/unsafe-eval|https?:/i.test(csp)) fail(`manifest.json CSP allows eval or remote code: ${csp}`);
+}
+
+assertChromeManifest(manifest);
+
 function toFirefoxManifest(source) {
   const firefox = JSON.parse(JSON.stringify(source));
   firefox.permissions = (firefox.permissions || []).filter((name) => !CHROME_ONLY_PERMISSIONS.includes(name));
@@ -363,6 +444,29 @@ function toFirefoxManifest(source) {
 
 const firefoxManifest = toFirefoxManifest(manifest);
 assertReferencesArePackaged(firefoxManifest, 'Firefox');
+
+// What addons.mozilla.org and Firefox 140+ check when the package is uploaded or installed.
+function assertFirefoxManifest(firefox) {
+  const gecko = firefox.browser_specific_settings?.gecko || {};
+  if (!/^(?:[\w.+-]+@[\w.-]+|\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\})$/i.test(String(gecko.id || ''))) {
+    fail(`Firefox: gecko.id "${gecko.id}" is neither an e-mail-style id nor a {UUID}`);
+  }
+  const [major] = String(gecko.strict_min_version || '').split('.').map(Number);
+  if (!(major >= 140)) fail(`Firefox: strict_min_version is "${gecko.strict_min_version}"; this package is built and tested for 140 and later`);
+  const required = gecko.data_collection_permissions?.required;
+  if (!Array.isArray(required) || !required.length) fail('Firefox: data_collection_permissions.required must be declared (AMO requires it)');
+  if (firefox.background?.service_worker) fail('Firefox: background.service_worker is not supported; use background.scripts');
+  const scripts = firefox.background?.scripts || [];
+  if (scripts[scripts.length - 1] !== manifest.background.service_worker) fail('Firefox: background.scripts must end with the worker');
+  if (scripts.indexOf('shared.js') > scripts.indexOf('download-url-parser.js')) fail('Firefox: shared.js must load before download-url-parser.js');
+  const unsupported = (firefox.permissions || []).filter((name) => CHROME_ONLY_PERMISSIONS.includes(name));
+  if (unsupported.length) fail(`Firefox: Chromium-only permissions remain: ${unsupported.join(', ')}`);
+  for (const key of ['minimum_chrome_version', 'side_panel', 'offline_enabled', 'update_url', 'key']) {
+    if (key in firefox) fail(`Firefox: "${key}" is a Chromium-only manifest key`);
+  }
+}
+
+assertFirefoxManifest(firefoxManifest);
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -493,8 +597,42 @@ const localeReplacements = new Map(entryNames
 const outDir = join(root, 'dist');
 mkdirSync(outDir, { recursive: true });
 
+// Reads an archive back the way an unzip tool does: every entry is found from the central directory,
+// inflated, and checked against its CRC, its size and the bytes it was built from.
+function verifyArchive(fileName, archive, replacements) {
+  const end = archive.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  if (end < 0) fail(`${fileName}: no end-of-central-directory record`);
+  const count = archive.readUInt16LE(end + 10);
+  if (count !== entryNames.length) fail(`${fileName}: holds ${count} entries, expected ${entryNames.length}`);
+  let at = archive.readUInt32LE(end + 16);
+  for (let index = 0; index < count; index += 1) {
+    if (archive.readUInt32LE(at) !== 0x02014b50) fail(`${fileName}: central directory entry ${index} is corrupt`);
+    const method = archive.readUInt16LE(at + 10);
+    const crc = archive.readUInt32LE(at + 16);
+    const compressed = archive.readUInt32LE(at + 20);
+    const size = archive.readUInt32LE(at + 24);
+    const nameLength = archive.readUInt16LE(at + 28);
+    const skip = nameLength + archive.readUInt16LE(at + 30) + archive.readUInt16LE(at + 32);
+    const offset = archive.readUInt32LE(at + 42);
+    const name = archive.toString('ascii', at + 46, at + 46 + nameLength);
+    if (name !== entryNames[index]) fail(`${fileName}: entry ${index} is ${name}, expected ${entryNames[index]}`);
+    if (archive.readUInt32LE(offset) !== 0x04034b50) fail(`${fileName}: ${name} has no local header`);
+    const start = offset + 30 + archive.readUInt16LE(offset + 26) + archive.readUInt16LE(offset + 28);
+    const body = archive.subarray(start, start + compressed);
+    let data;
+    if (method === 8) data = inflateRawSync(body);
+    else if (method === 0) data = body;
+    else fail(`${fileName}: ${name} uses compression method ${method}`);
+    if (data.length !== size || crc32(data) !== crc) fail(`${fileName}: ${name} does not match its size or CRC`);
+    const source = replacements.get(name) ?? readFileSync(join(pkg, name));
+    if (!data.equals(source)) fail(`${fileName}: ${name} differs from the file it was built from`);
+    at += 46 + skip;
+  }
+}
+
 const written = [];
-function emit(fileName, archive) {
+function emit(fileName, archive, replacements) {
+  verifyArchive(fileName, archive, replacements);
   const outPath = join(outDir, fileName);
   writeFileSync(outPath, archive);
   if (!readFileSync(outPath).equals(archive)) {
@@ -518,13 +656,13 @@ const RELAY_FLAG = /const RELAY_CONFIGURED = (true|false);/;
   console.log(`Relay: ${(wanted ? wanted === '1' : shared.match(RELAY_FLAG)[1] === 'true') ? 'configured' : 'not configured (Send shows as unavailable)'}`);
 }
 
-emit(`nexus.mods.bypass-${version}.zip`, buildArchive(entryNames, localeReplacements, { verbose: true }));
+emit(`nexus.mods.bypass-${version}.zip`, buildArchive(entryNames, localeReplacements, { verbose: true }), localeReplacements);
 
 const firefoxOverride = new Map([
   ...localeReplacements,
   ['manifest.json', Buffer.from(`${JSON.stringify(firefoxManifest, null, 2)}\n`, 'utf8')]
 ]);
-emit(`nexus.mods.bypass-${version}-firefox.zip`, buildArchive(entryNames, firefoxOverride));
+emit(`nexus.mods.bypass-${version}-firefox.zip`, buildArchive(entryNames, firefoxOverride), firefoxOverride);
 
 console.log(`\nv${version} — ${entryNames.length} files`);
 console.log(`Chrome/Edge:  ${written[0]}`);

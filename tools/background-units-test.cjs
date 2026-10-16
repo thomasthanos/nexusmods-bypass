@@ -2331,6 +2331,287 @@ async function largeHistoryFitsTheQuota() {
   await send('NDC_HISTORY_CLEAR_TYPE', { ...base, type: 'all' });
 }
 
+// The last check before a URL reaches chrome.downloads or Vortex. Each refusal names its reason, so a
+// change that lets one through shows up as the reason it no longer gives.
+function downloadTargetsAreRefused() {
+  const browser = { method: 1 };
+  const signed = 'nxm://skyrimspecialedition/mods/1/files/2?key=k&expires=1&user_id=3';
+  const cdn = 'https://premium-files.nexus-cdn.com/1704/1/a.7z';
+  for (const [url, options, detail] of [
+    [cdn, browser, null],
+    ['HTTPS://Premium-Files.NEXUS-CDN.com./1704/1/a.7z', browser, null],
+    [signed, undefined, null],
+    ['http://premium-files.nexus-cdn.com/1704/1/a.7z', browser, 'bad-protocol:http'],
+    ['javascript:alert(1)//premium-files.nexus-cdn.com', browser, 'bad-protocol:javascript'],
+    ['data:application/zip;base64,UEsDBA==', browser, 'bad-protocol:data'],
+    ['blob:https://www.nexusmods.com/0b8f', browser, 'bad-protocol:blob'],
+    ['file:///C:/Windows/System32/calc.exe', browser, 'bad-protocol:file'],
+    ['ftp://premium-files.nexus-cdn.com/a.7z', browser, 'bad-protocol:ftp'],
+    ['https://premium-files.nexus-cdn.com.evil.example/a.7z', browser, 'host-not-allowed:premium-files.nexus-cdn.com.evil.example'],
+    ['https://evilnexus-cdn.com/a.7z', browser, 'host-not-allowed:evilnexus-cdn.com'],
+    ['https://evil.example/premium-files.nexus-cdn.com/a.7z', browser, 'host-not-allowed:evil.example'],
+    ['https://evil.example\\@premium-files.nexus-cdn.com/a.7z', browser, 'host-not-allowed:evil.example'],
+    ['https://nexus-cdn.com@evil.example/a.7z', browser, 'embedded-credentials'],
+    ['https://user:pass@premium-files.nexus-cdn.com/a.7z', browser, 'embedded-credentials'],
+    [`${cdn}?${'a'.repeat(2100)}`, browser, 'too-long'],
+    ['   ', browser, 'empty'],
+    [null, browser, 'empty'],
+    ['premium-files.nexus-cdn.com/a.7z', browser, 'not-a-url'],
+    // Vortex takes only a signed nxm link, and Vortex is the default.
+    [cdn, undefined, 'bad-protocol:https'],
+    [cdn, { method: 0 }, 'bad-protocol:https'],
+    [signed, browser, 'bad-protocol:nxm'],
+    ['nxm://skyrimspecialedition/mods/1/files/2', undefined, 'missing-nxm-params:key,expires,user_id'],
+    ['nxm://skyrimspecialedition/mods/1/files/2?key=&expires=1&user_id=3', undefined, 'missing-nxm-params:key'],
+    ['nxm://me:pw@skyrimspecialedition/mods/1/files/2?key=k&expires=1&user_id=3', undefined, 'embedded-credentials']
+  ]) {
+    const verdict = NXTK.validateDownloadTarget(url, options);
+    const label = `${String(url).slice(0, 72)} (${options?.method === 1 ? 'browser' : 'vortex'})`;
+    if (detail === null) assert.equal(verdict.ok, true, `${label} is accepted`);
+    else assert.deepEqual({ ok: verdict.ok, detail: verdict.detail }, { ok: false, detail }, `${label} is refused`);
+  }
+}
+
+// What each Nexus answer means for a queued file, through the worker's own resolver. Cloudflare's
+// passive bot-check script rides along on ordinary pages and is no challenge; a challenge is one
+// whatever its status; and a bare status names the rest.
+async function nexusAnswersAreClassified() {
+  const previousFetch = context.fetch;
+  const item = { fileId: 42, gameId: '1704', name: 'Wanted.7z', pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/42' };
+  const link = 'https://premium-files.nexus-cdn.com/1/42/wanted.7z?key=k&expires=1';
+  const signedIn = '<a href="/auth/sign_out">Log out</a>';
+  const passive = '<script>a.src=\'/cdn-cgi/challenge-platform/scripts/jsd/main.js\';</script>';
+  const challenge = '<html><head><title>Just a moment...</title></head><body><script>window._cf_chl_opt={cvId:"3"};</script></body></html>';
+  const answer = ({ status = 200, body = '', headers = {} } = {}) => ({
+    ok: status >= 200 && status < 300, status, url: '', text: async () => body,
+    headers: { get: (name) => headers[name] || '' }
+  });
+  const generated = { body: JSON.stringify({ url: link }) };
+  try {
+    for (const [label, page, generator, expected] of [
+      ['the passive bot check on a signed-in page', { body: signedIn + passive }, generated, { ok: true, url: link }],
+      ['the passive bot check on a page with no session markers', { body: `<html><body>Skyrim</body>${passive}</html>` }, generated, { ok: true, url: link }],
+      ['a _cf_chl_opt challenge answered 403', { status: 403, body: challenge }, null, { ok: false, code: 'cloudflare' }],
+      ['a _cf_chl_opt challenge answered 503', { status: 503, body: challenge }, null, { ok: false, code: 'cloudflare' }],
+      ['a _cf_chl_opt challenge inside a signed-in 200', { body: `${signedIn}<script>window._cf_chl_opt={}</script>` }, null, { ok: false, code: 'cloudflare' }],
+      ['Cf-Mitigated on an empty 403', { status: 403, headers: { 'Cf-Mitigated': 'challenge' } }, null, { ok: false, code: 'cloudflare' }],
+      ['Cf-Mitigated on the generator', { body: signedIn }, { status: 403, headers: { 'Cf-Mitigated': 'challenge' } }, { ok: false, code: 'cloudflare' }],
+      ['a plain 403', { status: 403, body: '<html>Forbidden</html>' }, null, { ok: false, code: 'page_request_failed', status: 403 }],
+      ['a plain 503', { status: 503, body: '<html>Service Unavailable</html>' }, null, { ok: false, code: 'page_request_failed', status: 503 }],
+      ['a 429 with Retry-After', { status: 429, headers: { 'Retry-After': '120' } }, null, { ok: false, code: 'rate_limited', status: 429, retryAfter: '120' }],
+      ['a generator 429', { body: signedIn }, { status: 429, headers: { 'Retry-After': '30' } }, { ok: false, code: 'rate_limited', status: 429, retryAfter: '30' }],
+      ['a generator sign-in error', { body: signedIn }, { status: 403, body: '{"code":"unauthenticated"}' }, { ok: false, code: 'requires_login' }],
+      ['a 404 page', { status: 404 }, null, { ok: false, code: 'mod_unavailable' }],
+      ['a generator 410', { body: signedIn }, { status: 410 }, { ok: false, code: 'file_not_found' }],
+      ['a generator 503', { body: signedIn }, { status: 503 }, { ok: false, code: 'generate_failed', status: 503 }]
+    ]) {
+      const asked = [];
+      context.fetch = async (url) => {
+        asked.push(String(url));
+        return answer(String(url).includes('GenerateDownloadUrl') ? generator : page);
+      };
+      const result = await context.resolveNdcBrowserUrl(item, 30000);
+      const seen = Object.fromEntries(Object.keys(expected).map((key) => [key, result[key]]));
+      assert.deepEqual(seen, expected, label);
+      assert.equal(asked.length, generator ? 2 : 1, `${label}: ${generator ? 'the generator is asked once' : 'nothing more is asked'}`);
+    }
+  } finally {
+    context.fetch = previousFetch;
+  }
+}
+
+// A page asks the worker for a bundle; the worker adds exactly that bundle's packaged files to the
+// document that asked. A page left or reloaded before its bundle arrived is no fault and is not logged;
+// any other refusal is.
+async function bundleLoadsAreTargetedAndQuiet() {
+  const savedScripting = global.chrome.scripting;
+  const savedRecord = context.recordBackgroundError;
+  const injected = [];
+  const recorded = [];
+  let failure = null;
+  global.chrome.scripting = {
+    executeScript: async (options) => {
+      injected.push(JSON.parse(JSON.stringify(options)));
+      if (failure) throw new Error(failure);
+      return [];
+    }
+  };
+  context.recordBackgroundError = (action, cause) => recorded.push(`${action}: ${String(cause?.message || cause)}`);
+  const page = { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/mods/1', tab: { id: 7 }, frameId: 0, documentId: 'DOC-1' };
+  // Replies come from the worker's realm; JSON gives them this realm's prototypes for deepEqual.
+  const ask = (bundle, sender = page) => new Promise((resolve) => {
+    const reply = (value) => resolve(JSON.parse(JSON.stringify(value)));
+    if (messageListeners[0]({ type: 'LOAD_BUNDLE', bundle }, sender, reply) !== true) resolve('no answer');
+  });
+  try {
+    assert.deepEqual(await ask('settings'), { ok: true });
+    assert.deepEqual(injected.pop(), { target: { tabId: 7, documentIds: ['DOC-1'] }, files: ['content/ui-settings.js'] },
+      'the document that asked gets exactly the bundle files');
+    await ask('wabbajack', { ...page, documentId: undefined, frameId: 3 });
+    assert.deepEqual(injected.pop().target, { tabId: 7, frameIds: [3] }, 'without a document id, the frame that asked');
+
+    for (const gone of ['Frame with ID 0 was removed.', 'No frame with id 3 in tab 7.', 'No document with id DOC-1 in tab 7.',
+      'No tab with id: 7.', 'The tab was closed.']) {
+      failure = gone;
+      const reply = await ask('collection');
+      assert.equal(reply.ok, false, `${gone} is answered`);
+      assert.equal(reply.error, gone);
+    }
+    assert.deepEqual(recorded, [], 'a page that went away before its bundle arrived is not a fault');
+    failure = 'Cannot access contents of the page. Extension manifest must request permission to access the respective host.';
+    assert.equal((await ask('collection')).ok, false);
+    assert.equal(recorded.length, 1, 'any other refusal is recorded');
+    failure = null;
+
+    const before = injected.length;
+    for (const [bundle, sender, error] of [
+      ['constructor', page, 'unknown-bundle'],
+      ['../manifest.json', page, 'unknown-bundle'],
+      ['settings', { ...page, tab: undefined }, 'bundle-needs-a-nexus-page'],
+      ['settings', { ...page, url: 'chrome-extension://test-extension-id/popup/popup.html' }, 'bundle-needs-a-nexus-page']
+    ]) {
+      assert.deepEqual(await ask(bundle, sender), { ok: false, error }, `${bundle} for ${sender.url}`);
+    }
+    assert.equal(await ask('settings', { ...page, id: 'another-extension' }), 'no answer', 'another extension is not answered');
+    assert.equal(injected.length, before, 'none of those reached a page');
+  } finally {
+    global.chrome.scripting = savedScripting;
+    context.recordBackgroundError = savedRecord;
+  }
+}
+
+// A restarted worker has lost its download-to-job map. A terminal event for a job's active download is
+// still matched through storage; one for a download this extension never started changes nothing and
+// is not kept for later.
+async function terminalEventsSurviveAWorkerRestart() {
+  const previousDownloads = global.chrome.downloads;
+  const jobId = 'testjob-restart-terminal';
+  const downloadId = 1201;
+  try {
+    await seedTerminalRegressionJob({ jobId, downloadId, fileId: 71 });
+    vm.runInContext('ndcDownloadJobs.clear(); pendingTerminalDownloads.clear();', context);
+    global.chrome.downloads = {
+      search: ({ id }, callback) => callback(id === downloadId ? [{
+        id, state: 'complete', paused: false, canResume: false, bytesReceived: 166912, totalBytes: 166912,
+        fileSize: 166912, mime: 'application/x-7z-compressed', filename: '/home/u/dl/Terminal 71.7z'
+      }] : []),
+      removeFile: (_id, callback) => callback(),
+      download: () => assert.fail('a finished one-file run starts nothing'),
+      cancel: finishCallback
+    };
+    const before = JSON.stringify(await readNdcJob(jobId));
+    assert.equal(await handleNdcDownloadTerminal(999999, 'complete', null), null);
+    assert.equal(await handleNdcDownloadTerminal(999999, 'interrupted', 'USER_CANCELED'), null);
+    assert.equal(JSON.stringify(await readNdcJob(jobId)), before, 'a download the queue never started changes nothing');
+    assert.equal(vm.runInContext('pendingTerminalDownloads.size', context), 0, 'and is not remembered as an early terminal');
+
+    await handleNdcDownloadTerminal(downloadId, 'complete', null);
+    const job = await readNdcJob(jobId);
+    assert.deepEqual({ completed: job.completed, index: job.index, active: job.activeDownloadId ?? null },
+      { completed: 1, index: 1, active: null }, 'the active download is found through storage');
+  } finally {
+    global.chrome.downloads = previousDownloads;
+    await storageSetLocal(STORAGE_HISTORY_KEY, {});
+    await storageSetLocal(NXTK.TOTAL_DOWNLOADS_KEY, 0);
+  }
+}
+
+// Two tabs pressing Resume at once: one transition, one download.
+async function concurrentResumesStartOneDownload() {
+  const previousDownloads = global.chrome.downloads;
+  const previousFetch = context.fetch;
+  const jobId = 'testjob-double-resume';
+  const items = [91, 92].map((fileId) => ({
+    fileId, historyId: String(fileId), gameId: '1704', name: `Resume ${fileId}.7z`,
+    pageUrl: `https://www.nexusmods.com/skyrimspecialedition/mods/${fileId}`, sizeKb: 10
+  }));
+  let started = 0;
+  try {
+    await storageSetLocal(`nxtk_ndc_items:${jobId}`, items);
+    await storageSetLocal(NDC_JOBS_KEY, {
+      [jobId]: {
+        id: jobId, tabId: 7, gameId: 'resume-game', collectionId: 'resume-twice', type: 'all',
+        itemCount: 2, index: 0, completed: 0, failed: [], status: 'paused', activeDownloadId: null,
+        createdAt: Date.now(), updatedAt: Date.now()
+      }
+    });
+    context.fetch = async (url) => ({
+      ok: true, status: 200, url: String(url),
+      text: async () => (String(url).includes('GenerateDownloadUrl')
+        ? '{"url":"https://premium-files.nexus-cdn.com/1/91/resume.7z?key=k&expires=1&user_id=2"}'
+        : '<a href="/auth/sign_out">Log out</a>'),
+      headers: { get: () => '' }
+    });
+    global.chrome.downloads = {
+      download: (_options, callback) => { started += 1; callback(1300 + started); },
+      search: ({ id }, callback) => callback([{ id, state: 'in_progress', paused: false, bytesReceived: 1, totalBytes: 10240 }]),
+      cancel: finishCallback
+    };
+    const replies = await Promise.all([
+      NDC_QUEUE_HANDLERS.NDC_QUEUE_RESUME({ jobId }, { tab: { id: 7 } }),
+      NDC_QUEUE_HANDLERS.NDC_QUEUE_RESUME({ jobId }, { tab: { id: 8 } })
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const job = await readNdcJob(jobId);
+    assert.ok(replies.every((reply) => reply.resumed === true), 'both presses see a running job');
+    assert.equal(started, 1, 'one download for two presses');
+    assert.deepEqual({ status: job.status, active: job.activeDownloadId }, { status: 'running', active: 1301 });
+  } finally {
+    context.fetch = previousFetch;
+    global.chrome.downloads = previousDownloads;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+  }
+}
+
+// Pause, Resume and Stop pressed together, in any order the storage queue applies them: Stop is final,
+// the download in flight is cancelled, and nothing new starts.
+async function controlStormEndsStopped() {
+  const previousDownloads = global.chrome.downloads;
+  const previousFetch = context.fetch;
+  const jobId = 'testjob-control-storm';
+  const downloadId = 1401;
+  const cancelled = [];
+  let started = 0;
+  try {
+    await storageSetLocal(`nxtk_ndc_items:${jobId}`, [91, 92, 93].map((fileId) => ({
+      fileId, historyId: String(fileId), gameId: '1704', name: `Storm ${fileId}.7z`,
+      pageUrl: `https://www.nexusmods.com/skyrimspecialedition/mods/${fileId}`, sizeKb: 10
+    })));
+    await storageSetLocal(NDC_JOBS_KEY, {
+      [jobId]: {
+        id: jobId, tabId: 7, gameId: 'storm-game', collectionId: 'storm', type: 'all',
+        itemCount: 3, index: 0, completed: 0, failed: [], status: 'running', activeDownloadId: downloadId,
+        createdAt: Date.now(), updatedAt: Date.now()
+      }
+    });
+    context.fetch = async () => assert.fail('a stopped run asks Nexus for nothing');
+    global.chrome.downloads = {
+      download: () => { started += 1; },
+      search: ({ id }, callback) => callback([{ id, state: 'in_progress', paused: false, bytesReceived: 1, totalBytes: 10240 }]),
+      cancel: (id, callback) => { cancelled.push(id); callback?.(); },
+      removeFile: (_id, callback) => callback?.()
+    };
+    const tab = { tab: { id: 7 } };
+    await Promise.all([
+      NDC_QUEUE_HANDLERS.NDC_QUEUE_PAUSE({ jobId }, tab),
+      NDC_QUEUE_HANDLERS.NDC_QUEUE_RESUME({ jobId }, tab),
+      NDC_QUEUE_HANDLERS.NDC_QUEUE_STOP({ jobId }, tab),
+      NDC_QUEUE_HANDLERS.NDC_QUEUE_RESUME({ jobId }, tab).catch((cause) => cause.message),
+      NDC_QUEUE_HANDLERS.NDC_QUEUE_PAUSE({ jobId }, tab).catch((cause) => cause.message)
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const job = await readNdcJob(jobId);
+    assert.equal(job?.status, 'stopped', 'Stop is final');
+    assert.equal(job?.activeDownloadId ?? null, null, 'no download is left attached');
+    assert.ok(cancelled.includes(downloadId), 'the download in flight is cancelled');
+    assert.equal(started, 0, 'and nothing new starts');
+  } finally {
+    context.fetch = previousFetch;
+    global.chrome.downloads = previousDownloads;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+  }
+}
+
 jobStateBehaviour()
   .then(writeQueueRelease)
   .then(missingQueueItemsBehaviour)
@@ -2364,5 +2645,11 @@ jobStateBehaviour()
   .then(downloadPopupRespectsOtherExtensions)
   .then(vortexSentHistoryIsAccepted)
   .then(largeHistoryFitsTheQuota)
+  .then(downloadTargetsAreRefused)
+  .then(nexusAnswersAreClassified)
+  .then(bundleLoadsAreTargetedAndQuiet)
+  .then(terminalEventsSurviveAWorkerRestart)
+  .then(concurrentResumesStartOneDownload)
+  .then(controlStormEndsStopped)
   .then(() => console.log('background.js unit behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

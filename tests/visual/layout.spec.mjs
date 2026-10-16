@@ -4,89 +4,37 @@ import http from 'node:http';
 // levels. Browser zoom Z on a W×H screen is emulated as a W/Z × H/Z CSS viewport at device scale Z,
 // which is what the page actually sees. Pages are local fixtures served for www.nexusmods.com, so the
 // real content scripts run; the collection API answer is canned. Screenshots go to test-results/visual.
-import { test, expect, chromium } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import {
+  closeExtension, extensionDir, extensionId, fixture, launchExtension, profileOf, root, serviceWorker, settle
+} from './helpers.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const extensionDir = path.join(root, 'src');
-const fixture = (name) => fs.readFileSync(path.join(root, 'tools/fixtures', name), 'utf8');
 const shotDir = path.join(root, 'test-results', 'visual');
 fs.mkdirSync(shotDir, { recursive: true });
 
 const SCREENS = [[3840, 2160], [2560, 1440], [1920, 1080], [1280, 720]];
 const ZOOMS = [1, 1.25, 1.5];
 
-function collectionAnswer() {
-  const modFiles = Array.from({ length: 40 }, (_, i) => ({
-    fileId: 1000 + i,
-    optional: i % 5 === 0,
-    file: {
-      fileId: 1000 + i, name: `Example file with a fairly long name number ${i + 1}.7z`, uri: `f${i}.7z`,
-      size: 1024 * (i + 1) * 37, version: '1.0', date: 1700000000,
-      mod: { adult: false, modId: 500 + i, name: `Example Mod ${i + 1} — Extended Edition`, version: '1.0', game: { domainName: 'skyrimspecialedition', id: 1704 } }
-    },
-    updatePolicy: i % 3 === 0 ? 'latest' : 'exact',
-    version: '1.0'
-  }));
-  return { data: { collectionRevision: { revisionNumber: 3, revisionStatus: 'published', latest: false, externalResources: [], modFiles } } };
-}
+// Offline Chromium with the extension installed and the welcome tab closed (tests/visual/helpers.mjs).
+const launchContext = ({ dir = extensionDir, userDataDir = null } = {}) => launchExtension({ extensions: [dir], userDataDir });
 
-// The official v2 API (src/content/nexus-api.js), answered per operation.
-function officialAnswer(body) {
-  const op = body?.operationName;
-  if (op === 'CollectionRevisionMods') return collectionAnswer();
-  if (op === 'CollectionRevisions') {
-    return { data: { collection: { revisions: [3, 4].map((n) => ({ revisionNumber: n, revisionStatus: 'published', latest: n === 4, totalSize: 1, modCount: 40, createdAt: '2026-01-01T00:00:00Z' })) } } };
+// Closes the dialogs on screen one at a time: each Escape has to take exactly the top one away.
+async function dismissDialogs(page) {
+  const backdrops = page.locator('.nxtk-modal-backdrop');
+  for (let open = await backdrops.count(); open > 0; open -= 1) {
+    await page.keyboard.press('Escape');
+    await expect(backdrops, 'Escape closes the dialog on top').toHaveCount(open - 1);
   }
-  if (op === 'ModsByDomain') {
-    return { data: { legacyModsByDomain: { nodes: (body.variables.ids || []).map(({ modId }) => ({
-      uid: String(7000000 + modId), modId, name: 'x', version: '2.0', viewerEndorsed: modId % 2 === 0, viewerTracked: false,
-      game: { domainName: 'skyrimspecialedition', id: 1704 }
-    })) } } };
-  }
-  if (op === 'GameId') return { data: { game: { id: 1704, domainName: 'skyrimspecialedition' } } };
-  if (op === 'ModFiles') return { data: { modFiles: [] } };
-  return { data: null, errors: [{ message: `unexpected ${op}` }] };
-}
-
-async function launchContext({ dir = extensionDir, userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-visual-')) } = {}) {
-  const ctx = await chromium.launchPersistentContext(userDataDir, {
-    channel: process.env.NXTK_PLAYWRIGHT_CHANNEL || 'chromium',
-    headless: true,
-    args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`]
-  });
-  await ctx.route('https://www.nexusmods.com/**', (route) => {
-    const url = new URL(route.request().url());
-    if (route.request().resourceType() !== 'document') return route.fulfill({ status: 204, body: '' });
-    const html = url.pathname.includes('/collections/') ? fixture('visual-collection-page.html') : fixture('visual-mod-page.html');
-    return route.fulfill({ status: 200, contentType: 'text/html', body: html });
-  });
-  await ctx.route('https://api-router.nexusmods.com/**', (route) => route.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify(collectionAnswer()),
-    headers: { 'access-control-allow-origin': 'https://www.nexusmods.com', 'access-control-allow-credentials': 'true' }
-  }));
-  await ctx.route('https://api.nexusmods.com/v2/graphql', (route) => {
-    const cors = { 'access-control-allow-origin': 'https://www.nexusmods.com', 'access-control-allow-credentials': 'true', 'access-control-allow-headers': 'content-type' };
-    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors, body: '' });
-    let body = null;
-    try { body = JSON.parse(route.request().postData() || '{}'); } catch (_) { body = null; }
-    return route.fulfill({ status: 200, contentType: 'application/json', headers: cors, body: JSON.stringify(officialAnswer(body)) });
-  });
-  await ctx.route(/^(?!https:\/\/(www|api-router|api)\.nexusmods\.com)https?:\/\//, (route) => route.abort());
-  // Skip the onboarding tab opened on install.
-  await new Promise((r) => setTimeout(r, 1000));
-  for (const page of ctx.pages()) if (page.url().includes('onboarding')) await page.close();
-  return ctx;
 }
 
 let context;
 test.beforeAll(async () => {
   context = await launchContext();
 });
-test.afterAll(async () => { await context?.close(); });
+test.afterAll(async () => { await closeExtension(context); });
 
 for (const semanticMain of [false, true]) {
   test(`collection mounts and recovers without legacy container classes (${semanticMain ? 'semantic main' : 'mainContent'})`, async () => {
@@ -102,8 +50,7 @@ for (const semanticMain of [false, true]) {
     const deck = page.locator('#nxtk-control-deck');
     await expect(deck).toBeVisible({ timeout: 30000 });
     expect(await deck.evaluate((node, selector) => node.parentElement.matches(selector), root)).toBe(true);
-    let [worker] = context.serviceWorkers();
-    if (!worker) worker = await context.waitForEvent('serviceworker');
+    const worker = await serviceWorker(context);
     const check = await worker.evaluate(async url => {
       const [tab] = await globalThis.chrome.tabs.query({ url });
       const [check] = await globalThis.chrome.scripting.executeScript({ target: { tabId: tab.id },
@@ -127,8 +74,7 @@ test('late collection content waits for mounting instead of declaring a page cha
     body: fixture('collection-late-hydration.html') }));
   await page.goto(url);
   await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const check = await worker.evaluate(async url => {
     const [tab] = await globalThis.chrome.tabs.query({ url });
     const [check] = await globalThis.chrome.scripting.executeScript({ target: { tabId: tab.id },
@@ -148,8 +94,7 @@ test('late collection content waits for mounting instead of declaring a page cha
 });
 
 test('download API fetch failure recovers through the generator without reporting a failed download', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   await worker.evaluate(async () => {
     await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false } });
   });
@@ -180,8 +125,7 @@ test('download API fetch failure recovers through the generator without reportin
 });
 
 test('automatic reports: accessible one-time Nexus invitation without extra permissions', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   await worker.evaluate(async () => {
     await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false }, nxtk_auto_report_prompt_v1: { pending: true, shown: false } });
   });
@@ -265,8 +209,7 @@ test('reporting CORS: manual and background delivery work without relay host per
   const base = `http://127.0.0.1:${server.address().port}`;
   const route = r => r.continue();
   await context.route(`${base}/**`, route);
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   let page;
   try {
     const result = await worker.evaluate(async (base) => {
@@ -365,7 +308,7 @@ for (const [w, h] of SCREENS) {
       await fab.click();
       const modal = page.locator('.nxtk-modal').first();
       await expect(modal).toBeVisible({ timeout: 10000 });
-      await page.waitForTimeout(600);
+      await settle(page);
       await assertFits(page, '.nxtk-modal', `${tag} settings modal`);
       // The modal's content must be reachable: it scrolls inside itself, not the page.
       const scrolls = await modal.evaluate((el) => {
@@ -381,7 +324,7 @@ for (const [w, h] of SCREENS) {
       const page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123', w, h, zoom);
       const deck = page.locator('#nxtk-control-deck');
       await expect(deck).toBeVisible({ timeout: 30000 });
-      await page.waitForTimeout(800);
+      await settle(page);
       await assertFits(page, '.nxtk-deck', `${tag} deck`);
       // Official API: newer published revision badge.
       await expect(deck.locator('.nxtk-badge-new')).toBeVisible({ timeout: 10000 });
@@ -392,7 +335,7 @@ for (const [w, h] of SCREENS) {
       await page.locator('#nxtk-select-mods').click({ timeout: 10000 });
       const modal = page.locator('.nxtk-modal').first();
       await expect(modal).toBeVisible({ timeout: 10000 });
-      await page.waitForTimeout(600);
+      await settle(page);
       await assertFits(page, '.nxtk-modal', `${tag} mod picker`);
       // Update badges and endorse/track buttons from the batched details, inside each row.
       await expect(modal.locator('.nxtk-tag-update').first()).toBeVisible({ timeout: 10000 });
@@ -423,8 +366,7 @@ for (const [w, h] of SCREENS) {
 }
 
 test('popup and onboarding pages do not overflow', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const id = new URL(worker.url()).host;
   for (const [name, file, vw, vh] of [
     ['popup', 'popup/popup.html', 380, 600],
@@ -434,7 +376,7 @@ test('popup and onboarding pages do not overflow', async () => {
     const page = await context.newPage();
     await page.setViewportSize({ width: vw, height: vh });
     await page.goto(`chrome-extension://${id}/${file}`);
-    await page.waitForTimeout(500);
+    await settle(page);
     const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflowX, `${name} scrolls horizontally`).toBeLessThanOrEqual(1);
     await page.screenshot({ path: path.join(shotDir, `${name}.png`) });
@@ -447,7 +389,7 @@ test('page-change notice fits at 1280x720@150 and 3840x2160', async () => {
     // A file page with no download control makes the page check raise its notice.
     const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1?tab=files&file_id=42', w, h, zoom);
     await expect(page.locator('.nxtk-notice-toast')).toBeVisible({ timeout: 30000 });
-    await page.waitForTimeout(500);
+    await settle(page);
     await assertFits(page, '.nxtk-notice-toast', `notice ${w}x${h}@${zoom * 100}`);
     await page.screenshot({ path: path.join(shotDir, `notice-${w}x${h}@${Math.round(zoom * 100)}.png`) });
     await page.close();
@@ -455,13 +397,12 @@ test('page-change notice fits at 1280x720@150 and 3840x2160', async () => {
 });
 
 test('report page: connection failures keep the description and show a retry and GitHub fallback', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const id = new URL(worker.url()).host;
   const page = await context.newPage();
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`chrome-extension://${id}/report-page/report.html`);
-  await page.waitForTimeout(500);
+  await page.waitForFunction(() => document.getElementById('rpPreview')?.textContent.includes('schema'));
   const configured = await page.evaluate(() => globalThis.NXTK.RELAY_CONFIGURED);
   if (!configured) {
     await expect(page.locator('#rpSend')).toBeDisabled();
@@ -488,8 +429,7 @@ test('report page: connection failures keep the description and show a retry and
 });
 
 test('report workspace: preview, validation, redaction, one send and JSON export', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const id = new URL(worker.url()).host;
   const page = await context.newPage();
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -546,8 +486,7 @@ test('report workspace: preview, validation, redaction, one send and JSON export
 });
 
 test('report workspace: responsive layout and Greek text fit without overflow', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const id = new URL(worker.url()).host;
   const page = await context.newPage();
   await page.goto(`chrome-extension://${id}/report-page/report.html`);
@@ -574,8 +513,7 @@ test('report workspace: responsive layout and Greek text fit without overflow', 
 });
 
 test('debug log page: live view, level filter, safe text, clear and no overflow', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const id = new URL(worker.url()).host;
   const page = await context.newPage();
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -612,8 +550,7 @@ test('debug log page: live view, level filter, safe text, clear and no overflow'
 });
 
 test('report send and automatic toggle need no extra permission prompt', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const id = new URL(worker.url()).host;
   const page = await context.newPage();
   await page.goto(`chrome-extension://${id}/report-page/report.html`);
@@ -638,8 +575,7 @@ test('report send and automatic toggle need no extra permission prompt', async (
 });
 
 test('every page shows the manifest version, and the debug page can turn logging on', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const id = new URL(worker.url()).host;
   const page = await context.newPage();
   for (const [file, sel] of [['popup/popup.html', '.popup-version'], ['report-page/report.html', '#rpVersion'], ['debug-page/debug.html', '#dbVersion']]) {
@@ -657,8 +593,7 @@ test('every page shows the manifest version, and the debug page can turn logging
 });
 
 test('popup controls and help: raised actions, compact layout, sentence case, tooltips', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const id = new URL(worker.url()).host;
   for (const width of [380]) { // the popup body is a fixed 380px
     const page = await context.newPage();
@@ -707,8 +642,7 @@ test('popup controls and help: raised actions, compact layout, sentence case, to
 });
 
 test('popup raised actions retain keyboard focus and reduced-motion press feedback', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const page = await context.newPage();
   await page.setViewportSize({ width: 380, height: 600 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -811,8 +745,7 @@ test('settings button stays small at 125/150% zoom and never covers Download all
     for (let step = 0; step < 6; step += 1) {
       await button.scrollIntoViewIfNeeded();
       await page.mouse.wheel(0, step * 60);
-      await page.waitForTimeout(250);
-      const covered = await page.evaluate(() => {
+      const covered = () => page.evaluate(() => {
         const target = document.getElementById('nxtk-dl-all');
         const fabEl = document.getElementById('nxtk-settings-fab');
         const a = target.getBoundingClientRect();
@@ -820,7 +753,7 @@ test('settings button stays small at 125/150% zoom and never covers Download all
         if (fabEl.classList.contains('nxtk-fab-tucked')) return false;
         return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
       });
-      expect(covered, `zoom ${zoom}, step ${step}: the FAB sits on Download all mods`).toBe(false);
+      await expect.poll(covered, { message: `zoom ${zoom}, step ${step}: the FAB sits on Download all mods` }).toBe(false);
     }
     await page.screenshot({ path: path.join(shotDir, `fab-deck-${Math.round(zoom * 100)}.png`) });
     await page.close();
@@ -876,12 +809,9 @@ test('real Nexus web components: Vortex buttons in nested shadow roots skip the 
   for (const id of ['real-card-vortex', 'real-header-vortex']) {
     await button(id).click();
     await expect(button(id)).toHaveText(/Sending to Vortex/, { timeout: 1000 });
-    await page.waitForTimeout(3500);
     // The stub answers without a link, so the extension shows its error dialog; close it.
-    for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(300);
-    }
+    await expect(page.locator('.nxtk-modal-backdrop'), 'one error dialog for the failed attempt').toHaveCount(1, { timeout: 15000 });
+    await dismissDialogs(page);
   }
   expect(await page.evaluate(() => window.nativeOpened), 'Nexus never opened its modal').toBe(0);
   expect(asked.length, 'the link was requested').toBeGreaterThan(0);
@@ -917,11 +847,11 @@ test('settings button steps aside when a Nexus menu (account / Sign out) drops u
   // Away from the page's own links, so only the menu can be under the button.
   await page.evaluate(() => { document.querySelector('#mainContent, main, body > div')?.setAttribute('style', 'display:none'); });
   await page.evaluate(() => globalThis.dispatchEvent(new Event('resize')));
-  await page.waitForTimeout(400);
+  await settle(page);
   await expect(fab, 'visible before the menu opens').toBeVisible();
   await page.click('#fake-account');
-  await page.waitForTimeout(1000);
-  const covered = await page.evaluate(() => {
+  // The click shows the menu at once; what is polled is the button's reaction to it.
+  const covered = () => page.evaluate(() => {
     const fabEl = document.getElementById('nxtk-settings-fab');
     if (getComputedStyle(fabEl).visibility === 'hidden') return false;
     const b = fabEl.getBoundingClientRect();
@@ -930,9 +860,8 @@ test('settings button steps aside when a Nexus menu (account / Sign out) drops u
       return r.left < b.right && b.left < r.right && r.top < b.bottom && b.top < r.bottom;
     });
   });
-  expect(covered, 'the FAB sits on the account menu').toBe(false);
+  await expect.poll(covered, { message: 'the FAB sits on the account menu' }).toBe(false);
   await page.click('#fake-account');
-  await page.waitForTimeout(700);
   await expect(fab, 'and comes back when the menu closes').toBeVisible();
   await page.close();
 });
@@ -959,26 +888,21 @@ test('Vortex button state shows on a real-style label (icon span + bare text, re
     button.id = 'styled-vortex';
     // Like Nexus: an icon wrapper first, the label as a bare text node.
     button.innerHTML = '<span class="icon" aria-hidden="true"><svg width="16" height="16"></svg></span>Mod manager download';
-    // A framework re-render puts its own label back shortly after the click.
-    button.addEventListener('click', () => setTimeout(() => {
-      button.lastChild.nodeValue = 'Mod manager download';
-    }, 100));
     inner.append(button);
     document.body.append(host);
   });
   const button = page.locator('mod-file-download').locator('#styled-vortex');
   await button.click();
   await expect(page.locator('.nxtk-status-toast[role="status"]')).toContainText(/Sending to Vortex/, { timeout: 1000 });
-  await page.waitForTimeout(400);
+  // A framework re-render puts its own label back while the link is resolved. It is done here rather
+  // than in a click listener on the button: the extension owns that click, so such a listener never runs.
+  await button.evaluate((el) => { el.lastChild.nodeValue = 'Mod manager download'; });
   await expect(button, 'the label survives the re-render').toHaveText(/Sending to Vortex/);
   expect(await button.locator('svg').count(), 'the icon is kept').toBe(1);
   // Both routes are intentionally delayed. Wait for the final failure, not the first attempt.
   await expect(page.locator('[data-retry]').first()).toBeVisible({ timeout: 15000 });
   await expect(page.locator('.nxtk-status-toast'), 'a failed send removes the toast').toHaveCount(0);
-  for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-  }
+  await dismissDialogs(page);
   await expect(page.locator('.nxtk-status-toast'), 'a failed send removes the toast').toHaveCount(0, { timeout: 2000 });
   await page.close();
 });
@@ -1009,18 +933,15 @@ test('settings button hides while a Nexus menu in a shadow root (opened on point
   });
   const toggle = page.locator('nexus-account-menu').locator('#acct');
   await toggle.dispatchEvent('pointerdown');
-  await page.waitForTimeout(1200);
-  const state = await page.evaluate(() => getComputedStyle(document.getElementById('nxtk-settings-fab')).visibility);
-  expect(state, 'the FAB steps aside while the menu is open').toBe('hidden');
+  const visibility = () => page.evaluate(() => getComputedStyle(document.getElementById('nxtk-settings-fab')).visibility);
+  await expect.poll(visibility, { message: 'the FAB steps aside while the menu is open' }).toBe('hidden');
   await toggle.dispatchEvent('pointerdown');
-  await page.waitForTimeout(1200);
   await expect(fab, 'and comes back when it closes').toBeVisible();
   await page.close();
 });
 
 test('single-file Auto NMM path (?file_id=…&nmm=1, no button) shows the Vortex toast, the "didn\'t open?" hint and logs both', async () => {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
+  const worker = await serviceWorker(context);
   const id = new URL(worker.url()).host;
   const ext = await context.newPage();
   await ext.goto(`chrome-extension://${id}/popup/popup.html`);
@@ -1060,9 +981,7 @@ test('single-file Auto NMM path (?file_id=…&nmm=1, no button) shows the Vortex
 // ---- 3.1.0 friendlier UX ----
 
 async function extensionPage() {
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker');
-  const id = new URL(worker.url()).host;
+  const id = await extensionId(context);
   const ext = await context.newPage();
   await ext.goto(`chrome-extension://${id}/popup/popup.html`);
   const patch = (values, extra = {}) => ext.evaluate(([v, x]) => new Promise((r) => globalThis.chrome.storage.local.get('nxtk_settings', (o) => globalThis.chrome.storage.local.set({ nxtk_settings: { ...(o.nxtk_settings || {}), ...v }, ...x }, r))), [values, extra]);
@@ -1087,8 +1006,11 @@ test('auto-close on: a cancelled Vortex prompt keeps the tab, shows the hint, pe
     const page = await context.newPage();
     await page.setViewportSize({ width: 1280, height: 800 });
     await autoNmmRun(page);
+    // The watch writes its first line at once (hand-off lines skip the log batch), so once it is in
+    // storage the blur below is seen by this round's watch.
+    await expect.poll(async () => ((await readLog()).match(/watching whether Vortex opens/g) || []).length,
+      { message: `round ${round}: the hand-off watch started`, timeout: 15000 }).toBeGreaterThanOrEqual(round);
     // As with Chrome's "Open Vortex?" dialog: the window blurs, then Cancel gives focus back with no focus event.
-    await page.waitForTimeout(300);
     await page.evaluate(() => globalThis.dispatchEvent(new Event('blur')));
     await expect(page.locator('.nxtk-notice-toast:not(.nxtk-status-toast)').first(), `round ${round}: the hint appears`)
       .toContainText(/Vortex didn't open\?/, { timeout: 9000 });
@@ -1126,7 +1048,7 @@ test('settings: quick-setup presets apply and technical settings sit under Advan
   await page.locator('.nxtk-modal [data-setting="AutoStartDownload"]').evaluate((el) => { el.checked = !el.checked; el.dispatchEvent(new Event('change', { bubbles: true })); });
   await expect(page.locator('#nxtk-preset-note')).toHaveText('');
   await expect(page.locator('.nxtk-modal [data-preset="browser"]')).toHaveClass(/nxtk-preset-active/);
-  await page.waitForTimeout(600);
+  await settle(page);
   await assertFits(page, '.nxtk-modal', 'presets');
   await page.locator('#nxtk-advanced-toggle').click();
   await expect(page.locator('#nxtk-advanced-body')).toContainText(/browser check/);
@@ -1142,7 +1064,7 @@ for (const [width, height] of [[1280, 800], [1366, 768], [360, 800]]) {
       await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
       const modal = page.locator('#nxtk-settings-modal .nxtk-modal');
       await expect(modal.locator('[data-settings-group="downloads"]')).toBeVisible();
-      await page.waitForTimeout(600);
+      await settle(page);
       await assertFits(page, '#nxtk-settings-modal .nxtk-modal', 'compact settings');
       const header = await modal.locator('.nxtk-modal-header').boundingBox();
       const closeButton = await modal.locator('.nxtk-modal-close').boundingBox();
@@ -1267,7 +1189,9 @@ test('info clicks do not re-place or flash the background NexusMods button while
     window.fabObserver.observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
   });
   await info.click();
-  // Covers the existing 120/450ms delayed placement checks as well as animation-end.
+  // Covers the existing 120/450ms delayed placement checks as well as animation-end. Asserting that
+  // nothing happens needs a window of time to watch; there is no event for "nothing changed".
+  // eslint-disable-next-line no-restricted-syntax -- observation window for a negative assertion
   await page.waitForTimeout(550);
   const changes = await page.evaluate(() => {
     window.fabObserver.disconnect();
@@ -1303,7 +1227,7 @@ test('settings shortcut does not reset its position on scroll when an overlappin
   });
   await page.mouse.wheel(0, 100);
   await expect.poll(() => fab.evaluate((el) => el.getBoundingClientRect().bottom)).toBeLessThanOrEqual(700);
-  await page.waitForTimeout(300);
+  await settle(page);
   const before = await fab.boundingBox();
   await fab.evaluate((el) => {
     window.scrollFabChanges = [];
@@ -1312,6 +1236,7 @@ test('settings shortcut does not reset its position on scroll when an overlappin
   });
   for (let i = 0; i < 4; i++) {
     await page.mouse.wheel(0, 100);
+    // eslint-disable-next-line no-restricted-syntax -- paces the wheel like a hand does; not a wait for state
     await page.waitForTimeout(80);
   }
   const changes = await page.evaluate(() => {
@@ -1447,16 +1372,43 @@ test('welcome page: setup saves choices and Test Vortex asks when it cannot tell
   await page.locator('#vortexDialogCancel').click();
   await expect(dialog).toHaveCount(0);
   expect((await read('nxtk_vortex_open')).confirmed).toBe(false);
+  // What a real nxm:// navigation does in a test browser depends on the build: some lose focus, some
+  // replace the page with an error page, so the outcome was a coin toss. The detector has its own unit
+  // tests (tools/vortex-preflight-test.cjs, tools/ux-friendly-test.cjs); here it gives a fixed verdict and
+  // the link goes to a fragment, so this test pins down only what the welcome page does with each verdict.
+  const handoff = (verdict) => page.evaluate((opened) => {
+    globalThis.NXTK.VORTEX_TEST_LINK = '#nxtk-vortex-test';
+    globalThis.NXTK.waitForProtocolHandoff = async ({ onResult } = {}) => {
+      onResult?.(opened ? 'blur-persisted' : 'no-signal');
+      return opened;
+    };
+  }, verdict);
+  await handoff(false);
   await page.locator('#setupTestVortex').click();
   await page.locator('#vortexDialogOpen').click();
-  // Headless Chromium has no nxm:// handler and nothing takes the focus: the dialog asks.
-  await expect(page.locator('#vortexAskYes')).toBeVisible({ timeout: 15000 });
+  await expect(page).toHaveURL(/#nxtk-vortex-test$/);
+  await expect(page.locator('#vortexAskYes'), 'no sign either way: the dialog asks').toBeVisible();
   await expect(dialog).toContainText(/Did Vortex open/);
-  // After a nxm:// navigation headless Chromium stops delivering real input, so the answer is clicked in the page.
-  await page.evaluate(() => document.getElementById('vortexAskYes').click());
+  await page.locator('#vortexAskYes').click();
   await expect(page.locator('#setupStatus')).toContainText(/all set/);
   expect((await read('nxtk_vortex_open')).confirmed).toBe(true);
-  await page.evaluate(() => document.getElementById('vortexDialogDone').click());
+  await page.locator('#vortexDialogDone').click();
+  await expect(dialog).toHaveCount(0);
+  // A "No" is remembered as a failure, and a detected hand-off needs no question at all.
+  await patch({}, { nxtk_vortex_open: { confirmed: false, failStreak: 0 } });
+  await page.locator('#setupTestVortex').click();
+  await page.locator('#vortexDialogOpen').click();
+  await page.locator('#vortexAskNo').click();
+  await expect(page.locator('#setupStatus')).toContainText(/did not open/);
+  expect(await read('nxtk_vortex_open')).toMatchObject({ confirmed: false, failStreak: 1 });
+  await page.locator('#vortexDialogDone').click();
+  await handoff(true);
+  await page.locator('#setupTestVortex').click();
+  await page.locator('#vortexDialogOpen').click();
+  await expect(page.locator('#setupStatus')).toContainText(/all set/);
+  await expect(page.locator('#vortexAskYes'), 'a detected hand-off is not questioned').toHaveCount(0);
+  expect(await read('nxtk_vortex_open')).toMatchObject({ confirmed: true, failStreak: 0 });
+  await page.locator('#vortexDialogDone').click();
   await expect(dialog).toHaveCount(0);
   await page.locator('#setup').scrollIntoViewIfNeeded();
   await assertFits(page, '#setup', 'welcome setup');
@@ -1555,15 +1507,13 @@ for (const lang of ['de', 'ru', 'el']) {
     fs.copyFileSync(path.join(extensionDir, `_locales/${lang}/messages.json`), path.join(dir, '_locales/en/messages.json'));
     const ctx = await launchContext({ dir });
     try {
-      let [worker] = ctx.serviceWorkers();
-      if (!worker) worker = await ctx.waitForEvent('serviceworker');
-      const id = new URL(worker.url()).host;
+      const id = await extensionId(ctx);
       const popup = await ctx.newPage();
       await popup.setViewportSize({ width: 380, height: 600 });
       await popup.goto(`chrome-extension://${id}/popup/popup.html`);
       const sample = JSON.parse(fs.readFileSync(path.join(extensionDir, `_locales/${lang}/messages.json`), 'utf8')).setupSave.message;
       expect(await popup.evaluate(() => globalThis.chrome.i18n.getMessage('setupSave'))).toBe(sample);
-      await popup.waitForTimeout(500);
+      await settle(popup);
       const overflow = await popup.evaluate(() => {
         const vw = document.documentElement.clientWidth;
         const clipped = Array.from(document.querySelectorAll('button, a, label, h1, h2, h3, p, span'))
@@ -1579,7 +1529,7 @@ for (const lang of ['de', 'ru', 'el']) {
       await page.goto('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123');
       const deck = page.locator('#nxtk-control-deck');
       await expect(deck).toBeVisible({ timeout: 30000 });
-      await page.waitForTimeout(800);
+      await settle(page);
       const deckOverflow = await deck.evaluate((el) => {
         const r = el.getBoundingClientRect();
         return Array.from(el.querySelectorAll('button, .nxtk-selector-title, .nxtk-radio-hint, .nxtk-btn'))
@@ -1594,7 +1544,7 @@ for (const lang of ['de', 'ru', 'el']) {
       // The open menu with the longest labels stays on screen.
       await deck.locator('#nxtk-menu-toggle').click();
       await expect(page.locator('#nxtk-select-mods')).toBeVisible();
-      await page.waitForTimeout(400);
+      await settle(page);
       await assertFits(page, '#nxtk-dropdown-portal .nxtk-open', `${lang} deck menu 380`);
       await deck.locator('#nxtk-menu-toggle').click();
       await page.locator('#nxtk-settings-fab').click();
@@ -1603,14 +1553,15 @@ for (const lang of ['de', 'ru', 'el']) {
       await expect(settings.locator('[data-settings-group="appearance"] h3')).toHaveText(catalog.setSectionLanguage.message);
       for (const width of [360, 1280]) {
         await page.setViewportSize({ width, height: 800 });
-        await page.waitForTimeout(400);
+        await settle(page);
         await assertFits(page, '#nxtk-settings-modal .nxtk-modal', `${lang} settings ${width}`);
         expect(await settings.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
         await settings.locator('.nxtk-modal-scroll').evaluate((el) => { el.scrollTop = 0; });
         await page.screenshot({ path: path.join(shotDir, `compact-settings-${lang}-${width}.png`) });
       }
     } finally {
-      await ctx.close();
+      await closeExtension(ctx);
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 }
@@ -1643,24 +1594,20 @@ test('rapid double and triple clicks on a Vortex button start one attempt includ
   expect(await page.locator('.nxtk-status-toast').count(), 'at most one status toast').toBeLessThanOrEqual(1);
   await expect(page.locator('[data-retry]').first()).toBeVisible({ timeout: 15000 });
   expect(hits, 'one API call and one fallback, regardless of the click burst').toEqual(['api', 'generator']);
-  for (let i = 0; i < 3 && await page.locator('.nxtk-modal-backdrop').count(); i += 1) {
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-  }
-  expect(await page.locator('.nxtk-modal-backdrop').count(), 'one error dialog, not a stack').toBe(0);
+  await expect(page.locator('.nxtk-modal-backdrop'), 'one error dialog, not a stack').toHaveCount(1);
+  await dismissDialogs(page);
   await page.close();
 });
 
 test('extension update mid-run: after the worker restarts, the collection page restores the progress UI', async () => {
   // An update replaces the service worker and the content scripts; the queue lives in storage.
   // Closing the browser and starting it again on the same profile does the same to the extension.
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-update-'));
-  let ctx = await launchContext({ userDataDir });
+  let ctx = await launchContext();
+  const userDataDir = profileOf(ctx);
   const jobId = 'e2e-update-job';
   const items = Array.from({ length: 5 }, (_, i) => ({ fileId: 900 + i, modId: 100 + i, name: `Mod ${i}`, size: 10, url: '' }));
   try {
-    let [worker] = ctx.serviceWorkers();
-    if (!worker) worker = await ctx.waitForEvent('serviceworker');
+    const worker = await serviceWorker(ctx);
     await worker.evaluate(async ([jid, list]) => {
       const now = Date.now();
       await globalThis.chrome.storage.local.set({
@@ -1673,7 +1620,7 @@ test('extension update mid-run: after the worker restarts, the collection page r
       });
     }, [jobId, items]);
   } finally {
-    await ctx.close();
+    await closeExtension(ctx, { keepProfile: true });
   }
   ctx = await launchContext({ userDataDir });
   try {
@@ -1684,7 +1631,8 @@ test('extension update mid-run: after the worker restarts, the collection page r
     await expect(page.locator('#nxtk-progress-area'), 'the progress UI comes back').toBeVisible({ timeout: 15000 });
     await expect(page.locator('#nxtk-control-deck')).toContainText(/Reconnected|2\s*\/\s*5/, { timeout: 5000 });
   } finally {
-    await ctx.close();
+    await closeExtension(ctx);
+    fs.rmSync(userDataDir, { recursive: true, force: true });
   }
 });
 
@@ -1693,11 +1641,11 @@ test('collection menu: "Select mods to download" opens the picker with a real mo
     const page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123', w, h, zoom);
     const deck = page.locator('#nxtk-control-deck');
     await expect(deck).toBeVisible({ timeout: 30000 });
-    await page.waitForTimeout(800);
+    await settle(page);
     await deck.locator('#nxtk-menu-toggle').click();
     const item = page.locator('#nxtk-select-mods');
     await expect(item).toBeVisible();
-    await page.waitForTimeout(400);
+    await settle(page);
     const box = await item.boundingBox();
     const hit = await page.evaluate(([x, y]) => {
       const el = document.elementFromPoint(x, y);

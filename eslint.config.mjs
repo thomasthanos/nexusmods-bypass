@@ -42,6 +42,17 @@ export default [
     languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.serviceworker } },
     rules: { ...js.configs.recommended.rules, 'no-unused-vars': 'off', 'no-empty': ['error', { allowEmptyCatch: true }] }
   },
+  {
+    // A fixed sleep is either too short on a slow runner or wasted time on a fast one. Wait for a state
+    // instead; a deliberate window (watching that nothing happens) says why in an eslint-disable comment.
+    files: ['tests/**/*.mjs'],
+    rules: {
+      'no-restricted-syntax': ['error', {
+        selector: "CallExpression[callee.property.name='waitForTimeout']",
+        message: 'Wait for a state (expect, locator, settle() in tests/visual/helpers.mjs), not for time.'
+      }]
+    }
+  },
   { files: ['tools/**/*.cjs'], languageOptions: { sourceType: 'commonjs' } },
   { files: ['tools/**/*.mjs', 'tests/**/*.mjs', '*.config.mjs'], languageOptions: { sourceType: 'module' } }
 ];

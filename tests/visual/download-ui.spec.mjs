@@ -1,10 +1,8 @@
-import { test, expect, chromium } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+import { closeExtension, extensionDir, launchExtension, serviceWorker } from './helpers.mjs';
 
 test('download popup restoration respects a second extension without recording a background error', async () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'nxtk-download-ui-'));
@@ -15,17 +13,13 @@ test('download popup restoration respects a second extension without recording a
     permissions: ['downloads', 'downloads.ui'], background: { service_worker: 'blocker.js' }
   }));
   fs.writeFileSync(path.join(blockerDir, 'blocker.js'), 'chrome.runtime.onInstalled.addListener(() => {});');
-  const extensions = [path.join(root, 'src'), blockerDir].join(',');
   let context;
   try {
-    context = await chromium.launchPersistentContext(path.join(temp, 'profile'), {
-      channel: process.env.NXTK_PLAYWRIGHT_CHANNEL || 'chromium', headless: true,
-      args: [`--disable-extensions-except=${extensions}`, `--load-extension=${extensions}`]
-    });
-    await context.route(/^https?:\/\//, route => route.abort());
+    // No routes: nothing here needs the network, and the harness refuses every request.
+    context = await launchExtension({ extensions: [extensionDir, blockerDir], routes: null });
     await expect.poll(() => context.serviceWorkers().length).toBe(2);
     const blocker = context.serviceWorkers().find(worker => worker.url().endsWith('/blocker.js'));
-    const worker = context.serviceWorkers().find(worker => worker.url().endsWith('/background.js'));
+    const worker = await serviceWorker(context);
     await worker.evaluate(async () => {
       await globalThis.storageSetLocal(globalThis.NXTK.SETTINGS_KEY, {
         ...globalThis.NXTK.DEFAULTS, HideDownloadPopup: true, AutoErrorReports: false
@@ -67,7 +61,7 @@ test('download popup restoration respects a second extension without recording a
     }
     await blocker.evaluate(() => globalThis.chrome.downloads.setUiOptions({ enabled: true }));
   } finally {
-    await context?.close();
+    await closeExtension(context);
     fs.rmSync(temp, { recursive: true, force: true });
   }
 });
