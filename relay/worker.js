@@ -249,6 +249,8 @@ const AUTO_ERROR_COPY = {
   nexus_api_changed: ['Nexus response may have changed', 'The extension could not read the Nexus response. Send a bug report from Help & Bugs.'],
   invalid_response: ['Unexpected response from Nexus', 'Refresh the file page, then retry.'],
   no_download_url: ['No download link received', 'Nexus did not return a usable file link. Open the file page, check your sign-in, then retry.'],
+  no_nmm_link: ['No Vortex link received', 'Nexus did not return a signed nxm:// link for Vortex. Check the file page and retry, or switch to browser downloads.'],
+  popup_error: ['Popup action failed', 'An action in the extension popup could not complete. See the technical cause below.'],
   unsafe_download_url: ['Download link blocked for safety', 'The returned link was not a trusted download destination. Do not open it manually; send a bug report from Help & Bugs.'],
   short_file: ['Download incomplete', 'The download stopped before the whole file arrived. Retry from the file page.'],
   empty_file: ['Downloaded file is empty', 'Retry from the Nexus file page. If the file is still empty, check the mod page for another version.'],

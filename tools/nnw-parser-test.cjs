@@ -390,6 +390,57 @@ async function vortexGeneratorFirstTests() {
   assert.equal(fallback.calls.length, 2, 'generator once, page once');
 }
 
+// Discord reports from 3.1.4 (Opera, Edge, Chrome): "no Vortex link" arrived with no context and no
+// technical cause, and a failed generator POST said nothing about the steps around it. The final error
+// now names what each step was answered, as a shape with no link, key, number or page text in it.
+async function missingLinkTrailTests() {
+  const href = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=35407&nmm=1';
+  const vortex = createHarness({
+    href,
+    responses: [
+      response('{"url":""}'),
+      response('<!doctype html><html><body><button id="slowDownloadButton">Slow download</button></body></html>', { finalUrl: href })
+    ]
+  });
+  const result = await vortex.api.getDownloadUrl({ fileId: '35407', isNMM: true, href });
+  assert.equal(result.error.code, 'no_nmm_link');
+  assert.equal(result.error.context, 'Finding the Vortex link', 'the report says which action it was');
+  assert.equal(result.error.technicalMessage,
+    'steps: generator HTTP 200: JSON {url}; url empty; no link in it'
+    + ' | page HTTP 200: HTML page; slow-download button; no link in it',
+    'and what the generator and the page answered');
+  assert.equal(vortex.recorded.length, 1, 'recorded once');
+  assert.equal(vortex.recorded[0].technicalMessage, result.error.technicalMessage, 'with the steps in the log');
+
+  const refused = createHarness({
+    href,
+    responses: [
+      response('{"url":"nxm://skyrimspecialedition/mods/12604/files/35407?key=k&expires=2000000000"}'),
+      response('<!doctype html><html><body></body></html>', { finalUrl: href })
+    ]
+  });
+  const unsigned = await refused.api.getDownloadUrl({ fileId: '35407', isNMM: true, href });
+  assert.match(unsigned.error.technicalMessage, /generator HTTP 200: JSON \{url\}; unsigned nxm link \(no user_id\)/,
+    'a link that came back without its signature says so');
+  assert.doesNotMatch(unsigned.error.technicalMessage, /nxm:\/\/|key=|2000000000/, 'without the link itself');
+
+  // A browser download whose generator POST fails while the page loads: the request, not the
+  // connection, is what failed, and the time it took says how.
+  const blocked = createHarness({
+    pages: [
+      { failure: new TypeError('Failed to fetch') },
+      { body: '<!doctype html><html><body><h1>Example</h1></body></html>' },
+      { failure: new TypeError('Failed to fetch') }
+    ]
+  });
+  const network = await blocked.api.getDownloadUrl({ fileId: '200', isNMM: false });
+  assert.equal(network.error.code, 'network_error');
+  assert.match(network.error.technicalMessage, /fetch failed after \d+ms: POST Nexus download generator; no readable HTTP response/);
+  assert.match(network.error.technicalMessage,
+    /steps: generator network_error \| page HTTP 200: HTML page; no link in it \| generator network_error$/);
+  assert.equal(blocked.recorded.length, 1, 'one final failure is recorded');
+}
+
 // Live reports: "Mod manager download" rendered as a plain button skipped the requirement-screen skip,
 // and the requirements modal's Close button was taken as a download, so the modal could not be closed.
 function controlClassificationTests() {
@@ -448,6 +499,7 @@ Promise.resolve()
   .then(legacyChromiumVortexTests)
   .then(vortexGeneratorFirstTests)
   .then(controlClassificationTests)
+  .then(missingLinkTrailTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {
     console.error(error);

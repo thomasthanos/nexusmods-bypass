@@ -290,7 +290,8 @@ window.NexusExt = window.NexusExt || {};
     } catch (_) { }
     const method = String(options.method || 'GET').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 12);
     const online = typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'not known to be offline';
-    return `${phase}: ${method} ${route}; ${status ? `HTTP ${status}` : 'no readable HTTP response'}; ${online}`;
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden' ? '; page hidden' : '';
+    return `${phase}: ${method} ${route}; ${status ? `HTTP ${status}` : 'no readable HTTP response'}; ${online}${hidden}`;
   }
 
   async function request(url, options = {}, { timeoutMs = DEFAULT_TIMEOUT_MS, context = 'Nexus request', signal = null, record = true } = {}) {
@@ -298,6 +299,9 @@ window.NexusExt = window.NexusExt || {};
       return { ok: false, status: 0, text: '', finalUrl: String(url), error: normalize({ code: 'aborted', context }) };
     }
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    // How long a failed request took tells its causes apart: a request another extension or the
+    // browser refuses fails within milliseconds, a dropped connection after seconds.
+    const startedAt = Date.now();
     let timedOut = false;
     const timer = controller
       ? setTimeout(() => {
@@ -398,8 +402,8 @@ window.NexusExt = window.NexusExt || {};
         text: '',
         finalUrl: String(url),
         error: timedOut
-          ? create('timeout', { context, technicalMessage: [String(cause?.message || ''), requestDiagnostic(url, options, 'request timed out')].join(' | '), record })
-          : fromException(cause, { context, record, extra: requestDiagnostic(url, options, 'fetch failed') })
+          ? create('timeout', { context, technicalMessage: [String(cause?.message || ''), requestDiagnostic(url, options, `request timed out after ${Date.now() - startedAt}ms`)].join(' | '), record })
+          : fromException(cause, { context, record, extra: requestDiagnostic(url, options, `fetch failed after ${Date.now() - startedAt}ms`) })
       };
     } finally {
       if (timer) clearTimeout(timer);

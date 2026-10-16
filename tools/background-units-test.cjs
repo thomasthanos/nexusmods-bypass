@@ -2420,6 +2420,56 @@ async function nexusAnswersAreClassified() {
   }
 }
 
+// Discord report from 3.1.4 (Firefox): a queued file failed as no_download_url with nothing about what
+// Nexus answered. The failure now carries the shape of both answers, which three resolve attempts
+// produced before the file was given up on.
+async function queueNoLinkFailureSaysWhy() {
+  const previousFetch = context.fetch;
+  const previousDelay = NXTK.retryDelayMs;
+  const jobId = 'testjob-no-link-detail';
+  const item = {
+    fileId: 77, historyId: '77', gameId: '1704', name: 'Pinned.7z',
+    pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/77', sizeKb: 10
+  };
+  let generatorAsked = 0;
+  try {
+    await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+    await storageSetLocal(`nxtk_ndc_items:${jobId}`, [item]);
+    await storageSetLocal(NDC_JOBS_KEY, {
+      [jobId]: {
+        id: jobId, tabId: 7, gameId: '1704', collectionId: 'no-link', type: 'all',
+        itemCount: 1, index: 0, completed: 0, failed: [], skipped: [], status: 'running',
+        activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now()
+      }
+    });
+    NXTK.retryDelayMs = () => 0;
+    context.fetch = async (url) => {
+      const generator = String(url).includes('GenerateDownloadUrl');
+      if (generator) generatorAsked += 1;
+      return {
+        ok: true, status: 200, url: String(url),
+        text: async () => (generator ? '{"url":""}' : '<!doctype html><html><body><a href="/auth/sign_out">Log out</a></body></html>'),
+        headers: { get: () => '' }
+      };
+    };
+    await advanceNdcJob(jobId);
+    const job = await readNdcJob(jobId);
+    assert.equal(generatorAsked, 3, 'three resolve attempts before the file is given up on');
+    assert.deepEqual([...job.failed].map((entry) => entry.code), ['no_download_url']);
+    const log = await storageGetLocal(NXTK.ERROR_LOG_KEY, []);
+    const entry = log.find((line) => line.code === 'queue_item_failed');
+    assert.ok(entry, 'the failure is in the error log');
+    assert.match(entry.technicalMessage,
+      /^no_download_url \| generator HTTP 200: JSON \{url\}; url empty; no link in it \| page HTTP 200: HTML page; no link in it \| file 77/,
+      'with what the generator and the page answered');
+  } finally {
+    context.fetch = previousFetch;
+    NXTK.retryDelayMs = previousDelay;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+    await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+  }
+}
+
 // A page asks the worker for a bundle; the worker adds exactly that bundle's packaged files to the
 // document that asked. A page left or reloaded before its bundle arrived is no fault and is not logged;
 // any other refusal is.
@@ -2651,5 +2701,6 @@ jobStateBehaviour()
   .then(terminalEventsSurviveAWorkerRestart)
   .then(concurrentResumesStartOneDownload)
   .then(controlStormEndsStopped)
+  .then(queueNoLinkFailureSaysWhy)
   .then(() => console.log('background.js unit behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

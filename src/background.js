@@ -988,7 +988,18 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   // The parser applies the same rules; they are checked again because this is the last stop before
   // the URL reaches chrome.downloads.
   const verdict = NXTK.validateDownloadTarget(found?.url, { method: 1 });
-  if (!verdict.ok) return { ok: false, code: 'no_download_url' };
+  if (!verdict.ok) {
+    // What both answers looked like, never their content, so a report says why there was no link.
+    const shape = (response) => DOWNLOAD_PARSER.explainMissingLink(response.text, { mode: 'browser', fileId: item.fileId });
+    return {
+      ok: false,
+      code: 'no_download_url',
+      detail: [
+        `generator HTTP ${generated.status}: ${found ? `link refused (${verdict.detail})` : shape(generated)}`,
+        `page HTTP ${page.status}: ${shape(page)}`
+      ].join(' | ')
+    };
+  }
   return { ok: true, url: verdict.url };
 }
 
@@ -1256,7 +1267,8 @@ async function advanceNdcJob(jobId) {
         itemState: 'failed',
         error: failureCode
       });
-      await recordQueueItemFailure(job, item, failureCode);
+      await recordQueueItemFailure(job, item, failureCode,
+        resolved.detail || (resolved.status ? `HTTP ${resolved.status}` : ''));
       continue;
     }
 

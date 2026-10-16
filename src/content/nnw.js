@@ -584,11 +584,29 @@ window.NexusExt = window.NexusExt || {};
     return DownloadParser.findDownloadLink(text, { ...given, baseUrl: location.href });
   }
 
+  // A download that ends with no link, or with a failure no fallback got around, carries what each step
+  // was answered: its status and the shape of the answer, never a link, key or page text. Without it a
+  // report said "no Vortex link" and nothing about which request gave what.
+  const TRAILED_CODES = new Set(['no_download_url', 'no_nmm_link', 'network_error', 'timeout', 'server_error', 'invalid_response']);
+
+  function withTrail(error, trail, isNMM) {
+    if (!error || !TRAILED_CODES.has(error.code) || !trail.length) return error;
+    return {
+      ...error,
+      context: error.context || (isNMM ? 'Finding the Vortex link' : 'Finding the download link'),
+      technicalMessage: [error.technicalMessage, `steps: ${trail.slice(-4).join(' | ')}`].filter(Boolean).join(' | ')
+    };
+  }
+
   // Only the final outcome is an error. A failed route answered by a fallback must not trigger
   // a user error report (or consume the automatic reporting allowance).
   async function getDownloadUrl(options = {}) {
-    const result = await resolveDownloadUrl(options);
-    if (result?.error) Errors.record?.(result.error);
+    const trail = [];
+    const result = await resolveDownloadUrl({ ...options, trail });
+    if (result?.error) {
+      result.error = withTrail(result.error, trail, options.isNMM === true);
+      Errors.record?.(result.error);
+    }
     return result;
   }
 
@@ -601,9 +619,18 @@ window.NexusExt = window.NexusExt || {};
     prefetchedFinalUrl = null,
     prefetchedStatus = 0,
     prefetchedError = null,
-    signal = null
+    signal = null,
+    trail = []
   } = {}) {
     if (!fileId && !href) return { url: null, error: Errors.create('missing_file', { record: false }) };
+    // What a step was answered when it gave no link (getDownloadUrl puts this in the final error).
+    const noteFailure = (step, response) => {
+      trail.push(`${step} ${response?.error?.code || 'failed'}${response?.status ? ` HTTP ${response.status}` : ''}`);
+    };
+    const noteAnswer = (step, response, nmm) => {
+      const shape = DownloadParser.explainMissingLink(response?.text, { mode: nmm ? 'vortex' : 'browser', fileId, baseUrl: location.href });
+      trail.push(`${step} HTTP ${response?.status || 200}: ${shape}`);
+    };
 
     let isApiFileHref = false;
     try {
@@ -679,6 +706,7 @@ window.NexusExt = window.NexusExt || {};
 
       if (!response.ok) {
         Logger.warn('GenerateDownloadUrl failed:', response.error);
+        noteFailure('generator', response);
         return { url: null, text: response.text, error: response.error };
       }
 
@@ -697,6 +725,7 @@ window.NexusExt = window.NexusExt || {};
         mode: nmm ? 'vortex' : 'browser',
         fileId
       });
+      if (!(nmm ? parseNxmDownloadLink(extracted?.url) : extracted?.url)) noteAnswer('generator', response, nmm);
       if (extracted?.url) return { url: extracted.url, text: response.text, error: null };
       return { url: null, text: response.text, error: null };
     };
@@ -708,7 +737,10 @@ window.NexusExt = window.NexusExt || {};
       }
 
       const response = await fetchText(apiUrl, { context: 'Resolving Nexus API download link' });
-      if (!response.ok) return { url: null, error: response.error };
+      if (!response.ok) {
+        noteFailure('API route', response);
+        return { url: null, error: response.error };
+      }
 
       if (isNMM) {
         const fromFinalUrl = parseNxmDownloadLink(response.finalUrl);
@@ -733,6 +765,7 @@ window.NexusExt = window.NexusExt || {};
         if (!isNMM) return { url: extracted.url };
       }
 
+      noteAnswer('API route', response, isNMM);
       return { url: null, error: Errors.create(isNMM ? 'no_nmm_link' : 'no_download_url', { record: false }) };
     };
 
@@ -759,6 +792,7 @@ window.NexusExt = window.NexusExt || {};
       const firstResponse = await fetchText(href, { context: 'Loading Vortex download page' });
       let latestError = firstResponse.error;
       Logger.info('Fetching NMM download URL');
+      if (!firstResponse.ok) noteFailure('page', firstResponse);
 
       if (firstResponse.ok) {
         const firstResponseGameId = extractGameIdFromText(firstResponse.text);
@@ -768,6 +802,7 @@ window.NexusExt = window.NexusExt || {};
         }
         const link = parseNxmDownloadLink(firstResponse.finalUrl) || parseNxmDownloadLink(firstResponse.text);
         if (link) return { url: link };
+        noteAnswer('page', firstResponse, true);
 
         const extracted = parseDownloadURLFromResponse(firstResponse.text, { mode: 'vortex', fileId });
         if (extracted?.url) {
@@ -793,7 +828,9 @@ window.NexusExt = window.NexusExt || {};
             if (downloadPageResponse.ok) {
               const link2 = parseNxmDownloadLink(downloadPageResponse.finalUrl) || parseNxmDownloadLink(downloadPageResponse.text);
               if (link2) return { url: link2 };
+              noteAnswer('requirements page', downloadPageResponse, true);
             } else {
+              noteFailure('requirements page', downloadPageResponse);
               latestError = downloadPageResponse.error || latestError;
             }
           }
@@ -816,7 +853,10 @@ window.NexusExt = window.NexusExt || {};
         ajax: false,
         context: 'Loading manual download page'
       });
-      if (!pageResponse.ok) return { url: null, error: pageResponse.error };
+      if (!pageResponse.ok) {
+        noteFailure('page', pageResponse);
+        return { url: null, error: pageResponse.error };
+      }
 
       const pageGameId = extractGameIdFromText(pageResponse.text);
       if (pageGameId) {
@@ -831,6 +871,7 @@ window.NexusExt = window.NexusExt || {};
         Logger.info('Manual download URL found from file page:', extracted.source);
         return { url: extracted.url };
       }
+      noteAnswer('page', pageResponse, false);
       return { url: null, error: Errors.create('no_download_url', { context: 'Reading manual download page', record: false }) };
     };
 

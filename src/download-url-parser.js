@@ -81,9 +81,10 @@
       .trim();
   }
 
-  // A link lifted out of script text can bring the closing punctuation around it along.
+  // A link lifted out of script text can bring the closing punctuation around it along, and one lifted
+  // out of an attribute the &quot; that closed it.
   function cleanCandidate(value) {
-    return decodeLinkText(value).replace(/[)\]},;]+$/, '').trim();
+    return decodeLinkText(value).replace(/[)\]},;"']+$/, '').trim();
   }
 
   // nxm://<game>/mods/<mod>/files/<file>?key=…&expires=…&user_id=… — Vortex refuses anything less.
@@ -108,6 +109,22 @@
       if (isSignedNxm(candidate)) return candidate;
     }
     return null;
+  }
+
+  // What keeps an nxm:// candidate from being a signed link, in words a report can carry ('' when it
+  // is one). Kept beside isSignedNxm so the two cannot disagree.
+  function nxmProblem(candidate) {
+    if (candidate.length > MAX_URL_CHARS) return 'nxm link too long';
+    if (NXM_FORBIDDEN_CHARS.test(candidate)) return 'nxm link with control characters';
+    const parts = NXM_LINK.exec(candidate);
+    if (!parts) return 'nxm link with a fragment';
+    if (!GAME_DOMAIN.test(parts[1])) return 'nxm link with an unexpected host';
+    if (!NXM_FILE_PATH.test(parts[2])) return 'nxm link to an unexpected path';
+    const params = new URLSearchParams(parts[3] || '');
+    const missing = ['key', 'expires', 'user_id'].filter((name) => !params.get(name));
+    if (missing.length) return `unsigned nxm link (no ${missing.join(', no ')})`;
+    if ((params.get('key') || '').length > 512) return 'nxm link signature too long';
+    return /^\d+$/.test(params.get('expires')) && /^\d+$/.test(params.get('user_id')) ? '' : 'nxm link with a malformed signature';
   }
 
   // Whether the value, once decoded, is itself a signed nxm:// link and nothing more.
@@ -153,30 +170,49 @@
   // a response built to nest or repeat cannot make it walk without end.
   function createSearch(settings) {
     const budget = { nodes: 0 };
+    // Set once the response is seen to say which file a link belongs to. From then on only those
+    // statements count: the bare-CDN fallback would otherwise take another file's link because it
+    // is the only one, and the queue would save the wrong version under this file's name.
+    let namesOtherFiles = false;
+    // explainMissingLink passes a Set that collects why each candidate was passed over.
+    const refuse = (reason) => {
+      settings.trace?.add(reason);
+      return '';
+    };
+    const otherFile = (reason) => {
+      namesOtherFiles = true;
+      return refuse(reason);
+    };
 
     function acceptCandidate(value) {
       const candidate = cleanCandidate(value);
-      if (!candidate || candidate.length > MAX_URL_CHARS) return '';
-      if (/^nxm:/i.test(candidate)) return settings.vortex && isSignedNxm(candidate) ? candidate : '';
+      if (!candidate) return '';
+      if (candidate.length > MAX_URL_CHARS) return refuse('link too long');
+      if (/^nxm:/i.test(candidate)) {
+        if (!settings.vortex) return refuse('nxm link where the browser needs the file');
+        const problem = nxmProblem(candidate);
+        return problem ? refuse(problem) : candidate;
+      }
 
       const shared = globalThis.NXTK;
       if (typeof shared?.validateDownloadTarget !== 'function' || typeof shared.isSafeNexusPageUrl !== 'function') {
-        return '';
+        return refuse('download rules not loaded');
       }
       let href;
       try {
         href = new URL(candidate, settings.baseUrl).href;
       } catch (_) {
-        return '';
+        return refuse('unreadable link');
       }
       if (settings.vortex) {
         // For Vortex an https link is only useful as a Nexus page that resolves to the nxm:// link.
-        if (!shared.isSafeNexusPageUrl(href)) return '';
+        if (!shared.isSafeNexusPageUrl(href)) return refuse('web link outside Nexus where Vortex needs nxm');
         const parsed = new URL(href);
-        return RESOLVER_PATH.test(parsed.pathname) || parsed.searchParams.has('file_id') ? href : '';
+        return RESOLVER_PATH.test(parsed.pathname) || parsed.searchParams.has('file_id')
+          ? href : refuse('Nexus link that is not a download route');
       }
       const verdict = shared.validateDownloadTarget(href, { method: 1 });
-      return verdict?.ok ? verdict.url || href : '';
+      return verdict?.ok ? verdict.url || href : refuse(`link refused (${verdict?.detail || 'no verdict'})`);
     }
 
     function walkJson(value, label, depth) {
@@ -200,6 +236,10 @@
 
       // A link is only taken from an object that belongs to the requested file, or names no file.
       const ownId = fileIdOf(value);
+      if (settings.fileId && ownId && ownId !== settings.fileId
+        && (settings.vortex ? LINK_KEYS.vortex : LINK_KEYS.browser).some((key) => typeof value[key] === 'string')) {
+        otherFile('links only for other files');
+      }
       if (!settings.fileId || !ownId || ownId === settings.fileId) {
         for (const key of settings.vortex ? LINK_KEYS.vortex : LINK_KEYS.browser) {
           if (typeof value[key] !== 'string') continue;
@@ -257,13 +297,17 @@
           continue;
         }
         const ownId = fileIdOf(metadata);
-        if (settings.fileId && ownId && ownId !== settings.fileId) continue;
+        if (settings.fileId && ownId && ownId !== settings.fileId) {
+          otherFile('metadata only for other files');
+          continue;
+        }
         const found = walkJson(metadata, 'embedded', depth + 1);
         if (!found) continue;
         if (settings.fileId && ownId === settings.fileId) return { url: found.url, source: 'embedded-file-attr' };
         unscoped.add(found.url);
       }
       // Metadata that names no file is only trusted when every such entry points at the same link.
+      if (unscoped.size > 1) refuse('several links that name no file');
       return unscoped.size === 1 ? { url: unscoped.values().next().value, source: 'embedded-file-attr' } : null;
     }
 
@@ -283,7 +327,11 @@
       const nearFile = new Map();
       for (const match of text.matchAll(CDN_TOKEN)) {
         const url = acceptCandidate(match[0]);
-        if (!url || !isSignedCdnUrl(url)) continue;
+        if (!url) continue;
+        if (!isSignedCdnUrl(url)) {
+          refuse('unsigned CDN link');
+          continue;
+        }
         const around = text.slice(Math.max(0, match.index - CDN_CONTEXT_CHARS),
           match.index + match[0].length + CDN_CONTEXT_CHARS);
         nearFile.set(url, nearFile.get(url) || (!!settings.fileId && around.includes(settings.fileId)));
@@ -291,12 +339,16 @@
       }
       const near = [...nearFile].filter(([, isNear]) => isNear).map(([url]) => url);
       if (near.length === 1) return { url: near[0], source: 'bare-cdn-url' };
+      if (near.length > 1 || nearFile.size > 1) refuse('several CDN links');
       if (near.length > 1 || nearFile.size !== 1) return null;
       return { url: nearFile.keys().next().value, source: 'bare-cdn-url' };
     }
 
     function fromNxm(text) {
       const url = findSignedNxmLink(text);
+      if (!url && settings.trace) {
+        for (const match of decodeLinkText(text).matchAll(NXM_TOKEN)) acceptCandidate(match[0]);
+      }
       return url ? { url, source: 'nxm-url' } : null;
     }
 
@@ -304,7 +356,7 @@
       return fromJson(text, depth)
         || fromFileAttributes(text, depth)
         || fromMarkup(text)
-        || (settings.vortex ? fromNxm(text) : (settings.allowBareCdn ? fromBareCdn(text) : null));
+        || (settings.vortex ? fromNxm(text) : (settings.allowBareCdn && !namesOtherFiles ? fromBareCdn(text) : null));
     }
 
     // Read as it came first, then once more with entities and escapes resolved.
@@ -326,9 +378,67 @@
     return createSearch(readOptions(options))(text);
   }
 
+  // The kind of site notice a page shows in place of a mod, by its fixed Nexus title. Only the kind is
+  // reported, never the notice's text.
+  const NOTICE_TITLE = /<h3\b[^>]*\bid=["']Notice\d+-title["'][^>]*>([^<]{1,80})<\/h3>/i;
+  const NOTICE_KINDS = Object.freeze([
+    [/adult content/i, 'adult-content notice'],
+    [/removed|hidden|not published|not found/i, 'removed-or-hidden notice']
+  ]);
+
+  // The shape of an answer, never its content: body type, JSON field names, which link fields came
+  // back empty, the kind of site notice. Automatic reports promise no page content (PRIVACY.md).
+  function describeBody(body, settings) {
+    const trimmed = body.trim();
+    if (!trimmed) return 'empty body';
+    if (/^[[{]/.test(trimmed)) {
+      let parsed;
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch (_) {
+        parsed = undefined;
+      }
+      if (Array.isArray(parsed)) return parsed.length ? 'JSON list' : 'empty JSON list';
+      if (parsed && typeof parsed === 'object') {
+        const keys = Object.keys(parsed);
+        const named = keys.filter((key) => /^[A-Za-z_][A-Za-z_]{0,31}$/.test(key)).slice(0, 6);
+        const parts = [`JSON {${named.join(', ')}${keys.length > named.length ? ', …' : ''}}`];
+        for (const key of settings.vortex ? LINK_KEYS.vortex : LINK_KEYS.browser) {
+          if (Object.prototype.hasOwnProperty.call(parsed, key) && (parsed[key] === '' || parsed[key] === null)) {
+            parts.push(`${key} empty`);
+          }
+        }
+        if (parsed.success === false) parts.push('success false');
+        if (['error', 'message', 'errors'].some((key) => parsed[key])) parts.push('error text present');
+        return parts.join('; ');
+      }
+    }
+    if (/<(?:!doctype html|html|body|head)[\s>]/i.test(trimmed.slice(0, 8192))) {
+      const parts = ['HTML page'];
+      const title = NOTICE_TITLE.exec(body)?.[1] || '';
+      if (title) parts.push(NOTICE_KINDS.find(([pattern]) => pattern.test(title))?.[1] || 'site notice');
+      if (/\bid=["']slowDownloadButton["']/i.test(body)) parts.push('slow-download button');
+      return parts.join('; ');
+    }
+    return 'plain text body';
+  }
+
+  // Why a response gave no usable link: its shape (describeBody) and what became of each candidate.
+  // The page and the worker add this to the error a download ends with, so a report says which it was.
+  function explainMissingLink(text, options = false) {
+    const body = String(text ?? '').slice(0, MAX_INPUT_CHARS);
+    const settings = { ...readOptions(options), trace: new Set() };
+    const found = createSearch(settings)(body);
+    const parts = [describeBody(body, settings), ...[...settings.trace].slice(0, 3)];
+    if (found) parts.push('a usable link was in it');
+    else if (!settings.trace.size) parts.push('no link in it');
+    return parts.join('; ').slice(0, 220);
+  }
+
   globalThis.NXTKDownloadParser = Object.freeze({
     MAX_INPUT_CHARS,
     decodeLinkText,
+    explainMissingLink,
     findDownloadLink,
     findSignedNxmLink,
     isSignedNxmLink

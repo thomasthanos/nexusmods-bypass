@@ -1086,7 +1086,8 @@ async function requestClassifierForwardingTests() {
 
   const unreadable = await requestWith({ failure: new TypeError('Failed to fetch') });
   assert.equal(unreadable.error.code, 'network_error');
-  assert.match(unreadable.error.technicalMessage, /fetch failed: GET Nexus API download endpoint; no readable HTTP response/);
+  assert.match(unreadable.error.technicalMessage, /fetch failed after \d+ms: GET Nexus API download endpoint; no readable HTTP response/,
+    'a failed request says how long it took, which tells a refused request from a dropped connection');
   assert.doesNotMatch(unreadable.error.technicalMessage, /token=|private|api\/files\/200|cloudflare|CORS/i,
     'diagnostics expose neither the URL nor a guessed network cause');
   const interrupted = await requestWith({ readFailure: new TypeError('Failed to fetch') });

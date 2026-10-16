@@ -850,7 +850,9 @@
     return sanitizeDiagnosticText(value, 1500)
       .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, '[link]')
       .replace(/\b(file|game|collection|mod)\s+[^\s,()|]+/gi, '$1 [id]')
-      .replace(/\b\d+\b/g, '#')
+      // A number can name a file, a mod or an account; an HTTP status names none of them and is what a
+      // report about a failed request most needs.
+      .replace(/(\bHTTP )?\b\d+\b/g, (match, http) => (http && /^HTTP \d{3}$/.test(match) ? match : `${http || ''}#`))
       .slice(0, limit);
   }
 

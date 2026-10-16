@@ -173,6 +173,28 @@ function runParserCases({ parse, parseNxmDownloadLink, label }) {
     say('metadata for a different file ID must not be used')
   );
 
+  // The worker and the page parse generator answers with the bare-link fallback on. An answer that says
+  // its one link belongs to another file used to be read again by that fallback, which took the link
+  // because it was the only one: a queue then saved another version under this file's name.
+  for (const [shape, answer] of [
+    ['a JSON answer', JSON.stringify({ fileId: 201, downloadUrl: SECOND_MANUAL_URL })],
+    ['a JSON list', JSON.stringify([{ fileId: 201, downloadUrl: SECOND_MANUAL_URL }])],
+    ['a files tab', embeddedFileAttribute({ fileId: 201, manual: SECOND_MANUAL_URL, vortex: null })]
+  ]) {
+    assert.equal(parse(answer, { mode: 'browser', fileId: '200' }), null,
+      say(`${shape} naming only another file yields no link, with the fallback on`));
+  }
+  assert.equal(
+    parse(`download (${MANUAL_URL});`, { mode: 'browser', fileId: '200' })?.url,
+    MANUAL_URL,
+    say('a bare link in an answer that names no file is still taken')
+  );
+  assert.equal(
+    parse(`<a title="&quot;${MANUAL_URL.replace(/&/g, '&amp;')}&quot;">copy</a>`, { mode: 'browser', fileId: '200' })?.url,
+    MANUAL_URL,
+    say('a link read out of an entity-quoted attribute does not keep the quote')
+  );
+
   const nested = JSON.stringify({
     data: JSON.stringify({ downloadUrl: MANUAL_URL, vortexDownloadUrl: VORTEX_URL })
   });

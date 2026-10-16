@@ -110,6 +110,30 @@ function workerEdgeCases(Parser) {
     'unknown or out-of-range entities are left as written'
   );
 
+  // Why there was no link, as the page and the worker put it in a report: the answer's shape and what
+  // became of each candidate, with no link, key, number or page text in it.
+  const browser = { mode: 'browser', fileId: '200' };
+  const vortex = { mode: 'vortex', fileId: '200' };
+  for (const [text, options, expected] of [
+    ['{"url":""}', vortex, 'JSON {url}; url empty; no link in it'],
+    ['{"success":false,"error":"Invalid file 200 for jane@example.com"}', browser, 'JSON {success, error}; success false; error text present; no link in it'],
+    ['{"url":"nxm://skyrimspecialedition/mods/1/files/200?key=abc&expires=17"}', vortex, 'JSON {url}; unsigned nxm link (no user_id)'],
+    ['{"url":"https://files.example.net/a.7z"}', browser, 'JSON {url}; link refused (host-not-allowed:files.example.net)'],
+    ['{"url":"http://premium-files.nexus-cdn.com/a.7z"}', browser, 'JSON {url}; link refused (bad-protocol:http)'],
+    [JSON.stringify({ fileId: 201, downloadUrl: SECOND_MANUAL_URL }), browser, 'JSON {fileId, downloadUrl}; links only for other files'],
+    ['{"url":"nxm://skyrimspecialedition/mods/1/files/200?key=a&expires=1&user_id=2"}', browser, 'JSON {url}; nxm link where the browser needs the file'],
+    ['<!doctype html><html><body><h3 id="Notice7-title">Adult content disabled</h3></body></html>', vortex, 'HTML page; adult-content notice; no link in it'],
+    ['<!doctype html><html><body><h3 id="Notice7-title">Removed by author</h3></body></html>', browser, 'HTML page; removed-or-hidden notice; no link in it'],
+    ['<!doctype html><html><body><button id="slowDownloadButton">Slow download</button></body></html>', vortex, 'HTML page; slow-download button; no link in it'],
+    ['', browser, 'empty body; no link in it'],
+    ['[]', browser, 'empty JSON list; no link in it'],
+    ['Service Unavailable', browser, 'plain text body; no link in it']
+  ]) {
+    assert.equal(Parser.explainMissingLink(text, options), expected, `explained: ${text.slice(0, 60) || '(empty)'}`);
+  }
+  assert.doesNotMatch(Parser.explainMissingLink('{"error":"Invalid file 200 for jane@example.com"}', browser), /jane|200|Invalid/,
+    'the answer\'s own text never reaches the explanation');
+
   assert.equal(Parser.isSignedNxmLink(VORTEX_URL), true, 'a signed handoff link is recognised');
   assert.equal(Parser.isSignedNxmLink(VORTEX_URL.replace(/&/g, '&amp;')), true, 'also when it arrives encoded');
   assert.equal(Parser.isSignedNxmLink(`${VORTEX_URL}#more`), false, 'a fragment is not part of a handoff link');

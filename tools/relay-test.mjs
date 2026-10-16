@@ -1,5 +1,6 @@
 // Offline tests for relay/worker.js: validation, size limit, rate limit, Discord formatting.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../relay/worker.js';
 
 const auto = { schema: 1, kind: 'auto', version: '2.9.0', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
@@ -177,6 +178,21 @@ for (const [browser, expected] of [
   ['unrecognised browser data', 'Unknown browser']
 ]) {
   assert.ok(discordMessage({ ...auto, browser }, 'b').embeds[0].footer.text.includes(expected), `${expected} is compact and recognisable`);
+}
+// Every error the extension can send automatically has a title of its own: the generic "Action could
+// not complete" is for codes this relay has not seen yet (Vortex link failures used to land there).
+{
+  const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+  const errors = read('src/content/errors.js');
+  const definitions = errors.slice(errors.indexOf('const DEFINITIONS'), errors.indexOf('\n  };', errors.indexOf('const DEFINITIONS')));
+  const localOnly = new Set(read('src/auto-reports.js').match(/LOCAL_ONLY = new Set\(\[([\s\S]*?)\]\)/)[1].match(/'([^']+)'/g).map((code) => code.slice(1, -1)));
+  const reportable = [...definitions.matchAll(/^\s{4}(\w+):\s*\{/gm)].map((match) => match[1])
+    .concat(['queue_item_failed', 'background_error', 'uncaught_exception', 'unhandled_rejection', 'popup_error'])
+    .filter((code) => !localOnly.has(code));
+  for (const code of reportable) {
+    const { title } = discordMessage({ ...auto, error: { code, message: '' } }, 'copy').embeds[0];
+    assert.doesNotMatch(title, /Action could not complete/, `${code} has its own title`);
+  }
 }
 for (const code of ['cloudflare', 'rate_limited', 'account_suspended', 'constructor', 'new_unknown_error']) {
   const embed = discordMessage({ ...auto, error: { code, message: '' } }, 'c').embeds[0];
