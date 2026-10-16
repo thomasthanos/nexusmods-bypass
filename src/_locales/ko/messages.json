@@ -2074,6 +2074,12 @@
   "autoEnableFailed": {
     "message": "Reports could not be enabled. Please try again."
   },
+  "rpAutoDetails": {
+    "message": "추가 진단 정보도 자동으로 보내기"
+  },
+  "rpAutoDetailsDesc": {
+    "message": "별도로 선택하는 설정이며 기본값은 꺼짐입니다. 공개 파일 ID와 오류 발생 전 2분 동안 같은 유형의 페이지에서 기록된 디버그 로그 최대 20줄을 민감한 정보를 제거한 후 추가로 보냅니다. 기록된 로그가 없으면 보내지 않습니다. 페이지 내용, 계정 정보, 서명된 링크는 포함하지 않습니다. 같은 비공개 Discord 채널로 전송됩니다. 끄면 대기 중인 보고서가 삭제됩니다."
+  },
   "errorAddDetails": {
     "message": "Add details"
   }

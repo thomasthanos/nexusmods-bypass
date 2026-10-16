@@ -488,8 +488,22 @@ test('report workspace: preview, validation, redaction, one send and JSON export
 test('report workspace: responsive layout and Greek text fit without overflow', async () => {
   const worker = await serviceWorker(context);
   const id = new URL(worker.url()).host;
+  await worker.evaluate(async () => globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false, AutoReportDiagnostics: false } }));
   const page = await context.newPage();
   await page.goto(`chrome-extension://${id}/report-page/report.html`);
+  await page.locator('.rp-auto summary').click();
+  await expect(page.locator('#rpAutoDetails')).toBeDisabled();
+  await expect(page.locator('#rpAutoDetails')).not.toBeChecked();
+  await page.locator('#rpAuto').check();
+  await expect(page.locator('#rpAutoDetails')).toBeEnabled();
+  await expect(page.locator('#rpAutoDetails')).not.toBeChecked();
+  await page.locator('#rpAutoDetails').check();
+  await expect.poll(async () => worker.evaluate(async () => (await globalThis.chrome.storage.local.get('nxtk_settings')).nxtk_settings.AutoReportDiagnostics)).toBe(true);
+  await expect(page.locator('#rpAuto')).toBeEnabled();
+  await page.locator('#rpAuto').uncheck();
+  await expect(page.locator('#rpAutoDetails')).toBeDisabled();
+  await expect(page.locator('#rpAutoDetails')).not.toBeChecked();
+  await expect.poll(async () => worker.evaluate(async () => (await globalThis.chrome.storage.local.get('nxtk_settings')).nxtk_settings.AutoReportDiagnostics)).toBe(false);
   await page.locator('#rpSummary').fill('Download stops after the Nexus verification');
   for (const [width, height] of [[1920, 1080], [853, 480], [390, 844]]) {
     await page.setViewportSize({ width, height });
@@ -507,6 +521,8 @@ test('report workspace: responsive layout and Greek text fit without overflow', 
   }, greek);
   await page.setViewportSize({ width: 1280, height: 1000 });
   await expect(page.locator('#rpDetailsTitle')).toHaveText('Περιγραφή προβλήματος');
+  await expect(page.locator('#rpAutoDetailsDesc')).toContainText('Ξεχωριστή επιλογή');
+  await page.locator('.rp-auto').screenshot({ path: path.join(shotDir, 'auto-diagnostics-consent-greek.png') });
   await page.screenshot({ path: path.join(shotDir, 'report-greek.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await page.close();

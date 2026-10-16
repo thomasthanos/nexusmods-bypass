@@ -61,17 +61,16 @@ Do not rotate or overwrite the existing destination secret just to update the Wo
   shared across Cloudflare's edge. Without one, a per-isolate in-memory limiter only slows down bursts.
   For a hard limit, add a Cloudflare Rate Limiting rule on the route. No Durable Object is needed.
 - Posts one compact Discord embed for automatic errors, with a plain-language explanation,
-  page type/action context, a short browser name, an error reference shared with manual reports, occurrence count, observation times, technical cause and packaged script position. Automatic errors have no JSON attachment.
-- Embed colours follow severity: manual bug reports and crashes (uncaught errors, unhandled
-  rejections, background failures, HTTP 5xx) are red `#ED4245`; other automatic faults (network
-  trouble, failed queue items, Nexus page or API drift) are amber `#E8B339`. Both keep a distinct
-  `Automatic report` / `Bug report` title and sender name.
+  page type/action context, a short browser name, an error reference shared with manual reports, occurrence count, observation times, technical cause and packaged script position. Automatic errors include an allowlisted JSON attachment with its preview hidden.
+- Embed colours follow severity: manual bug reports and failed extension actions are red
+  `#ED4245`; network conditions and Nexus page or API drift are amber `#E8B339`. Titles distinguish
+  `Automatic error`, `Automatic warning` and `Bug report`, with a distinct sender name.
   `REPORT_MENTION_USER_ID` in `wrangler.toml` allows one explicit maintainer mention; it is a public
   Discord user ID, not a secret. Report input cannot choose recipients, mention roles or ping everyone.
 - Manual bug reports still include the full JSON file, preserving the description, reproduction
   steps, expected result and reviewed diagnostics. Mentions from report text are disabled for both report types;
   only the configured maintainer may be pinged.
-  If Resend is configured, it also e-mails the full JSON.
+  If Resend is configured, it also e-mails the same attachment (allowlisted for automatic reports).
 - CORS only for extension origins (`ALLOWED_ORIGINS`).
 
 GitHub automation is separate: its sender is `NexusMods Bypass · GitHub`, titles start with `GitHub`,
@@ -81,6 +80,25 @@ same dispatcher as the Worker, waits out Discord rate limits and turns a failed 
 warning instead of a failed job. It does not
 ping the report recipient. Manifest summaries use Discord-friendly bullets; missing/invalid Firefox
 manifests are reported as unavailable, never as an unchanged `? → ?` comparison.
+
+## Automatic report diagnostics
+
+Automatic reports have one compact embed (context, technical cause and diagnostic summary) and a
+`SPOILER_nexusmods-auto-report-<id>.json` attachment, to keep the JSON preview hidden until opened.
+Failed actions are red; page/schema checks and network conditions are amber warnings. Older clients
+are identified relative to `RELAY_EXTENSION_VERSION` in `wrangler.toml`, not claimed fixed. Update this
+comparison baseline when deploying the relay for a new extension release. Missing configuration is
+reported as unknown age, not a guessed old/current version. Unknown extra fields such as contact or
+settings are not forwarded in automatic attachments or the email fallback. Manual JSON stays exact.
+
+Basic opt-in sends no extra logs or file IDs. A separate **Include extra diagnostics automatically**
+choice on the report page (off by default) enables an optional
+`diagnostics: { consent: "extended-v1", file?: { expectedId?, receivedId? }, logs: [...] }`.
+Logs are bounded to twenty redacted entries of the same page type from the two minutes before the
+incident, captured locally at that time, not when a retry is sent. IDs are public file identifiers,
+never account IDs or signed links. The relay validates the complete optional structure before delivery.
+Disabling either choice aborts delivery where possible and clears pending diagnostics. Existing rate
+limits, deduplication and notification cooldowns are unchanged.
 
 ## Delivery and failure handling
 

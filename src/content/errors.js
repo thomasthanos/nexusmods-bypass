@@ -161,6 +161,7 @@ window.NexusExt = window.NexusExt || {};
       blocking: overrides.blocking ?? !!definition.blocking,
       technicalMessage: String(overrides.technicalMessage || ''),
       stack: String(overrides.stack || '').slice(0, 1500),
+      ...(overrides.fileIdentity && NXTK.reportFileIdentity(overrides.fileIdentity) ? { fileIdentity: NXTK.reportFileIdentity(overrides.fileIdentity) } : {}),
       // Carried on the error so a Retry-After survives callers that pass only the error along.
       retryAfterSeconds: Number.isFinite(Number(overrides.retryAfterSeconds)) && Number(overrides.retryAfterSeconds) > 0
         ? Number(overrides.retryAfterSeconds)

@@ -2326,6 +2326,12 @@
   "autoEnableFailed": {
     "message": "Reports could not be enabled. Please try again."
   },
+  "rpAutoDetails": {
+    "message": "Automatycznie dołączaj dodatkową diagnostykę"
+  },
+  "rpAutoDetailsDesc": {
+    "message": "Osobna opcja, domyślnie wyłączona. Wysyła też publiczne identyfikatory plików i do 20 wierszy dziennika z ukrytymi danymi wrażliwymi, z tego samego typu strony z dwóch minut przed błędem, jeśli zostały zapisane. Bez treści stron, danych konta i podpisanych linków. Trafiają na ten sam prywatny kanał Discord. Wyłączenie usuwa oczekujące raporty."
+  },
   "errorAddDetails": {
     "message": "Add details"
   }

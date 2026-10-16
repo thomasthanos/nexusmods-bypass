@@ -651,7 +651,8 @@ window.NexusExt = window.NexusExt || {};
       if (wanted && linkedFile !== undefined && linkedFile !== String(Number(wanted))) {
         const error = Errors.create('no_nmm_link', {
           context: 'Checking the Vortex link',
-          technicalMessage: 'the nxm link names another file'
+          technicalMessage: 'the nxm link names another file',
+          fileIdentity: { expectedId: wanted, receivedId: linkedFile }
         });
         this.ui.log(`${prefix} ${escapeHtml(Errors.toLogMessage(error))} ${link}`, 'error');
         return false;

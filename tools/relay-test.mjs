@@ -17,9 +17,10 @@ assert.equal(validateReport({ ...detailed, error: { ...detailed.error, causeCode
 assert.equal(validateReport({ ...detailed, firstAt: 'yesterday' }), 'bad timestamp');
 const detailedEmbed = discordMessage(detailed, 'id').embeds[0];
 assert.match(detailedEmbed.footer.text, /E-001abcd/);
-assert.ok(detailedEmbed.fields.some((field) => field.name === 'Occurrences in this report' && field.value === '12'));
+assert.ok(detailedEmbed.fields.some((field) => field.name === 'Diagnostics' && field.value.includes('Occurrences: 12')));
 assert.ok(detailedEmbed.fields.some((field) => field.name === 'Technical cause' && field.value.includes('collectionRevision')));
-assert.ok(detailedEmbed.fields.some((field) => field.name === 'Script' && field.value === 'content/ndc.js:42:5'));
+assert.ok(detailedEmbed.fields.some((field) => field.name === 'Diagnostics' && field.value.includes('content/ndc.js:42:5')));
+assert.ok(detailedEmbed.fields.length <= 3 && detailedEmbed.fields.every((field) => !field.inline), 'automatic diagnostics remain compact and stacked');
 assert.equal(fingerprintOf(detailed), fingerprintOf({ ...detailed, error: { ...detailed.error, context: 'another file' } }), 'stable references dedupe across different files');
 let seq = 0;
 // Each call gets its own fingerprint so the dedupe window does not collapse them.
@@ -38,9 +39,8 @@ for (const report of [auto, { schema: 1, kind: 'manual', version: '3.1.1', summa
   const alert = discordMessage({ ...report, mentionUserId: '123456789012345678', note: '@everyone <@123456789012345678>' }, 'owner', ownerId);
   assert.equal(alert.content, `<@${ownerId}>`, 'only the configured owner is mentioned');
   assert.deepEqual(alert.allowed_mentions, { parse: [], users: [ownerId] });
-  assert.equal(alert.embeds[0].color, report.kind === 'auto' ? 0xe8b339 : 0xed4245,
-    'user bug reports are red; an ordinary automatic fault is amber');
-  assert.match(alert.embeds[0].title, report.kind === 'auto' ? /^Automatic report · / : /^Bug report · /);
+  assert.equal(alert.embeds[0].color, 0xed4245, 'automatic download failures and manual bug reports are red');
+  assert.match(alert.embeds[0].title, report.kind === 'auto' ? /^Automatic error · / : /^Bug report · /);
 }
 for (const invalidId of ['@everyone', '706932839907852389 <@123>', 42, '']) {
   const alert = discordMessage(auto, 'invalid', invalidId);
@@ -59,7 +59,7 @@ globalThis.fetch = async (url, init) => {
 };
 // Incident lines go to this list instead of the console, so failures below can be asserted on.
 const incidents = [];
-const env = { DISCORD_WEBHOOK_URL: 'https://discord.invalid/webhook', REPORT_MENTION_USER_ID: ownerId, INCIDENT_LOG: (line) => incidents.push(JSON.parse(line)) };
+const env = { DISCORD_WEBHOOK_URL: 'https://discord.invalid/webhook', REPORT_MENTION_USER_ID: ownerId, RELAY_EXTENSION_VERSION: '3.1.5', INCIDENT_LOG: (line) => incidents.push(JSON.parse(line)) };
 const post = (body, ip = '1.1.1.1', extra = {}) => worker.fetch(new Request('https://relay.test/v1/report', {
   method: 'POST',
   headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip, origin: 'chrome-extension://abc', ...extra },
@@ -73,7 +73,11 @@ assert.ok(out.ok && out.id);
 assert.equal(res.headers.get('access-control-allow-origin'), 'chrome-extension://abc');
 assert.equal(sent.length, 1, 'forwarded to Discord once');
 assert.equal(new URL(sent[0].url).searchParams.get('wait'), 'true', 'the relay waits for Discord to confirm saving the report');
-assert.equal(sent[0].attachment, null, 'auto errors have one embed, without a duplicate JSON preview');
+assert.ok(sent[0].attachment, 'automatic reports retain their technical diagnostics as JSON');
+assert.match(sent[0].attachment.name, /^SPOILER_nexusmods-auto-report-/,
+  'the attachment preview is hidden so it does not duplicate the compact embed');
+assert.equal(sent[0].body.attachments?.[0]?.is_spoiler, true, 'the attachment is explicitly marked as a spoiler, including non-image JSON');
+assert.equal(JSON.parse(await sent[0].attachment.text()).error.code, 'request_failed');
 assert.equal(sent[0].body.embeds.length, 1);
 assert.equal(sent[0].body.content, `<@${ownerId}>`, 'the live handler passes only the trusted configuration');
 const manual = { schema: 1, kind: 'manual', version: '2.10.2', summary: 'Vortex does not open', category: 'vortex', steps: 'Click Download', expected: 'Vortex opens', logs: [{ text: 'diagnostic' }] };
@@ -86,6 +90,32 @@ await post(manual, '8.8.8.8');
 assert.deepEqual(JSON.parse(await sent[1].attachment.text()), manual, 'steps, expected result and logs all reach Discord');
 assert.match(sent[1].attachment.name, /^nexusmods-report-[a-z0-9-]+\.json$/);
 assert.equal(sent[1].body.embeds[0].title, `Bug report · ${manual.summary}`);
+
+// The extended automatic attachment is opt-in, bounded and allowlisted; a manual report remains exact.
+const extended = { ...fresh(), version: '3.1.5', diagnostics: { consent: 'extended-v1',
+  file: { expectedId: '7318625091714', receivedId: '819330' },
+  logs: [{ at: '2026-10-16T12:00:00.000Z', level: 'info', page: 'mod', text: 'Generating Vortex link' }] },
+  settings: { shouldNotLeave: 'PRIVATE' }, contact: 'private@example.com' };
+assert.equal(validateReport(extended), '');
+assert.equal(validateReport({ ...extended, diagnostics: { ...extended.diagnostics, consent: false } }), 'bad diagnostics consent');
+assert.equal(validateReport({ ...extended, diagnostics: { ...extended.diagnostics, logs: Array(21).fill(extended.diagnostics.logs[0]) } }), 'bad diagnostics logs');
+assert.equal(validateReport({ ...extended, diagnostics: { ...extended.diagnostics, file: { expectedId: 'key=SECRET' } } }), 'bad diagnostics file');
+await post(extended, '8.8.8.7');
+const extendedJson = JSON.parse(await sent.at(-1).attachment.text());
+assert.equal(extendedJson.diagnostics.file.receivedId, '819330');
+assert.equal(extendedJson.diagnostics.logs.length, 1);
+assert.doesNotMatch(JSON.stringify(extendedJson), /PRIVATE|private@example/);
+assert.equal(discordMessage({ ...auto, error: { code: 'nexus_page_changed' } }, 'warning').embeds[0].color, 0xe8b339);
+assert.match(discordMessage({ ...auto, error: { code: 'nexus_page_changed' } }, 'warning').embeds[0].title, /warning/i);
+for (const causeCode of ['NETWORK_FAILED', 'NETWORK_TIMEOUT', 'NETWORK_DISCONNECTED', 'NETWORK_SERVER_DOWN']) {
+  const embed = discordMessage({ ...auto, error: { code: 'queue_item_failed', causeCode } }, 'network').embeds[0];
+  assert.equal(embed.color, 0xe8b339, `${causeCode} is a network warning, not an extension error`);
+  assert.match(embed.title, /warning/i);
+}
+assert.equal(discordMessage({ ...auto, error: { code: 'no_nmm_link' } }, 'error').embeds[0].color, 0xed4245);
+assert.match(discordMessage({ ...auto, version: '0.0.1' }, 'old', '', '3.1.5').embeds[0].footer.text, /older client/i);
+assert.doesNotMatch(discordMessage({ ...auto, version: '3.1.50' }, 'new', '', '3.1.5').embeds[0].footer.text, /older client/i);
+assert.doesNotMatch(discordMessage(auto, 'unknown').embeds[0].footer.text, /older client/i, 'no guessed age without a trusted relay baseline');
 
 assert.equal((await post('{bad', '2.2.2.2')).status, 400);
 assert.equal((await post({ ...auto, schema: 9 }, '2.2.2.3')).status, 422);
@@ -153,7 +183,7 @@ assert.equal(discordMessage({ ...auto, error: { code: 'x', status: 500 } }, 'i')
 // Page field: validated as a path without query or fragment, shown in the embed.
 assert.equal(validateReport({ ...auto, page: '/skyrimspecialedition/mods/1?tab=files' }), 'bad page');
 assert.equal(validateReport({ ...auto, page: '/skyrimspecialedition/mods/1' }), '');
-assert.ok(discordMessage({ ...auto, page: '/games/x' }, 'i').embeds[0].fields.some((f) => f.name === 'Page' && f.value === '/games/x'));
+assert.ok(discordMessage({ ...auto, page: '/games/x' }, 'i').embeds[0].fields.some((f) => f.name === 'Context' && f.value.includes('/games/x')));
 // The screenshot's empty error message still gets a useful explanation, not a raw code title.
 const edgeUa = 'Mozilla/5.0 AppleWebKit/537.36 Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0';
 const login = discordMessage({ ...auto, version: '3.1.0', browser: edgeUa, page: '/games/skyrimspecialedition/collections/xk05aw', error: { code: 'requires_login', context: 'Starting collection download', message: '' } }, 'abc').embeds[0];
@@ -161,7 +191,7 @@ assert.match(login.title, /sign in/i);
 assert.match(login.description, /Nexus Mods/);
 assert.match(login.description, /retry/i);
 assert.ok(login.description.length < 400 && !login.description.includes('```'), 'short explanation, no repeated JSON/log block');
-assert.deepEqual(login.fields.map((f) => f.name), ['Page', 'Action'], 'only the useful context is shown');
+assert.deepEqual(login.fields.map((f) => f.name), ['Context'], 'page and action share one short context field');
 assert.ok(login.fields.every((f) => !f.inline), 'context is readable, not cramped into side-by-side fields');
 assert.match(login.footer.text, /v3\.1\.0/);
 assert.match(login.footer.text, /Edge 155/);

@@ -1,4 +1,5 @@
-// Durable, opt-in technical reports. No secrets, page content, history or settings leave the device.
+// Durable, opt-in technical reports. Recent redacted logs and public file IDs require a second opt-in.
+// No secrets, page content, history or settings leave the device.
 (function () {
   'use strict';
   const KEY = 'nxtk_auto_report_queue';
@@ -75,11 +76,19 @@
         const fingerprint = `${version}|${details.reference}`;
         const state = await this.state();
         const now = this.clock();
+        const observedAt = Number.isFinite(entry.at) && entry.at > 0 ? Math.min(entry.at, now) : now;
+        const settings = await this.read(this.kit.SETTINGS_KEY, null);
+        const diagnostics = settings?.AutoReportDiagnostics === true
+          ? this.kit.autoReportDiagnostics(entry, await this.read(this.kit.DEBUG_LOG_KEY, []), now) : null;
         let pending = state.pending.find((p) => p.fingerprint === fingerprint);
         if (pending) {
-          if (this.inFlight === fingerprint && !pending.extraFirstAt) pending.extraFirstAt = new Date(now).toISOString();
+          if (this.inFlight === fingerprint && !pending.extraFirstAt) pending.extraFirstAt = new Date(observedAt).toISOString();
           pending.payload.occurrences = Math.min(10000, pending.payload.occurrences + 1);
-          pending.payload.lastAt = new Date(now).toISOString();
+          pending.payload.firstAt = new Date(Math.min(Date.parse(pending.payload.firstAt) || observedAt, observedAt)).toISOString();
+          pending.payload.lastAt = new Date(Math.max(Date.parse(pending.payload.lastAt) || observedAt, observedAt)).toISOString();
+          // Keep the latest incident snapshot, never collect unrelated logs at delivery time.
+          if (diagnostics) pending.payload.diagnostics = diagnostics;
+          else delete pending.payload.diagnostics;
         } else {
           if (state.pending.length >= MAX_PENDING) {
             const replace = details.severity === 'critical'
@@ -94,7 +103,8 @@
               schema: this.kit.REPORT_SCHEMA_VERSION, kind: 'auto', version,
               browser: this.kit.reportBrowserName(globalThis.navigator?.userAgent),
               ...details, occurrences: 1,
-              firstAt: new Date(now).toISOString(), lastAt: new Date(now).toISOString()
+              ...(diagnostics ? { diagnostics } : {}),
+              firstAt: new Date(observedAt).toISOString(), lastAt: new Date(observedAt).toISOString()
             }
           };
           state.pending.push(pending);
@@ -115,8 +125,7 @@
         while (generation === this.generation) {
           const attempt = await this.serial(async () => {
             if (!await this.enabled()) {
-              await this.write(KEY, {});
-              await this.api.alarms.clear(ALARM);
+              await this.clearPending();
               return null;
             }
             const state = await this.state();
@@ -131,6 +140,8 @@
             item.attempts += 1;
             state.attempts += 1;
             item.nextAt = now + Math.min(3600000, 60000 * 2 ** (item.attempts - 1));
+            const settings = await this.read(this.kit.SETTINGS_KEY, null);
+            if (settings?.AutoReportDiagnostics !== true) delete item.payload.diagnostics;
             await this.write(KEY, state);
             await this.schedule(state);
             this.inFlight = item.fingerprint;
@@ -160,8 +171,7 @@
             this.inFlight = null;
             if (generation !== this.generation) return;
             if (!await this.enabled()) {
-              await this.write(KEY, {});
-              await this.api.alarms.clear(ALARM);
+              await this.clearPending();
               return;
             }
             const state = await this.state();
@@ -204,10 +214,15 @@
     stop() {
       this.generation += 1;
       this.controller?.abort();
-      return this.serial(async () => {
-        await this.write(KEY, {});
-        await this.api.alarms.clear(ALARM);
-      });
+      return this.serial(() => this.clearPending());
+    }
+
+    async clearPending() {
+      // Revocation removes private payloads, not the allowance/cooldowns already consumed.
+      const state = await this.state();
+      state.pending = [];
+      await this.write(KEY, state);
+      await this.api.alarms.clear(ALARM);
     }
   }
 

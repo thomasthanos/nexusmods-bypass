@@ -182,6 +182,8 @@ function appendErrorLogEntry(entry) {
         action: entry.action || candidate.action,
         url: entry.url || candidate.url
       };
+      if (entry.fileIdentity) log[index].fileIdentity = entry.fileIdentity;
+      else delete log[index].fileIdentity;
       await storageSetLocal(NXTK.ERROR_LOG_KEY, log);
       await maybeAutoReport(entry).catch(() => undefined);
       return log.length;
@@ -256,6 +258,10 @@ const STORAGE_HANDLERS = {
       const stored = await storageGetLocal(NXTK.SETTINGS_KEY, null);
       const base = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
       const next = { ...NXTK.DEFAULTS, ...base, ...normalized };
+      const enablingBasicReports = base.AutoErrorReports !== true && normalized.AutoErrorReports === true;
+      if (next.AutoErrorReports !== true || (enablingBasicReports && normalized.AutoReportDiagnostics !== true)) {
+        next.AutoReportDiagnostics = false;
+      }
       await storageSetLocal(NXTK.SETTINGS_KEY, next);
       if (normalized.AutoErrorReports === true) {
         await enqueueStorageTask(AUTO_REPORT_PROMPT_KEY, () => storageSetLocal(AUTO_REPORT_PROMPT_KEY, { pending: false, shown: true }));
@@ -2516,7 +2522,10 @@ if (chrome.storage?.onChanged) {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes?.[NXTK.SETTINGS_KEY]) {
       syncDownloadUi();
-      if (!changes[NXTK.SETTINGS_KEY].newValue?.AutoErrorReports) autoReports.stop().catch(() => undefined);
+      const { oldValue, newValue } = changes[NXTK.SETTINGS_KEY];
+      if (!newValue?.AutoErrorReports || (oldValue?.AutoReportDiagnostics && !newValue?.AutoReportDiagnostics)) {
+        autoReports.stop().catch(() => undefined);
+      }
     }
   });
 }

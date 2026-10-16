@@ -1452,7 +1452,8 @@ window.NexusExt = window.NexusExt || {};
     if (isNMM && fileId && DownloadParser.nxmFileId(finalUrl) !== String(Number(fileId))) {
       const wrongFile = Errors.create('no_nmm_link', {
         context: 'Checking the Vortex link',
-        technicalMessage: 'the nxm link names another file'
+        technicalMessage: 'the nxm link names another file',
+        fileIdentity: { expectedId: String(fileId), receivedId: DownloadParser.nxmFileId(finalUrl) }
       });
       handleError(button, wrongFile, { onRetry: () => runDownload(options) });
       releaseToNativeControl(button, fileId, wrongFile, isNMM);

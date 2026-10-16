@@ -2158,6 +2158,12 @@
   "autoEnableFailed": {
     "message": "Reports could not be enabled. Please try again."
   },
+  "rpAutoDetails": {
+    "message": "Ek tanılama bilgilerini otomatik ekle"
+  },
+  "rpAutoDetailsDesc": {
+    "message": "Ayrı bir seçimdir, varsayılan olarak kapalıdır. Ayrıca herkese açık dosya kimliklerini ve hatadan önceki iki dakikada aynı sayfa türünde kaydedilmiş en fazla 20 hata ayıklama satırını, hassas bilgiler gizlenerek gönderir. Kayıt yoksa günlük gönderilmez. Sayfa içeriği, hesap bilgileri veya imzalı bağlantılar gönderilmez. Hedef aynı özel Discord kanalıdır. Kapatmak bekleyen raporları siler."
+  },
   "errorAddDetails": {
     "message": "Add details"
   }

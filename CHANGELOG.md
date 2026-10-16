@@ -11,6 +11,14 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
+## 3.1.6 — 2026-10-16
+
+- **Compact reports:** automatic errors and warnings use one short Discord embed plus an allowlisted JSON attachment with its preview hidden. Manual reports retain the JSON the user reviewed. Errors are red; page/schema and network warnings are amber.
+- **Optional extra diagnostics:** a separate, off-by-default choice adds up to 20 redacted log lines of the same page type from the two minutes before the error, plus public file IDs when available. It does not start debug recording, attach page content or expand existing reporting consent. The choice is available in all 13 languages.
+- **Consent and limits:** disabling basic reports also revokes extra diagnostics. Pending payloads are cleared without resetting daily quotas or duplicate-suppression history; enabling basic reporting cannot revive old extra-diagnostics consent.
+- **Accurate incidents:** grouped errors retain the latest file-ID pair and use the incident time for the log window. Reports identify older clients against the relay's configured version without claiming those errors are fixed; different client versions remain separate.
+- **Packages:** Chrome/Edge and Firefox use 3.1.6 with unchanged permissions. The Cloudflare relay retains its existing URL, Discord destination and RATE_LIMIT binding.
+
 ## 3.1.5 — 2026-10-16
 
 - **Lost connections:** a collection run (browser queue or Vortex) waits on the same file when Nexus cannot be reached, with a countdown that names the connection (30 s growing to 5 min, about 17 minutes in all), and stops with one error only when every wait has run out. A short Wi-Fi drop used to fail every remaining file within seconds, each with its own dialog.

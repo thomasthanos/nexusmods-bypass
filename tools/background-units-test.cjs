@@ -76,6 +76,16 @@ async function debugLogAndAutoReports() {
     await context.__writeQueues.get(N.ERROR_LOG_KEY);
     assert.deepEqual(recorded.slice(3), ['background_error'], 'a background error storm is held back at the source');
   } finally { reporter.enqueue = previousEnqueue; }
+  const identityAt = Date.now();
+  await context.appendErrorLogEntry(N.buildErrorEntry({ code: 'no_nmm_link', context: 'Identity merge', at: identityAt,
+    url: 'https://www.nexusmods.com/x/mods/1', fileIdentity: { expectedId: '101', receivedId: '102' } }));
+  await context.appendErrorLogEntry(N.buildErrorEntry({ code: 'no_nmm_link', context: 'Identity merge', at: identityAt + 1,
+    url: 'https://www.nexusmods.com/x/mods/2', fileIdentity: { expectedId: '201', receivedId: '202' } }));
+  let identityLog = await context.storageGetLocal(N.ERROR_LOG_KEY, []);
+  assert.equal(identityLog.at(-1).fileIdentity.expectedId, '201', 'coalesced metadata belongs to the latest error');
+  await context.appendErrorLogEntry(N.buildErrorEntry({ code: 'no_nmm_link', context: 'Identity merge', at: identityAt + 2 }));
+  identityLog = await context.storageGetLocal(N.ERROR_LOG_KEY, []);
+  assert.equal(identityLog.at(-1).fileIdentity, undefined, 'a new incident without IDs clears the stale pair');
   await context.armAutoReportPrompt();
   const sender = { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/mods/1', tab: { id: 7 }, frameId: 0 };
   const claims = await Promise.all([context.claimAutoReportPrompt({}, sender), context.claimAutoReportPrompt({}, sender)]);
@@ -2039,6 +2049,22 @@ async function settingsPatchIsNormalized() {
   const send = (type, payload) => new Promise((resolve) => {
     messageListeners[0]({ type, payload }, { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/collections/abc', tab: { id: 7 } }, resolve);
   });
+  const previousSettings = await context.storageGetLocal(context.NXTK.SETTINGS_KEY, null);
+  const promptKey = 'nxtk_auto_report_prompt_v1';
+  const previousPrompt = await context.storageGetLocal(promptKey, null);
+  try {
+    await context.storageSetLocal(context.NXTK.SETTINGS_KEY, { AutoErrorReports: true, AutoReportDiagnostics: true });
+    await send('SETTINGS_PATCH', { patch: { AutoErrorReports: false } });
+    assert.equal((await context.storageGetLocal(context.NXTK.SETTINGS_KEY)).AutoReportDiagnostics, false,
+      'an older settings page revoking basic consent also revokes extra diagnostics');
+    await context.storageSetLocal(context.NXTK.SETTINGS_KEY, { AutoErrorReports: false, AutoReportDiagnostics: true });
+    await send('SETTINGS_PATCH', { patch: { AutoErrorReports: true } });
+    assert.equal((await context.storageGetLocal(context.NXTK.SETTINGS_KEY)).AutoReportDiagnostics, false,
+      'basic re-enabling cannot revive stale extra consent');
+  } finally {
+    await context.storageSetLocal(context.NXTK.SETTINGS_KEY, previousSettings);
+    await context.storageSetLocal(promptKey, previousPrompt);
+  }
   let reply = await send('SETTINGS_PATCH', { patch: { NDC_pauseBetweenDownload: -30, RequestTimeout: 1 } });
   assert.equal(reply.ok, true, 'out-of-range numbers are accepted');
   assert.equal(reply.value.NDC_pauseBetweenDownload, 0, 'but stored inside their bounds');

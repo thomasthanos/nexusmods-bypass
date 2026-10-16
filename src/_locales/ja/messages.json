@@ -2074,6 +2074,12 @@
   "autoEnableFailed": {
     "message": "Reports could not be enabled. Please try again."
   },
+  "rpAutoDetails": {
+    "message": "追加の診断情報も自動送信する"
+  },
+  "rpAutoDetailsDesc": {
+    "message": "別途選択する設定で、初期状態ではオフです。公開ファイルIDと、エラー発生前の2分間に同じ種類のページで記録された最大20行のデバッグログも、機密情報を除去して送信します。記録されていないログは送信されません。ページ本文、アカウント情報、署名付きリンクは含みません。送信先は同じ非公開Discordチャンネルです。オフにすると未送信のレポートが削除されます。"
+  },
   "errorAddDetails": {
     "message": "Add details"
   }

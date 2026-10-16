@@ -2074,6 +2074,12 @@
   "autoEnableFailed": {
     "message": "Reports could not be enabled. Please try again."
   },
+  "rpAutoDetails": {
+    "message": "自动附加额外诊断信息"
+  },
+  "rpAutoDetailsDesc": {
+    "message": "此选项需单独开启，默认关闭。还会发送公开的文件 ID，以及错误发生前两分钟内同类页面记录的最多 20 行已隐去敏感信息的调试日志；未记录日志时不会发送日志。不包含页面内容、账号信息或带签名的链接。发送到同一个私密 Discord 频道。关闭后会清除待发送的报告。"
+  },
   "errorAddDetails": {
     "message": "Add details"
   }

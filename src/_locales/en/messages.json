@@ -2504,6 +2504,12 @@
   "autoEnableFailed": {
     "message": "Reports could not be enabled. Please try again."
   },
+  "rpAutoDetails": {
+    "message": "Include extra diagnostics automatically"
+  },
+  "rpAutoDetailsDesc": {
+    "message": "Separate choice, off by default. Also sends public file IDs and up to 20 redacted debug lines from the same page type in the two minutes before an error, if logs were recorded. No page content, account details or signed links. Sent to the same private Discord channel. Turning this off clears pending reports."
+  },
   "errorAddDetails": {
     "message": "Add details"
   }

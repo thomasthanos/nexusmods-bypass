@@ -115,6 +115,21 @@ async function run() {
     assert.equal(preview.currentError.context, error.context, 'the chosen error survives a newer error in the local log');
     assert.equal(f.w.location.hash, '', 'diagnostics are removed from the address bar');
     assert.match(f.w.document.getElementById('rpErrorCode').textContent, /E-[a-z0-9]{7}/);
+    const auto = f.w.document.getElementById('rpAuto');
+    const details = f.w.document.getElementById('rpAutoDetails');
+    assert.ok(details, 'extended diagnostics have a separate explicit choice');
+    assert.equal(details.checked, false);
+    assert.equal(details.disabled, true, 'extended reporting cannot be enabled without basic consent');
+    auto.click(); await tick();
+    assert.equal(details.disabled, false);
+    assert.equal(details.checked, false, 'enabling basic reports does not consent to extra data');
+    details.click(); await tick();
+    assert.equal(f.store.nxtk_settings.AutoReportDiagnostics, true);
+    auto.click(); await tick();
+    assert.equal(f.store.nxtk_settings.AutoErrorReports, false);
+    assert.equal(f.store.nxtk_settings.AutoReportDiagnostics, false);
+    assert.equal(details.checked, false);
+    assert.equal(details.disabled, true);
     f.close();
   }
   console.log('Report consent/UI tests passed: one-time invitation, explicit opt-in, keyboard/accessibility, Greek copy and selected-error details.');

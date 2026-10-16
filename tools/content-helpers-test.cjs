@@ -474,7 +474,9 @@ function reviewFixesBehaviour() {
   assert.match(background, /itemState: 'complete',\s*itemSizeKb: item\.sizeKb/, 'the worker names the finished file\'s size');
 
   const errors = fs.readFileSync('src/content/errors.js', 'utf8');
-  const buildError = new Function('DEFINITIONS', `${extractFunction(errors, 'buildError')}\nreturn buildError;`)({ rate_limited: { userMessage: 'x', recovery: 'y' }, request_failed: { userMessage: 'x', recovery: 'y' } });
+  const errorContext = vm.createContext({ URL });
+  vm.runInContext(fs.readFileSync('src/shared.js', 'utf8'), errorContext);
+  const buildError = new Function('DEFINITIONS', 'NXTK', `${extractFunction(errors, 'buildError')}\nreturn buildError;`)({ rate_limited: { userMessage: 'x', recovery: 'y' }, request_failed: { userMessage: 'x', recovery: 'y' } }, errorContext.NXTK);
   assert.equal(buildError('rate_limited', { retryAfterSeconds: 90 }).retryAfterSeconds, 90, 'normalize keeps Retry-After');
   assert.equal(buildError('rate_limited', {}).retryAfterSeconds, null);
 

@@ -34,6 +34,55 @@ function fixture() {
 
 async function run() {
   {
+    const f = fixture(); f.enable();
+    for (const context of 'ABCDEFGHIJ') { await f.reporter.enqueue(f.entry({ context })); await f.reporter.flush(); }
+    assert.equal(f.sent.length, 10);
+    await f.reporter.stop();
+    assert.equal(f.store[f.KEY].count, 10, 'revoking consent must not reset the daily delivery budget');
+    await f.reporter.enqueue(f.entry({ context: 'K' })); await f.reporter.flush();
+    assert.equal(f.sent.length, 10, 'the eleventh report still waits until tomorrow');
+  }
+  {
+    const f = fixture(); f.enable();
+    const at = Date.UTC(2026, 9, 14, 12);
+    f.store[f.kit.DEBUG_LOG_KEY] = [
+      { at: at - 180000, level: 'info', page: 'mod', text: 'too old' },
+      { at: at - 1000, level: 'info', page: 'collection', text: 'another page type' },
+      { at: at - 1000, level: 'debug', page: 'mod', text: 'Generating link jane@example.com token=SECRET https://example.com/?key=PRIVATE' }
+    ];
+    const entry = f.entry({ code: 'no_nmm_link', at, url: 'https://www.nexusmods.com/skyrimspecialedition/mods/194279',
+      fileIdentity: { expectedId: '7318625091714', receivedId: '819330', unexpected: 'SECRET' } });
+    await f.reporter.enqueue(entry); await f.reporter.flush();
+    assert.equal(f.sent[0].payload.diagnostics, undefined, 'existing basic consent never expands into logs or file IDs');
+    f.store[f.kit.SETTINGS_KEY].AutoReportDiagnostics = true;
+    await f.reporter.enqueue(entry); f.advance(f.WINDOW); await f.reporter.flush();
+    const details = f.sent[1].payload.diagnostics;
+    assert.equal(details.consent, 'extended-v1');
+    assert.equal(details.file.expectedId, '7318625091714');
+    assert.equal(details.file.receivedId, '819330');
+    assert.equal(details.logs.length, 1, 'only recent lines of the same page type are captured at the incident');
+    assert.doesNotMatch(JSON.stringify(details), /jane|SECRET|PRIVATE|too old|another page type|unexpected/);
+    await f.reporter.enqueue(entry); await f.reporter.flush();
+    f.store[f.kit.SETTINGS_KEY].AutoReportDiagnostics = false;
+    f.advance(f.WINDOW); await f.reporter.flush();
+    assert.equal(f.sent.at(-1).payload.diagnostics, undefined, 'revoking extended consent strips previously queued diagnostics');
+    f.disable(); await f.reporter.enqueue(entry); await f.reporter.flush();
+    assert.equal(f.sent.length, 3, 'No still means no basic or extended report');
+  }
+  {
+    const f = fixture(); f.enable();
+    f.store[f.kit.SETTINGS_KEY].AutoReportDiagnostics = true;
+    const at = Date.UTC(2026, 9, 14, 12);
+    f.store[f.kit.DEBUG_LOG_KEY] = [
+      { at: at - 1000, page: 'mod', text: 'before incident' },
+      { at: at + 1000, page: 'mod', text: 'after incident' }
+    ];
+    f.advance(90000);
+    await f.reporter.enqueue(f.entry({ at, url: 'https://www.nexusmods.com/x/mods/1' })); await f.reporter.flush();
+    assert.equal(f.sent[0].payload.diagnostics.logs.length, 1);
+    assert.equal(f.sent[0].payload.diagnostics.logs[0].text, 'before incident', 'snapshot is anchored to the incident, not delayed processing');
+  }
+  {
     const f = fixture();
     assert.equal(await f.reporter.enqueue(f.entry()), false);
     f.enable();
@@ -119,7 +168,8 @@ async function run() {
     }));
     await f.reporter.enqueue(f.entry()); await inFlight;
     f.disable(); await f.reporter.stop();
-    assert.deepEqual(f.store[f.KEY], {}, 'opt-out aborts and discards pending data');
+    assert.equal(f.store[f.KEY].pending.length, 0, 'opt-out aborts and discards pending data');
+    assert.equal(f.store[f.KEY].attempts, 1, 'delivery bookkeeping survives revocation');
     await f.reporter.flush(); assert.equal(f.sent.length, 1, 'no sends after opt-out');
   }
   {
@@ -142,7 +192,7 @@ async function run() {
     await f.reporter.enqueue(f.entry()); await f.reporter.flush();
     assert.equal(f.store[f.KEY].count, 0, 'HTTP 200 without acknowledgement is not delivered');
     f.disable(); await f.reporter.flush();
-    assert.deepEqual(f.store[f.KEY], {}, 'opt-out discards pending reports');
+    assert.equal(f.store[f.KEY].pending.length, 0, 'opt-out discards pending reports');
   }
   {
     const f = fixture(); f.enable();

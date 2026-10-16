@@ -70,6 +70,18 @@ export function validateReport(p) {
     for (const key of ['firstAt', 'lastAt']) {
       if (p[key] !== undefined && (!isStr(p[key], 30) || !/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(p[key]) || !Number.isFinite(Date.parse(p[key])))) return 'bad timestamp';
     }
+    if (p.diagnostics !== undefined) {
+      const d = p.diagnostics;
+      if (!d || typeof d !== 'object' || Array.isArray(d) || d.consent !== 'extended-v1') return 'bad diagnostics consent';
+      if (!Array.isArray(d.logs) || d.logs.length > 20 || d.logs.some((line) => !line || typeof line !== 'object'
+        || !isStr(line.at, 30) || !/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(line.at) || !Number.isFinite(Date.parse(line.at))
+        || !['debug', 'info', 'warn', 'error'].includes(line.level)
+        || !['mod', 'collection', 'nexus', 'extension'].includes(line.page) || !isStr(line.text, 400))) return 'bad diagnostics logs';
+      if (d.file !== undefined && (!d.file || typeof d.file !== 'object' || Array.isArray(d.file)
+        || !['expectedId', 'receivedId'].some((key) => d.file[key] !== undefined)
+        || ['expectedId', 'receivedId'].some((key) => d.file[key] !== undefined
+          && (!isStr(d.file[key], 16) || !/^[1-9]\d{0,15}$/.test(d.file[key]) || !Number.isSafeInteger(Number(d.file[key])))))) return 'bad diagnostics file';
+    }
     return '';
   }
   if (p.note !== undefined && !isStr(p.note, 2000)) return 'bad note';
@@ -197,6 +209,39 @@ export function severityOf(p) {
   return 'error';
 }
 
+// Version age and fault type are independent: an older client's failure is not claimed to be fixed.
+const WARNING_CODES = new Set(['nexus_page_changed', 'nexus_api_changed', 'network_error', 'timeout',
+  'NETWORK_FAILED', 'NETWORK_TIMEOUT', 'NETWORK_DISCONNECTED', 'NETWORK_SERVER_DOWN',
+  'server_error', 'requires_login', 'cloudflare', 'rate_limited', 'access_denied']);
+function classificationOf(p, relayVersion = '') {
+  if (!/^\d+\.\d+\.\d+$/.test(relayVersion)) {
+    return { level: WARNING_CODES.has(p.error?.causeCode || p.error?.code) ? 'warning' : 'error', client: 'unknown' };
+  }
+  const parts = (version) => String(version).split('.').map(Number);
+  const given = parts(p.version), current = parts(relayVersion);
+  let difference = 0;
+  for (let i = 0; i < 3 && !difference; i += 1) difference = given[i] - current[i];
+  return {
+    level: WARNING_CODES.has(p.error?.causeCode || p.error?.code) ? 'warning' : 'error',
+    client: difference < 0 ? 'older' : difference > 0 ? 'newer' : 'current',
+    relayVersion
+  };
+}
+
+// Never attach the raw automatic request: older clients or third parties may include unknown fields.
+// Manual attachments remain the exact diagnostics their user reviewed.
+function automaticAttachment(p, relayVersion) {
+  const pick = (value, keys) => Object.fromEntries(keys.filter((key) => value[key] !== undefined).map((key) => [key, value[key]]));
+  const out = pick(p, ['schema', 'kind', 'version', 'browser', 'page', 'reference', 'severity', 'occurrences', 'firstAt', 'lastAt']);
+  out.classification = classificationOf(p, relayVersion);
+  out.error = pick(p.error, ['code', 'causeCode', 'status', 'context', 'message', 'action', 'frame']);
+  if (p.diagnostics) {
+    out.diagnostics = { consent: 'extended-v1', logs: p.diagnostics.logs.map((line) => pick(line, ['at', 'level', 'page', 'text'])) };
+    if (p.diagnostics.file) out.diagnostics.file = pick(p.diagnostics.file, ['expectedId', 'receivedId']);
+  }
+  return out;
+}
+
 // Old and new clients share these limits. Summaries have a separate daily mention cooldown.
 export const DEDUPE_WINDOW_MS = 60 * 60 * 1000;
 export const NETWORK_WINDOW_MS = 6 * DEDUPE_WINDOW_MS;
@@ -275,7 +320,7 @@ function compactBrowser(value) {
   return short ? `${short[1]} ${short[2]}` : 'Unknown browser';
 }
 
-export function discordMessage(p, id, mentionUserId = '') {
+export function discordMessage(p, id, mentionUserId = '', relayVersion = '') {
   // Only trusted Worker configuration can nominate a recipient, never report input.
   const recipient = typeof mentionUserId === 'string' && /^\d{17,20}$/.test(mentionUserId) ? mentionUserId : '';
   const identity = {
@@ -285,6 +330,7 @@ export function discordMessage(p, id, mentionUserId = '') {
   };
   if (p.kind === 'auto') {
     const error = p.error;
+    const classification = classificationOf(p, relayVersion);
     const securityBlocked = ['FILE_VIRUS_INFECTED', 'FILE_BLOCKED', 'FILE_SECURITY_CHECK_FAILED'].includes(error.causeCode)
       || /\b(?:FILE_VIRUS_INFECTED|FILE_BLOCKED|FILE_SECURITY_CHECK_FAILED)\b/.test(error.message || '');
     const [title, description] = securityBlocked
@@ -295,21 +341,22 @@ export function discordMessage(p, id, mentionUserId = '') {
         ? 'An extension action could not complete. See the technical cause below.'
         : 'Try again. If the problem continues, send a bug report from Help & Bugs.'];
     const fields = [];
-    if (p.page) fields.push({ name: 'Page', value: clip(quiet(p.page), 200), inline: false });
-    if (error.context?.trim()) fields.push({ name: 'Action', value: clip(quiet(error.context.trim().split(/\r?\n/)[0]), 160), inline: false });
-    if (error.action?.trim()) fields.push({ name: 'Download flow', value: clip(quiet(error.action), 200), inline: false });
+    const context = [p.page, error.context?.trim().split(/\r?\n/)[0], error.action].filter(Boolean);
+    if (context.length) fields.push({ name: 'Context', value: clip(quiet(context.join(' · ')), 450), inline: false });
     if (error.message?.trim()) fields.push({ name: 'Technical cause', value: clip(quiet(error.message), 300), inline: false });
-    if (error.causeCode) fields.push({ name: 'Cause code', value: quiet(error.causeCode), inline: false });
-    if (error.frame) fields.push({ name: 'Script', value: quiet(error.frame), inline: true });
-    if (p.occurrences) fields.push({ name: 'Occurrences in this report', value: String(p.occurrences), inline: true });
-    if (p.firstAt && p.lastAt) fields.push({ name: 'Observed (UTC)', value: `${p.firstAt}\n${p.lastAt}`, inline: false });
+    const diagnostics = [error.frame ? `Script: ${error.frame}` : '', error.causeCode ? `Cause: ${error.causeCode}` : '',
+      p.occurrences ? `Occurrences: ${p.occurrences}` : ''];
+    if (p.firstAt && p.lastAt) diagnostics.push(p.firstAt === p.lastAt
+      ? `Observed (UTC): ${p.firstAt}` : `Observed (UTC): ${p.firstAt} → ${p.lastAt}`);
+    if (diagnostics.some(Boolean)) fields.push({ name: 'Diagnostics', value: clip(quiet(diagnostics.filter(Boolean).join('\n')), 650), inline: false });
     const status = Number(error.status);
     const http = Number.isInteger(status) && status >= 100 && status <= 599 ? ` · HTTP ${status}` : '';
     return {
       ...identity,
       embeds: [fitEmbed({
-        title: `Automatic report · ${title}`, description, color: SEVERITY_COLORS[severityOf(p)], fields,
-        footer: { text: quiet(`v${clip(p.version, 20)} · ${compactBrowser(p.browser)} · ${clip(error.code, 80)}${http}${p.reference ? ` · ${p.reference}` : ''} · id ${clip(id, 40)}`) },
+        title: `Automatic ${classification.level} · ${title}`, description,
+        color: classification.level === 'warning' ? COLORS.warning : COLORS.critical, fields,
+        footer: { text: quiet(`v${clip(p.version, 20)} · ${compactBrowser(p.browser)} · ${clip(error.code, 80)}${http}${p.reference ? ` · ${p.reference}` : ''}${classification.client === 'older' ? ` · older client (relay baseline v${classification.relayVersion})` : ''} · id ${clip(id, 40)}`) },
         timestamp: new Date().toISOString()
       })]
     };
@@ -429,16 +476,16 @@ async function handleRequest(request, env, ctx, headers, log) {
   if (await hasSignal(env, 'fp', fp, now, log)) return json({ ok: true, duplicate: true }, 200, headers);
   const id = crypto.randomUUID().slice(0, 8);
   const mention = !fp || !await hasSignal(env, 'ping', fp, now, log);
-  const message = discordMessage(payload, id, mention ? env.REPORT_MENTION_USER_ID : '');
+  const message = discordMessage(payload, id, mention ? env.REPORT_MENTION_USER_ID : '', env.RELAY_EXTENSION_VERSION);
   const body = new FormData();
+  const attachment = payload.kind === 'manual' ? payload : automaticAttachment(payload, env.RELAY_EXTENSION_VERSION);
+  const filename = payload.kind === 'manual' ? `nexusmods-report-${id}.json` : `SPOILER_nexusmods-auto-report-${id}.json`;
+  if (payload.kind === 'auto') message.attachments = [{ id: 0, filename, is_spoiler: true, description: 'Technical diagnostics (JSON)' }];
   body.set('payload_json', JSON.stringify(message));
-  // Manual reports retain the exact reviewed diagnostics. Auto errors are already
-  // summarised by the embed; attaching them repeats the same data in Discord's preview.
-  if (payload.kind === 'manual') {
-    body.set('files[0]', new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `nexusmods-report-${id}.json`);
-  }
+  // Spoiler-mark the automatic attachment so its JSON preview does not duplicate the compact embed.
+  body.set('files[0]', new Blob([JSON.stringify(attachment, null, 2)], { type: 'application/json' }), filename);
   const delivery = await postWebhook(env.DISCORD_WEBHOOK_URL, body, DELIVERY_OPTIONS);
-  const email = sendEmail(env, payload, id, log);
+  const email = sendEmail(env, attachment, id, log);
   if (ctx?.waitUntil) ctx.waitUntil(email);
 
   if (!delivery.ok) {

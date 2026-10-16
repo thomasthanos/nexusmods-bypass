@@ -240,6 +240,7 @@
     HidePremiumUpsells: true,
     DebugLogs: false,
     AutoErrorReports: false,
+    AutoReportDiagnostics: false,
     DownloadFolder: 'NexusMods',
     CloseTabDelay: 3000,
     RequestTimeout: 30000,
@@ -914,6 +915,34 @@
     };
   }
 
+  // These are public file identifiers, not signed URLs or account IDs. They stay local unless
+  // reviewed in a manual report or the separate extended-automatic consent is enabled.
+  function reportFileIdentity(value) {
+    if (!value || typeof value !== 'object') return null;
+    const out = {};
+    for (const key of ['expectedId', 'receivedId']) {
+      const id = String(value[key] ?? '');
+      if (/^[1-9]\d{0,15}$/.test(id) && Number.isSafeInteger(Number(id))) out[key] = id;
+    }
+    return Object.keys(out).length ? out : null;
+  }
+
+  function autoReportDiagnostics(entry, log, now = Date.now()) {
+    const incidentAt = Number.isFinite(entry.at) && entry.at > 0 ? Math.min(entry.at, now) : now;
+    const page = reportPageType(entry.url);
+    const file = reportFileIdentity(entry.fileIdentity);
+    const logs = (Array.isArray(log) ? log : []).slice(-500)
+      .filter((line) => Number.isFinite(line?.at) && line.at >= incidentAt - 120000 && line.at <= incidentAt
+        && String(line.page || '').replace(/^mod-file$/, 'mod') === page)
+      .slice(-20).map((line) => ({
+        at: new Date(line.at).toISOString(),
+        level: ['debug', 'info', 'warn', 'error'].includes(line.level) ? line.level : 'info',
+        page,
+        text: sanitizeDiagnosticText(line.text, 400)
+      }));
+    return { consent: 'extended-v1', ...(file ? { file } : {}), logs };
+  }
+
   // Human-readable durations and sizes for the collection deck. Units come from Intl, so every UI
   // language gets its own short forms ("7d 8h", "7 T. 8 Std.") without extra catalogue strings.
   function uiLocale() {
@@ -1247,8 +1276,9 @@
 
   // One shape for every log entry, whichever context writes it, with every free-text field redacted.
   function buildErrorEntry(error, fallbackCode = 'request_failed') {
+    const now = Date.now();
     return {
-      at: Date.now(),
+      at: Number.isFinite(error?.at) && error.at > 0 ? Math.min(error.at, now) : now,
       code: String(error?.code || fallbackCode).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80),
       ...(error?.causeCode ? { causeCode: String(error.causeCode).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80) } : {}),
       status: Number.isInteger(error?.status) ? error.status : null,
@@ -1257,7 +1287,8 @@
       userMessage: sanitizeDiagnosticText(error?.userMessage, 300),
       technicalMessage: sanitizeDiagnosticText(error?.technicalMessage, 600),
       stack: sanitizeDiagnosticText(error?.stack, 1500),
-      url: sanitizeUrlForReport(error?.url)
+      url: sanitizeUrlForReport(error?.url),
+      ...(reportFileIdentity(error?.fileIdentity) ? { fileIdentity: reportFileIdentity(error.fileIdentity) } : {})
     };
   }
 
@@ -1526,6 +1557,8 @@
     reportPageType,
     reportBrowserName,
     autoReportDetails,
+    autoReportDiagnostics,
+    reportFileIdentity,
     errorReference,
     formatEta,
     uiLocale,
