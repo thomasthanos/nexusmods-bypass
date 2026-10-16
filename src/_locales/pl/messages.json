@@ -823,6 +823,12 @@
   "alertAllDownloaded": {
     "message": "Wszystkie mody są już pobrane."
   },
+  "errSaveFailedMsg": {
+    "message": "Przeglądarka nie mogła zapisać pliku: dysk może być pełny albo do folderu pobierania nie da się zapisywać."
+  },
+  "errSaveFailedFix": {
+    "message": "Zwolnij miejsce na dysku lub wybierz inny folder pobierania w ustawieniach, a potem uruchom pobieranie ponownie. Już pobrane pliki zostają zachowane."
+  },
   "alertImportSkippedFiles": {
     "message": "Pominięto pliki, które nie są archiwami modów."
   },
@@ -1460,6 +1466,17 @@
   },
   "wjImportNeedsExtracting": {
     "message": "Przeglądarka nie może otworzyć archiwum $1. Rozpakuj je i wybierz znajdujący się w nim plik .wabbajack."
+  },
+  "logConnectionWaiting": {
+    "message": "Nie można połączyć się z Nexus Mods. Ponowna próba za $1...",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      }
+    }
+  },
+  "logConnectionRetrying": {
+    "message": "Ponowna próba połączenia z Nexus Mods."
   },
   "wjQueueReady": {
     "message": "Lista modów jest w kolejce. Naciśnij przycisk pobierania, aby rozpocząć."

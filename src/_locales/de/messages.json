@@ -909,6 +909,12 @@
   "alertAllDownloaded": {
     "message": "Alle Mods bereits heruntergeladen."
   },
+  "errSaveFailedMsg": {
+    "message": "Der Browser konnte die Datei nicht speichern: Der Datenträger ist möglicherweise voll oder der Download-Ordner ist schreibgeschützt."
+  },
+  "errSaveFailedFix": {
+    "message": "Geben Sie Speicherplatz frei oder wählen Sie in den Einstellungen einen anderen Download-Ordner und starten Sie den Download erneut. Bereits heruntergeladene Dateien bleiben erhalten."
+  },
   "alertImportSkippedFiles": {
     "message": "Dateien, die keine Mod-Archive sind, wurden übersprungen."
   },
@@ -1308,6 +1314,17 @@
   },
   "wjImportNeedsExtracting": {
     "message": "Ein Browser kann ein $1-Archiv nicht öffnen. Entpacke es und wähle die darin enthaltene .wabbajack-Datei."
+  },
+  "logConnectionWaiting": {
+    "message": "Nexus Mods ist nicht erreichbar. Neuer Versuch in $1...",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      }
+    }
+  },
+  "logConnectionRetrying": {
+    "message": "Neuer Versuch, Nexus Mods zu erreichen."
   },
   "wjQueueReady": {
     "message": "Die Modliste steht in der Warteschlange. Drücke die Download-Schaltfläche, um zu starten."

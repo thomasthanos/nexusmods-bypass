@@ -1096,6 +1096,32 @@ async function requestClassifierForwardingTests() {
     'a response body failure is distinct from failing before an HTTP response');
   const cancelled = await requestWith({ readFailure: Object.assign(new Error('The request was aborted'), { name: 'AbortError' }), cancelDuringBody: true });
   assert.equal(cancelled.error.code, 'aborted', 'cancelling during a body read is not reported as a timeout');
+  const untimed = await requestWith({ failure: Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' }) });
+  assert.equal(untimed.error.code, 'network_error', 'an abort the request did not time is not "took too long"');
+
+  // Only a request that got no answer is a connection problem. A fault in the extension used to come
+  // out as "check your connection", and a collection run would wait it out as an outage.
+  const runtime = vm.createContext({
+    console, URL, AbortController, setTimeout, clearTimeout,
+    window: { NexusExt: {} },
+    document: { querySelector: () => null },
+    navigator: { onLine: true },
+    chrome: { runtime: { lastError: null }, tabs: { create: () => {} } },
+    NXTK: { REPORT_ISSUE_URL: 'https://example.invalid/report', recordError: () => {}, sanitizeUrlForReport: (value) => String(value || '') }
+  });
+  vm.runInContext(responseClassifier, runtime, { filename: 'src/response-classifier.js' });
+  vm.runInContext(errorsSource, runtime, { filename: 'src/content/errors.js' });
+  const { fromException } = runtime.window.NexusExt.Errors;
+  assert.equal(fromException(new TypeError("Cannot read properties of undefined (reading 'file')")).code, 'request_failed',
+    'a bug in the extension is not a network error');
+  assert.equal(fromException(new TypeError('Failed to fetch')).code, 'network_error', 'Chromium\'s failed fetch is');
+  assert.equal(fromException(new TypeError('NetworkError when attempting to fetch resource.')).code, 'network_error', 'and Firefox\'s');
+  assert.equal(fromException(Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' })).code, 'aborted',
+    'an abort outside a request is a cancel, not a timeout');
+  assert.equal(fromException(new Error('Extension context invalidated.')).code, 'context_invalid');
+  runtime.navigator.onLine = false;
+  assert.equal(fromException(new TypeError('Failed to fetch')).code, 'offline', 'a failed fetch while offline says so');
+  assert.equal(fromException(new RangeError('Invalid array length')).code, 'request_failed', 'being offline does not explain a bug');
 }
 
 // What the deck shows when a file fails. The worker sends a code with its measurements

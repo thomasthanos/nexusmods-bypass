@@ -823,6 +823,12 @@
   "alertAllDownloaded": {
     "message": "すべての MOD はダウンロード済みです。"
   },
+  "errSaveFailedMsg": {
+    "message": "ブラウザーがファイルを保存できませんでした。ディスクがいっぱいか、ダウンロードフォルダーに書き込めない可能性があります。"
+  },
+  "errSaveFailedFix": {
+    "message": "ディスクの空き容量を増やすか、設定で別のダウンロードフォルダーを選んでから、もう一度ダウンロードを開始してください。ダウンロード済みのファイルはそのまま残ります。"
+  },
   "alertImportSkippedFiles": {
     "message": "MOD のアーカイブではないファイルはスキップされました。"
   },
@@ -1232,6 +1238,17 @@
   },
   "wjImportNeedsExtracting": {
     "message": "ブラウザーは $1 アーカイブを開けません。展開してから、中にある .wabbajack ファイルを選んでください。"
+  },
+  "logConnectionWaiting": {
+    "message": "Nexus Mods に接続できません。$1 後に再試行します...",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      }
+    }
+  },
+  "logConnectionRetrying": {
+    "message": "Nexus Mods への接続を再試行しています。"
   },
   "wjQueueReady": {
     "message": "MOD リストをキューに登録しました。ダウンロードボタンを押して開始してください。"

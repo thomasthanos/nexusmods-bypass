@@ -866,6 +866,12 @@
   "alertAllDownloaded": {
     "message": "所有模组均已下载。"
   },
+  "errSaveFailedMsg": {
+    "message": "浏览器无法保存该文件：磁盘可能已满，或下载文件夹无法写入。"
+  },
+  "errSaveFailedFix": {
+    "message": "请释放磁盘空间或在设置中选择其他下载文件夹，然后重新开始下载。已下载的文件会保留。"
+  },
   "alertImportSkippedFiles": {
     "message": "已跳过非模组压缩包的文件。"
   },
@@ -1232,6 +1238,17 @@
   },
   "wjImportNeedsExtracting": {
     "message": "浏览器无法打开 $1 压缩包。请先解压，然后选择其中的 .wabbajack 文件。"
+  },
+  "logConnectionWaiting": {
+    "message": "无法连接到 Nexus Mods。将在 $1 后重试...",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      }
+    }
+  },
+  "logConnectionRetrying": {
+    "message": "正在重新连接 Nexus Mods。"
   },
   "wjQueueReady": {
     "message": "模组列表已加入队列。点击下载按钮开始。"

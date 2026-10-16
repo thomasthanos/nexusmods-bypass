@@ -10,7 +10,7 @@
   const DAILY_MAX = 10;
   const LOCAL_ONLY = new Set(['offline', 'aborted', 'context_invalid', 'requires_login', 'cloudflare',
     'rate_limited', 'account_suspended', 'access_denied', 'file_not_found', 'mod_unavailable',
-    'moderation_hold', 'missing_file', 'USER_CANCELED', 'USER_SHUTDOWN']);
+    'moderation_hold', 'missing_file', 'save_failed', 'USER_CANCELED', 'USER_SHUTDOWN']);
 
   const repeatWindow = (payload) => ['network_error', 'timeout'].includes(payload.error?.causeCode || payload.error?.code)
     ? NETWORK_WINDOW : WINDOW;

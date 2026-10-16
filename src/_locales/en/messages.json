@@ -308,6 +308,14 @@
     "message": "Retry the download. If it keeps happening, report the issue.",
     "description": "Recovery advice for errRequestFailedMsg."
   },
+  "errSaveFailedMsg": {
+    "message": "The browser could not save the file: the disk may be full, or the download folder cannot be written to.",
+    "description": "Error message: the browser could not write the downloaded file (disk full or folder not writable)."
+  },
+  "errSaveFailedFix": {
+    "message": "Free up disk space or pick another download folder in settings, then start the download again. Files already downloaded are kept.",
+    "description": "Recovery advice for errSaveFailedMsg."
+  },
   "dlgDownloadIssue": {
     "message": "Download issue",
     "description": "Default title of the error dialog."
@@ -1249,6 +1257,19 @@
         "content": "$1"
       }
     }
+  },
+  "logConnectionWaiting": {
+    "message": "Cannot reach Nexus Mods. Trying again in $1...",
+    "description": "Countdown line while Nexus Mods cannot be reached. $1 is the remaining time.",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      }
+    }
+  },
+  "logConnectionRetrying": {
+    "message": "Trying to reach Nexus Mods again.",
+    "description": "Replaces the countdown line when the wait for the connection is over."
   },
   "logPausedRateLimit": {
     "message": "Paused. Nexus rate limit clears in $1.",

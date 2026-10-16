@@ -823,6 +823,12 @@
   "alertAllDownloaded": {
     "message": "Tüm modlar zaten indirilmiş."
   },
+  "errSaveFailedMsg": {
+    "message": "Tarayıcı dosyayı kaydedemedi: disk dolu olabilir ya da indirme klasörüne yazılamıyor olabilir."
+  },
+  "errSaveFailedFix": {
+    "message": "Diskte yer açın veya ayarlardan başka bir indirme klasörü seçin, ardından indirmeyi yeniden başlatın. Önceden indirilen dosyalar korunur."
+  },
   "alertImportSkippedFiles": {
     "message": "Mod arşivi olmayan dosyalar atlandı."
   },
@@ -1308,6 +1314,17 @@
   },
   "wjImportNeedsExtracting": {
     "message": "Bir tarayıcı $1 arşivini açamaz. Arşivi çıkarın ve içindeki .wabbajack dosyasını seçin."
+  },
+  "logConnectionWaiting": {
+    "message": "Nexus Mods'a ulaşılamıyor. $1 sonra yeniden denenecek...",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      }
+    }
+  },
+  "logConnectionRetrying": {
+    "message": "Nexus Mods'a yeniden bağlanılıyor."
   },
   "wjQueueReady": {
     "message": "Mod listesi kuyruğa alındı. Başlamak için indirme düğmesine basın."

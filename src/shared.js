@@ -645,6 +645,24 @@
     return Math.min(RATE_LIMIT_BASE_SECONDS * Math.pow(2, step), RATE_LIMIT_MAX_SECONDS);
   }
 
+  // A connection that drops mid-run (Wi-Fi, VPN, a laptop waking up) is waited out on the same file:
+  // failing it and moving on failed every file after it too, in seconds. The waits grow 30 s, 1, 2, 4,
+  // 5 and 5 minutes, about 17 minutes in all; after the last one the run stops, and starting it again
+  // carries on from the download history.
+  const CONNECTION_FAILURE_CODES = new Set(['offline', 'network_error', 'timeout']);
+  const NETWORK_WAIT_BASE_SECONDS = 30;
+  const NETWORK_WAIT_MAX_SECONDS = 5 * 60;
+  const NETWORK_WAIT_MAX_STRIKES = 6;
+
+  function isConnectionFailure(code) {
+    return CONNECTION_FAILURE_CODES.has(String(code || '').split(/[\s(]/, 1)[0]);
+  }
+
+  function networkWaitMs(strike, random = Math.random) {
+    const step = Math.max(0, (Number(strike) || 1) - 1);
+    return withJitter(Math.min(NETWORK_WAIT_BASE_SECONDS * Math.pow(2, step), NETWORK_WAIT_MAX_SECONDS) * 1000, random);
+  }
+
   // How a collection run treats a file it could not get a link for. A mod that is gone is skipped at
   // once: asking again cannot bring it back. A single Cloudflare answer is skipped too, since it can
   // be one page Cloudflare is fussy about, but the same answer this many times in a row means the
@@ -1445,6 +1463,9 @@
     RATE_LIMIT_MAX_STRIKES,
     parseRetryAfterSeconds,
     rateLimitBackoffSeconds,
+    NETWORK_WAIT_MAX_STRIKES,
+    isConnectionFailure,
+    networkWaitMs,
     retryDelayMs,
     withJitter,
     setSafeHtml,

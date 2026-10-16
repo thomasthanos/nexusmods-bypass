@@ -298,6 +298,30 @@ assert.equal(cappedPath, `${'n'.repeat(100)}/A Mod.zip`,
   'an overlong folder is capped instead of failing the whole download');
 assert.ok(!cappedPath.startsWith(' ') && !cappedPath.includes('  '), 'the capped folder stays clean');
 
+// Chrome's own rule for each path segment (net::IsSafePortablePathComponent): no control, format or
+// unsafe character anywhere, and no whitespace, dot or tilde at either end. A segment it refuses fails
+// the download as "Invalid filename".
+const chromeAcceptsSegment = (segment) => segment.length > 0
+  && !/[\p{Cc}\p{Cf}"*/:<>?\\|]/u.test(segment)
+  && !/^[\s.~]|[\s.~]$/u.test(segment);
+for (const [folder, name] of [
+  ['~Mods', '~Grass Overhaul~ 1.2.7z'],
+  ['NexusMods', 'Better­Bodies.7z'],
+  ['Mods​', 'Zero​Width‍.7z'],
+  ['Bidi‮', '﻿BOM first.7z'],
+  ['C1\u0085', 'Name\u009f.7z'],
+  ['n'.repeat(99) + ' ~x', 'A Mod.zip'],
+  ['Folder', `${'a'.repeat(250)} ~ tail`]
+]) {
+  const built = buildDownloadPath(folder, name);
+  for (const segment of built.split('/')) {
+    assert.ok(chromeAcceptsSegment(segment), `Chrome accepts every segment of ${JSON.stringify(built)}`);
+  }
+}
+assert.equal(buildDownloadPath('~Mods', '~Grass Overhaul~ 1.2.7z'), 'Mods/Grass Overhaul~ 1.2.7z',
+  'a tilde inside a name is kept; only the ends are tidied');
+assert.equal(buildDownloadPath('NexusMods', 'clock$.7z'), 'NexusMods/_clock$.7z', 'Windows device names are escaped');
+
 assert.equal(
   downloadFolderOf('C:\\Users\\Someone\\Downloads\\NexusMods\\A Mod.7z'),
   'C:\\Users\\Someone\\Downloads\\NexusMods',
@@ -2470,6 +2494,293 @@ async function queueNoLinkFailureSaysWhy() {
   }
 }
 
+// A dropped connection is waited out on the same file, on an alarm, with the deck told it is the
+// connection; failing the file and moving on failed every file after it within seconds. Only when every
+// wait has run out does the run stop, with one error. A link request that gets no answer while the page
+// did answer is that request's own failure and stays one.
+async function queueWaitsOutLostConnection() {
+  const previousFetch = context.fetch;
+  const previousDelay = NXTK.retryDelayMs;
+  const savedAlarms = global.chrome.alarms;
+  const savedSendMessage = global.chrome.tabs.sendMessage;
+  const savedDownloads = global.chrome.downloads;
+  const jobId = 'testjob-connection';
+  const items = [77, 78].map((fileId) => ({
+    fileId, historyId: String(fileId), gameId: '1704', name: `File ${fileId}.7z`,
+    pageUrl: `https://www.nexusmods.com/skyrimspecialedition/mods/${fileId}`, sizeKb: 10
+  }));
+  const seed = (extra = {}) => Promise.all([
+    storageSetLocal(`nxtk_ndc_items:${jobId}`, items),
+    storageSetLocal(NDC_JOBS_KEY, {
+      [jobId]: {
+        id: jobId, tabId: 7, gameId: '1704', collectionId: 'connection', type: 'all',
+        itemCount: items.length, index: 0, completed: 0, failed: [], skipped: [], status: 'running',
+        activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now(), ...extra
+      }
+    })
+  ]);
+  const alarms = [];
+  const events = [];
+  const asked = [];
+  let reachable = { page: false, generator: false };
+  try {
+    await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+    NXTK.retryDelayMs = () => 0;
+    global.chrome.alarms = { create: (name, info) => alarms.push([name, info.when]), clear: () => {} };
+    global.chrome.tabs.sendMessage = (_tabId, message, callback) => {
+      events.push(JSON.parse(JSON.stringify(message)));
+      if (callback) callback();
+    };
+    global.chrome.downloads = { ...savedDownloads, download: (_options, cb) => setTimeout(() => cb(501), 1), search: (_query, cb) => cb([]) };
+    context.fetch = async (url) => {
+      const generator = String(url).includes('GenerateDownloadUrl');
+      asked.push(generator ? 'generator' : String(url).replace(/.*\/mods\//, 'page '));
+      if (!reachable[generator ? 'generator' : 'page']) throw new TypeError('Failed to fetch');
+      return {
+        ok: true, status: 200, url: String(url),
+        text: async () => (generator
+          ? '{"url":"https://cf-files.nexus-cdn.com/1704/77/File-77.7z?md5=a&expires=1&user_id=2"}'
+          : '<!doctype html><html><body><a href="/auth/sign_out">Log out</a></body></html>'),
+        headers: { get: () => '' }
+      };
+    };
+
+    await seed();
+    await advanceNdcJob(jobId);
+    let job = await readNdcJob(jobId);
+    assert.deepEqual(asked, ['page 77', 'page 77', 'page 77'], 'the quick retries run first, all on the first file');
+    assert.equal(job.status, 'running', 'a lost connection does not end the run');
+    assert.equal(job.index, 0, 'nor move it past the file');
+    assert.deepEqual([...job.failed], [], 'and the file is not counted as failed');
+    assert.equal(job.networkStrikes, 1);
+    assert.ok(job.waitingUntil >= Date.now() + 29000, 'the first wait is at least 30 s');
+    assert.deepEqual(alarms.at(-1), [`nxtk-ndc-job:${jobId}`, job.waitingUntil], 'and runs on an alarm, so the worker may sleep');
+    const waiting = events.filter((event) => event.type === 'NXT_NDC_WAITING');
+    assert.equal(waiting.length, 1);
+    assert.equal(waiting[0].reason, 'network', 'the deck is told it is the connection, not a rate limit');
+    assert.equal(waiting[0].until, job.waitingUntil);
+    assert.equal((await storageGetLocal(NXTK.ERROR_LOG_KEY, [])).length, 0, 'waiting is not a fault');
+
+    // The alarm fires with the connection back: the same file starts, and the count of waits resets.
+    reachable = { page: true, generator: true };
+    asked.length = 0;
+    await mutateNdcJob(jobId, (current) => { current.waitingUntil = Date.now() - 1; });
+    await advanceNdcJob(jobId);
+    job = await readNdcJob(jobId);
+    assert.deepEqual(asked, ['page 77', 'generator'], 'the waited-on file is asked for again');
+    assert.equal(job.activeDownloadId, 501, 'and it starts');
+    assert.equal(job.index, 0);
+    assert.equal(job.networkStrikes, 0, 'an answer from Nexus resets the waits');
+    assert.equal(job.waitingUntil, 0);
+
+    // Still unreachable after the last wait: the run stops on that file, with one error that says so.
+    reachable = { page: false, generator: false };
+    asked.length = 0;
+    events.length = 0;
+    await seed({ networkStrikes: NXTK.NETWORK_WAIT_MAX_STRIKES });
+    await advanceNdcJob(jobId);
+    job = await readNdcJob(jobId);
+    assert.deepEqual(asked, ['page 77', 'page 77', 'page 77'], 'the next file is never asked for');
+    assert.equal(job.status, 'error');
+    assert.equal(job.lastError, 'network_error');
+    assert.equal(job.index, 0, 'starting again picks the same file up first');
+    assert.deepEqual([...job.failed].map((entry) => entry.code), ['network_error']);
+    const done = events.filter((event) => event.type === 'NXT_NDC_DONE');
+    assert.equal(done.length, 1);
+    assert.equal(done[0].outcome, 'error');
+    assert.equal(done[0].error, 'network_error');
+    const log = (await storageGetLocal(NXTK.ERROR_LOG_KEY, [])).filter((line) => line.code === 'queue_item_failed');
+    assert.equal(log.length, 1, 'one error for the whole outage');
+    assert.match(log[0].technicalMessage, /^network_error \| page: Failed to fetch after \d+ms \| file 77/);
+
+    // The page answered but the link request did not: that request is the problem, and the file fails.
+    reachable = { page: true, generator: false };
+    asked.length = 0;
+    await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+    await seed();
+    await advanceNdcJob(jobId);
+    job = await readNdcJob(jobId);
+    assert.equal(asked.filter((step) => step === 'generator').length, 6, 'three attempts at each file\'s link');
+    assert.deepEqual([...job.failed].map((entry) => entry.code), ['generate_failed', 'generate_failed'],
+      'each file fails on its own, without a connection wait');
+    assert.equal(job.status, 'partial');
+    assert.ok(!job.networkStrikes);
+    const failure = (await storageGetLocal(NXTK.ERROR_LOG_KEY, [])).find((line) => line.code === 'queue_item_failed');
+    assert.match(failure.technicalMessage, /^generate_failed \| generator: Failed to fetch after \d+ms \| file 77/);
+  } finally {
+    context.fetch = previousFetch;
+    NXTK.retryDelayMs = previousDelay;
+    global.chrome.alarms = savedAlarms;
+    global.chrome.tabs.sendMessage = savedSendMessage;
+    global.chrome.downloads = savedDownloads;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+    await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+  }
+}
+
+// Firefox numbers downloads afresh in every browser session, so after a restart the id a job saved can
+// name somebody else's download. That download is never counted as the job's file, and never cancelled
+// or deleted; the job's own download counts as lost and gets a fresh try.
+async function reusedDownloadIdIsNeverTrusted() {
+  const previousFetch = context.fetch;
+  const savedDownloads = global.chrome.downloads;
+  const jobId = 'testjob-reused-id';
+  const item = {
+    fileId: 4242, historyId: '4242', gameId: '1704', name: 'Ours.7z',
+    pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/4242', sizeKb: 10
+  };
+  const ours = 'https://premium-files.nexus-cdn.com/1704/4242/Ours%20Main.7z';
+  const ourPath = '/1704/4242/ours main.7z';
+  const records = new Map();
+  const canceled = [];
+  const removed = [];
+  let nextId = 50;
+  const seed = (extra) => Promise.all([
+    storageSetLocal(`nxtk_ndc_items:${jobId}`, [item]),
+    storageSetLocal(NDC_JOBS_KEY, {
+      [jobId]: {
+        id: jobId, tabId: 7, gameId: '1704', collectionId: 'reused', type: 'all',
+        itemCount: 1, index: 0, completed: 0, failed: [], skipped: [], status: 'running',
+        createdAt: Date.now(), updatedAt: Date.now(), ...extra
+      }
+    })
+  ]);
+  try {
+    context.fetch = async (url) => ({
+      ok: true, status: 200, url: String(url),
+      text: async () => (String(url).includes('GenerateDownloadUrl')
+        ? `{"url":"${ours}?md5=a&expires=1"}`
+        : '<!doctype html><html><body><a href="/auth/sign_out">Log out</a></body></html>'),
+      headers: { get: () => '' }
+    });
+    global.chrome.downloads = {
+      ...savedDownloads,
+      download: (options, cb) => {
+        const id = nextId++;
+        records.set(id, { id, state: 'in_progress', url: options.url, filename: '' });
+        setTimeout(() => cb(id), 1);
+      },
+      search: (query, cb) => cb(records.has(query.id) ? [structuredClone(records.get(query.id))] : []),
+      cancel: (id, cb) => { canceled.push(id); if (cb) cb(); },
+      removeFile: (id, cb) => { removed.push(id); if (cb) cb(); },
+      resume: (_id, cb) => { if (cb) cb(); }
+    };
+
+    // After the restart, id 3 is the user's own finished download.
+    records.set(3, {
+      id: 3, state: 'complete', url: 'https://bank.example/statement.pdf', filename: '/home/u/statement.pdf',
+      exists: true, fileSize: 4000000, totalBytes: 4000000, bytesReceived: 4000000
+    });
+    await seed({ activeDownloadId: 3, activeDownloadPath: ourPath });
+    await context.reconcileNdcJob(jobId);
+    let job = await readNdcJob(jobId);
+    assert.equal(job.completed, 0, 'somebody else\'s finished download is not counted as this file');
+    const history = await storageGetLocal(STORAGE_HISTORY_KEY, {});
+    assert.ok(!(history?.['1704']?.reused?.all || []).includes('4242'), 'nor written to the download history');
+    assert.deepEqual(canceled, [], 'it is not cancelled');
+    assert.deepEqual(removed, [], 'and its file is not deleted');
+    assert.equal(job.activeDownloadId, 50, 'the file gets a fresh download of its own');
+    assert.equal(job.activeDownloadPath, ourPath, 'whose link path is saved with it');
+
+    // Stop while the saved id names somebody else's running download leaves that download alone.
+    records.set(9, { id: 9, state: 'in_progress', url: 'https://video.example/v.mp4' });
+    await seed({ activeDownloadId: 9, activeDownloadPath: ourPath });
+    await NDC_QUEUE_HANDLERS.NDC_QUEUE_STOP({ jobId }, { tab: { id: 7 } });
+    job = await readNdcJob(jobId);
+    assert.equal(job.status, 'stopped');
+    assert.ok(!canceled.includes(9) && !removed.includes(9), 'Stop never cancels or deletes somebody else\'s download');
+    assert.equal(job.retiringDownloadId, undefined, 'and has nothing left to retire');
+
+    // The job's own download, under its own id, is still stopped as before.
+    records.set(50, { id: 50, state: 'in_progress', url: `${ours}?md5=a&expires=1` });
+    await seed({ activeDownloadId: 50, activeDownloadPath: ourPath });
+    await NDC_QUEUE_HANDLERS.NDC_QUEUE_STOP({ jobId }, { tab: { id: 7 } });
+    assert.ok(canceled.includes(50), 'its own download is cancelled on Stop');
+  } finally {
+    context.fetch = previousFetch;
+    global.chrome.downloads = savedDownloads;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+  }
+}
+
+// A full disk fails every file after the first one too, each after asking Nexus for a link, so the
+// run stops on that file with one error that says what to do, and starting again picks it up.
+async function fullDiskStopsTheRun() {
+  const previousFetch = context.fetch;
+  const savedDownloads = global.chrome.downloads;
+  const savedSendMessage = global.chrome.tabs.sendMessage;
+  const jobId = 'testjob-disk-full';
+  const items = [61, 62, 63].map((fileId) => ({
+    fileId, historyId: String(fileId), gameId: '1704', name: `File ${fileId}.7z`,
+    pageUrl: `https://www.nexusmods.com/skyrimspecialedition/mods/${fileId}`, sizeKb: 10
+  }));
+  const records = new Map();
+  const events = [];
+  let generatorAsked = 0;
+  try {
+    await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+    await storageSetLocal(`nxtk_ndc_items:${jobId}`, items);
+    await storageSetLocal(NDC_JOBS_KEY, {
+      [jobId]: {
+        id: jobId, tabId: 7, gameId: '1704', collectionId: 'disk-full', type: 'all',
+        itemCount: items.length, index: 0, completed: 0, failed: [], skipped: [], status: 'running',
+        activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now()
+      }
+    });
+    context.fetch = async (url) => {
+      const generator = String(url).includes('GenerateDownloadUrl');
+      if (generator) generatorAsked += 1;
+      return {
+        ok: true, status: 200, url: String(url),
+        text: async () => (generator
+          ? '{"url":"https://cf-files.nexus-cdn.com/1704/61/File-61.7z?md5=a&expires=1"}'
+          : '<!doctype html><html><body><a href="/auth/sign_out">Log out</a></body></html>'),
+        headers: { get: () => '' }
+      };
+    };
+    global.chrome.downloads = {
+      ...savedDownloads,
+      download: (options, cb) => {
+        const id = 9700 + records.size;
+        records.set(id, { id, state: 'interrupted', error: 'FILE_NO_SPACE', canResume: false, url: options.url });
+        setTimeout(() => cb(id), 1);
+      },
+      search: (query, cb) => cb(records.has(query.id) ? [structuredClone(records.get(query.id))] : []),
+      cancel: (_id, cb) => { if (cb) cb(); },
+      removeFile: (_id, cb) => { if (cb) cb(); },
+      resume: (_id, cb) => { if (cb) cb(); }
+    };
+    global.chrome.tabs.sendMessage = (_tabId, message, callback) => {
+      events.push(JSON.parse(JSON.stringify(message)));
+      if (callback) callback();
+    };
+
+    await advanceNdcJob(jobId);
+    let job = await readNdcJob(jobId);
+    assert.equal(job.activeDownloadId, 9700);
+    const next = await handleNdcDownloadTerminal(9700, 'interrupted', 'FILE_NO_SPACE');
+    assert.equal(next, null, 'nothing more is started');
+    job = await readNdcJob(jobId);
+    assert.equal(job.status, 'error', 'the run stops');
+    assert.equal(job.lastError, 'save_failed');
+    assert.equal(job.index, 0, 'on the file that could not be saved, so starting again picks it up');
+    assert.equal(generatorAsked, 1, 'no link is asked for the files after it');
+    const done = events.filter((event) => event.type === 'NXT_NDC_DONE');
+    assert.equal(done.length, 1);
+    assert.equal(done[0].error, 'save_failed', 'the deck is told why, in words it has');
+    const log = (await storageGetLocal(NXTK.ERROR_LOG_KEY, [])).filter((line) => line.code === 'queue_item_failed');
+    assert.equal(log.length, 1, 'one error for the run');
+    assert.equal(log[0].causeCode, 'save_failed');
+    assert.match(log[0].technicalMessage, /^save_failed \| FILE_NO_SPACE \[disk\] \| file 61/);
+  } finally {
+    context.fetch = previousFetch;
+    global.chrome.downloads = savedDownloads;
+    global.chrome.tabs.sendMessage = savedSendMessage;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+    await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+  }
+}
+
 // A page asks the worker for a bundle; the worker adds exactly that bundle's packaged files to the
 // document that asked. A page left or reloaded before its bundle arrived is no fault and is not logged;
 // any other refusal is.
@@ -2702,5 +3013,8 @@ jobStateBehaviour()
   .then(concurrentResumesStartOneDownload)
   .then(controlStormEndsStopped)
   .then(queueNoLinkFailureSaysWhy)
+  .then(queueWaitsOutLostConnection)
+  .then(reusedDownloadIdIsNeverTrusted)
+  .then(fullDiskStopsTheRun)
   .then(() => console.log('background.js unit behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

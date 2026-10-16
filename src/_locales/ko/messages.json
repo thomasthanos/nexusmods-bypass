@@ -823,6 +823,12 @@
   "alertAllDownloaded": {
     "message": "모든 모드를 이미 다운로드했습니다."
   },
+  "errSaveFailedMsg": {
+    "message": "브라우저가 파일을 저장하지 못했습니다. 디스크가 가득 찼거나 다운로드 폴더에 쓸 수 없을 수 있습니다."
+  },
+  "errSaveFailedFix": {
+    "message": "디스크 공간을 확보하거나 설정에서 다른 다운로드 폴더를 선택한 뒤 다시 다운로드를 시작하세요. 이미 다운로드한 파일은 유지됩니다."
+  },
   "alertImportSkippedFiles": {
     "message": "모드 아카이브가 아닌 파일은 건너뛰었습니다."
   },
@@ -1232,6 +1238,17 @@
   },
   "wjImportNeedsExtracting": {
     "message": "브라우저는 $1 압축 파일을 열 수 없습니다. 압축을 풀고 안에 있는 .wabbajack 파일을 선택하세요."
+  },
+  "logConnectionWaiting": {
+    "message": "Nexus Mods에 연결할 수 없습니다. $1 후 다시 시도합니다...",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      }
+    }
+  },
+  "logConnectionRetrying": {
+    "message": "Nexus Mods에 다시 연결하는 중입니다."
   },
   "wjQueueReady": {
     "message": "모드리스트를 대기열에 넣었습니다. 다운로드 버튼을 눌러 시작하세요."

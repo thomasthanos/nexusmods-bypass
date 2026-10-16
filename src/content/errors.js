@@ -140,6 +140,11 @@ window.NexusExt = window.NexusExt || {};
       userMessage: 'The download request failed.',
       recovery: 'Retry the download. If it keeps happening, report the issue.',
       retryable: true
+    },
+    save_failed: {
+      userMessage: 'The browser could not save the file: the disk may be full, or the download folder cannot be written to.',
+      recovery: 'Free up disk space or pick another download folder in settings, then start the download again. Files already downloaded are kept.',
+      retryable: false
     }
   };
 
@@ -245,20 +250,29 @@ window.NexusExt = window.NexusExt || {};
     return create('invalid_response', detail(`HTTP ${status}`));
   }
 
-  function fromException(cause, { context = '', record = true, extra = '', status = null } = {}) {
-    const technicalMessage = [String(cause?.message || cause || ''), extra].filter(Boolean).join(' | ');
+  // A fetch that got no answer at all rejects with a TypeError in the browser's own words: "Failed to
+  // fetch" (Chromium), "NetworkError when attempting to fetch resource." (Firefox), "Load failed" or
+  // "The network connection was lost." (Safari).
+  const FETCH_FAILURE = /failed to fetch|networkerror|load failed|network connection was lost/i;
+
+  // `network: true` says the cause is a request of ours that got no answer (Errors.request passes it).
+  // Anything else is classified by what it is: a TypeError from a bug in the extension used to come out
+  // as "check your connection", so it was triaged as a network fault, and a collection run would wait
+  // it out as an outage; an abort nobody timed is a cancel, not "took too long".
+  function fromException(cause, { context = '', record = true, extra = '', status = null, network = false } = {}) {
+    const message = String(cause?.message || cause || '');
+    const technicalMessage = [message, extra].filter(Boolean).join(' | ');
     const stack = String(cause?.stack || '');
     const name = String(cause?.name || '');
-    if (name === 'AbortError' || /timed?\s*out/i.test(technicalMessage)) {
-      return create('timeout', { context, technicalMessage, stack, record, status });
+    const details = { context, technicalMessage, stack, record, status };
+    if (name === 'TimeoutError' || /timed?\s*out/i.test(technicalMessage)) return create('timeout', details);
+    if (/extension context invalidated|message port closed/i.test(technicalMessage)) return create('context_invalid', details);
+    if (!network) {
+      if (name === 'AbortError') return create('aborted', details);
+      if (!FETCH_FAILURE.test(message)) return create('request_failed', details);
     }
-    if (/extension context invalidated|message port closed/i.test(technicalMessage)) {
-      return create('context_invalid', { context, technicalMessage, stack, record, status });
-    }
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      return create('offline', { context, technicalMessage, stack, record, status });
-    }
-    return create('network_error', { context, technicalMessage, stack, record, status });
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return create('offline', details);
+    return create('network_error', details);
   }
 
   function normalizeTimeout(value) {
@@ -332,8 +346,11 @@ window.NexusExt = window.NexusExt || {};
           finalUrl: response.url || String(url),
           error: !timedOut && signal?.aborted
             ? normalize({ code: 'aborted', context })
-            : fromException(cause, { context, record, status: response.status || null,
-              extra: requestDiagnostic(url, options, 'reading response', response.status) })
+            : timedOut
+              ? create('timeout', { context, record, status: response.status || null,
+                technicalMessage: [String(cause?.message || ''), requestDiagnostic(url, options, `reading response timed out after ${Date.now() - startedAt}ms`, response.status)].join(' | ') })
+              : fromException(cause, { context, record, network: true, status: response.status || null,
+                extra: requestDiagnostic(url, options, 'reading response', response.status) })
         };
       }
 
@@ -403,7 +420,7 @@ window.NexusExt = window.NexusExt || {};
         finalUrl: String(url),
         error: timedOut
           ? create('timeout', { context, technicalMessage: [String(cause?.message || ''), requestDiagnostic(url, options, `request timed out after ${Date.now() - startedAt}ms`)].join(' | '), record })
-          : fromException(cause, { context, record, extra: requestDiagnostic(url, options, `fetch failed after ${Date.now() - startedAt}ms`) })
+          : fromException(cause, { context, record, network: true, extra: requestDiagnostic(url, options, `fetch failed after ${Date.now() - startedAt}ms`) })
       };
     } finally {
       if (timer) clearTimeout(timer);

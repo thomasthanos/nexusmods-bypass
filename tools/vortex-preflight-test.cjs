@@ -23,6 +23,10 @@ global.NXTK = {
   nxmLinkInfo: shared.NXTK.nxmLinkInfo,
   isNxmLinkExpired: shared.NXTK.isNxmLinkExpired,
   isNexusUserMismatch: shared.NXTK.isNexusUserMismatch,
+  isConnectionFailure: shared.NXTK.isConnectionFailure,
+  // Connection waits end at the first tick, and two of them run out, so the tests stay quick.
+  networkWaitMs: () => 0,
+  NETWORK_WAIT_MAX_STRIKES: 2,
   // Vortex "opens" instantly unless a test says otherwise.
   waitForProtocolHandoff: async () => true
 };
@@ -214,7 +218,7 @@ function createHarness(choice) {
     NexusExt.Storage.getRateLimit = async () => null;
     ndc.fetchDownloadLinkWithRetry = async (mod) => {
       asked.push(mod.file.name);
-      const code = answerFor(mod);
+      const code = answerFor(mod, ndc);
       return code ? { downloadUrl: '', error: { code } } : { downloadUrl: `nxm://game/mods/1/files/${mod.fileId}` };
     };
     ndc.handOffDownload = (mod) => { handed.push(mod.file.name); return true; };
@@ -261,6 +265,46 @@ function createHarness(choice) {
   assert.equal(broken.asked.length, limit + 2, 'a file that resolves ends the Cloudflare streak');
   assert.deepEqual(broken.handed, [`Mod ${limit}.7z`]);
   assert.equal(broken.outcome, 'partial');
+
+  // A dropped connection is waited out on the same file. Failing it and moving on failed every file
+  // after it within seconds, each with its own error dialog.
+  const threeMods = () => [vortexMod(1, 'One.7z', 1), vortexMod(2, 'Two.7z', 2), vortexMod(3, 'Three.7z', 3)];
+  let dropsLeft = 2;
+  const recovered = await runVortexQueue(threeMods(), (mod) => {
+    if (mod.fileId !== 2 || !dropsLeft) return '';
+    dropsLeft -= 1;
+    return 'network_error';
+  });
+  assert.deepEqual(recovered.asked, ['One.7z', 'Two.7z', 'Two.7z', 'Two.7z', 'Three.7z'],
+    'the same file is asked for again after each wait');
+  assert.deepEqual(recovered.handed, ['One.7z', 'Two.7z', 'Three.7z'], 'and nothing is lost to the drop');
+  assert.equal(recovered.outcome, 'finished');
+  assert.ok(recovered.logs.some((line) => /^Cannot reach Nexus Mods\. Trying again in /.test(line)),
+    'the wait names the connection, not a rate limit');
+
+  const down = await runVortexQueue(threeMods(), (mod) => (mod.fileId === 1 ? '' : 'offline'));
+  assert.deepEqual(down.asked, ['One.7z', ...Array(NXTK.NETWORK_WAIT_MAX_STRIKES + 1).fill('Two.7z')],
+    'once every wait has run out the run stops, and the files after it are never asked for');
+  assert.deepEqual(down.handed, ['One.7z']);
+  assert.equal(down.outcome, 'error');
+  assert.ok(down.logs.some((line) => /Collection paused/.test(line)), 'and says the completed files are kept');
+
+  const broke = await runVortexQueue(threeMods(), (mod) => (mod.fileId === 2 ? 'request_failed' : ''));
+  assert.deepEqual(broke.asked, ['One.7z', 'Two.7z', 'Three.7z'], 'a fault that is not the connection fails just that file');
+  assert.equal(broke.outcome, 'partial');
+
+  // Pause holds the run after a skipped file too; the next file used to be sent while "Paused" showed.
+  const STATUS_PAUSED = 1;
+  const askedWhilePaused = [];
+  const pausing = await runVortexQueue(threeMods(), (mod, ndc) => {
+    if (ndc.runStatus === STATUS_PAUSED) askedWhilePaused.push(mod.file.name);
+    if (mod.fileId !== 1) return '';
+    ndc.runStatus = STATUS_PAUSED; // Pause pressed while the first file was being looked up
+    setTimeout(() => { ndc.runStatus = 0; }, 300);
+    return 'mod_unavailable';
+  });
+  assert.deepEqual(askedWhilePaused, [], 'nothing past the skipped file is asked for while paused');
+  assert.deepEqual(pausing.handed, ['Two.7z', 'Three.7z'], 'and the run carries on after Resume');
 
   const off = new NexusExt.NDC('game', 'collection');
   off.loadRunSettings({ NDC_smallestFirst: false });

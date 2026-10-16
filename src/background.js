@@ -358,10 +358,17 @@ function hasDownloadsApi() {
   }
 }
 
+// Chrome refuses a download path with a control or format character anywhere in a segment (a soft
+// hyphen, a zero-width or direction mark, a byte-order mark), or with whitespace, a dot or a tilde at
+// either end of one, and the download fails as "Invalid filename" (net::IsSafePortablePathComponent).
+function trimSegmentEnds(segment) {
+  return segment.replace(/^[\s.~]+|[\s.~]+$/gu, '');
+}
+
 function sanitizePathSegment(value, { allowDots = true } = {}) {
   let segment = String(value ?? '')
     .replace(/[\\/]+/g, ' ')
-    .replace(/[\x00-\x1F\x7F]/g, '')
+    .replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu, '')
     .replace(/[<>:"|?*]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -370,8 +377,8 @@ function sanitizePathSegment(value, { allowDots = true } = {}) {
     .split(' ')
     .filter((token) => token && !/^\.+$/.test(token))
     .join(' ');
-  segment = segment.replace(/^\.+/, '').trim();
-  if (/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(segment)) segment = `_${segment}`;
+  segment = trimSegmentEnds(segment);
+  if (/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9]|conin\$|conout\$|clock\$)(?:\..*)?$/i.test(segment)) segment = `_${segment}`;
   return segment;
 }
 
@@ -387,10 +394,9 @@ const MAX_DOWNLOAD_DIR_CHARS = 100;
 
 // Sanitize both user-controlled path segments before downloading.
 function buildDownloadPath(folder, rawName) {
-  const name = capFileName(sanitizePathSegment(rawName)) || 'nexus-download';
-  const dir = sanitizePathSegment(folder, { allowDots: false })
-    .slice(0, MAX_DOWNLOAD_DIR_CHARS)
-    .trim();
+  // Capping can cut a name or folder just before a space or a tilde, so the ends are tidied again.
+  const name = trimSegmentEnds(capFileName(sanitizePathSegment(rawName))) || 'nexus-download';
+  const dir = trimSegmentEnds(sanitizePathSegment(folder, { allowDots: false }).slice(0, MAX_DOWNLOAD_DIR_CHARS));
   return dir ? `${dir}/${name}` : name;
 }
 
@@ -869,7 +875,9 @@ function classifyNexusResponse(response, text) {
 async function fetchNdcResponse(url, options, timeoutMs) {
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
   const timeout = NXTK.normalizeSetting('RequestTimeout', Number(timeoutMs) || NXTK.DEFAULTS.RequestTimeout);
-  const timer = controller ? setTimeout(() => controller.abort(), timeout) : null;
+  let timedOut = false;
+  const timer = controller ? setTimeout(() => { timedOut = true; controller.abort(); }, timeout) : null;
+  const startedAt = Date.now();
   try {
     const response = await fetch(url, { ...options, signal: controller?.signal || options?.signal });
     const text = await response.text();
@@ -883,10 +891,24 @@ async function fetchNdcResponse(url, options, timeoutMs) {
       contentType: response.headers?.get?.('Content-Type') || ''
     };
   } catch (cause) {
-    return { ok: false, status: 0, text: '', url, error: String(cause?.message || cause) };
+    return {
+      ok: false,
+      status: 0,
+      text: '',
+      url,
+      error: timedOut ? 'timed out' : String(cause?.message || cause),
+      elapsedMs: Date.now() - startedAt
+    };
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+
+// A request that got no HTTP answer at all, in words a report can carry: what failed, after how long,
+// and whether the browser itself knew it was offline.
+function connectionFailureDetail(step, response) {
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false ? '; browser offline' : '';
+  return `${step}: ${response.error || 'no answer'} after ${Number(response.elapsedMs) || 0}ms${offline}`;
 }
 
 const MIN_NDC_ALARM_DELAY_MS = 30000;
@@ -958,6 +980,9 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     method: 'GET',
     credentials: 'include'
   }, timeoutMs);
+  // No answer at all from the file's page means Nexus cannot be reached, not that this file is bad:
+  // advanceNdcJob waits for the connection on this same file instead of failing it.
+  if (page.status === 0) return { ...ndcResolveFailure('network_error', page), detail: connectionFailureDetail('page', page) };
   const pageIssue = classifyNexusResponse(page, page.text);
   if (pageIssue) return { ok: false, code: pageIssue.code };
   if (page.status === 404 || page.status === 410) return ndcResolveFailure('mod_unavailable', page);
@@ -980,7 +1005,10 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   if (generatedIssue) return { ok: false, code: generatedIssue.code };
   if (generated.status === 404 || generated.status === 410) return ndcResolveFailure('file_not_found', generated);
   if (!generated.ok) {
-    return ndcResolveFailure(generated.status === 429 ? 'rate_limited' : 'generate_failed', generated);
+    const failure = ndcResolveFailure(generated.status === 429 ? 'rate_limited' : 'generate_failed', generated);
+    // The page answered a moment ago, so a link request with no answer is that request's own fault
+    // (blocked, or cut off), and stays a failure of this file.
+    return generated.status === 0 ? { ...failure, detail: connectionFailureDetail('generator', generated) } : failure;
   }
 
   // Scoped to this file, so a response that lists several files cannot hand back another one's link.
@@ -1114,6 +1142,55 @@ function idleOnItem(index) {
     && Number(current.index || 0) === index;
 }
 
+// Nexus could not be reached for this file even after the quick retries. Failing it and moving on
+// failed every file after it as well, within seconds, so the run waits on this same file instead, with
+// growing alarms (NXTK.networkWaitMs). When the waits run out it stops with one error, and starting it
+// again carries on from the download history.
+async function waitForNdcConnection(job, item, startIndex, resolved) {
+  let waitingUntil = 0;
+  const transition = await mutateNdcJobIf(
+    job.id,
+    idleOnItem(startIndex),
+    (current) => {
+      current.resolveAttempts = 0;
+      const strikes = Number(current.networkStrikes || 0) + 1;
+      if (strikes > NXTK.NETWORK_WAIT_MAX_STRIKES) {
+        current.status = 'error';
+        current.lastError = 'network_error';
+        current.networkStrikes = 0;
+        current.waitingUntil = 0;
+        recordJobFailure(current, { fileId: item.fileId, code: 'network_error' });
+        bumpNdcControl(current);
+        return;
+      }
+      current.networkStrikes = strikes;
+      current.waitingUntil = Date.now() + NXTK.networkWaitMs(strikes);
+      waitingUntil = current.waitingUntil;
+    }
+  );
+  if (!transition.applied) return null;
+  job = transition.job;
+  if (!waitingUntil) {
+    clearNdcJobAlarm(job.id);
+    notifyNdcJob(job, 'NXT_NDC_DONE', {
+      outcome: 'error',
+      error: 'network_error',
+      itemName: item.name,
+      skipped: jobSkippedList(job)
+    });
+    dropNdcJobItems(job.id);
+    await recordQueueItemFailure(job, item, 'network_error', resolved.detail);
+    return null;
+  }
+  scheduleNdcJobAlarm(job.id, waitingUntil);
+  notifyNdcJob(job, 'NXT_NDC_WAITING', {
+    itemName: item.name,
+    until: waitingUntil,
+    reason: 'network'
+  });
+  return null;
+}
+
 async function advanceNdcJob(jobId) {
   for (;;) {
     if (terminalNdcJobs.has(jobId)) return null;
@@ -1160,6 +1237,17 @@ async function advanceNdcJob(jobId) {
     job = await readNdcJob(jobId);
     if (!job || job.status !== 'running' || job.activeDownloadId !== null) return null;
     if (job.index !== startIndex) continue;
+
+    // Any answer from Nexus means the connection is back, so a later drop starts its waits afresh.
+    if (resolved.code !== 'network_error' && Number(job.networkStrikes || 0) > 0) {
+      const transition = await mutateNdcJobIf(
+        job.id,
+        idleOnItem(startIndex),
+        (current) => { current.networkStrikes = 0; }
+      );
+      if (!transition.applied) return null;
+      job = transition.job;
+    }
 
     if (!resolved.ok) {
       if (resolved.code === 'rate_limited') {
@@ -1249,6 +1337,7 @@ async function advanceNdcJob(jobId) {
         await waitMs(NXTK.retryDelayMs(attempts, NDC_RESOLVE_RETRY_DELAY_MS, NDC_RESOLVE_RETRY_MAX_MS));
         continue;
       }
+      if (resolved.code === 'network_error') return waitForNdcConnection(job, item, startIndex, resolved);
       const failureCode = resolved.code || 'request_failed';
       const transition = await mutateNdcJobIf(
         job.id,
@@ -1300,11 +1389,13 @@ async function advanceNdcJob(jobId) {
       continue;
     }
 
+    const startedPath = downloadUrlPath(resolved.url);
     const claim = await mutateNdcJobIf(
       jobId,
       idleOnItem(startIndex),
       (current) => {
         current.activeDownloadId = started.downloadId;
+        current.activeDownloadPath = startedPath;
         current.rateLimitStrikes = 0;
         current.cloudflareStrikes = 0;
         current.waitingUntil = 0;
@@ -1316,7 +1407,7 @@ async function advanceNdcJob(jobId) {
     if (!claim.applied || !afterStart) {
       ndcDownloadJobs.delete(started.downloadId);
       pendingTerminalDownloads.delete(started.downloadId);
-      await setNdcRetirement(jobId, started.downloadId);
+      await setNdcRetirement(jobId, started.downloadId, startedPath);
       const retired = await finishNdcRetirement(jobId, started.downloadId);
       if (!retired) {
         recordBackgroundError(
@@ -1357,7 +1448,7 @@ async function failNdcJob(jobId, cause, context = 'background collection queue')
         current.status = 'error';
         current.lastError = lastError;
         current.activeDownloadId = null;
-        if (Number.isInteger(failedDownloadId)) current.retiringDownloadId = failedDownloadId;
+        if (Number.isInteger(failedDownloadId)) retireActiveDownload(current, failedDownloadId);
         delete current.interruptConfirmations;
         bumpNdcControl(current);
       }
@@ -1542,6 +1633,31 @@ function downloadWasStartedHere(record) {
   return !owner || owner === chrome.runtime?.id;
 }
 
+// What tells a job's own download apart: the path of the link it was started from. Firefox numbers
+// downloads afresh in every browser session and gives the ones it reloads no byExtensionId, so after a
+// restart the id a job saved can name somebody else's download, which was then counted as this file,
+// or cancelled and deleted by Stop. A job saved by an older version has no path, and its id is trusted
+// as before.
+function downloadUrlPath(url) {
+  let path = '';
+  try {
+    path = new URL(String(url || '')).pathname;
+  } catch (_) {
+    return '';
+  }
+  try {
+    path = decodeURIComponent(path);
+  } catch (_) { }
+  return path.toLowerCase();
+}
+
+// Only a record that names a different link counts as somebody else's; one with no link to compare
+// is trusted, as before.
+function isSomeoneElsesDownload(record, expectedPath) {
+  const recordPath = downloadUrlPath(record?.url);
+  return !!expectedPath && !!recordPath && recordPath !== expectedPath;
+}
+
 // The file the extension is about to stop waiting on. removeFile only acts on a download that
 // finished, so a transfer that produced nothing is left alone by the API itself; the record is
 // read first so an unfinished one does not even reach it.
@@ -1557,8 +1673,10 @@ async function discardAbandonedDownload(downloadId, record = null) {
     && downloadWasStartedHere(refreshed);
 }
 
-async function retireNdcDownload(downloadId) {
+async function retireNdcDownload(downloadId, expectedPath = '') {
   if (!Number.isInteger(downloadId)) return true;
+  // Nothing of this job's is left under that id: it is not cancelled, and its file is not touched.
+  if (expectedPath && isSomeoneElsesDownload(await searchDownload(downloadId), expectedPath)) return true;
   const canceled = await cancelDownload(downloadId);
   let record = await searchDownload(downloadId);
   for (let attempt = 1;
@@ -1577,11 +1695,22 @@ async function retireNdcDownload(downloadId) {
   return canceled;
 }
 
-async function setNdcRetirement(jobId, downloadId) {
+// Inside a job mutation: the download being let go is retired along with the link path it came from.
+function retireActiveDownload(current, downloadId) {
+  current.retiringDownloadId = downloadId;
+  if (current.activeDownloadPath) current.retiringDownloadPath = current.activeDownloadPath;
+  else delete current.retiringDownloadPath;
+}
+
+async function setNdcRetirement(jobId, downloadId, downloadPath = '') {
   return mutateNdcJobIf(
     jobId,
     (current) => !!current,
-    (current) => { current.retiringDownloadId = downloadId; }
+    (current) => {
+      current.retiringDownloadId = downloadId;
+      if (downloadPath) current.retiringDownloadPath = downloadPath;
+      else delete current.retiringDownloadPath;
+    }
   );
 }
 
@@ -1589,13 +1718,18 @@ async function clearNdcRetirement(jobId, downloadId) {
   return mutateNdcJobIf(
     jobId,
     (current) => current.retiringDownloadId === downloadId,
-    (current) => { delete current.retiringDownloadId; }
+    (current) => {
+      delete current.retiringDownloadId;
+      delete current.retiringDownloadPath;
+    }
   );
 }
 
 async function finishNdcRetirement(jobId, downloadId) {
   if (!Number.isInteger(downloadId)) return true;
-  if (!await retireNdcDownload(downloadId)) return false;
+  const job = await readNdcJob(jobId);
+  const expectedPath = job?.retiringDownloadId === downloadId ? String(job.retiringDownloadPath || '') : '';
+  if (!await retireNdcDownload(downloadId, expectedPath)) return false;
   await clearNdcRetirement(jobId, downloadId);
   return true;
 }
@@ -1665,13 +1799,21 @@ async function retainLiveDownload(jobId, downloadId, { recheck = false } = {}) {
 }
 
 async function applyNdcDownloadTerminal(job, downloadId, state, error) {
+  // Firefox after a restart: the id names somebody else's download now. That record is never
+  // counted, resumed, cancelled or deleted, and this job's own download is treated as lost.
+  const reused = !!job.activeDownloadPath
+    && isSomeoneElsesDownload(await searchDownload(downloadId), job.activeDownloadPath);
+  if (reused) {
+    state = 'interrupted';
+    error = 'download-record-missing';
+  }
   // Confirmed before it is believed, and before the id is marked handled: a download still running
   // is not terminal at all, and marking it handled here is what made the real 'complete' that
   // followed get dropped on the floor while a retry ran beside it.
   let confirmedState = state;
   let confirmedRecord = null;
   let retryAllowed = true;
-  if (state === 'interrupted') {
+  if (state === 'interrupted' && !reused) {
     let settled = await settledInterruptedState(downloadId);
     if (settled.state === 'in_progress') {
       await retainLiveDownload(job.id, downloadId);
@@ -1772,11 +1914,15 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
     && !String(effectiveError).includes(`[${interrupt.kind}]`)) {
     effectiveError = `${effectiveError} [${interrupt.kind}]`;
   }
+  // A full disk, or a folder the browser cannot write to, fails every file after this one as well,
+  // each after asking Nexus for a link. The run stops on this file instead, so starting it again once
+  // there is room picks up here.
+  const cannotSave = plannedOutcome === 'failed' && /\bFILE_(?:NO_SPACE|ACCESS_DENIED)\b/i.test(String(effectiveError || ''));
 
   // A rejected complete file must be gone before activeDownloadId is released; otherwise the
   // retry is forced into a uniquified "(1)" name. The terminalNdcJobs lock around this handler
   // keeps status/restart nudges behind the remaining post-commit history work.
-  if (plannedOutcome !== 'complete') {
+  if (plannedOutcome !== 'complete' && !reused) {
     const discarded = await discardAbandonedDownload(downloadId, confirmedRecord);
     const latestArtifact = discarded ? null : await searchDownload(downloadId);
     const unsafeToReplace = !discarded && (
@@ -1810,6 +1956,12 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
         if (landedIn) current.landedIn = landedIn;
       } else if (plannedOutcome === 'retrying') {
         current.transferAttempts = Number(current.transferAttempts || 0) + 1;
+      } else if (cannotSave) {
+        recordJobFailure(current, { fileId: item.fileId, code: effectiveError });
+        current.transferAttempts = 0;
+        current.status = 'error';
+        current.lastError = 'save_failed';
+        bumpNdcControl(current);
       } else {
         recordJobFailure(current, { fileId: item.fileId, code: effectiveError || 'interrupted' });
         current.transferAttempts = 0;
@@ -1819,6 +1971,21 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
   );
   if (!transition.applied || !outcome) return null;
   job = transition.job;
+  if (cannotSave) {
+    handledTerminalDownloads.add(downloadId);
+    pendingTerminalDownloads.delete(downloadId);
+    ndcDownloadJobs.delete(downloadId);
+    clearNdcJobAlarm(job.id);
+    notifyNdcJob(job, 'NXT_NDC_DONE', {
+      outcome: 'error',
+      error: 'save_failed',
+      itemName: item.name,
+      skipped: jobSkippedList(job)
+    });
+    dropNdcJobItems(job.id);
+    await recordQueueItemFailure(job, item, 'save_failed', effectiveError);
+    return null;
+  }
 
   handledTerminalDownloads.add(downloadId);
   pendingTerminalDownloads.delete(downloadId);
@@ -1877,7 +2044,7 @@ async function haltNdcJob(job, { notify = true, notifyTabIds = [] } = {}) {
       activeDownloadId = current.activeDownloadId;
       current.status = 'stopped';
       current.activeDownloadId = null;
-      if (Number.isInteger(activeDownloadId)) current.retiringDownloadId = activeDownloadId;
+      if (Number.isInteger(activeDownloadId)) retireActiveDownload(current, activeDownloadId);
       delete current.interruptConfirmations;
       bumpNdcControl(current);
     }
@@ -2417,7 +2584,10 @@ async function reconcileNdcJob(jobId) {
 
   if (Number.isInteger(job.activeDownloadId)) {
     const record = await searchDownload(job.activeDownloadId);
-    if (!record || record.state === 'complete' || record.state === 'interrupted') {
+    // A record that is somebody else's download (Firefox renumbers downloads after a restart) means
+    // this job's own download is gone, however that other one is doing.
+    if (!record || isSomeoneElsesDownload(record, job.activeDownloadPath)
+      || record.state === 'complete' || record.state === 'interrupted') {
       const nextJobId = await handleNdcDownloadTerminal(
         job.activeDownloadId,
         record?.state || 'interrupted',

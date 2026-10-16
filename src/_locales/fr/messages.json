@@ -909,6 +909,12 @@
   "alertAllDownloaded": {
     "message": "Tous les mods sont déjà téléchargés."
   },
+  "errSaveFailedMsg": {
+    "message": "Le navigateur n'a pas pu enregistrer le fichier : le disque est peut-être plein, ou le dossier de téléchargement n'est pas accessible en écriture."
+  },
+  "errSaveFailedFix": {
+    "message": "Libérez de l'espace disque ou choisissez un autre dossier de téléchargement dans les réglages, puis relancez le téléchargement. Les fichiers déjà téléchargés sont conservés."
+  },
   "alertImportSkippedFiles": {
     "message": "Les fichiers qui ne sont pas des archives de mods ont été ignorés."
   },
@@ -1308,6 +1314,17 @@
   },
   "wjImportNeedsExtracting": {
     "message": "Un navigateur ne peut pas ouvrir une archive $1. Extrayez-la, puis sélectionnez le fichier .wabbajack qu'elle contient."
+  },
+  "logConnectionWaiting": {
+    "message": "Impossible de joindre Nexus Mods. Nouvel essai dans $1...",
+    "placeholders": {
+      "a": {
+        "content": "$1"
+      }
+    }
+  },
+  "logConnectionRetrying": {
+    "message": "Nouvelle tentative de connexion à Nexus Mods."
   },
   "wjQueueReady": {
     "message": "La modlist est en file d'attente. Appuyez sur le bouton de téléchargement pour commencer."

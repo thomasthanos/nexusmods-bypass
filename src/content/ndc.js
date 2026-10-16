@@ -511,6 +511,44 @@ window.NexusExt = window.NexusExt || {};
       });
     }
 
+    // The connection dropped while a file's link was being fetched. Every request fails the same way
+    // until it is back, so the run waits on that file, counting down and ending early when the browser
+    // says it is online again, instead of failing it and every file after it within seconds. False
+    // once the waits have run out (the run then stops) or the run was stopped.
+    async waitForConnection() {
+      this.networkStrikes = (this.networkStrikes || 0) + 1;
+      if (this.networkStrikes > NXTK.NETWORK_WAIT_MAX_STRIKES) return false;
+      let until = Date.now() + NXTK.networkWaitMs(this.networkStrikes);
+      const left = () => Math.max(0, Math.round((until - Date.now()) / 1000));
+      const waitingText = () => TS('logConnectionWaiting', [formatDuration(left())],
+        `Cannot reach Nexus Mods. Trying again in ${formatDuration(left())}...`);
+      const logRow = this.ui.logText(waitingText(), 'info');
+      const onOnline = () => { until = Math.min(until, Date.now() + 2000); };
+      globalThis.addEventListener?.('online', onOnline);
+      try {
+        await new Promise((resolve) => {
+          const intervalId = setInterval(() => {
+            if (this.isStopped() || this.downloadSignal?.aborted) {
+              clearInterval(intervalId);
+              return resolve();
+            }
+            if (this.runStatus === STATUS_PAUSED) return;
+            const msgSpan = logRow?.querySelector('.nxtk-log-msg');
+            if (left() > 0) {
+              if (msgSpan) msgSpan.textContent = waitingText();
+              return;
+            }
+            clearInterval(intervalId);
+            if (msgSpan) msgSpan.textContent = T('logConnectionRetrying', 'Trying to reach Nexus Mods again.');
+            resolve();
+          }, 1000);
+        });
+      } finally {
+        globalThis.removeEventListener?.('online', onOnline);
+      }
+      return !this.isStopped() && !this.downloadSignal?.aborted;
+    }
+
     delayWithPause(totalMs) {
       return new Promise((resolve) => {
         let remaining = Math.max(0, Number(totalMs) || 0);
@@ -886,19 +924,28 @@ window.NexusExt = window.NexusExt || {};
         };
 
         // A silent pause of up to ten minutes reads as a hang, so the wait counts
-        // down in place the same way the Vortex run does.
-        const startWaitCountdown = (until) => {
+        // down in place the same way the Vortex run does. The worker waits for one of two
+        // reasons, a rate limit or a lost connection, and each is named as what it is.
+        const startWaitCountdown = (until, reason = 'rate_limited') => {
           stopWaitCountdown();
+          const network = reason === 'network';
           if (!until || until <= Date.now()) {
-            this.ui.logText(T('logQueueRateLimited',
-              'Nexus Mods rate limit reached. The background queue will resume automatically.'), 'info');
+            if (!network) {
+              this.ui.logText(T('logQueueRateLimited',
+                'Nexus Mods rate limit reached. The background queue will resume automatically.'), 'info');
+            }
             return;
           }
           const left = () => Math.max(0, Math.round((until - Date.now()) / 1000));
-          const text = () => (left() > 0
-            ? TS('logRateLimitWaiting', [formatDuration(left())],
-              `Nexus Mods is rate limiting requests. Waiting ${formatDuration(left())}...`)
+          const waiting = () => (network
+            ? TS('logConnectionWaiting', [formatDuration(left())],
+              `Cannot reach Nexus Mods. Trying again in ${formatDuration(left())}...`)
+            : TS('logRateLimitWaiting', [formatDuration(left())],
+              `Nexus Mods is rate limiting requests. Waiting ${formatDuration(left())}...`));
+          const done = () => (network
+            ? T('logConnectionRetrying', 'Trying to reach Nexus Mods again.')
             : T('logRateLimitCleared', 'Rate limit cleared. Resuming downloads.'));
+          const text = () => (left() > 0 ? waiting() : done());
 
           waitRow = this.ui.logText(text(), 'info');
           waitTimer = setInterval(() => {
@@ -1049,7 +1096,7 @@ window.NexusExt = window.NexusExt || {};
           if (message.type === 'NXT_NDC_STATE') return;
           if (message.type === 'NXT_NDC_WAITING') {
             eta?.spoil();
-            startWaitCountdown(Number(message.until) || 0);
+            startWaitCountdown(Number(message.until) || 0, String(message.reason || 'rate_limited'));
             return;
           }
           if (message.type === 'NXT_NDC_DONE') {
@@ -1309,6 +1356,8 @@ window.NexusExt = window.NexusExt || {};
         let handedOffCount = 0;
         const sentMods = [];
         let forceStop = false;
+        let failureAlerted = false;
+        this.networkStrikes = 0;
 
         for (const [index, mod] of mods.entries()) {
         const modNumber = `${String(index + 1).padStart(String(mods.length).length, '0')}/${mods.length}`;
@@ -1332,18 +1381,35 @@ window.NexusExt = window.NexusExt || {};
         }
 
         await this.waitOutRateLimit();
+        // Pause holds the run here as well. After a skipped or failed file nothing else waits, so the
+        // next file was looked up and sent to Vortex while the deck said "Paused".
+        if (this.runStatus === STATUS_PAUSED) await this.delayWithPause(0);
         if (this.isStopped()) {
           outcome = 'stopped';
           this.ui.logText(T('logDownloadStopped', 'Download stopped.'), 'info');
           break;
         }
 
-        const downloadResult = await this.fetchFreshLink(mod, {
-          onAttemptFailed: (error, attempt) => this.ui.log(
-            `[${modNumber}] ${escapeHtml(TS('logRetryingAttempt', [error.code, String(attempt + 1)], `${error.code} — retrying (attempt ${attempt + 1})`))} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`,
-            'info'
-          )
-        }, `[${modNumber}]`);
+        let downloadResult;
+        let connectionLost = false;
+        for (;;) {
+          downloadResult = await this.fetchFreshLink(mod, {
+            onAttemptFailed: (error, attempt) => this.ui.log(
+              `[${modNumber}] ${escapeHtml(TS('logRetryingAttempt', [error.code, String(attempt + 1)], `${error.code} — retrying (attempt ${attempt + 1})`))} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`,
+              'info'
+            )
+          }, `[${modNumber}]`);
+          if (downloadResult.downloadUrl || this.isStopped()) break;
+          if (!NXTK.isConnectionFailure(this.resolveLinkError(downloadResult).code)) break;
+          if (!await this.waitForConnection()) {
+            connectionLost = !this.isStopped();
+            break;
+          }
+        }
+        // Any answer from Nexus means the connection is back, so a later drop starts its waits afresh.
+        if (!NXTK.isConnectionFailure(downloadResult.downloadUrl ? '' : this.resolveLinkError(downloadResult).code)) {
+          this.networkStrikes = 0;
+        }
 
         if (this.isStopped()) {
           outcome = 'stopped';
@@ -1377,10 +1443,22 @@ window.NexusExt = window.NexusExt || {};
                   : T('dlgDownloadPaused', 'Download paused')
               });
             }
+          } else if (connectionLost) {
+            // Nexus stayed out of reach through every wait: the run stops on this file, which is not
+            // counted as failed, so starting again picks it up first.
+            forceStop = true;
+            outcome = 'error';
+            if (this.showAlertsOnError) {
+              NexusExt.UI.showError(downloadError, { title: T('dlgDownloadPaused', 'Download paused') });
+            }
           } else {
             this.ui.incrementProgress();
             failedDownload.push({ mod, error: downloadError });
-            if (this.showAlertsOnError && downloadError.retryable) {
+            // One dialog per run: each failure replaced the one before, so a run with many failures
+            // flashed a dialog per file and left only the last file's Retry. The rest are in the log
+            // and in the summary's "Retry failed".
+            if (this.showAlertsOnError && downloadError.retryable && !failureAlerted) {
+              failureAlerted = true;
               NexusExt.UI.showError(downloadError, {
                 ...this.errorContextFor(mod),
                 onRetry: () => this.retryMod(mod, {
