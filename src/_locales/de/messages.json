@@ -1855,7 +1855,7 @@
     "message": "Vortex hat sich nicht geöffnet?"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "Wenn nichts passiert ist, prüfe, ob Vortex installiert und für nxm://-Links eingerichtet ist (und erlaube die Browser-Abfrage), und klicke dann erneut auf den Button."
+    "message": "Wenn nichts passiert ist, prüfe, ob Vortex installiert, für nxm://-Links eingerichtet und mit demselben Nexus-Konto wie dieser Browser angemeldet ist (und erlaube die Browser-Abfrage), und klicke dann erneut auf den Button."
   },
   "summarySent": {
     "message": "Gesendet"
@@ -2133,6 +2133,9 @@
         "content": "$1"
       }
     }
+  },
+  "setupTestAlreadyOpen": {
+    "message": "War Vortex schon geöffnet, kann dieser Test es nicht in den Vordergrund holen. Schließe Vortex und teste erneut."
   },
   "autoPromptTitle": {
     "message": "Help fix errors faster"

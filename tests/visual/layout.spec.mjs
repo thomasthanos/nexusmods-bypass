@@ -1394,13 +1394,16 @@ test('welcome page: setup saves choices and Test Vortex asks when it cannot tell
   expect((await read('nxtk_vortex_open')).confirmed).toBe(true);
   await page.locator('#vortexDialogDone').click();
   await expect(dialog).toHaveCount(0);
-  // A "No" is remembered as a failure, and a detected hand-off needs no question at all.
-  await patch({}, { nxtk_vortex_open: { confirmed: false, failStreak: 0 } });
+  // A "No" can be a Vortex that was running all along (it takes this link without coming to the
+  // front), so it clears the "confirmed" memory without counting a failed hand-off; the dialog says
+  // to close Vortex and test again. A detected hand-off needs no question at all.
+  await patch({}, { nxtk_vortex_open: { confirmed: true, failStreak: 1 } });
   await page.locator('#setupTestVortex').click();
   await page.locator('#vortexDialogOpen').click();
+  await expect(dialog).toContainText(/already open.*Close Vortex and test again/);
   await page.locator('#vortexAskNo').click();
   await expect(page.locator('#setupStatus')).toContainText(/did not open/);
-  expect(await read('nxtk_vortex_open')).toMatchObject({ confirmed: false, failStreak: 1 });
+  expect(await read('nxtk_vortex_open')).toMatchObject({ confirmed: false, failStreak: 0 });
   await page.locator('#vortexDialogDone').click();
   await handoff(true);
   await page.locator('#setupTestVortex').click();

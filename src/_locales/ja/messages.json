@@ -1771,7 +1771,7 @@
     "message": "Vortex が開きませんでしたか？"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "何も起きなかった場合は、Vortex がインストールされ nxm:// リンクを処理するよう設定されているか確認し（ブラウザーの確認を許可して）、もう一度ボタンをクリックしてください。"
+    "message": "何も起きなかった場合は、Vortex がインストールされ、nxm:// リンクを処理するよう設定され、このブラウザーと同じ Nexus アカウントでサインインしているか確認し（ブラウザーの確認を許可して）、もう一度ボタンをクリックしてください。"
   },
   "summarySent": {
     "message": "送信済み"
@@ -2049,6 +2049,9 @@
         "content": "$1"
       }
     }
+  },
+  "setupTestAlreadyOpen": {
+    "message": "Vortex が既に開いていた場合、このテストでは前面に表示できません。Vortex を閉じてからもう一度テストしてください。"
   },
   "autoPromptTitle": {
     "message": "Help fix errors faster"

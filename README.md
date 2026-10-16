@@ -114,7 +114,7 @@ Sign in to Nexus Mods and enable **Start downloads automatically** in Page setti
 <details>
 <summary><b>Vortex does not receive the file</b></summary>
 
-Start Vortex first. If it takes time to pick up links, increase **Close-tab delay**.
+Start Vortex first, and sign it in to the same Nexus account as this browser: Vortex refuses links made for another account. In Vortex, **Settings → Download → Handle Mod Manager Download buttons on nexusmods.com** must be on (on Linux, whichever mod manager registered for `nxm://` last receives the links). If Vortex stays in the background, look in its Downloads tab: the file may already be there.
 </details>
 
 <details>

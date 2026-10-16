@@ -1771,7 +1771,7 @@
     "message": "Vortex 没有打开？"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "如果什么都没发生，请检查 Vortex 是否已安装并设置为处理 nxm:// 链接（并允许浏览器提示），然后再次点击按钮。"
+    "message": "如果什么都没发生，请检查 Vortex 是否已安装、设置为处理 nxm:// 链接，并已登录与此浏览器相同的 Nexus 账户（并允许浏览器提示），然后再次点击按钮。"
   },
   "summarySent": {
     "message": "已发送"
@@ -2049,6 +2049,9 @@
         "content": "$1"
       }
     }
+  },
+  "setupTestAlreadyOpen": {
+    "message": "如果 Vortex 已经打开，此测试无法将它切换到前台。请关闭 Vortex 后再测试一次。"
   },
   "autoPromptTitle": {
     "message": "Help fix errors faster"

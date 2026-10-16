@@ -149,8 +149,10 @@
         return;
       }
 
-      // Could not tell — ask the user
-      body.innerHTML = `<div class="vortex-dialog-result warn">${t('setupTestUnsure', 'Could not detect whether Vortex opened.')}</div>`;
+      // Could not tell — ask the user. A Vortex that is already running re-reads the membership for
+      // this link and stays where it is, so it shows nothing; only a cold start is visible.
+      body.innerHTML = `<div class="vortex-dialog-result warn">${t('setupTestUnsure', 'Could not detect whether Vortex opened.')}</div>
+        <div class="vortex-dialog-text">${t('setupTestAlreadyOpen', 'If Vortex was already open, this test cannot bring it to the front. Close Vortex and test again.')}</div>`;
       const title = backdrop.querySelector('.vortex-dialog-title');
       if (title) title.textContent = t('setupAskOpened', 'Did Vortex open?');
       actions.innerHTML = `
@@ -166,7 +168,9 @@
       });
 
       backdrop.querySelector('#vortexAskNo').addEventListener('click', async () => {
-        await NXTK.recordVortexOpenEvent('answeredNo');
+        // A "no" here can be a Vortex that was running all along, so it does not count as a failed
+        // hand-off (two of those offer browser downloads); the next run simply asks again.
+        await NXTK.recordVortexOpenEvent('reset');
         body.innerHTML = `<div class="vortex-dialog-result error">${t('setupTestFailed', 'Vortex did not open. Install Vortex and let it handle nxm:// links (Vortex Settings → Downloads), or choose browser downloads above.')}</div>`;
         setStatus(t('setupTestFailed', 'Vortex did not open.'), 'warn');
         actions.innerHTML = `<button type="button" class="btn btn-secondary" id="vortexDialogDone">${t('vortexDialogDoneBtn', 'Close')}</button>`;
@@ -183,7 +187,7 @@
   });
   $('setupAskNo').addEventListener('click', async () => {
     $('setupAsk').hidden = true;
-    await NXTK.recordVortexOpenEvent('answeredNo');
+    await NXTK.recordVortexOpenEvent('reset');
     setStatus(t('setupTestFailed', 'Vortex did not open. Install Vortex and let it handle nxm:// links (Vortex Settings → Downloads), or choose browser downloads above.'), 'warn');
   });
 })();

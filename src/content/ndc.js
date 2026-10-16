@@ -137,6 +137,7 @@ window.NexusExt = window.NexusExt || {};
       this.wabbajackImport = false;
       this.rateLimitStrikes = 0;
       this.rateLimitedUntil = 0;
+      this.vortexRunProgress = null;
 
       this.runStatus = STATUS_DOWNLOADING;
 
@@ -429,8 +430,8 @@ window.NexusExt = window.NexusExt || {};
 
       const fileId = mod.fileId || mod.file.fileId;
       const extracted = NexusExt.NNW?.parseDownloadURLFromResponse?.(text, { mode: 'vortex', fileId });
-      let downloadUrl = NexusExt.NNW?.parseNxmDownloadLink?.(extracted?.url)
-        || NexusExt.NNW?.parseNxmDownloadLink?.(text)
+      let downloadUrl = NexusExt.NNW?.parseNxmDownloadLink?.(extracted?.url, fileId)
+        || NexusExt.NNW?.parseNxmDownloadLink?.(text, fileId)
         || '';
 
       if (!downloadUrl && NexusExt.NNW?.getDownloadUrl) {
@@ -643,6 +644,19 @@ window.NexusExt = window.NexusExt || {};
         return false;
       }
 
+      // Vortex hands a link only to the download waiting for that file: a link for another file
+      // would start a separate download there and leave this one waiting.
+      const wanted = String(mod.fileId || mod.file?.fileId || '');
+      const linkedFile = globalThis.NXTKDownloadParser?.nxmFileId?.(downloadUrl);
+      if (wanted && linkedFile !== undefined && linkedFile !== String(Number(wanted))) {
+        const error = Errors.create('no_nmm_link', {
+          context: 'Checking the Vortex link',
+          technicalMessage: 'the nxm link names another file'
+        });
+        this.ui.log(`${prefix} ${escapeHtml(Errors.toLogMessage(error))} ${link}`, 'error');
+        return false;
+      }
+
       if (NXTK.isNxmLinkExpired(downloadUrl)) {
         this.ui.log(`${prefix} ${T('logLinkExpired', 'Link expired before it could be sent to Vortex.')} ${link}`, 'error');
         return false;
@@ -784,6 +798,9 @@ window.NexusExt = window.NexusExt || {};
       if (typeof NexusExt.UI?.showRunSummary !== 'function') return;
       NexusExt.UI.showRunSummary(summary, {
         onRetryFailed: async () => {
+          // The card outlives its run, and a run that ended stopped, blocked or on a sign-in leaves the
+          // status at Stopped, which skipped every retry. Asking for the retries is a new start.
+          if (!this.running && !this.disposed && this.runStatus === STATUS_STOPPED) this.runStatus = STATUS_DOWNLOADING;
           for (const entry of summary.failed.slice()) {
             if (this.isStopped()) break;
             await this.retryMod(entry.mod, { type });
@@ -1173,6 +1190,16 @@ window.NexusExt = window.NexusExt || {};
 
     async resumeBackgroundRun() {
       if (!this.ui || this.disposed) return false;
+      // A Vortex run lives in this tab, not in the worker, so there is no job to attach to. A deck that
+      // Nexus re-rendered mid-run is set up from the run's own count; it used to show no progress and
+      // no Stop or Pause for the rest of the run.
+      if (this.running && this.vortexRunProgress) {
+        const { done, total } = this.vortexRunProgress;
+        this.ui.startDownload(total, { resumed: true });
+        this.ui.setProgress(done, total);
+        if (this.runStatus === STATUS_PAUSED) this.ui.setDownloadStatus?.('paused');
+        return true;
+      }
       const alreadyWatching = this.running;
 
       let reply;
@@ -1344,6 +1371,8 @@ window.NexusExt = window.NexusExt || {};
       }
 
       this.ui.startDownload(mods.length);
+      // The run's own count, so a deck that Nexus re-renders mid-run can be set up again from it.
+      this.vortexRunProgress = { done: 0, total: mods.length };
       let outcome = 'finished';
       this.vortexAccountNoted = null;
       this.ui.logText(T('logVortexCollectionTip', 'Tip: for a whole collection, start it in Vortex ("Download collection in Vortex") so Vortex installs it with its rules; then send the files it asks for from here.'), 'info');
@@ -1373,7 +1402,7 @@ window.NexusExt = window.NexusExt || {};
 
         if (history?.[this.gameId]?.[this.collectionId]?.[type]?.includes(historyEntryId(mod))) {
           this.ui.log(`[${modNumber}] ${T('logAlreadyDownloaded', 'Already downloaded')} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`);
-          this.ui.incrementProgress();
+          this.advanceVortexRun();
           continue;
         }
         if (history?.[this.gameId]?.[this.collectionId]?.[NXTK.vortexSentType(type)]?.includes(historyEntryId(mod))) {
@@ -1426,7 +1455,7 @@ window.NexusExt = window.NexusExt || {};
           // Gone, or one Cloudflare answer: noted and passed over, and the run goes on.
           this.logSkipped(`[${modNumber}] ${mod.file.name}`, skipReason);
           skipped.push({ name: mod.file.name, pageUrl: mod.file.url, reason: skipReason });
-          this.ui.incrementProgress();
+          this.advanceVortexRun();
         } else if (!downloadResult.downloadUrl) {
           const downloadError = this.resolveLinkError(downloadResult);
           this.ui.log(
@@ -1452,7 +1481,7 @@ window.NexusExt = window.NexusExt || {};
               NexusExt.UI.showError(downloadError, { title: T('dlgDownloadPaused', 'Download paused') });
             }
           } else {
-            this.ui.incrementProgress();
+            this.advanceVortexRun();
             failedDownload.push({ mod, error: downloadError });
             // One dialog per run: each failure replaced the one before, so a run with many failures
             // flashed a dialog per file and left only the last file's Retry. The rest are in the log
@@ -1472,13 +1501,13 @@ window.NexusExt = window.NexusExt || {};
             }
           }
         } else if (!this.handOffDownload(mod, downloadResult.downloadUrl, `[${modNumber}]`)) {
-          this.ui.incrementProgress();
+          this.advanceVortexRun();
           failedDownload.push({
             mod,
             error: Errors.create('unsafe_download_url', { context: 'Validating download target' })
           });
         } else {
-          this.ui.incrementProgress();
+          this.advanceVortexRun();
           NXTK.bumpTotalDownloads?.();
           handedOff = true;
           handedOffCount += 1;
@@ -1501,7 +1530,9 @@ window.NexusExt = window.NexusExt || {};
         if (handedOff && index < mods.length - 1) {
           const computePause = () => {
             // A short floor always stays between hand-offs, so a run never fires requests back to back.
-            const floor = NXTK.MIN_HANDOFF_GAP_SECONDS || 0;
+            // After the first one it is longer: only the link that starts Vortex reaches it on the
+            // command line, and one that arrives while Vortex is still loading is dropped.
+            const floor = Math.max(NXTK.MIN_HANDOFF_GAP_SECONDS || 0, handedOffCount === 1 ? NXTK.VORTEX_STARTUP_GAP_SECONDS || 0 : 0);
             if (this.pauseBetweenDownload === 0) return floor;
             const { speed } = this.resolveDownloadSpeed();
             const transferSeconds = Math.round(mod.file.size / 1024 / speed);
@@ -1606,8 +1637,15 @@ window.NexusExt = window.NexusExt || {};
         this.ui.logText(TS('logRunStopped', [Errors.toLogMessage(error)],
           `Collection download stopped: ${Errors.toLogMessage(error)}`), 'error');
       } finally {
+        this.vortexRunProgress = null;
         this.ui.endDownload(outcome);
       }
+    }
+
+    // One more file of the Vortex run dealt with, on the deck and in the run's own count.
+    advanceVortexRun() {
+      if (this.vortexRunProgress) this.vortexRunProgress.done += 1;
+      this.ui.incrementProgress();
     }
 
     async fetchRevisions() {

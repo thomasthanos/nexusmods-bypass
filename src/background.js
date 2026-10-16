@@ -111,11 +111,14 @@ function storageSetLocal(key, value) {
 
 const ERROR_LOG_REPEAT_WINDOW_MS = 30 * 60 * 1000;
 
+// Code, context, status and where it was thrown: unhandled rejections all share one code and context,
+// so without the frame a second, different bug was folded into the first one's entry.
 function errorEntrySignature(entry) {
   return [
     String(entry?.code || ''),
     String(entry?.context || ''),
-    Number.isInteger(entry?.status) ? String(entry.status) : ''
+    Number.isInteger(entry?.status) ? String(entry.status) : '',
+    NXTK.stackFrameOf(entry)
   ].join('|');
 }
 

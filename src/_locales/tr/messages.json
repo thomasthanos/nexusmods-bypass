@@ -1855,7 +1855,7 @@
     "message": "Vortex açılmadı mı?"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "Hiçbir şey olmadıysa Vortex'in kurulu ve nxm:// bağlantılarını işleyecek şekilde ayarlı olduğunu kontrol edin (ve tarayıcı istemine izin verin), sonra düğmeye yeniden tıklayın."
+    "message": "Hiçbir şey olmadıysa Vortex'in kurulu, nxm:// bağlantılarını işleyecek şekilde ayarlı ve bu tarayıcıyla aynı Nexus hesabında oturum açmış olduğunu kontrol edin (ve tarayıcı istemine izin verin), sonra düğmeye yeniden tıklayın."
   },
   "summarySent": {
     "message": "Gönderildi"
@@ -2133,6 +2133,9 @@
         "content": "$1"
       }
     }
+  },
+  "setupTestAlreadyOpen": {
+    "message": "Vortex zaten açıksa bu test onu öne getiremez. Vortex'i kapatıp yeniden test edin."
   },
   "autoPromptTitle": {
     "message": "Help fix errors faster"

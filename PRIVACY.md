@@ -7,7 +7,7 @@
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
 
-**Last updated:** 14 October 2026
+**Last updated:** 16 October 2026
 **Publisher:** Thomas Thanos
 
 NexusMods Bypass has no analytics SDK, advertising SDK, tracking pixel, account system, or background analytics. Optional technical error reporting is described below. The published extension source is not minified or obfuscated, so these claims can be audited.
@@ -16,6 +16,7 @@ NexusMods Bypass has no analytics SDK, advertising SDK, tracking pixel, account 
 
 - Settings such as download flow, pacing, download folder, and language override.
 - Local download history used to skip files that already completed and to resume interrupted runs.
+- For a collection download running in the background, the file it is on and the path of the link that file is downloading from (without the query string, so without the link's signature). After a browser restart this keeps the queue from mistaking somebody else's download for its own.
 - A rolling log of the latest extension errors, used only to prepare readable bug reports.
 
 A short list of the last few actions the extension took is also kept, so that a bug report can show
@@ -40,7 +41,7 @@ Sending goes to the maintainer's report relay (`nexusmods-bypass-relay.mariostha
 
 **Automatic error reports** remain off by default. After an extension update, a dismissible invitation appears once across your Nexus Mods tabs, on the first visible page loaded with the updated extension. It does not enable anything. Choosing No thanks or closing it leaves reports off; future updates do not repeat the invitation. Users who already enabled reporting are not asked again. You can also enable or disable reporting from the report page.
 
-After you explicitly enable reporting, new extension faults send a small technical record: extension version, browser name and major version, stable error reference, error code and HTTP status, redacted technical cause and action, packaged script position, page **type** (collection/mod/Nexus/extension), occurrence count and first/last observation times. When a download ends without a link or a request fails, the technical cause also lists what each Nexus request answered: its HTTP status, how long a failed request took, and the shape of the answer (body type, JSON field names, which link fields came back empty, the kind of site notice), never the answer's text or the link itself. No complete page URL, page content, download history, settings snapshot, account details or full stack trace is included. Ordinary conditions such as being offline, needing to sign in, cancelling a download or Nexus rate limiting stay local. Background faults and confirmed collection-download failures use the same reporting path.
+After you explicitly enable reporting, new extension faults send a small technical record: extension version, browser name and major version, stable error reference, error code and HTTP status, redacted technical cause and action, packaged script position, page **type** (collection/mod/Nexus/extension), occurrence count and first/last observation times. When a download ends without a link or a request fails, the technical cause also lists what each Nexus request answered: its HTTP status, how long a failed request took, and the shape of the answer (body type, JSON field names, which link fields came back empty, the kind of site notice), never the answer's text or the link itself. No complete page URL, page content, download history, settings snapshot, account details or full stack trace is included. Ordinary conditions such as being offline, needing to sign in, cancelling a download, a full disk or Nexus rate limiting stay local. Background faults and confirmed collection-download failures use the same reporting path.
 
 Distinct faults can send immediately. Repetitions are grouped per fault and sent no sooner than ten minutes after its last confirmed report. Delivery is limited to ten confirmed reports and thirty delivery attempts per UTC day. Pending diagnostics are kept locally, with a maximum of twenty distinct faults and a lifetime of 24 hours. Failed sends retry with a 15-second request timeout and increasing delays, up to six attempts; rate limiting honours Retry-After. Invalid reports are discarded. Disabling reporting aborts the current request where possible and clears the local pending queue. Reports already delivered cannot be withdrawn by disabling the setting.
 

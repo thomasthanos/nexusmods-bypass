@@ -1771,7 +1771,7 @@
     "message": "Vortex가 열리지 않았나요?"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "아무 일도 없었다면 Vortex가 설치되어 있고 nxm:// 링크를 처리하도록 설정되어 있는지 확인하고(브라우저 확인 창을 허용한 뒤) 버튼을 다시 클릭하세요."
+    "message": "아무 일도 없었다면 Vortex가 설치되어 있고, nxm:// 링크를 처리하도록 설정되어 있으며, 이 브라우저와 같은 Nexus 계정으로 로그인되어 있는지 확인하고(브라우저 확인 창을 허용한 뒤) 버튼을 다시 클릭하세요."
   },
   "summarySent": {
     "message": "전송됨"
@@ -2049,6 +2049,9 @@
         "content": "$1"
       }
     }
+  },
+  "setupTestAlreadyOpen": {
+    "message": "Vortex가 이미 열려 있었다면 이 테스트로는 앞으로 가져올 수 없습니다. Vortex를 닫고 다시 테스트하세요."
   },
   "autoPromptTitle": {
     "message": "Help fix errors faster"

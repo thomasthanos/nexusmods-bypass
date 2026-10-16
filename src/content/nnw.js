@@ -576,7 +576,8 @@ window.NexusExt = window.NexusExt || {};
   // background queue loads as well, so a download started here and a queued one read it the same way.
   const DownloadParser = globalThis.NXTKDownloadParser;
   const decodeDownloadUrlValue = (value) => DownloadParser.decodeLinkText(value);
-  const parseNxmDownloadLink = (text) => DownloadParser.findSignedNxmLink(text);
+  // Scoped to the file asked for: Vortex only hands a link to the download waiting for that file.
+  const parseNxmDownloadLink = (text, fileId = '') => DownloadParser.findSignedNxmLink(text, { fileId });
   const isValidNxmUrl = (url) => DownloadParser.isSignedNxmLink(url);
 
   function parseDownloadURLFromResponse(text, options = false) {
@@ -717,7 +718,7 @@ window.NexusExt = window.NexusExt || {};
       }
 
       if (nmm) {
-        const nxmUrl = parseNxmDownloadLink(response.text);
+        const nxmUrl = parseNxmDownloadLink(response.text, fileId);
         if (nxmUrl) return { url: nxmUrl, text: response.text, error: null };
       }
 
@@ -725,7 +726,7 @@ window.NexusExt = window.NexusExt || {};
         mode: nmm ? 'vortex' : 'browser',
         fileId
       });
-      if (!(nmm ? parseNxmDownloadLink(extracted?.url) : extracted?.url)) noteAnswer('generator', response, nmm);
+      if (!(nmm ? parseNxmDownloadLink(extracted?.url, fileId) : extracted?.url)) noteAnswer('generator', response, nmm);
       if (extracted?.url) return { url: extracted.url, text: response.text, error: null };
       return { url: null, text: response.text, error: null };
     };
@@ -743,7 +744,7 @@ window.NexusExt = window.NexusExt || {};
       }
 
       if (isNMM) {
-        const fromFinalUrl = parseNxmDownloadLink(response.finalUrl);
+        const fromFinalUrl = parseNxmDownloadLink(response.finalUrl, fileId);
         if (fromFinalUrl) return { url: fromFinalUrl };
       }
       if (!isNMM && response.finalUrl && response.finalUrl !== apiUrl && !response.finalUrl.includes('/api/files/')) {
@@ -751,7 +752,7 @@ window.NexusExt = window.NexusExt || {};
       }
 
       if (isNMM) {
-        const fromBodyNxm = parseNxmDownloadLink(response.text);
+        const fromBodyNxm = parseNxmDownloadLink(response.text, fileId);
         if (fromBodyNxm) return { url: fromBodyNxm };
       }
 
@@ -760,7 +761,7 @@ window.NexusExt = window.NexusExt || {};
         fileId
       });
       if (extracted?.url) {
-        const nxmUrl = parseNxmDownloadLink(extracted.url);
+        const nxmUrl = parseNxmDownloadLink(extracted.url, fileId);
         if (isNMM && nxmUrl) return { url: nxmUrl };
         if (!isNMM) return { url: extracted.url };
       }
@@ -785,7 +786,7 @@ window.NexusExt = window.NexusExt || {};
       // well under a second, where loading the whole file page first took several. So it goes first, and
       // the page is read only when it gives nothing.
       const quick = await fetchGeneratedDownloadUrl(true);
-      const quickNxm = parseNxmDownloadLink(quick?.url);
+      const quickNxm = parseNxmDownloadLink(quick?.url, fileId);
       if (quickNxm) return { url: quickNxm };
       if (quick?.error && Errors.isBlocking(quick.error)) return { url: null, error: quick.error };
 
@@ -800,13 +801,13 @@ window.NexusExt = window.NexusExt || {};
           resolvedGameId = firstResponseGameId;
           rememberGameId(firstResponseGameId, filePageUrl);
         }
-        const link = parseNxmDownloadLink(firstResponse.finalUrl) || parseNxmDownloadLink(firstResponse.text);
+        const link = parseNxmDownloadLink(firstResponse.finalUrl, fileId) || parseNxmDownloadLink(firstResponse.text, fileId);
         if (link) return { url: link };
         noteAnswer('page', firstResponse, true);
 
         const extracted = parseDownloadURLFromResponse(firstResponse.text, { mode: 'vortex', fileId });
         if (extracted?.url) {
-          const nxmUrl = parseNxmDownloadLink(extracted.url);
+          const nxmUrl = parseNxmDownloadLink(extracted.url, fileId);
           if (nxmUrl) return { url: nxmUrl };
           if (extracted.url.includes('/api/files/')) {
             const result = await resolveApiFileUrl(extracted.url);
@@ -826,7 +827,7 @@ window.NexusExt = window.NexusExt || {};
             }
             const downloadPageResponse = await fetchText(downloadPageUrl, { context: 'Loading requirement download page' });
             if (downloadPageResponse.ok) {
-              const link2 = parseNxmDownloadLink(downloadPageResponse.finalUrl) || parseNxmDownloadLink(downloadPageResponse.text);
+              const link2 = parseNxmDownloadLink(downloadPageResponse.finalUrl, fileId) || parseNxmDownloadLink(downloadPageResponse.text, fileId);
               if (link2) return { url: link2 };
               noteAnswer('requirements page', downloadPageResponse, true);
             } else {
@@ -842,7 +843,7 @@ window.NexusExt = window.NexusExt || {};
 
     if (isNMM) {
       const generated = await fetchGeneratedDownloadUrl(true);
-      const generatedNxm = parseNxmDownloadLink(generated?.url);
+      const generatedNxm = parseNxmDownloadLink(generated?.url, fileId);
       return generatedNxm
         ? { url: generatedNxm }
         : { url: null, error: generated?.error || Errors.create('no_nmm_link', { record: false }) };
@@ -1063,8 +1064,12 @@ window.NexusExt = window.NexusExt || {};
   const MAX_NATIVE_PASSTHROUGH_FILES = 64;
   const nativePassthroughFiles = new Map();
 
-  function allowNativeDownload(fileId) {
-    const key = String(fileId || '');
+  // Keyed by method as well: a file whose Vortex link could not be found still gets its Manual
+  // download from the extension, and the other way round.
+  const passthroughKey = (fileId, isNMM) => (fileId ? `${isNMM ? 'nmm' : 'browser'}:${fileId}` : '');
+
+  function allowNativeDownload(fileId, isNMM) {
+    const key = passthroughKey(fileId, isNMM);
     if (!key) return;
     nativePassthroughFiles.delete(key);
     nativePassthroughFiles.set(key, Date.now() + NATIVE_PASSTHROUGH_TTL_MS);
@@ -1073,8 +1078,8 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
-  function shouldPassThroughToNative(fileId) {
-    const key = String(fileId || '');
+  function shouldPassThroughToNative(fileId, isNMM) {
+    const key = passthroughKey(fileId, isNMM);
     const expiresAt = nativePassthroughFiles.get(key);
     if (!expiresAt) return false;
     if (expiresAt > Date.now()) return true;
@@ -1089,9 +1094,9 @@ window.NexusExt = window.NexusExt || {};
   const NATIVE_HANDOFF_CODES = new Set(['no_download_url', 'no_nmm_link', 'unsafe_download_url', 'mod_unavailable']);
 
   // Release unresolved files to Nexus instead of trapping the click.
-  function releaseToNativeControl(button, fileId, error) {
+  function releaseToNativeControl(button, fileId, error, isNMM) {
     if (!NATIVE_HANDOFF_CODES.has(error?.code)) return false;
-    allowNativeDownload(fileId);
+    allowNativeDownload(fileId, isNMM);
     restoreButtonState(button);
     Logger.info('Handing this file back to the native Nexus controls; the extension cannot resolve it.');
     return true;
@@ -1200,10 +1205,13 @@ window.NexusExt = window.NexusExt || {};
     if (!cfg.ShowAlertsOnError) return normalized;
 
     if (NexusExt.UI?.showError) {
+      // The run this button started, not whichever started last: two overlapping runs used to point
+      // the dialog at the other file's page and method.
+      const runContext = btn?._nxtkRunContext || lastRunContext;
       NexusExt.UI.showError(normalized, {
         onRetry,
-        filePageUrl: lastRunContext.filePageUrl,
-        method: lastRunContext.method
+        filePageUrl: runContext.filePageUrl,
+        method: runContext.method
       });
     } else {
       NexusExt.UI?.nxtkAlert?.(`${shown.message}\n${shown.recovery}`.trim());
@@ -1242,6 +1250,13 @@ window.NexusExt = window.NexusExt || {};
           activeDownloads.delete(key);
           rootEl?.removeAttribute(attr);
         }
+      },
+      // The "Vortex didn't open?" hint says to click again: that click must not be dropped as a
+      // duplicate of the hand-off that just showed no sign of Vortex. A newer claim is left alone.
+      release() {
+        if (entry.inFlight || activeDownloads.get(key) !== entry) return;
+        activeDownloads.delete(key);
+        if (rootEl?.getAttribute(attr) === String(entry.at)) rootEl.removeAttribute(attr);
       }
     };
   }
@@ -1271,15 +1286,22 @@ window.NexusExt = window.NexusExt || {};
       Logger.info(`Vortex hand-off: no sign Vortex opened (${reason || 'no-signal'}); showing the hint`);
       // Keep the tab: closing it would take the hint (and the way to retry) with it.
       cancelScheduledTabClose();
-      Promise.resolve(NXTK.recordVortexOpenEvent?.('notDetected')).then((next) => {
-        if (next && NXTK.shouldOfferBrowserSwitch?.(next)) {
-          Logger.info('Vortex hand-off: two in a row with no sign of Vortex; offering browser downloads');
-          NexusExt.UI?.offerBrowserSwitch?.();
-        }
-      }).catch(() => undefined);
+      // Silence is not a failure: Vortex takes no focus when its "Bring Vortex to foreground" setting
+      // is off, or when the browser opens nxm:// links without asking, and a page in the background
+      // sees nothing at all. Counting those offered a switch to browser downloads while every file
+      // was reaching Vortex. Only focus coming back after the prompt, or the user, says it failed.
+      const silent = !reason || reason === 'no-signal' || reason === 'started-hidden';
+      if (!silent) {
+        Promise.resolve(NXTK.recordVortexOpenEvent?.('notDetected')).then((next) => {
+          if (next && NXTK.shouldOfferBrowserSwitch?.(next)) {
+            Logger.info('Vortex hand-off: two in a row with no sign of Vortex; offering browser downloads');
+            NexusExt.UI?.offerBrowserSwitch?.();
+          }
+        }).catch(() => undefined);
+      }
       NexusExt.UI?.showNotice?.({
         title: NXTK.t('noticeVortexNotOpenedTitle', null, "Vortex didn't open?"),
-        detail: NXTK.t('noticeVortexNotOpenedDetail', null, 'If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again.'),
+        detail: NXTK.t('noticeVortexNotOpenedDetail', null, 'If nothing happened, check that Vortex is installed, set to handle nxm:// links and signed in to the same Nexus account as this browser (and allow the browser prompt), then click the button again.'),
         ms: 12000
       });
       return false;
@@ -1302,10 +1324,11 @@ window.NexusExt = window.NexusExt || {};
     }
     let started = false;
     try {
-      started = await runDownloadOnce(options);
+      started = await runDownloadOnce({ ...options, claim });
       return started;
     } finally {
-      claim.done(started);
+      // claimDownload answers a bare `true` for a start with no file id, which has nothing to settle.
+      claim.done?.(started);
     }
   }
 
@@ -1326,6 +1349,7 @@ window.NexusExt = window.NexusExt || {};
     } catch (_) {
       lastRunContext = { filePageUrl: '', method: isNMM ? 'vortex' : 'browser' };
     }
+    if (button) button._nxtkRunContext = lastRunContext;
 
     NXTK.setActivity?.({
       trigger: button ? 'manual' : 'automatic',
@@ -1392,7 +1416,7 @@ window.NexusExt = window.NexusExt || {};
         return false;
       }
       handleError(button, error, { onRetry: () => runDownload(options) });
-      releaseToNativeControl(button, fileId, error);
+      releaseToNativeControl(button, fileId, error, isNMM);
       return false;
     }
 
@@ -1409,7 +1433,7 @@ window.NexusExt = window.NexusExt || {};
     if (!finalUrl) {
       const missing = Errors.create(isNMM ? 'no_nmm_link' : 'no_download_url');
       handleError(button, missing, { onRetry: () => runDownload(options) });
-      releaseToNativeControl(button, fileId, missing);
+      releaseToNativeControl(button, fileId, missing, isNMM);
       return false;
     }
 
@@ -1420,7 +1444,18 @@ window.NexusExt = window.NexusExt || {};
         technicalMessage: `rejected: ${verdict.detail} | method=${isNMM ? 'vortex' : 'browser'}`
       });
       handleError(button, unsafe);
-      releaseToNativeControl(button, fileId, unsafe);
+      releaseToNativeControl(button, fileId, unsafe, isNMM);
+      return false;
+    }
+    // Vortex hands a link only to the download waiting for that file: a link for another file would
+    // start a separate download there and leave that one waiting.
+    if (isNMM && fileId && DownloadParser.nxmFileId(finalUrl) !== String(Number(fileId))) {
+      const wrongFile = Errors.create('no_nmm_link', {
+        context: 'Checking the Vortex link',
+        technicalMessage: 'the nxm link names another file'
+      });
+      handleError(button, wrongFile, { onRetry: () => runDownload(options) });
+      releaseToNativeControl(button, fileId, wrongFile, isNMM);
       return false;
     }
     if (isNMM) {
@@ -1435,10 +1470,13 @@ window.NexusExt = window.NexusExt || {};
       statusToast?.update(NXTK.t('toastSentToVortex', null, 'Sent to Vortex'), SENT_STATE_MS);
       Logger.info('Vortex hand-off: link sent, showing "Sent to Vortex"');
       handoffVerdict = watchSingleHandoff();
+      handoffVerdict.then((opened) => { if (!opened) options.claim?.release?.(); }, () => undefined);
       if (button) {
         setButtonState(button, 'sent');
+        // Per button: a start on another file moments later used to leave "Sent to Vortex" on this one.
+        button._nxtkSentAttempt = attemptId;
         setTimeout(() => {
-          if (attemptId === downloadAttemptSequence && button.isConnected) restoreButtonState(button);
+          if (button._nxtkSentAttempt === attemptId && button.isConnected) restoreButtonState(button);
         }, SENT_STATE_MS);
       }
     } else if (!await startManagedFileDownload(finalUrl, fileId)) {
@@ -1530,7 +1568,7 @@ window.NexusExt = window.NexusExt || {};
               || hrefWantsNmm(modalButton.href || modalButton.getAttribute?.('href'));
             const modalHref = resolveModalHref(modal, modalButton, isNMMModal);
 
-            if (modalHref && !shouldPassThroughToNative(extractFileId(modalHref))) {
+            if (modalHref && !shouldPassThroughToNative(extractFileId(modalHref), isNMMModal)) {
               event.preventDefault();
               event.stopImmediatePropagation();
               handleDownload(modalButton, extractFileId(modalHref), isNMMModal, modalHref)
@@ -1558,7 +1596,7 @@ window.NexusExt = window.NexusExt || {};
         // that open the requirements modal in script. With Skip requirement screens on, those are taken
         // the same way a link is, so the requirements step is skipped for Vortex as well as manual.
         const synthesized = cfg.SkipRequirements ? hrefForHreflessControl(element, path) : null;
-        if (!synthesized || shouldPassThroughToNative(synthesized.fileId)) return;
+        if (!synthesized || shouldPassThroughToNative(synthesized.fileId, synthesized.isNMM)) return;
         event.preventDefault();
         event.stopImmediatePropagation();
         handleDownload(element, synthesized.fileId, synthesized.isNMM, synthesized.href)
@@ -1571,9 +1609,9 @@ window.NexusExt = window.NexusExt || {};
       if (!isDownloadHref(linkHref)) return;
       const fileId = extractFileId(linkHref);
       if (!fileId) return;
-      if (shouldPassThroughToNative(fileId)) return;
-      const hasRequirements = linkHref.includes('ModRequirementsPopUp') || linkHref.includes('tab=requirements');
       const isNMM = hrefWantsNmm(linkHref) || matchesAny(element, 'modManagerControl');
+      if (shouldPassThroughToNative(fileId, isNMM)) return;
+      const hasRequirements = linkHref.includes('ModRequirementsPopUp') || linkHref.includes('tab=requirements');
       if (hasRequirements && !cfg.SkipRequirements) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -1789,12 +1827,13 @@ window.NexusExt = window.NexusExt || {};
     const params = new URLSearchParams(location.search);
     const fileId = params.get('file_id');
 
-    if (!fileId || shouldPassThroughToNative(fileId)) return;
+    const isNMM = wantsVortexHandoff(params);
+    if (!fileId || shouldPassThroughToNative(fileId, isNMM)) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();
 
-    return runDownload({ button, fileId, isNMM: wantsVortexHandoff(params), href: location.href });
+    return runDownload({ button, fileId, isNMM, href: location.href });
   }
 
   function wantsVortexHandoff(params) {

@@ -2199,7 +2199,7 @@
     "description": "UI string."
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "If nothing happened, check that Vortex is installed and set to handle nxm:// links (and allow the browser prompt), then click the button again.",
+    "message": "If nothing happened, check that Vortex is installed, set to handle nxm:// links and signed in to the same Nexus account as this browser (and allow the browser prompt), then click the button again.",
     "description": "UI string."
   },
   "summarySent": {
@@ -2362,6 +2362,10 @@
   },
   "setupTestUnsure": {
     "message": "Could not tell whether Vortex opened."
+  },
+  "setupTestAlreadyOpen": {
+    "message": "If Vortex was already open, this test cannot bring it to the front. Close Vortex and test again.",
+    "description": "Shown under setupTestUnsure: Vortex ignores the test link's focus request when it is already running."
   },
   "setupTestFailed": {
     "message": "Vortex did not open. Install Vortex and let it handle nxm:// links (Vortex Settings → Downloads), or choose browser downloads above."

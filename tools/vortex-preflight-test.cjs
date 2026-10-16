@@ -306,6 +306,54 @@ function createHarness(choice) {
   assert.deepEqual(askedWhilePaused, [], 'nothing past the skipped file is asked for while paused');
   assert.deepEqual(pausing.handed, ['Two.7z', 'Three.7z'], 'and the run carries on after Resume');
 
+  // "Retry failed" on the summary of a run that ended on a sign-in (or stopped, or blocked) retries:
+  // the run left the status at Stopped, which used to skip every retry without a word.
+  let card = null;
+  let runNdc = null;
+  const savedSummary = NexusExt.UI.showRunSummary;
+  NexusExt.UI.showRunSummary = (summary, options) => { card = { summary, options }; };
+  const signIn = await runVortexQueue([vortexMod(1, 'A.7z', 1), vortexMod(2, 'B.7z', 2)], (mod, ndc) => {
+    runNdc = ndc;
+    return mod.fileId === 1 ? 'server_error' : 'requires_login';
+  });
+  NexusExt.UI.showRunSummary = savedSummary;
+  assert.equal(signIn.outcome, 'requires_login');
+  assert.deepEqual(card?.summary.failed.map((entry) => entry.name), ['A.7z']);
+  runNdc.runStatus = 3; // what the deck's endDownload leaves after a run that ended this way
+  const retried = [];
+  runNdc.retryMod = async (mod) => { retried.push(mod.file.name); };
+  await card.options.onRetryFailed();
+  assert.deepEqual(retried, ['A.7z'], 'the failed file is retried');
+
+  // Nexus re-renders the page mid-run and the deck is mounted again: a Vortex run has no worker job to
+  // attach to, so the new deck is set up from the run's own count, with its Stop and Pause.
+  const remounted = [];
+  await runVortexQueue(threeMods(), (mod, ndc) => {
+    if (mod.fileId !== 2) return '';
+    const fresh = {
+      ...ndc.ui,
+      startDownload: (total, options) => remounted.push(['start', total, options?.resumed === true]),
+      setProgress: (done, total) => remounted.push(['progress', done, total]),
+      setDownloadStatus: (status) => remounted.push(['status', status])
+    };
+    ndc.ui = fresh;
+    ndc.running = true;
+    ndc.resumeBackgroundRun().then((attached) => remounted.push(['attached', attached]));
+    return '';
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(remounted, [['start', 3, true], ['progress', 1, 3], ['attached', true]],
+    'the new deck shows the run, one file in, without asking the worker');
+
+  // The second file waits for a Vortex the first link may have started (a link that arrives while
+  // Vortex is still loading is dropped); the files after it do not.
+  NXTK.VORTEX_STARTUP_GAP_SECONDS = 1;
+  const askedAt = [];
+  await runVortexQueue(threeMods(), () => { askedAt.push(Date.now()); return ''; });
+  delete NXTK.VORTEX_STARTUP_GAP_SECONDS;
+  assert.ok(askedAt[1] - askedAt[0] >= 900, `the second file waits for Vortex to start (${askedAt[1] - askedAt[0]} ms)`);
+  assert.ok(askedAt[2] - askedAt[1] < 900, `the third does not wait again (${askedAt[2] - askedAt[1]} ms)`);
+
   const off = new NexusExt.NDC('game', 'collection');
   off.loadRunSettings({ NDC_smallestFirst: false });
   assert.equal(off.smallestFirst, false, 'the order can be turned off');
@@ -396,6 +444,15 @@ function createHarness(choice) {
     docV.hasFocus = () => false;
     assert.equal(await S.waitForProtocolHandoff({ win: winV, doc: docV, timeoutMs: 1000, maxMs: 40, pollMs: 10, onResult: (r) => reasonsV.push(r) }), true, 'focus kept away for maxMs means Vortex opened');
     assert.deepEqual([...reasonsV], ['blur-persisted']);
+    // A page already in the background when the link went out: no focus to lose and hidden already,
+    // which used to read as "opened" at once, closing the tab and remembering Vortex as working.
+    const winH = target(); const docH = target(); const reasonsH = [];
+    docH.visibilityState = 'hidden';
+    docH.hasFocus = () => false;
+    assert.equal(await S.waitForProtocolHandoff({ win: winH, doc: docH, timeoutMs: 1000, maxMs: 40, pollMs: 10, onResult: (r) => reasonsH.push(r) }), false,
+      'a hand-off from a hidden page is unknown, not opened');
+    assert.deepEqual([...reasonsH], ['started-hidden']);
+    assert.deepEqual(Object.keys(winH.listeners), [], 'and leaves no listeners behind');
 
     // A typed run: hand-offs land in the sent list, a sent file is sent again, a downloaded one is skipped.
     const typedRun = async ({ history = {}, opened = true, modalAnswer = 'yes', links = null, mods }) => {

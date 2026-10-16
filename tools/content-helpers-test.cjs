@@ -159,6 +159,7 @@ function nativePassthroughTests() {
     const NATIVE_PASSTHROUGH_TTL_MS = ${extractConstExpression(nnw, 'NATIVE_PASSTHROUGH_TTL_MS')};
     const MAX_NATIVE_PASSTHROUGH_FILES = ${extractConstExpression(nnw, 'MAX_NATIVE_PASSTHROUGH_FILES')};
     const nativePassthroughFiles = new Map();
+    const passthroughKey = ${extractConstExpression(nnw, 'passthroughKey')};
     ${extractFunction(nnw, 'allowNativeDownload')}
     ${extractFunction(nnw, 'shouldPassThroughToNative')}
     ${extractFunction(nnw, 'clearNativeDownloadPassthrough')}
@@ -175,24 +176,28 @@ function nativePassthroughTests() {
   assert.ok(api.ttl > 0 && api.ttl <= 15 * 60 * 1000, 'the hand-back window is short-lived');
   assert.equal(api.shouldPassThroughToNative('42'), false, 'nothing is handed back by default');
 
-  api.allowNativeDownload('42');
-  assert.equal(api.shouldPassThroughToNative('42'), true, 'the failed file is handed back');
-  assert.equal(api.shouldPassThroughToNative(42), true, 'numeric and string IDs are the same file');
-  assert.equal(api.shouldPassThroughToNative('43'), false, 'other files are unaffected');
+  api.allowNativeDownload('42', false);
+  assert.equal(api.shouldPassThroughToNative('42', false), true, 'the failed file is handed back');
+  assert.equal(api.shouldPassThroughToNative(42, false), true, 'numeric and string IDs are the same file');
+  assert.equal(api.shouldPassThroughToNative('43', false), false, 'other files are unaffected');
+  assert.equal(api.shouldPassThroughToNative('42', true), false,
+    'and only for the method that failed: a Vortex hand-off of the same file is still the extension\'s');
+  api.allowNativeDownload('42', true);
+  assert.equal(api.shouldPassThroughToNative('42', true), true);
 
-  api.allowNativeDownload('');
-  assert.equal(api.store.size, 1, 'a missing file ID is not stored');
+  api.allowNativeDownload('', true);
+  assert.equal(api.store.size, 2, 'a missing file ID is not stored');
 
   // An expired entry must let the extension try again: whatever blocked the
   // download (a sign-in, a moderation hold) can be resolved while the page lives.
-  api.store.set('42', Date.now() - 1);
-  assert.equal(api.shouldPassThroughToNative('42'), false, 'the hand-back expires');
-  assert.equal(api.store.has('42'), false, 'the expired entry is dropped');
+  api.store.set('browser:42', Date.now() - 1);
+  assert.equal(api.shouldPassThroughToNative('42', false), false, 'the hand-back expires');
+  assert.equal(api.store.has('browser:42'), false, 'the expired entry is dropped');
 
-  for (let index = 0; index < api.cap + 6; index += 1) api.allowNativeDownload(String(1000 + index));
+  for (let index = 0; index < api.cap + 6; index += 1) api.allowNativeDownload(String(1000 + index), false);
   assert.equal(api.store.size, api.cap, 'the set cannot grow without bound');
-  assert.equal(api.shouldPassThroughToNative('1000'), false, 'the oldest entries are evicted');
-  assert.equal(api.shouldPassThroughToNative(String(1000 + api.cap + 5)), true, 'the newest is kept');
+  assert.equal(api.shouldPassThroughToNative('1000', false), false, 'the oldest entries are evicted');
+  assert.equal(api.shouldPassThroughToNative(String(1000 + api.cap + 5), false), true, 'the newest is kept');
 
   api.clearNativeDownloadPassthrough();
   assert.equal(api.store.size, 0, 'navigating away clears every hand-back');

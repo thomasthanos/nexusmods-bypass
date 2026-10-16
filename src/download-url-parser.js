@@ -87,8 +87,10 @@
     return decodeLinkText(value).replace(/[)\]},;"']+$/, '').trim();
   }
 
-  // nxm://<game>/mods/<mod>/files/<file>?key=…&expires=…&user_id=… — Vortex refuses anything less.
-  // The authority has to be a bare game domain, which leaves no room for credentials or a port.
+  // nxm://<game>/mods/<mod>/files/<file>?key=…&expires=…&user_id=…, as the site's own Vortex button
+  // signs it. Vortex would take a link with no key, but only to send a free user back to the website for
+  // one, so anything less is no use here. The authority has to be a bare game domain, which leaves no
+  // room for credentials or a port.
   function isSignedNxm(candidate) {
     if (candidate.length > MAX_URL_CHARS || NXM_FORBIDDEN_CHARS.test(candidate)) return false;
     const parts = NXM_LINK.exec(candidate);
@@ -100,13 +102,26 @@
       && /^\d+$/.test(params.get('user_id') || '');
   }
 
-  // The first signed nxm:// link anywhere in the text, or null.
-  function findSignedNxmLink(text) {
+  // The file id an nxm:// link names, without leading zeros ('' when it names none). Vortex matches an
+  // incoming link to the download it is waiting for by game, mod and file id, so a link for another
+  // file starts a separate download there and leaves the awaited one waiting.
+  function nxmFileId(candidate) {
+    const parts = NXM_LINK.exec(String(candidate || ''));
+    const id = parts ? /\/files\/(\d{1,12})\/?$/i.exec(parts[2])?.[1] : '';
+    return id ? String(Number(id)) : '';
+  }
+
+  function isForFile(candidate, fileId) {
+    return !fileId || nxmFileId(candidate) === String(Number(fileId));
+  }
+
+  // The first signed nxm:// link anywhere in the text (for that file, when a file id is given), or null.
+  function findSignedNxmLink(text, { fileId = '' } = {}) {
     if (!text) return null;
     const decoded = decodeLinkText(String(text).slice(0, MAX_INPUT_CHARS));
     for (const match of decoded.matchAll(NXM_TOKEN)) {
       const candidate = cleanCandidate(match[0]);
-      if (isSignedNxm(candidate)) return candidate;
+      if (isSignedNxm(candidate) && isForFile(candidate, toFileId(fileId))) return candidate;
     }
     return null;
   }
@@ -191,7 +206,8 @@
       if (/^nxm:/i.test(candidate)) {
         if (!settings.vortex) return refuse('nxm link where the browser needs the file');
         const problem = nxmProblem(candidate);
-        return problem ? refuse(problem) : candidate;
+        if (problem) return refuse(problem);
+        return isForFile(candidate, settings.fileId) ? candidate : otherFile('nxm link for another file');
       }
 
       const shared = globalThis.NXTK;
@@ -345,7 +361,7 @@
     }
 
     function fromNxm(text) {
-      const url = findSignedNxmLink(text);
+      const url = findSignedNxmLink(text, { fileId: settings.fileId });
       if (!url && settings.trace) {
         for (const match of decodeLinkText(text).matchAll(NXM_TOKEN)) acceptCandidate(match[0]);
       }
@@ -441,6 +457,7 @@
     explainMissingLink,
     findDownloadLink,
     findSignedNxmLink,
-    isSignedNxmLink
+    isSignedNxmLink,
+    nxmFileId
   });
 })();

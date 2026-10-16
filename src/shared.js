@@ -305,6 +305,9 @@
   }
 
   const MIN_HANDOFF_GAP_SECONDS = 2;
+  // The wait after a run's first Vortex hand-off. Only the link that starts Vortex reaches it on the
+  // command line; one that arrives while Vortex is still loading its window is dropped.
+  const VORTEX_STARTUP_GAP_SECONDS = 20;
 
   // ---- Friendlier setup (3.1.0) ----
 
@@ -423,8 +426,9 @@
     return next;
   }
 
-  // A link Vortex treats as harmless: "re-read the membership". It opens (or focuses) Vortex and
-  // changes nothing, so it can test the nxm:// handler.
+  // A link Vortex treats as harmless: "re-read the membership". It starts Vortex when it is not
+  // running and changes nothing, so it can test the nxm:// handler. A Vortex that is already running
+  // takes it without coming to the front, so the test only shows anything on a cold start.
   const VORTEX_TEST_LINK = 'nxm://premium';
 
   // Plain text for "Copy list" on the end-of-run summary.
@@ -516,6 +520,14 @@
     onResult = null
   } = {}) {
     return new Promise((resolve) => {
+      // A page that was already in the background shows nothing either way: it has no focus to lose,
+      // and it is hidden already. Reading that as "opened" closed the tab and remembered Vortex as
+      // working when nothing was known.
+      if (doc?.visibilityState === 'hidden') {
+        try { onResult?.('started-hidden'); } catch (_) { }
+        resolve(false);
+        return;
+      }
       let done = false;
       let blurTimer = null;
       let pollTimer = null;
@@ -1253,6 +1265,13 @@
   // cost a message, two storage writes and an auto-report check per repetition. One context sends the
   // same fault at most once per repeatMs and at most burstLimit entries a minute; what does arrive is
   // still counted and grouped by the background log.
+  // Where in the packaged code an error was thrown (file:line:column), or ''. Every unhandled rejection
+  // shares one code and context, so without it two different bugs counted as one and the second was lost.
+  function stackFrameOf(entry) {
+    const frame = String(entry?.stack || '').match(/(?:ext:\/\/|(?:chrome|moz)-extension:\/\/[^/]+\/)([\w/.-]+\.js):(\d+):(\d+)/);
+    return frame ? `${frame[1]}:${frame[2]}:${frame[3]}` : '';
+  }
+
   function createErrorThrottle({ now = () => Date.now(), repeatMs = 2000, burstLimit = 20, windowMs = 60 * 1000 } = {}) {
     const lastSent = new Map();
     let windowStart = -Infinity;
@@ -1263,7 +1282,7 @@
         windowStart = at;
         sentInWindow = 0;
       }
-      const signature = `${entry?.code || ''}|${entry?.context || ''}|${entry?.status ?? ''}`;
+      const signature = `${entry?.code || ''}|${entry?.context || ''}|${entry?.status ?? ''}|${stackFrameOf(entry)}`;
       const previous = lastSent.get(signature);
       if (previous !== undefined && at - previous < repeatMs) return false;
       if (sentInWindow >= burstLimit) return false;
@@ -1471,6 +1490,7 @@
     setSafeHtml,
     classifyDownloadInterrupt,
     MIN_HANDOFF_GAP_SECONDS,
+    VORTEX_STARTUP_GAP_SECONDS,
     SETTING_PRESETS,
     applyPreset,
     matchingPreset,
@@ -1528,6 +1548,7 @@
     isSafeNexusPageUrl,
     buildErrorEntry,
     createErrorThrottle,
+    stackFrameOf,
     recordError,
     setActivity,
     noteActivity,

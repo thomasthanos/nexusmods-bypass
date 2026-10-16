@@ -1855,7 +1855,7 @@
     "message": "Vortex ne s’est pas ouvert ?"
   },
   "noticeVortexNotOpenedDetail": {
-    "message": "S’il ne s’est rien passé, vérifiez que Vortex est installé et configuré pour les liens nxm:// (et autorisez l’invite du navigateur), puis recliquez sur le bouton."
+    "message": "S’il ne s’est rien passé, vérifiez que Vortex est installé, configuré pour les liens nxm:// et connecté au même compte Nexus que ce navigateur (et autorisez l’invite du navigateur), puis recliquez sur le bouton."
   },
   "summarySent": {
     "message": "Envoyés"
@@ -2133,6 +2133,9 @@
         "content": "$1"
       }
     }
+  },
+  "setupTestAlreadyOpen": {
+    "message": "Si Vortex était déjà ouvert, ce test ne peut pas le mettre au premier plan. Fermez Vortex et refaites le test."
   },
   "autoPromptTitle": {
     "message": "Help fix errors faster"

@@ -177,6 +177,22 @@ function readsVortexLinksOnLegacyChromium() {
     'a report names the link the same way');
   assert.equal(context.NXTK.validateDownloadTarget(VORTEX_URL, { method: 0 }).hostname, 'newvegas',
     'and the download check reads its game');
+
+  // Vortex hands a link only to the download waiting for that game, mod and file, so a link for
+  // another file is never taken for this one.
+  const other = 'nxm://newvegas/mods/100/files/999?key=b&expires=1&user_id=7';
+  const both = JSON.stringify({ links: [other, VORTEX_URL] });
+  assert.equal(Parser.nxmFileId(VORTEX_URL), '200');
+  assert.equal(Parser.nxmFileId('nxm://newvegas/mods/100/files/0200/?key=a'), '200', 'leading zeros and a trailing slash read as Vortex reads them');
+  assert.equal(Parser.nxmFileId('nxm://newvegas/collections/abc/revisions/3'), '', 'a collection link names no file');
+  assert.equal(Parser.findSignedNxmLink(both), other, 'without a file id the first signed link is taken');
+  assert.equal(Parser.findSignedNxmLink(both, { fileId: '200' }), VORTEX_URL, 'with one, the link for that file');
+  assert.equal(Parser.findSignedNxmLink(other, { fileId: '200' }), null, 'and never another file\'s');
+  assert.equal(Parser.findDownloadLink(JSON.stringify({ url: other }), { mode: 'vortex', fileId: '200' }), null,
+    'a generator answer that hands back another file\'s link gives no link');
+  assert.equal(Parser.findDownloadLink(JSON.stringify({ url: VORTEX_URL }), { mode: 'vortex', fileId: '200' })?.url, VORTEX_URL);
+  assert.match(Parser.explainMissingLink(JSON.stringify({ url: other }), { mode: 'vortex', fileId: '200' }), /nxm link for another file/,
+    'and a report says so');
 }
 
 const Parser = workerRunsEveryCase();

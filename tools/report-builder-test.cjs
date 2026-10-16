@@ -651,6 +651,13 @@ async function errorPipelineTests() {
   assert.equal(admitted, 20, 'a burst is capped per minute');
   now += 60000;
   assert.equal(admit({ code: 'storm', context: 'late' }), true, 'and the cap resets');
+  // Every unhandled rejection shares one code and context; where it was thrown tells two bugs apart.
+  const rejection = (frame) => ({ code: 'unhandled_rejection', context: 'Unhandled extension promise', stack: `TypeError: x\n    at ext://content/${frame}` });
+  assert.equal(admit(rejection('nnw.js:120:7')), true);
+  assert.equal(admit(rejection('ndc.js:790:3')), true, 'a second, different rejection moments later is admitted');
+  assert.equal(admit(rejection('nnw.js:120:7')), false, 'while the same one repeated is still held back');
+  assert.equal(NXTK.stackFrameOf({ stack: 'Error\n    at chrome-extension://abcdef/content/ui.js:4:2' }), 'content/ui.js:4:2');
+  assert.equal(NXTK.stackFrameOf({}), '');
   // recordError itself: a throwing loop sends a bounded number of messages.
   const page = loadShared();
   const messages = [];
