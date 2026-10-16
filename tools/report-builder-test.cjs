@@ -81,6 +81,59 @@ function personalRedactionTests() {
   assert.equal(clean('file_id 734848 of mod 12604'), 'file_id 734848 of mod 12604', 'ordinary numbers stay');
 }
 
+// Every channel a report is built from gets each secret a page, a log line or a user could put there,
+// one secret at a time so one redaction rule cannot hide another. Whatever path a field takes, the
+// payload, the GitHub link and the copied text must carry none of the canary values.
+async function reportCanaryTests() {
+  const apiKey = 'Q2xhdWRlUUFjYW5hcnlLZXk+Rm9yVGVzdHM=--b7c1e2d3a4f5--9d8c7b6a5f4e3d2c1b0a99887766';
+  const secrets = [
+    [`apikey: ${apiKey}`, ['Q2xhdWRlUUFjYW5hcnlLZXk', 'Rm9yVGVzdHM']],
+    [`X-Api-Key: ${apiKey}`, ['Q2xhdWRlUUFjYW5hcnlLZXk', 'Rm9yVGVzdHM']],
+    [`{"apikey":"${apiKey}"}`, ['Q2xhdWRlUUFjYW5hcnlLZXk', 'Rm9yVGVzdHM']],
+    [`https://api.nexusmods.com/v1/users/validate.json?apikey=${apiKey}`, ['Q2xhdWRlUUFjYW5hcnlLZXk', 'Rm9yVGVzdHM']],
+    ['Cookie: nexusmods_session=CanarySessionValue42; sid=CanarySid42', ['CanarySessionValue42', 'CanarySid42']],
+    ['Set-Cookie: nexusmods_session=CanarySessionValue42; Path=/', ['CanarySessionValue42']],
+    ['Authorization: Bearer CanaryBearerToken.Value-42', ['CanaryBearerToken']],
+    ['eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJDYW5hcnlKV1QifQ.Q2FuYXJ5U2lnbmF0dXJlNDI', ['eyJzdWIiOiJDYW5hcnlKV1QifQ', 'Q2FuYXJ5U2lnbmF0dXJlNDI']],
+    ['nxm://skyrimspecialedition/mods/1/files/2?key=CanaryNxmKey42&expires=1700000000&user_id=73519', ['CanaryNxmKey42', '73519']],
+    ['https://premium-files.nexus-cdn.com/1704/1/a.7z?md5=x&expires=1&user_id=73519&key=CanaryCdnKey42', ['CanaryCdnKey42', '73519']],
+    ['key=CanaryLooseKey42 token: CanaryToken42 password=CanaryPassword42 session_id=CanarySessionId42',
+      ['CanaryLooseKey42', 'CanaryToken42', 'CanaryPassword42', 'CanarySessionId42']],
+    ['C:\\Users\\CanaryWinUser\\Downloads\\a.7z', ['CanaryWinUser']],
+    ['/home/canaryunixuser/.config/a.json and /Users/canarymacuser/Library/a.plist', ['canaryunixuser', 'canarymacuser']],
+    ['canary.person@example.com', ['canary.person']],
+    ['https://www.nexusmods.com/users/canaryprofile?tab=about', ['canaryprofile']]
+  ];
+  const leaks = [];
+  for (const [secret, canaries] of secrets) {
+    const tainted = loggedError({
+      code: 'request_failed', context: secret, action: secret, userMessage: secret,
+      technicalMessage: secret, stack: `Error: ${secret}\n    at x (${secret})`, url: secret
+    });
+    const { NXTK, store } = loadShared({
+      settings: { DownloadFolder: secret, DebugLogs: true },
+      errors: [tainted]
+    });
+    store[NXTK.DEBUG_LOG_KEY] = [{ at: Date.now(), level: secret, page: secret, text: secret }];
+    const payload = await NXTK.buildReportPayload(tainted, {
+      note: secret, summary: secret, steps: secret, expected: secret, contact: secret
+    });
+    // The reply address is the one personal datum a user hands over on purpose; it goes to the private
+    // relay only (reportPayloadTests), so the scan leaves that one field out.
+    const outputs = {
+      payload: JSON.stringify({ ...payload, contact: undefined }),
+      'issue link': decodeURIComponent(NXTK.buildPayloadIssueUrl(payload).url),
+      'copied report': NXTK.buildBugReport(tainted)
+    };
+    for (const [where, text] of Object.entries(outputs)) {
+      for (const canary of canaries) {
+        if (String(text).toLowerCase().includes(canary.toLowerCase())) leaks.push(`${where} keeps "${canary}" from: ${secret.slice(0, 60)}`);
+      }
+    }
+  }
+  assert.deepEqual(leaks, [], `secrets reached a report:\n${leaks.join('\n')}`);
+}
+
 async function reportPayloadTests() {
   const { NXTK, store } = loadShared({
     settings: { DownloadFolder: 'C:\\Users\\Jane\\Mods', DebugLogs: true },
@@ -631,6 +684,7 @@ Promise.resolve()
   .then(settingLimitTests)
   .then(personalRedactionTests)
   .then(reportPayloadTests)
+  .then(reportCanaryTests)
   .then(runPromptTests)
   .then(errorPipelineTests)
   .then(() => console.log('bug report builder behavior OK'))

@@ -700,6 +700,8 @@
     'session_id',
     'signature',
     'api_key',
+    // The Nexus API's own name for its key, as a header and a JSON field.
+    'apikey',
     'download_key',
     'code',
     'state',
@@ -746,21 +748,24 @@
     return parts ? { hostname: normalizeHostname(parts[1]), pathname: parts[2] } : null;
   }
 
+  // A report's url fields are not free text, so the personal-data rules are applied here as well: a
+  // profile page (/users/name), a file:// path or a value that is not a URL at all names the user too.
   function sanitizeUrlForReport(url) {
     const raw = String(url ?? '').trim();
     if (!raw) return '';
-    if (!URL_SHAPE.test(raw)) return redactSensitiveValues(raw.split(/[?#]/)[0]).slice(0, 160);
+    const notAUrl = () => redactPersonalData(redactSensitiveValues(raw.split(/[?#]/)[0])).slice(0, 160);
+    if (!URL_SHAPE.test(raw)) return notAUrl();
     try {
       const parsed = new URL(raw);
       if (parsed.protocol === 'nxm:') {
         const nxm = nxmHostAndPath(raw) || parsed;
-        return 'nxm://' + nxm.hostname + nxm.pathname + ' (query removed)';
+        return redactPersonalData('nxm://' + nxm.hostname + nxm.pathname) + ' (query removed)';
       }
       const fileId = parsed.searchParams.get('file_id');
-      const base = parsed.protocol + '//' + parsed.host + parsed.pathname;
+      const base = redactPersonalData(parsed.protocol + '//' + parsed.host + parsed.pathname);
       return base + (fileId && /^\d{1,12}$/.test(fileId) ? '?file_id=' + fileId : '');
     } catch (_) {
-      return redactSensitiveValues(raw.split(/[?#]/)[0]).slice(0, 160);
+      return notAUrl();
     }
   }
 

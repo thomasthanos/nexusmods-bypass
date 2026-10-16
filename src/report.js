@@ -544,10 +544,12 @@
         reference: selectedError ? NXTK.errorReference(selectedError) : '',
         currentError: selectedError ? NXTK.buildErrorEntry(selectedError) : null,
         errors: errors.slice(-15).map((entry) => NXTK.buildErrorEntry(entry)),
+        // Every field of a stored line is checked again: the log may come from an older version or a
+        // writer that did not sanitize it.
         logs: debug.slice(-200).map((entry) => ({
           at: new Date(Number(entry.at) || 0).toISOString(),
-          level: String(entry.level || 'info'),
-          page: String(entry.page || ''),
+          level: ['debug', 'info', 'warn', 'error'].includes(entry.level) ? entry.level : 'info',
+          page: clean(entry.page, 20),
           text: clean(entry.text, 400)
         })),
         report: ''

@@ -2151,9 +2151,15 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
+  // The marker keeps what the page had, so switching the setting off puts back exactly that: its own
+  // aria-hidden (an icon it hides from screen readers, a card it exposes) and no class attribute where
+  // it had none.
   function hideUpsellElement(el, className = "nxtk-upsell-hidden") {
-    if (!el || !el.dataset || el.dataset.nxtkUpsellHidden === "1") return;
-    el.dataset.nxtkUpsellHidden = "1";
+    if (!el || !el.dataset || el.dataset.nxtkUpsellHidden) return;
+    el.dataset.nxtkUpsellHidden = JSON.stringify({
+      ariaHidden: el.getAttribute("aria-hidden"),
+      hadClass: el.hasAttribute("class")
+    });
     el.classList.add(className);
     el.setAttribute("aria-hidden", "true");
   }
@@ -2170,9 +2176,13 @@ window.NexusExt = window.NexusExt || {};
     pendingUpsellNeedsFullScan = false;
 
     document.querySelectorAll('.nxtk-upsell-hidden, .nxtk-ad-hidden, [data-nxtk-upsell-hidden]').forEach((el) => {
+      let saved = null;
+      try { saved = JSON.parse(el.dataset.nxtkUpsellHidden || 'null'); } catch (_) { }
       el.classList.remove('nxtk-upsell-hidden');
       el.classList.remove('nxtk-ad-hidden');
-      el.removeAttribute('aria-hidden');
+      if (!saved?.hadClass && !el.classList.length) el.removeAttribute('class');
+      if (typeof saved?.ariaHidden === 'string') el.setAttribute('aria-hidden', saved.ariaHidden);
+      else el.removeAttribute('aria-hidden');
       delete el.dataset.nxtkUpsellHidden;
     });
 
