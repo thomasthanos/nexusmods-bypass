@@ -1440,6 +1440,176 @@ async function stuckResumableInterruptFailsWithoutDuplicate() {
   }
 }
 
+// chrome.downloads as Chrome implements it (downloads_api.cc): cancel only acts on a download in
+// progress and answers success for any other all the same; resume restarts an interrupted one, which
+// fails again before anything reads it while the connection is down; erase discards the partial file
+// and drops the record.
+function chromeLikeDownloads(initial, calls) {
+  let record = { ...initial };
+  const downloads = {
+    record: () => record,
+    search: (_query, cb) => cb(record ? [{ ...record }] : []),
+    removeFile: (_id, cb) => {
+      global.chrome.runtime.lastError = { message: 'Download must be complete' };
+      cb();
+      global.chrome.runtime.lastError = null;
+    },
+    download: (_options, cb) => cb(record?.id),
+    resume: (_id, cb) => { calls.resume += 1; cb(); },
+    cancel: (_id, cb) => {
+      calls.cancel += 1;
+      if (record?.state === 'in_progress') record = { ...record, state: 'interrupted', error: 'USER_CANCELED', canResume: false };
+      cb();
+    },
+    erase: (query, cb) => {
+      calls.erase += 1;
+      const erased = record && record.id === query?.id ? [record.id] : [];
+      if (erased.length) record = null;
+      cb(erased);
+    }
+  };
+  return downloads;
+}
+
+// Discord report E-0xl7ejg (Chrome 150): "NETWORK_FAILED [transient] cleanup_failed". A dropped
+// connection left a resumable record that resuming could not revive, and Chrome's cancel does nothing
+// to an interrupted download, so the record stayed resumable and the file failed with no retry.
+async function stuckResumableInterruptIsClosedThenRetriedInChrome() {
+  const previousDownloads = global.chrome.downloads;
+  const jobId = 'testjob-chrome-stuck-resume';
+  const downloadId = 911;
+  const fileId = 71;
+
+  try {
+    await seedTerminalRegressionJob({ jobId, downloadId, fileId });
+    const calls = { resume: 0, cancel: 0, erase: 0 };
+    const downloads = chromeLikeDownloads({
+      id: downloadId, state: 'interrupted', paused: false, canResume: true, error: 'NETWORK_FAILED',
+      byExtensionId: 'test-extension-id', bytesReceived: 40000, totalBytes: 166912, fileSize: 0,
+      url: 'https://cf-files.nexusmods.com/cdn/1704/71/Terminal%2071.7z?md5=x&expires=1',
+      filename: 'C:\\dl\\Terminal 71.7z'
+    }, calls);
+    global.chrome.downloads = downloads;
+
+    await handleNdcDownloadTerminal(downloadId, 'interrupted', 'NETWORK_FAILED');
+    let job = await readNdcJob(jobId);
+    assert.equal(job.activeDownloadId, downloadId, 'the first stuck resume keeps the id for a later look');
+    await handleNdcDownloadTerminal(downloadId, 'interrupted', 'NETWORK_FAILED');
+    job = await readNdcJob(jobId);
+
+    assert.equal(calls.resume, 2, 'each look tries the browser resume first');
+    assert.equal(jobFailureCount(job), 0, `a transient drop is not failed outright (${JSON.stringify(job.failed)})`);
+    assert.equal(downloads.record(), null, 'the old attempt is gone, so nothing can resume it beside the retry');
+    assert.equal(job.transferAttempts, 1, 'the file gets a fresh attempt');
+    assert.equal(job.index, 0, 'the queue stays on the same file');
+    assert.equal(job.activeDownloadId, null, 'the old id is released for the retry');
+  } finally {
+    global.chrome.downloads = previousDownloads;
+    global.chrome.runtime.lastError = null;
+  }
+}
+
+// The close has to be proved, not assumed: an erase the browser refuses leaves the record resumable,
+// and the file then fails as before rather than starting a second id beside it.
+async function unconfirmedEraseStillFailsWithoutDuplicate() {
+  const previousDownloads = global.chrome.downloads;
+  const jobId = 'testjob-chrome-erase-refused';
+  const downloadId = 912;
+  const fileId = 72;
+
+  try {
+    await seedTerminalRegressionJob({ jobId, downloadId, fileId });
+    const calls = { resume: 0, cancel: 0, erase: 0 };
+    const downloads = chromeLikeDownloads({
+      id: downloadId, state: 'interrupted', paused: false, canResume: true, error: 'NETWORK_FAILED',
+      bytesReceived: 40000, totalBytes: 166912, fileSize: 0, filename: 'C:\\dl\\Terminal 72.7z'
+    }, calls);
+    downloads.erase = (_query, cb) => {
+      calls.erase += 1;
+      global.chrome.runtime.lastError = { message: 'erase refused' };
+      cb();
+      global.chrome.runtime.lastError = null;
+    };
+    global.chrome.downloads = downloads;
+
+    await handleNdcDownloadTerminal(downloadId, 'interrupted', 'NETWORK_FAILED');
+    await handleNdcDownloadTerminal(downloadId, 'interrupted', 'NETWORK_FAILED');
+    const job = await readNdcJob(jobId);
+    assert.equal(calls.erase, 1, 'the close is attempted');
+    assert.equal(downloads.record()?.canResume, true, 'the record is still resumable');
+    assert.equal(job.transferAttempts, 0, 'so no retry starts beside it');
+    assert.equal(job.index, 1, 'and the file fails instead');
+    assert.match(job.failed[0].code, /cleanup_failed/, 'naming why no retry ran');
+  } finally {
+    global.chrome.downloads = previousDownloads;
+    global.chrome.runtime.lastError = null;
+  }
+}
+
+// Firefox's cancel discards an interrupted download's partial data. Once it says the record can no
+// longer resume, the file is retried, and nothing is erased.
+async function cancelledStuckResumeIsRetriedInFirefox() {
+  const previousDownloads = global.chrome.downloads;
+  const jobId = 'testjob-firefox-stuck-resume';
+  const downloadId = 913;
+  const fileId = 73;
+
+  try {
+    await seedTerminalRegressionJob({ jobId, downloadId, fileId });
+    let record = {
+      id: downloadId, state: 'interrupted', paused: false, canResume: true, error: 'NETWORK_FAILED',
+      bytesReceived: 40000, totalBytes: 166912, fileSize: 0, filename: '/home/u/dl/Terminal 73.7z'
+    };
+    let erases = 0;
+    global.chrome.downloads = {
+      search: (_query, cb) => cb([{ ...record }]),
+      download: (_options, cb) => cb(downloadId),
+      resume: (_id, cb) => cb(),
+      cancel: (_id, cb) => {
+        record = { ...record, error: 'USER_CANCELED', canResume: false };
+        cb();
+      },
+      erase: (_query, cb) => { erases += 1; cb([]); }
+    };
+
+    await handleNdcDownloadTerminal(downloadId, 'interrupted', 'NETWORK_FAILED');
+    await handleNdcDownloadTerminal(downloadId, 'interrupted', 'NETWORK_FAILED');
+    const job = await readNdcJob(jobId);
+    assert.equal(erases, 0, 'a cancel that closed the record is enough');
+    assert.equal(jobFailureCount(job), 0, 'the file is not failed');
+    assert.equal(job.transferAttempts, 1, 'it gets a fresh attempt');
+  } finally {
+    global.chrome.downloads = previousDownloads;
+  }
+}
+
+// Stop has the same problem in Chrome: its cancel left an interrupted download resumable, so the
+// retirement never finished and starting the collection again was refused.
+async function stopRetiresStuckResumableDownloadInChrome() {
+  const previousDownloads = global.chrome.downloads;
+  const jobId = 'testjob-chrome-stop-resumable';
+  const downloadId = 914;
+  const fileId = 74;
+
+  try {
+    await seedTerminalRegressionJob({ jobId, downloadId, fileId });
+    const calls = { resume: 0, cancel: 0, erase: 0 };
+    const downloads = chromeLikeDownloads({
+      id: downloadId, state: 'interrupted', paused: false, canResume: true, error: 'NETWORK_FAILED',
+      bytesReceived: 40000, totalBytes: 166912, fileSize: 0, filename: 'C:\\dl\\Terminal 74.7z'
+    }, calls);
+    global.chrome.downloads = downloads;
+
+    await context.haltNdcJob(await readNdcJob(jobId), { notify: false });
+    const job = await readNdcJob(jobId);
+    assert.equal(job.status, 'stopped');
+    assert.equal(downloads.record(), null, 'the stopped attempt can no longer be resumed');
+    assert.equal(job.retiringDownloadId, undefined, 'so its retirement is finished');
+  } finally {
+    global.chrome.downloads = previousDownloads;
+  }
+}
+
 // A complete delta can arrive before downloads.search catches up. The queue may only count a
 // success once the record itself says complete; an in-progress record must remain owned.
 async function completeEventRequiresCompleteRecord() {
@@ -1589,6 +1759,10 @@ async function newRegressionCoverage() {
     ['repeated uncancelled interruption fails safely', repeatedUncancelledInterruptFailsWithoutDuplicate],
     ['resumable interruption is resumed', resumableInterruptIsActuallyResumed],
     ['stuck resumable interruption fails safely', stuckResumableInterruptFailsWithoutDuplicate],
+    ['stuck resumable interruption is closed then retried in Chrome', stuckResumableInterruptIsClosedThenRetriedInChrome],
+    ['unconfirmed erase still fails without a duplicate', unconfirmedEraseStillFailsWithoutDuplicate],
+    ['cancelled stuck resume is retried in Firefox', cancelledStuckResumeIsRetriedInFirefox],
+    ['stop retires a stuck resumable download in Chrome', stopRetiresStuckResumableDownloadInChrome],
     ['complete event requires a complete record', completeEventRequiresCompleteRecord],
     ['stop wins against terminal work', stopWinsAgainstInFlightTerminalWork],
     ['queue failure log identity', queueFailureLogKeepsDistinctFaults]

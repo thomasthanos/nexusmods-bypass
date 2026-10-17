@@ -1608,7 +1608,7 @@ function discardDownloadedFile(downloadId) {
 
 // Resolves true once the browser confirms the action. Firefox may answer through the returned
 // promise rather than the callback, so whichever arrives first decides.
-function controlDownload(method, downloadId) {
+function controlDownload(method, target) {
   return new Promise((resolve) => {
     try {
       if (typeof chrome.downloads?.[method] !== 'function') return resolve(false);
@@ -1618,7 +1618,7 @@ function controlDownload(method, downloadId) {
         finished = true;
         resolve(ok);
       };
-      const pending = chrome.downloads[method](downloadId, () => done(!getRuntimeError()));
+      const pending = chrome.downloads[method](target, () => done(!getRuntimeError()));
       if (pending && typeof pending.then === 'function') pending.then(() => done(true), () => done(false));
     } catch (_) {
       resolve(false);
@@ -1632,6 +1632,21 @@ function cancelDownload(downloadId) {
 
 function resumeDownload(downloadId) {
   return controlDownload('resume', downloadId);
+}
+
+function isResumableInterrupt(record) {
+  return record?.state === 'interrupted' && record.canResume === true && record.paused !== true;
+}
+
+// Firefox's cancel discards an interrupted download's partial data. Chrome's only acts on a download
+// in progress: an interrupted one is left resumable, and the callback reports success all the same,
+// so the user could still resume it from the downloads page beside a retry. Erasing it is what Chrome
+// honours there: the partial file is discarded and the record is gone, so nothing can resume it.
+// True only once the record is confirmed gone.
+async function eraseResumableDownload(downloadId, record) {
+  if (!isResumableInterrupt(record) || !downloadWasStartedHere(record)) return false;
+  if (!await controlDownload('erase', { id: downloadId })) return false;
+  return !await searchDownload(downloadId);
 }
 
 // Only ever a download this worker started: every id reaching here came out of our own
@@ -1698,6 +1713,8 @@ async function retireNdcDownload(downloadId, expectedPath = '') {
   }
   if (record?.state === 'complete') return discardAbandonedDownload(downloadId, record);
   if (!record) return canceled;
+  // Chrome's cancel left it resumable (see eraseResumableDownload).
+  if (isResumableInterrupt(record)) return eraseResumableDownload(downloadId, record);
   if (record.state === 'in_progress' || record.paused === true || record.canResume === true) return false;
   // The bug that motivated this fix reports an interrupted/non-resumable snapshot and then carries
   // on. Only a successful cancel is strong enough to permit a replacement download.
@@ -1822,6 +1839,7 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
   let confirmedState = state;
   let confirmedRecord = null;
   let retryAllowed = true;
+  let resumeGaveUp = false;
   if (state === 'interrupted' && !reused) {
     let settled = await settledInterruptedState(downloadId);
     if (settled.state === 'in_progress') {
@@ -1842,10 +1860,10 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
         return null;
       } else if (settled.state === 'resumable') {
         if (await retainUnconfirmedInterrupt(job.id, downloadId)) return null;
-        // Repeated resume attempts left the same resumable record behind. Do not launch a second
-        // id that the user could later run beside this one; report the item and move on safely.
+        // Repeated resume attempts left the same resumable record behind. It is closed below before
+        // any retry, so no second id can ever run beside this one; one that stays resumable fails.
         settled = { state: 'interrupted', record: settled.record };
-        retryAllowed = false;
+        resumeGaveUp = true;
       }
     }
     confirmedState = settled.state;
@@ -1856,8 +1874,17 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
     // browser says that id is canceled, complete, interrupted or gone. If it completed in the
     // meantime, accept that exact attempt instead of launching a duplicate.
     if (confirmedState === 'interrupted') {
-      const canceled = await cancelDownload(downloadId);
-      const afterCancel = await searchDownload(downloadId);
+      let canceled = await cancelDownload(downloadId);
+      let afterCancel = await searchDownload(downloadId);
+      if (resumeGaveUp && isResumableInterrupt(afterCancel)) {
+        // Chrome's cancel left it resumable (see eraseResumableDownload).
+        if (await eraseResumableDownload(downloadId, afterCancel)) {
+          canceled = true;
+          afterCancel = null;
+        } else {
+          retryAllowed = false;
+        }
+      }
       if (afterCancel?.state === 'complete') {
         confirmedState = 'complete';
         confirmedRecord = afterCancel;
