@@ -185,6 +185,14 @@
   "errModUnavailableFix": {
     "message": "이 모드는 더 이상 Nexus Mods에서 사용할 수 없습니다. 대안을 찾거나 모드 작성자에게 문의하세요."
   },
+  "errCollectionUnavailableMsg": {
+    "message": "Nexus Mods가 이 컬렉션을 표시하지 않습니다. 검토 중이거나 숨겨졌거나 삭제되었습니다.",
+    "description": "Error message: Nexus Mods does not show the collection (under moderation review, hidden or removed)."
+  },
+  "errCollectionUnavailableFix": {
+    "message": "컬렉션 페이지를 확인하세요. 검토 중인 컬렉션은 Nexus Mods가 승인하면 다운로드할 수 있습니다.",
+    "description": "Recovery advice for errCollectionUnavailableMsg."
+  },
   "errServerErrorMsg": {
     "message": "Nexus Mods에 서버 측 문제가 발생했습니다."
   },

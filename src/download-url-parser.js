@@ -28,7 +28,7 @@
     browser: Object.freeze(['downloadUrl', 'url'])
   });
   const NESTED_KEYS = Object.freeze(['data', 'html', 'links', 'downloadLinks']);
-  const FILE_ID_KEYS = Object.freeze(['fileId', 'file_id', 'id']);
+  const FILE_ID_KEYS = Object.freeze(['fileId', 'file_id', 'id', 'uid']);
   const NAMED_ENTITIES = Object.freeze({ amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: '\u00a0' });
 
   const ENTITY = /&(?:#(\d{1,7})|#x([0-9a-f]{1,6})|([a-z]{2,6}));/gi;
@@ -50,10 +50,21 @@
   const NXM_FORBIDDEN_CHARS = /[\s\u0000-\u001f\u007f]/;
   const RESOLVER_PATH = /\/api\/files\/\d+|\/Core\/Libs\/Common\/Managers\/Downloads$/i;
 
-  function toFileId(value) {
+  // Nexus names a file two ways: its file id, which nxm:// links and the download generator use, and
+  // its uid, the game id times 2^32 plus the file id, which the file components and the
+  // /api/files/<uid>/download routes use. File ids are 32-bit (GraphQL Int), so a value of 2^32 or
+  // more can only be a uid. Both read as the file id, without leading zeros; anything else as ''.
+  const UID_FACTOR = 2 ** 32;
+  const MAX_FILE_ID = 2 ** 31 - 1;
+  function normalizeFileId(value) {
     const text = String(value ?? '').trim();
-    return /^\d{1,12}$/.test(text) && Number(text) > 0 ? text : '';
+    if (!/^\d{1,16}$/.test(text)) return '';
+    const number = Number(text);
+    if (!Number.isSafeInteger(number)) return '';
+    const fileId = number >= UID_FACTOR ? number % UID_FACTOR : number;
+    return fileId > 0 && fileId <= MAX_FILE_ID ? String(fileId) : '';
   }
+  const toFileId = normalizeFileId;
 
   // Resolved by hand rather than by an HTML parser: the text is untrusted, and only the few
   // entities a link can carry matter here. Anything unknown or out of range is left as written.
@@ -112,7 +123,7 @@
   }
 
   function isForFile(candidate, fileId) {
-    return !fileId || nxmFileId(candidate) === String(Number(fileId));
+    return !fileId || nxmFileId(candidate) === normalizeFileId(fileId);
   }
 
   // The first signed nxm:// link anywhere in the text (for that file, when a file id is given), or null.
@@ -458,6 +469,7 @@
     findDownloadLink,
     findSignedNxmLink,
     isSignedNxmLink,
+    normalizeFileId,
     nxmFileId
   });
 })();

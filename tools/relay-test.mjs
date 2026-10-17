@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../relay/worker.js';
 
-const auto = { schema: 1, kind: 'auto', version: '2.9.0', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
+const auto = { schema: 1, kind: 'auto', version: '3.1.5', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
 assert.equal(validateReport(auto), '');
 const detailed = { ...auto, reference: 'E-001abcd', occurrences: 12, severity: 'critical', page: 'collection',
   firstAt: '2026-10-14T12:00:00.000Z', lastAt: '2026-10-14T12:10:00.000Z',
@@ -252,14 +252,35 @@ globalThis.fetch = realFetch;
 assert.equal((await (await post(dup2, '4.4.4.6')).json()).duplicate, undefined, 'retry after failure is not a duplicate');
 assert.equal(sent.at(-1).body.content, `<@${ownerId}>`, 'a failed delivery also leaves the mention eligible');
 
-// New summaries do not create a new mention each time. This policy also applies to older clients
-// without causeCode; manually submitted reports still notify the maintainer normally.
+// The maintainer is pinged for a user's bug report and for an automatic error from a current client.
+// Warnings and older clients' reports still arrive, without a ping (Discord, 2026-10-17: every network
+// warning and every 3.1.2 report pinged once a day).
+{
+  const quietFor = [
+    [{ ...auto, reference: 'E-oldclnt', version: '3.1.2', error: { code: 'no_nmm_link' } }, 'an older client'],
+    [{ ...auto, reference: 'E-oldcrsh', version: '3.1.2', severity: 'critical', error: { code: 'uncaught_exception' } }, 'an older client\'s crash'],
+    [{ ...auto, reference: 'E-warning', error: { code: 'nexus_page_changed' } }, 'a warning'],
+    [{ ...auto, reference: 'E-netwarn', error: { code: 'queue_item_failed', causeCode: 'NETWORK_FAILED' } }, 'a transient download warning']
+  ];
+  for (const [quietReport, what] of quietFor) {
+    assert.equal((await post(quietReport, '7.0.0.1')).status, 200);
+    assert.equal(sent.at(-1).body.content, undefined, `${what} is posted without a ping`);
+    assert.deepEqual(sent.at(-1).body.allowed_mentions, { parse: [] });
+  }
+  assert.equal((await post({ ...auto, reference: 'E-newerr1', error: { code: 'no_nmm_link' } }, '7.0.0.2')).status, 200);
+  assert.equal(sent.at(-1).body.content, `<@${ownerId}>`, 'a current client\'s error pings');
+  assert.equal((await post({ ...auto, reference: 'E-newer01', version: '3.1.7', error: { code: 'no_nmm_link' } }, '7.0.0.3')).status, 200);
+  assert.equal(sent.at(-1).body.content, `<@${ownerId}>`, 'so does a newer client\'s');
+}
+
+// New summaries do not create a new mention each time; manually submitted reports still notify the
+// maintainer normally.
 const actualNow = Date.now;
 let now = actualNow();
 Date.now = () => now;
 try {
   const before = sent.length;
-  const repeated = { ...auto, reference: 'E-repeat1', error: { code: 'nexus_page_changed' } };
+  const repeated = { ...auto, reference: 'E-repeat1', error: { code: 'no_nmm_link' } };
   assert.equal((await post(repeated, '6.1.0.1')).status, 200);
   now += 10 * 60 * 1000;
   assert.equal((await (await post(repeated, '6.1.0.2')).json()).duplicate, true, 'old ten-minute clients are suppressed');
@@ -299,22 +320,28 @@ const persistedEnv = { ...env, RATE_LIMIT: {
     expiry.set(key, kvNow + options.expirationTtl * 1000);
   }
 } };
-const persistentReport = { ...auto, reference: 'E-persist', error: { code: 'network_error' } };
-const persistentPost = () => worker.fetch(new Request('https://relay.test/v1/report', {
+const persistentPost = (body) => worker.fetch(new Request('https://relay.test/v1/report', {
   method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '10.0.0.1' },
-  body: JSON.stringify(persistentReport)
+  body: JSON.stringify(body)
 }), persistedEnv, {});
 Date.now = () => kvNow;
 try {
-  await persistentPost();
-  const fp = fingerprintOf(persistentReport);
-  assert.equal(expiry.get(`fp:${fp}`) - kvNow, NETWORK_WINDOW_MS);
+  const networkReport = { ...auto, reference: 'E-persist', error: { code: 'network_error' } };
+  await persistentPost(networkReport);
+  const networkFp = fingerprintOf(networkReport);
+  assert.equal(expiry.get(`fp:${networkFp}`) - kvNow, NETWORK_WINDOW_MS);
+  assert.equal(written.has(`ping:${networkFp}`), false, 'a warning that pings nobody keeps no mention cooldown');
+
+  const errorReport = { ...auto, reference: 'E-persis2', error: { code: 'no_nmm_link' } };
+  await persistentPost(errorReport);
+  const fp = fingerprintOf(errorReport);
+  assert.equal(expiry.get(`fp:${fp}`) - kvNow, DEDUPE_WINDOW_MS);
   assert.equal(expiry.get(`ping:${fp}`) - kvNow, MENTION_WINDOW_MS);
-  kvNow += NETWORK_WINDOW_MS + 1;
-  await persistentPost();
+  kvNow += DEDUPE_WINDOW_MS + 1;
+  await persistentPost(errorReport);
   assert.equal(sent.at(-1).body.content, undefined, 'persisted mention cooldown outlasts the delivery cooldown');
   kvNow += MENTION_WINDOW_MS;
-  await persistentPost();
+  await persistentPost(errorReport);
   assert.equal(sent.at(-1).body.content, `<@${ownerId}>`);
 } finally { Date.now = actualNow; }
 

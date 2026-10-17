@@ -217,9 +217,16 @@ window.NexusExt = window.NexusExt || {};
       try { globalThis.NXTK?.queueDebugEntry?.('debug', text); } catch (_) { /* best effort */ }
     }
 
-    function recordFinal(result) {
+    // A query the page works without (an optional enhancement) notes a connection failure in the debug
+    // log instead: those came in as network faults from background tabs, with nothing the user saw fail.
+    const TRANSIENT_CODES = new Set(['network_error', 'timeout', 'offline', 'server_error']);
+    function recordFinal(result, optionalName = '') {
       const code = result?.error?.code;
       if (!result || result.ok || !code || code === 'aborted') return;
+      if (optionalName && TRANSIENT_CODES.has(code)) {
+        debugNote(`${optionalName}: ${code} (optional; the page works without it)`);
+        return;
+      }
       NexusExt.Errors?.record?.(result.error);
     }
 
@@ -261,7 +268,7 @@ window.NexusExt = window.NexusExt || {};
     // `source`: 'cache', 'v2' or 'router'.
     async function graphql({
       query, operationName, variables = {}, context = 'Nexus API', signal = null, timeoutMs,
-      cacheKey = '', ttlMs = 0, permanentIf = null, fallback = true, mutation = false, retries = 2
+      cacheKey = '', ttlMs = 0, permanentIf = null, fallback = true, mutation = false, retries = 2, optional = false
     }) {
       const modsVersion = modsCacheVersion;
       const cached = mutation ? null : await readCache(cacheKey);
@@ -275,7 +282,7 @@ window.NexusExt = window.NexusExt || {};
       const finish = async (result, source, firstAttempt) => {
         let final = { ...result, source };
         if (!final.ok) final = await confirmLogin(final, { signal, context });
-        recordFinal(final);
+        recordFinal(final, optional ? operationName || 'GraphQL' : '');
         if (final.ok && firstAttempt && !firstAttempt.ok) {
           debugNote(`${operationName || 'GraphQL'}: v2 attempt failed (${firstAttempt.error?.code || firstAttempt.status}), answered by ${source}`);
         }
@@ -374,6 +381,7 @@ window.NexusExt = window.NexusExt || {};
         operationName: 'GameId',
         variables: { domainName: domain },
         context: 'Looking up game',
+        optional: true,
         signal,
         cacheKey: `game:${domain}`,
         permanentIf: (json) => !!json?.data?.game?.id
@@ -389,6 +397,7 @@ window.NexusExt = window.NexusExt || {};
         operationName: 'ModFiles',
         variables: { modId: String(modId), gameId: String(gid) },
         context: 'Loading mod files',
+        optional: true,
         signal,
         cacheKey: `files:${gid}:${modId}`,
         ttlMs: TTL.modFiles
@@ -413,6 +422,7 @@ window.NexusExt = window.NexusExt || {};
           operationName: 'ModsByDomain',
           variables: { ids: chunk, count: chunk.length },
           context: 'Loading mod details',
+          optional: true,
           signal,
           cacheKey: `mods:${chunk.map((p) => `${p.gameDomain}:${p.modId}`).join(',')}`,
           ttlMs: TTL.mods

@@ -216,6 +216,14 @@
     "message": "The mod is no longer available on Nexus Mods. Check for an alternative or contact the mod author.",
     "description": "Recovery advice for errModUnavailableMsg."
   },
+  "errCollectionUnavailableMsg": {
+    "message": "Nexus Mods is not showing this collection: it is under moderation review, hidden or removed.",
+    "description": "Error message: Nexus Mods does not show the collection (under moderation review, hidden or removed)."
+  },
+  "errCollectionUnavailableFix": {
+    "message": "Check the collection page. A collection under review can be downloaded once Nexus Mods approves it.",
+    "description": "Recovery advice for errCollectionUnavailableMsg."
+  },
   "errServerErrorMsg": {
     "message": "Nexus Mods is having a server-side problem.",
     "description": "Error message: HTTP 5xx."

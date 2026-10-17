@@ -185,6 +185,14 @@
   "errModUnavailableFix": {
     "message": "Мод больше не доступен на Nexus Mods. Поищите альтернативу или свяжитесь с автором мода."
   },
+  "errCollectionUnavailableMsg": {
+    "message": "Nexus Mods не показывает эту коллекцию: она на модерации, скрыта или удалена.",
+    "description": "Error message: Nexus Mods does not show the collection (under moderation review, hidden or removed)."
+  },
+  "errCollectionUnavailableFix": {
+    "message": "Проверьте страницу коллекции. Коллекцию на модерации можно скачать после одобрения Nexus Mods.",
+    "description": "Recovery advice for errCollectionUnavailableMsg."
+  },
   "errServerErrorMsg": {
     "message": "На стороне сервера Nexus Mods возникла проблема."
   },

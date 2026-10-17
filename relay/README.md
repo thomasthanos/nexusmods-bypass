@@ -67,6 +67,9 @@ Do not rotate or overwrite the existing destination secret just to update the Wo
   `Automatic error`, `Automatic warning` and `Bug report`, with a distinct sender name.
   `REPORT_MENTION_USER_ID` in `wrangler.toml` allows one explicit maintainer mention; it is a public
   Discord user ID, not a secret. Report input cannot choose recipients, mention roles or ping everyone.
+- Only what needs a person pings: every manual bug report, and an `Automatic error` from a client at
+  or above `RELAY_EXTENSION_VERSION` (once per fault and version in 24 hours). An `Automatic warning`,
+  or any report from an older client, is posted without a ping (`mentionWorthy` in `worker.js`).
 - Manual bug reports still include the full JSON file, preserving the description, reproduction
   steps, expected result and reviewed diagnostics. Mentions from report text are disabled for both report types;
   only the configured maintainer may be pinged.

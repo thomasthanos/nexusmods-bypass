@@ -6,6 +6,15 @@ window.NexusExt = window.NexusExt || {};
   const REPORT_ISSUE_URL = NXTK.REPORT_ISSUE_URL;
   const DEFAULT_TIMEOUT_MS = 30000;
 
+  // A tab that is closed or navigated drops its requests with the TypeError a dead connection gives
+  // ("Failed to fetch"). That is the page going away, so a request that fails after pagehide is a cancel:
+  // it was reported as a network fault, mostly from tabs in the background.
+  let pageLeaving = false;
+  try {
+    globalThis.addEventListener?.('pagehide', () => { pageLeaving = true; });
+    globalThis.addEventListener?.('pageshow', () => { pageLeaving = false; });
+  } catch (_) { }
+
   const DEFINITIONS = {
     missing_file: {
       userMessage: 'This download link does not include a file identifier.',
@@ -69,6 +78,11 @@ window.NexusExt = window.NexusExt || {};
     mod_unavailable: {
       userMessage: 'This mod has been hidden or removed.',
       recovery: 'The mod is no longer available on Nexus Mods. Check for an alternative or contact the mod author.',
+      retryable: false
+    },
+    collection_unavailable: {
+      userMessage: 'Nexus Mods is not showing this collection: it is under moderation review, hidden or removed.',
+      recovery: 'Check the collection page. A collection under review can be downloaded once Nexus Mods approves it.',
       retryable: false
     },
     nexus_page_changed: {
@@ -345,7 +359,7 @@ window.NexusExt = window.NexusExt || {};
           status: response.status || 0,
           text: '',
           finalUrl: response.url || String(url),
-          error: !timedOut && signal?.aborted
+          error: !timedOut && (signal?.aborted || pageLeaving)
             ? normalize({ code: 'aborted', context })
             : timedOut
               ? create('timeout', { context, record, status: response.status || null,
@@ -405,7 +419,7 @@ window.NexusExt = window.NexusExt || {};
         error: null
       };
     } catch (cause) {
-      if (!timedOut && signal?.aborted) {
+      if (!timedOut && (signal?.aborted || pageLeaving)) {
         return {
           ok: false,
           status: 0,

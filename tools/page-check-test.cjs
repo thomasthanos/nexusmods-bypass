@@ -225,6 +225,45 @@ assert.equal(PageCheck.detectBuild(fakeDoc({ scripts: ['https://ads.example/x.js
   assert.equal(notices.length, 1, 'the missing-file notice is shown once');
   assert.match(notices[0].actions[0].href, /\/mods\/267\?tab=files$/);
 
+  // E-0wu48au: "missing: page content region" from Next.js-rendered mod pages (build chunks-…) said
+  // nothing about what those pages had. The report now carries the page's structure, never its text.
+  const element = (tagName, attrs = {}) => ({ tagName, getAttribute: (name) => attrs[name] ?? null });
+  const nextPage = ({ text = 'Text on the page. '.repeat(20), title = 'Mod at Nexus Mods', nodes = [] } = {}) => {
+    const body = { innerText: text, getElementsByTagName: () => nodes };
+    return {
+      title,
+      body,
+      getElementById: (id) => (id === '__next' ? {} : null),
+      querySelector: (sel) => (sel === 'main' ? null : null),
+      querySelectorAll: (sel) => {
+        if (sel === 'script[src]') return [{ src: 'https://www.nexusmods.com/_next/static/chunks/app-1.js' }];
+        if (sel === 'main') return [];
+        if (sel === 'h1') return [element('H1')];
+        if (sel === '[data-e2e-id]') return nodes.filter((node) => node.getAttribute('data-e2e-id'));
+        return [];
+      }
+    };
+  };
+  const nodes = [element('DIV'), element('NEXUS-HEADER'), element('MOD-PAGE-HEADER'), element('NXTK-TOAST'),
+    element('SECTION', { 'data-e2e-id': 'mod-tile' }), element('DIV', { 'data-e2e-id': 'Tab Files 2394' })];
+  const shape = PageCheck.pageShape(nextPage({ nodes }));
+  assert.equal(shape, 'shape: next app; main none; h1 one; components nexus-header, mod-page-header; e2e mod-tile; text some; title nexus');
+  const contentFailing = PageCheck.runChecks({ doc: fakeDoc(), loc: at('/skyrimspecialedition/mods/268'), auth: signedIn, nnw: nnwWith('1704') });
+  const beforeShape = recorded.length;
+  PageCheck.reportFailures(contentFailing, record, nextPage({ nodes }));
+  assert.equal(recorded.length, beforeShape + 1);
+  assert.match(recorded.at(-1).technicalMessage, /^missing: page content region \(#section or rendered page content\) \| shape: next app; main none; h1 one; components nexus-header, mod-page-header; e2e mod-tile; text some; title nexus \| Nexus build: build-2$/);
+  assert.match(PageCheck.pageShape(nextPage({ text: '' })), /text none/);
+  assert.match(PageCheck.pageShape(nextPage({ text: 'Application error: a client-side exception has occurred (see the browser console for more information).' })),
+    /text little; next error text/, 'a crashed Next.js page says so, since an extension can cause that');
+  assert.equal(PageCheck.pageVariant(nextPage({ text: '404 This page could not be found.', title: '404: This page could not be found.' })), 'page not found',
+    'Next.js\'s own not-found page is not a site change');
+  const beforeNotFound = recorded.length;
+  const bareFailing = PageCheck.runChecks({ doc: fakeDoc(), loc: at('/skyrimspecialedition/mods/269'), auth: signedIn, nnw: nnwWith('') });
+  PageCheck.reportFailures(bareFailing, record, nextPage({ text: '404 This page could not be found.' }));
+  assert.equal(recorded.length, beforeNotFound, 'and is not logged as one');
+  assert.equal(PageCheck.pageShape(null), '');
+
   // The report section.
   const lines = PageCheck.describe({ ...failing, at: 10000 }, record, 15000).join('\n');
   assert.match(lines, /Nexus page check/);

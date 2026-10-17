@@ -185,6 +185,14 @@
   "errModUnavailableFix": {
     "message": "Το mod δεν είναι πλέον διαθέσιμο στο Nexus Mods. Αναζητήστε εναλλακτικό ή επικοινωνήστε με τον δημιουργό."
   },
+  "errCollectionUnavailableMsg": {
+    "message": "Το Nexus Mods δεν εμφανίζει αυτή τη συλλογή: βρίσκεται υπό έλεγχο συντονισμού, έχει κρυφτεί ή αφαιρεθεί.",
+    "description": "Error message: Nexus Mods does not show the collection (under moderation review, hidden or removed)."
+  },
+  "errCollectionUnavailableFix": {
+    "message": "Ελέγξτε τη σελίδα της συλλογής. Μια συλλογή υπό έλεγχο μπορεί να κατέβει μόλις την εγκρίνει το Nexus Mods.",
+    "description": "Recovery advice for errCollectionUnavailableMsg."
+  },
   "errServerErrorMsg": {
     "message": "Το Nexus Mods αντιμετωπίζει πρόβλημα στον διακομιστή."
   },

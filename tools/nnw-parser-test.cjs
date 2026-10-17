@@ -60,6 +60,7 @@ function createHarness({
   const parsedLocation = new URL(href);
   const calls = [];
   const recorded = [];
+  const listeners = {};
   const state = {
     sectionGameId,
     dataGameIds: [...dataGameIds],
@@ -158,6 +159,7 @@ function createHarness({
     },
     setInterval,
     setTimeout,
+    addEventListener: (type, listener) => { (listeners[type] ||= []).push(listener); },
     chrome: {
       runtime: { id: 'test-extension-id', sendMessage: (message) => {
         if (message.type === 'ERROR_LOG_APPEND') recorded.push(message.payload.entry);
@@ -175,7 +177,8 @@ function createHarness({
   for (const file of files) {
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
-  return { api: context.NexusExt.NNW, calls, state, recorded };
+  const fire = (type) => (listeners[type] || []).forEach((listener) => listener({ type }));
+  return { api: context.NexusExt.NNW, calls, state, recorded, fire };
 }
 
 // Discord reports from 3.1.1: an unreadable /api/files redirect stopped the flow before the
@@ -477,6 +480,78 @@ function controlClassificationTests() {
   }
 }
 
+// Discord reports E-1r1m6gn (3.1.5 and 3.1.6, every browser, Vortex and Mod Organizer 2): "the nxm
+// link names another file" on finalfantasy12/mods/375. Nexus's modal names the file by uid
+// (game 2304 * 2^32 + file 2394) in /api/files/<uid>/download, and that uid was taken as the file id:
+// the link search lost its scope and the right link was then refused as another file's.
+async function fileUidTests() {
+  const UID = '9895604652378';
+  const href = `https://www.nexusmods.com/api/files/${UID}/download?nmm=1`;
+  const nxm = (file) => `nxm://finalfantasy12/mods/375/files/${file}?key=k&expires=2000000000&user_id=7`;
+  const page = 'https://www.nexusmods.com/finalfantasy12/mods/375?tab=files';
+
+  const scoped = createHarness({ href: page, sectionGameId: '2304', pages: [
+    { body: `<div>${nxm(2393)} ${nxm(2394)}</div>` }
+  ] });
+  const result = await scoped.api.getDownloadUrl({ fileId: UID, isNMM: true, href });
+  assert.equal(result.url, nxm(2394), 'the link for the uid\'s own file, not the first one on the page');
+
+  const recovered = createHarness({ href: page, sectionGameId: '2304', pages: [
+    { failure: new TypeError('Failed to fetch') },
+    { body: JSON.stringify({ url: nxm(2394) }) }
+  ] });
+  const viaGenerator = await recovered.api.getDownloadUrl({ fileId: UID, isNMM: true, href });
+  assert.equal(viaGenerator.url, nxm(2394));
+  assert.equal(new URLSearchParams(recovered.calls[1].options.body).get('fid'), '2394', 'the generator is asked for the file id');
+
+  const fromPath = createHarness({ href: page, sectionGameId: '2304', pages: [
+    { failure: new TypeError('Failed to fetch') },
+    { body: JSON.stringify({ url: nxm(2394) }) }
+  ] });
+  await fromPath.api.getDownloadUrl({ isNMM: true, href });
+  assert.equal(new URLSearchParams(fromPath.calls[1].options.body).get('fid'), '2394', 'also when the id comes from the route');
+
+  // E-0jjutro: "page HTTP 200: plain text body". Asked with X-Requested-With, Nexus answers a mod page
+  // with the tab fragment, which has no nxm link; the download page a click opens carries it in
+  // <mod-file-download download-url>. The generator is no help here: the site never asks it for nmm=1.
+  const filePage = `${page}&file_id=2394&nmm=1`;
+  const loaded = createHarness({ href: filePage, sectionGameId: '2304', responses: [
+    response('[]'),
+    response(`<!doctype html><html><body><mod-file-download file-id="2394" is-nmm-download="true" download-url="${nxm(2394).replace(/&/g, '&amp;')}"></mod-file-download></body></html>`, { finalUrl: filePage })
+  ] });
+  const fromPage = await loaded.api.getDownloadUrl({ fileId: '2394', isNMM: true, href: filePage });
+  assert.equal(fromPage.url, nxm(2394));
+  assert.equal(loaded.calls[1].url, filePage);
+  assert.equal(loaded.calls[1].options.headers?.['X-Requested-With'], undefined, 'the page is loaded the way a click loads it');
+
+  const api = scoped.api;
+  const el = (tagName, attrs) => ({ nodeType: 1, tagName, id: '', dataset: {}, getAttribute: (n) => attrs[n] ?? null });
+  assert.equal(api.fileIdFromNode(el('MOD-DOWNLOAD-MODAL', { file: `{"name":"A","uid":${UID}}` })), '2394', 'a modal that names only its uid');
+  assert.equal(api.fileIdFromNode(el('MOD-DOWNLOAD-MODAL', { file: `{"id":"Z2lkOi8vYXBpL01vZEZpbGUv","uid":"${UID}"}` })), '2394',
+    'a GraphQL global id is passed over for the uid');
+  const links = (uid) => JSON.stringify({ vortexDownloadUrl: `https://www.nexusmods.com/api/files/${uid}/download?nmm=1` });
+  assert.equal(api.pickModalHref({ modalFileId: '2394', linksJson: links(UID), isNMM: true }), href,
+    'the modal\'s own route is kept when it names the clicked file by uid');
+  assert.equal(api.pickModalHref({ modalFileId: '2394', linksJson: links('9895604652377'), isNMM: true, base: page.replace('?tab=files', '') }),
+    `${page}&file_id=2394&nmm=1`, 'and replaced when it names another file');
+}
+
+// E-0fk41cm: "Failed to fetch after 4580ms … page hidden". A tab that is closed or navigated drops its
+// requests with the same TypeError a dead connection gives; that is the page going away, not a fault.
+async function leavingPageTests() {
+  const h = createHarness({ pages: [{ failure: new TypeError('Failed to fetch') }, { failure: new TypeError('Failed to fetch') }] });
+  h.fire('pagehide');
+  const result = await h.api.getDownloadUrl({ fileId: '200', isNMM: true });
+  assert.equal(result.error.code, 'aborted', 'a request cut off by leaving the page is a cancel');
+  assert.equal(h.recorded.length, 0, 'and is not logged as an error');
+
+  const back = createHarness({ pages: [{ failure: new TypeError('Failed to fetch') }] });
+  back.fire('pagehide');
+  back.fire('pageshow');
+  assert.equal((await back.api.getDownloadUrl({ fileId: '200', isNMM: true })).error.code, 'network_error',
+    'a page restored from the back-forward cache reports failures again');
+}
+
 function modPageDetectionTests() {
   const cases = [
     ['https://www.nexusmods.com/newvegas/mods/100', true, 'a mod page is handled'],
@@ -500,6 +575,8 @@ Promise.resolve()
   .then(vortexGeneratorFirstTests)
   .then(controlClassificationTests)
   .then(missingLinkTrailTests)
+  .then(fileUidTests)
+  .then(leavingPageTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {
     console.error(error);

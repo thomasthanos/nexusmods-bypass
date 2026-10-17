@@ -195,8 +195,41 @@ function readsVortexLinksOnLegacyChromium() {
     'and a report says so');
 }
 
+// Nexus's file components and /api/files/<id>/download routes name a file by its uid: the game id
+// times 2^32 plus the file id (Final Fantasy XII is game 2304, so its file 2394 is 9895604652378).
+// Taken as a file id, it matched no nxm link and made every right link look like another file's.
+function readsFileUids(Parser) {
+  const UID = '9895604652378';
+  assert.equal(Parser.normalizeFileId(UID), '2394', 'a uid reads as the file id it carries');
+  assert.equal(Parser.normalizeFileId(Number(UID)), '2394', 'as a number too');
+  assert.equal(Parser.normalizeFileId('2394'), '2394');
+  assert.equal(Parser.normalizeFileId(' 0200 '), '200', 'leading zeros and spaces read as the id');
+  assert.equal(Parser.normalizeFileId('472446402760'), '200', 'a 12-digit uid (a game id under 233) is a uid as well');
+  for (const bad of ['', '0', 'abc', '-5', '1.5', '3000000000', String(2304 * 2 ** 32), '99999999999999999999', null, undefined]) {
+    assert.equal(Parser.normalizeFileId(bad), '', `${String(bad)} names no file`);
+  }
+
+  const nxm = (file) => `nxm://finalfantasy12/mods/375/files/${file}?key=k&expires=1&user_id=7`;
+  const page = `<p>${nxm(2393)}</p><p>${nxm(2394)}</p>`;
+  assert.equal(Parser.findSignedNxmLink(page, { fileId: UID }), nxm(2394), 'a uid scopes the search to its file');
+  assert.equal(Parser.findSignedNxmLink(nxm(2393), { fileId: UID }), null, 'and never takes the other file');
+
+  // Two files on one files tab, each modal naming its file only by uid, slashes escaped as Nexus writes them.
+  const modal = (uid) => `<mod-download-modal file='${JSON.stringify({
+    name: 'A', uid: Number(uid),
+    downloadUrl: `https://www.nexusmods.com/api/files/${uid}/download`,
+    vortexDownloadUrl: `https://www.nexusmods.com/api/files/${uid}/download?nmm=1`
+  }).replace(/\//g, '\\/')}'></mod-download-modal>`;
+  const tab = modal('9895604652377') + modal(UID);
+  assert.equal(Parser.findDownloadLink(tab, { mode: 'vortex', fileId: '2394' })?.url,
+    `https://www.nexusmods.com/api/files/${UID}/download?nmm=1`, 'the modal for the requested file is the one read');
+  assert.doesNotMatch(Parser.explainMissingLink(modal('9895604652377'), { mode: 'vortex', fileId: '2394' }), /usable link/,
+    'a modal that names another file by uid is not this file\'s link');
+}
+
 const Parser = workerRunsEveryCase();
 workerEdgeCases(Parser);
+readsFileUids(Parser);
 failsClosedWithoutShared();
 readsVortexLinksOnLegacyChromium();
 console.log('download-url parser behavior OK');

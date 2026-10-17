@@ -405,6 +405,17 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal(r2.ok, false);
     assert.equal(recorded.length, 1, 'all fallbacks failed: logged once');
     assert.equal(recorded[0].code, 'network_error');
+
+    // E-0fk41cm / E-0fejmvr: "Loading mod files" failing in a background tab came in as a network
+    // fault. The mod page works without it: a dropped connection there is a debug note, not an error.
+    recorded.length = 0; debugEntries.length = 0;
+    const quiet = harness({ responses: [netFail(), netFail()] });
+    assert.equal(await quiet.api.modFiles({ modId: 1, gameId: 2 }), null);
+    assert.equal(recorded.length, 0, 'an optional page enhancement does not log a connection failure');
+    assert.ok(debugEntries.some((entry) => /ModFiles.*network_error/.test(entry.text)), 'it is noted in the debug log');
+    const game = harness({ responses: [netFail(), netFail()] });
+    assert.equal(await game.api.gameId('skyrim'), '');
+    assert.equal(recorded.length, 0, 'nor does the game lookup the page falls back from');
   }
 
   // ---- v2 "not signed in" falls back to the session-backed router.

@@ -241,6 +241,8 @@ window.NexusExt = window.NexusExt || {};
   // over the page, or Nexus's adult-content gate. A check failing then is not a site change.
   const ADULT_GATE_TEXT = /(contains|includes) adult content|adult content (is )?(hidden|blocked|filter)|show adult content|confirm (that )?you are (over )?18|you must be 18/i;
   const FILE_MISSING_TEXT = /object not found|file (was |has been )?(not found|removed|deleted|hidden)|this file (is|has been) (no longer )?(available|removed|deleted|hidden)/i;
+  // Next.js's own 404 page, which a mod route can be served as.
+  const PAGE_MISSING_TEXT = /this page could not be found|^\s*404\b/i;
   function pageVariant(doc = (typeof document !== 'undefined' ? document : null)) {
     if (!doc?.querySelector) return '';
     try {
@@ -250,8 +252,52 @@ window.NexusExt = window.NexusExt || {};
       const text = String(main?.innerText || main?.textContent || '').slice(0, 20000);
       if (ADULT_GATE_TEXT.test(text)) return 'adult content gate';
       if (FILE_MISSING_TEXT.test(text) || /not\s*found/i.test(doc.title || '')) return 'file not found';
+      if (PAGE_MISSING_TEXT.test(text) || PAGE_MISSING_TEXT.test(doc.title || '')) return 'page not found';
     } catch (_) { }
     return '';
+  }
+
+  // What a page that failed a check does have, as structure only: the kind of app, whether it has the
+  // usual landmarks, which custom elements and test ids it renders, roughly how much text, and the
+  // kind of title. Never the text, the title or an id. "missing: page content region" alone could not
+  // tell a new Nexus layout from an error page or a page that had not finished rendering.
+  const MAX_SHAPE_NODES = 5000;
+  const howMany = (count) => (count === 0 ? 'none' : count === 1 ? 'one' : 'several');
+  function pageShape(doc = (typeof document !== 'undefined' ? document : null)) {
+    if (!doc?.querySelectorAll) return '';
+    try {
+      const scripts = Array.from(doc.querySelectorAll('script[src]') || [], (script) => String(script.src || script.getAttribute?.('src') || ''));
+      const app = doc.getElementById?.('__next') || scripts.some((src) => src.includes('/_next/')) ? 'next app'
+        : doc.getElementById?.('section') ? 'legacy page' : 'unknown app';
+      const components = new Set();
+      const nodes = doc.body?.getElementsByTagName?.('*') || [];
+      for (let i = 0; i < nodes.length && i < MAX_SHAPE_NODES && components.size < 3; i += 1) {
+        const tag = String(nodes[i]?.tagName || '').toLowerCase();
+        if (tag.includes('-') && !tag.startsWith('nxtk-') && /^[a-z][a-z0-9-]{1,40}$/.test(tag)) components.add(tag);
+      }
+      const testIds = new Set();
+      for (const node of Array.from(doc.querySelectorAll('[data-e2e-id]') || []).slice(0, 200)) {
+        const id = String(node.getAttribute?.('data-e2e-id') || '');
+        // Fixed hook names only; one with a space or a digit can carry a name or an id.
+        if (/^[a-z][a-z-]{1,40}$/i.test(id)) testIds.add(id);
+        if (testIds.size >= 3) break;
+      }
+      const text = String(doc.body?.innerText || doc.body?.textContent || '').trim();
+      const title = String(doc.title || '');
+      const parts = [
+        app,
+        `main ${howMany(doc.querySelectorAll('main').length)}`,
+        `h1 ${howMany(doc.querySelectorAll('h1').length)}`,
+        `components ${components.size ? [...components].join(', ') : 'none'}`,
+        `e2e ${testIds.size ? [...testIds].join(', ') : 'none'}`,
+        `text ${!text ? 'none' : text.length < 200 ? 'little' : 'some'}`
+      ];
+      if (/application error|client-side exception|internal server error|something went wrong/i.test(text.slice(0, 2000))) parts.push('next error text');
+      parts.push(`title ${!title ? 'none' : /not\s*found|\b404\b/i.test(title) ? 'not found' : /error/i.test(title) ? 'error' : /nexus/i.test(title) ? 'nexus' : 'other'}`);
+      return `shape: ${parts.join('; ')}`;
+    } catch (_) {
+      return '';
+    }
   }
 
   // A file page whose file is gone: offer the mod's Files tab instead of a silent banner.
@@ -295,10 +341,11 @@ window.NexusExt = window.NexusExt || {};
     window.NexusExt.NNW?.Logger?.warn?.(`Could not find ${failed.map((entry) => entry.label).join(', ')} on the ${result.label}. Nexus may have changed this page; its own buttons still work.`);
     if (alreadyReported(signature)) return;
     notifyDegraded(result, failed);
+    const shape = pageShape(doc);
     globalThis.NXTK?.recordError?.({
       code: 'nexus_page_changed',
       context: `Nexus page check (${result.page})`,
-      technicalMessage: `missing: ${missing} | Nexus build: ${build?.id || 'not detected'}`
+      technicalMessage: [`missing: ${missing}`, shape, `Nexus build: ${build?.id || 'not detected'}`].filter(Boolean).join(' | ')
     });
   }
 
@@ -365,6 +412,7 @@ window.NexusExt = window.NexusExt || {};
     describe,
     reportFailures,
     pageVariant,
+    pageShape,
     lastResult: () => lastResult
   };
 })();

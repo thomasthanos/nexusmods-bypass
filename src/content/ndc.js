@@ -85,13 +85,18 @@ window.NexusExt = window.NexusExt || {};
   // GraphQL answers a query that names a field it no longer has with a validation error, not a
   // missing field. That is Nexus changing its API, and it is named as such so a report points at it.
   const GRAPHQL_SCHEMA_ERROR = /cannot query field|unknown argument|unknown type|must have a selection|is not defined by type|cannot return null for non-nullable/i;
+  // A collection Nexus is reviewing, has hidden or removed, or cannot find: the page says so, and no
+  // retry or extension update changes it. It came in as "Unexpected response from Nexus".
+  const GRAPHQL_COLLECTION_UNAVAILABLE = /being moderated|under moderation|awaiting moderation|\bnot found\b|does not exist|has been (?:hidden|removed|deleted)|is (?:hidden|unpublished|not published)/i;
 
   function graphqlFault(json, context) {
     const errors = Array.isArray(json?.errors) ? json.errors : [];
     const messages = errors.map((entry) => String(entry?.message || '').trim()).filter(Boolean);
     if (!messages.length) return null;
     const technicalMessage = `GraphQL: ${messages.slice(0, 3).join(' | ')}`.slice(0, 500);
-    const code = messages.some((message) => GRAPHQL_SCHEMA_ERROR.test(message)) ? 'nexus_api_changed' : 'invalid_response';
+    const code = messages.some((message) => GRAPHQL_SCHEMA_ERROR.test(message)) ? 'nexus_api_changed'
+      : messages.some((message) => GRAPHQL_COLLECTION_UNAVAILABLE.test(message)) ? 'collection_unavailable'
+        : 'invalid_response';
     return Errors.create(code, { context, technicalMessage });
   }
 
@@ -646,9 +651,10 @@ window.NexusExt = window.NexusExt || {};
 
       // Vortex hands a link only to the download waiting for that file: a link for another file
       // would start a separate download there and leave this one waiting.
-      const wanted = String(mod.fileId || mod.file?.fileId || '');
-      const linkedFile = globalThis.NXTKDownloadParser?.nxmFileId?.(downloadUrl);
-      if (wanted && linkedFile !== undefined && linkedFile !== String(Number(wanted))) {
+      const Parser = globalThis.NXTKDownloadParser;
+      const wanted = Parser?.normalizeFileId?.(mod.fileId || mod.file?.fileId) || '';
+      const linkedFile = Parser?.nxmFileId?.(downloadUrl);
+      if (wanted && linkedFile !== undefined && linkedFile !== wanted) {
         const error = Errors.create('no_nmm_link', {
           context: 'Checking the Vortex link',
           technicalMessage: 'the nxm link names another file',

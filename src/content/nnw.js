@@ -261,9 +261,13 @@ window.NexusExt = window.NexusExt || {};
     return Sel ? Sel.textMatches(value, key) : fallback.some((phrase) => normalizeText(value).includes(phrase));
   }
 
+  // The file id a value names: a file id as it is, or the file id inside a Nexus file uid (game id *
+  // 2^32 + file id), which the modal JSON and /api/files/<uid>/download carry. '' for anything else.
+  const toFileId = (value) => globalThis.NXTKDownloadParser.normalizeFileId(value);
+
   // Nexus's download web components carry the file as JSON, not as a file-id attribute:
   // <mod-file-download file='{"id":…}' game-id>, <mod-download-buttons main-file='{"id":…}'> (header
-  // Vortex/Manual buttons) and <mod-download-modal file='{"id":…,"downloadUrl":…,"vortexDownloadUrl":…}'>.
+  // Vortex/Manual buttons) and <mod-download-modal file='{"uid":…,"downloadUrl":…,"vortexDownloadUrl":…}'>.
   const DOWNLOAD_MODAL_TAGS = new Set(['DOWNLOAD-MODAL', 'MOD-DOWNLOAD-MODAL']);
   const DOWNLOAD_HOST_TAGS = new Set(['MOD-FILE-DOWNLOAD', 'MOD-DOWNLOAD-BUTTONS', 'MOD-DOWNLOAD-MODAL', 'DOWNLOAD-MODAL']);
   function fileJsonOf(node) {
@@ -282,11 +286,16 @@ window.NexusExt = window.NexusExt || {};
     if (!node || node.nodeType !== 1) return '';
     const json = fileJsonOf(node);
     const legacyCard = node.tagName === 'DT' || node.tagName === 'DD' || /^file-expander/.test(String(node.id || ''));
-    const id = node.getAttribute?.('file-id') || node.getAttribute?.('data-file-id') || node.dataset?.fileId
-      || json?.fileId || json?.id || json?.file_id
-      || (legacyCard ? node.getAttribute?.('data-id') || (node.tagName === 'DD' ? node.previousElementSibling?.getAttribute?.('data-id') : '') : '')
-      || String(node.id || '').match(/^file-expander-header-(\d+)$/)?.[1];
-    return /^\d{1,12}$/.test(String(id || '')) ? String(id) : '';
+    // The first that names a file: an "id" can also be a GraphQL global id, which names none.
+    const candidates = [node.getAttribute?.('file-id'), node.getAttribute?.('data-file-id'), node.dataset?.fileId,
+      json?.fileId, json?.id, json?.file_id, json?.uid,
+      legacyCard ? node.getAttribute?.('data-id') || (node.tagName === 'DD' ? node.previousElementSibling?.getAttribute?.('data-id') : '') : '',
+      String(node.id || '').match(/^file-expander-header-(\d+)$/)?.[1]];
+    for (const candidate of candidates) {
+      const id = toFileId(candidate);
+      if (id) return id;
+    }
+    return '';
   }
   // The modal element a click belongs to: on the path, or held by the clicked button's host component.
   function downloadModalFor(path) {
@@ -606,7 +615,8 @@ window.NexusExt = window.NexusExt || {};
     const result = await resolveDownloadUrl({ ...options, trail });
     if (result?.error) {
       result.error = withTrail(result.error, trail, options.isNMM === true);
-      Errors.record?.(result.error);
+      // A cancel (Stop, or the page going away) is not a failure, as in nexus-api.js.
+      if (result.error.code !== 'aborted') Errors.record?.(result.error);
     }
     return result;
   }
@@ -623,6 +633,7 @@ window.NexusExt = window.NexusExt || {};
     signal = null,
     trail = []
   } = {}) {
+    fileId = toFileId(fileId);
     if (!fileId && !href) return { url: null, error: Errors.create('missing_file', { record: false }) };
     // What a step was answered when it gave no link (getDownloadUrl puts this in the final error).
     const noteFailure = (step, response) => {
@@ -637,7 +648,7 @@ window.NexusExt = window.NexusExt || {};
     try {
       const link = href ? new URL(href, location.href) : null;
       isApiFileHref = !!link?.pathname.startsWith('/api/files/');
-      if (isApiFileHref) fileId ||= link.pathname.match(/^\/api\/files\/(\d+)(?:\/|$)/)?.[1];
+      if (isApiFileHref) fileId ||= toFileId(link.pathname.match(/^\/api\/files\/(\d+)(?:\/|$)/)?.[1]);
     } catch (_) {
       return { url: null, error: Errors.create('invalid_response', { context: 'Reading download link', record: false }) };
     }
@@ -737,7 +748,9 @@ window.NexusExt = window.NexusExt || {};
         apiUrl += apiUrl.includes('?') ? '&nmm=1' : '?nmm=1';
       }
 
-      const response = await fetchText(apiUrl, { context: 'Resolving Nexus API download link' });
+      // Loaded as a click loads it: the route redirects to the file page, and a redirect keeps the
+      // X-Requested-With header, which makes Nexus answer with the tab fragment and no link.
+      const response = await fetchText(apiUrl, { ajax: false, context: 'Resolving Nexus API download link' });
       if (!response.ok) {
         noteFailure('API route', response);
         return { url: null, error: response.error };
@@ -790,7 +803,9 @@ window.NexusExt = window.NexusExt || {};
       if (quickNxm) return { url: quickNxm };
       if (quick?.error && Errors.isBlocking(quick.error)) return { url: null, error: quick.error };
 
-      const firstResponse = await fetchText(href, { context: 'Loading Vortex download page' });
+      // Asked with X-Requested-With, Nexus answers a mod page with the tab fragment, which has no nxm
+      // link. The download page a click opens carries it in <mod-file-download download-url>.
+      const firstResponse = await fetchText(href, { ajax: false, context: 'Loading Vortex download page' });
       let latestError = firstResponse.error;
       Logger.info('Fetching NMM download URL');
       if (!firstResponse.ok) noteFailure('page', firstResponse);
@@ -825,7 +840,7 @@ window.NexusExt = window.NexusExt || {};
               if (result.url) return result;
               latestError = result.error || latestError;
             }
-            const downloadPageResponse = await fetchText(downloadPageUrl, { context: 'Loading requirement download page' });
+            const downloadPageResponse = await fetchText(downloadPageUrl, { ajax: false, context: 'Loading requirement download page' });
             if (downloadPageResponse.ok) {
               const link2 = parseNxmDownloadLink(downloadPageResponse.finalUrl, fileId) || parseNxmDownloadLink(downloadPageResponse.text, fileId);
               if (link2) return { url: link2 };
@@ -1316,8 +1331,11 @@ window.NexusExt = window.NexusExt || {};
   // How long "Sent to Vortex" stays on the button and in the status toast.
   const SENT_STATE_MS = 2500;
 
-  async function runDownload(options) {
-    const claim = claimDownload(options?.fileId, options?.isNMM);
+  async function runDownload(given) {
+    // Every start goes by the file id: a uid from the modal or the API route is the same file, and was
+    // compared with the nxm link's file id as though it were another one.
+    const options = { ...given, fileId: toFileId(given?.fileId) };
+    const claim = claimDownload(options.fileId, options.isNMM);
     if (!claim) {
       Logger.info(`Ignored a duplicate start for file ${options?.fileId}.`);
       return false;
@@ -1449,11 +1467,11 @@ window.NexusExt = window.NexusExt || {};
     }
     // Vortex hands a link only to the download waiting for that file: a link for another file would
     // start a separate download there and leave that one waiting.
-    if (isNMM && fileId && DownloadParser.nxmFileId(finalUrl) !== String(Number(fileId))) {
+    if (isNMM && fileId && DownloadParser.nxmFileId(finalUrl) !== toFileId(fileId)) {
       const wrongFile = Errors.create('no_nmm_link', {
         context: 'Checking the Vortex link',
         technicalMessage: 'the nxm link names another file',
-        fileIdentity: { expectedId: String(fileId), receivedId: DownloadParser.nxmFileId(finalUrl) }
+        fileIdentity: { expectedId: toFileId(fileId), receivedId: DownloadParser.nxmFileId(finalUrl) }
       });
       handleError(button, wrongFile, { onRetry: () => runDownload(options) });
       releaseToNativeControl(button, fileId, wrongFile, isNMM);
@@ -1536,8 +1554,7 @@ window.NexusExt = window.NexusExt || {};
       try {
         const url = new URL(href, location.href);
         const apiMatch = url.pathname.match(/\/api\/files\/(\d+)/);
-        if (apiMatch) return apiMatch[1];
-        return url.searchParams.get('file_id') || url.searchParams.get('id');
+        return toFileId(apiMatch ? apiMatch[1] : url.searchParams.get('file_id') || url.searchParams.get('id')) || null;
       } catch {}
       return null;
     };
@@ -1703,7 +1720,7 @@ window.NexusExt = window.NexusExt || {};
   // "Download mod file" fetch the main file instead of the one clicked. When the file cannot be pinned
   // down the click is left to Nexus (empty result), never guessed.
   function pickModalHref({ modalFileId = '', buttonHref = '', linksJson = '', isNMM = false, base = '' }) {
-    const expected = String(modalFileId || '');
+    const expected = toFileId(modalFileId);
     let links = null;
     if (linksJson) {
       try {
@@ -1719,7 +1736,7 @@ window.NexusExt = window.NexusExt || {};
       let id = '';
       try {
         const url = new URL(candidate, location.href);
-        id = url.pathname.match(/\/api\/files\/(\d+)/)?.[1] || url.searchParams.get('file_id') || url.searchParams.get('id') || '';
+        id = toFileId(url.pathname.match(/\/api\/files\/(\d+)/)?.[1] || url.searchParams.get('file_id') || url.searchParams.get('id'));
       } catch (_) {
         id = '';
       }

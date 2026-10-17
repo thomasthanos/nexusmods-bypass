@@ -185,6 +185,14 @@
   "errModUnavailableFix": {
     "message": "El mod ya no está disponible en Nexus Mods. Busca una alternativa o contacta al autor del mod."
   },
+  "errCollectionUnavailableMsg": {
+    "message": "Nexus Mods no muestra esta colección: está en revisión de moderación, oculta o eliminada.",
+    "description": "Error message: Nexus Mods does not show the collection (under moderation review, hidden or removed)."
+  },
+  "errCollectionUnavailableFix": {
+    "message": "Revisa la página de la colección. Una colección en revisión se puede descargar cuando Nexus Mods la apruebe.",
+    "description": "Recovery advice for errCollectionUnavailableMsg."
+  },
   "errServerErrorMsg": {
     "message": "Nexus Mods tiene un problema en el servidor."
   },

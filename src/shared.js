@@ -877,10 +877,19 @@
     return 'Unknown browser';
   }
 
+  // The word after "file", "game", "collection" or "mod" is masked: it can be an id, a game domain or
+  // a collection slug. The words the extension's own messages put there are kept, or "Loading mod
+  // files" and "Loading mod details" both read "Loading mod [id]".
+  const NOT_AN_ID = new Set(['files', 'file', 'details', 'revisions', 'revision', 'page', 'pages', 'link', 'links',
+    'download', 'downloads', 'list', 'data', 'metadata', 'info', 'requirements', 'queue', 'header', 'name', 'card',
+    'tab', 'actions', 'action', 'update', 'updates', 'archive', 'hash', 'search', 'check', 'contents', 'manager',
+    'id', 'ids', 'size', 'version', 'versions', 'history', 'is', 'was', 'for', 'from', 'to', 'in', 'on', 'of',
+    'with', 'and', 'or', 'not', 'that', 'the', 'a', 'an', 'under', 'being', 'has', 'had', 'names']);
   function autoDiagnosticText(value, limit = 160) {
     return sanitizeDiagnosticText(value, 1500)
       .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, '[link]')
-      .replace(/\b(file|game|collection|mod)\s+[^\s,()|]+/gi, '$1 [id]')
+      .replace(/\b(file|game|collection|mod)\s+([^\s,()|]+)/gi,
+        (match, noun, word) => (NOT_AN_ID.has(word.toLowerCase().replace(/[.;:!?]+$/, '')) ? match : `${noun} [id]`))
       // A number can name a file, a mod or an account; an HTTP status names none of them and is what a
       // report about a failed request most needs.
       .replace(/(\bHTTP )?\b\d+\b/g, (match, http) => (http && /^HTTP \d{3}$/.test(match) ? match : `${http || ''}#`))

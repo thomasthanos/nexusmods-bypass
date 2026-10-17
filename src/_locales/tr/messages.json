@@ -185,6 +185,14 @@
   "errModUnavailableFix": {
     "message": "Mod artık Nexus Mods'da mevcut değil. Bir alternatif arayın veya mod yazarıyla iletişime geçin."
   },
+  "errCollectionUnavailableMsg": {
+    "message": "Nexus Mods bu koleksiyonu göstermiyor: inceleme aşamasında, gizlenmiş veya kaldırılmış.",
+    "description": "Error message: Nexus Mods does not show the collection (under moderation review, hidden or removed)."
+  },
+  "errCollectionUnavailableFix": {
+    "message": "Koleksiyon sayfasını kontrol edin. İncelemedeki bir koleksiyon, Nexus Mods onayladığında indirilebilir.",
+    "description": "Recovery advice for errCollectionUnavailableMsg."
+  },
   "errServerErrorMsg": {
     "message": "Nexus Mods tarafında bir sunucu sorunu var."
   },

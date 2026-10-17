@@ -368,10 +368,17 @@ function createHarness(choice) {
   assert.equal(await api.fetchMods(), null);
   assert.equal(api.lastError.code, 'nexus_api_changed', 'a schema error reads as Nexus changing its API');
   assert.match(api.lastError.technicalMessage, /GraphQL: Cannot query field "modFiles"/, 'and carries what GraphQL said');
-  answer({ errors: [{ message: 'Collection not found' }], data: { collectionRevision: null } });
+  // E-0p8soab: a collection under review came in as "Unexpected response from Nexus · Refresh the page".
+  for (const message of ['This collection 7Mbc1t currently being moderated', 'Collection not found', 'This collection has been hidden']) {
+    answer({ errors: [{ message }], data: { collectionRevision: null } });
+    await api.fetchMods();
+    assert.equal(api.lastError.code, 'collection_unavailable', `"${message}" is the collection being unavailable`);
+    assert.match(api.lastError.technicalMessage, /GraphQL: /, 'and carries what GraphQL said');
+  }
+  answer({ errors: [{ message: 'Internal server error' }], data: { collectionRevision: null } });
   await api.fetchMods();
   assert.equal(api.lastError.code, 'invalid_response', 'any other GraphQL error is not called an API change');
-  assert.match(api.lastError.technicalMessage, /Collection not found/);
+  assert.match(api.lastError.technicalMessage, /Internal server error/);
   answer({ data: { collection: null } });
   assert.equal(await api.fetchRevisions(), null);
   assert.equal(api.lastError.code, 'invalid_response');

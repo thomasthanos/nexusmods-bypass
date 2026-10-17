@@ -228,6 +228,16 @@ function classificationOf(p, relayVersion = '') {
   };
 }
 
+// Who needs pinging: a user's own bug report, or an automatic error from a current (or newer) client.
+// A warning (connection trouble, Nexus changing a page, a transient download failure) or an older
+// release's report still arrives, quietly: each new one used to ping once a day, so most pings were
+// faults already fixed or nobody could act on.
+export function mentionWorthy(p, relayVersion = '') {
+  if (p.kind !== 'auto') return true;
+  const { level, client } = classificationOf(p, relayVersion);
+  return client !== 'older' && level === 'error';
+}
+
 // Never attach the raw automatic request: older clients or third parties may include unknown fields.
 // Manual attachments remain the exact diagnostics their user reviewed.
 function automaticAttachment(p, relayVersion) {
@@ -475,7 +485,8 @@ async function handleRequest(request, env, ctx, headers, log) {
   const fp = fingerprintOf(payload);
   if (await hasSignal(env, 'fp', fp, now, log)) return json({ ok: true, duplicate: true }, 200, headers);
   const id = crypto.randomUUID().slice(0, 8);
-  const mention = !fp || !await hasSignal(env, 'ping', fp, now, log);
+  const mention = mentionWorthy(payload, env.RELAY_EXTENSION_VERSION)
+    && (!fp || !await hasSignal(env, 'ping', fp, now, log));
   const message = discordMessage(payload, id, mention ? env.REPORT_MENTION_USER_ID : '', env.RELAY_EXTENSION_VERSION);
   const body = new FormData();
   const attachment = payload.kind === 'manual' ? payload : automaticAttachment(payload, env.RELAY_EXTENSION_VERSION);

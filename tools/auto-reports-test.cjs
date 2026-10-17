@@ -229,6 +229,13 @@ async function run() {
     assert.equal(f.sent[0].payload.page, 'collection');
     assert.equal(f.sent[0].payload.error.frame, 'content/ndc.js:42:5');
     assert.equal(f.kit.errorReference(raw), f.kit.errorReference(f.entry({ ...raw, context: 'Downloading queued file 456 for game fallout' })), 'identifiers do not fragment the same fault');
+    // Discord: "Loading mod files" and "Loading collection details" both arrived as "... [id]".
+    const words = f.kit.autoReportDetails(f.entry({ context: 'Loading mod files', technicalMessage: 'links only for other files; the nxm link names another file' }));
+    assert.equal(words.error.context, 'Loading mod files', 'a word the extension wrote is not an identifier');
+    assert.equal(words.error.message, 'links only for other files; the nxm link names another file');
+    assert.equal(f.kit.autoReportDetails(f.entry({ context: 'Loading collection details' })).error.context, 'Loading collection details');
+    assert.equal(f.kit.autoReportDetails(f.entry({ context: 'Loading collection qlplbx' })).error.context, 'Loading collection [id]', 'a slug is');
+    assert.equal(f.kit.autoReportDetails(f.entry({ context: 'Loading Mod 2394' })).error.context, 'Loading Mod [id]');
   }
   {
     // A 503 that says when to come back pauses the queue like a 429; one that does not is retried.
