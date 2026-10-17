@@ -11,6 +11,16 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
+## 3.1.7 — 2026-10-18
+
+- **The right file for Vortex and Mod Organizer 2:** Nexus's download dialog now names a file by its uid (the game id × 2³² plus the file id) and links to `/api/files/<uid>/download`. That uid was read as the file id, so the link search lost its scope, the download generator was asked for a file that does not exist, and the correct `nxm://` link was then refused as another file's. This was the most frequent report from 3.1.5 and 3.1.6 ("the nxm link names another file"). Clicks, dialogs, the API route, the collection deck and the final Vortex check now read either form.
+- **Pages fetched as a click loads them:** the Vortex page, the requirements page and the API route are requested without `X-Requested-With`. With it, Nexus answers with the tab fragment, which has no `nxm://` link.
+- **Leaving a page is a cancel:** a request cut off by closing or navigating the tab is no longer reported as a network fault, and a cancel is not logged. Connection failures of the mod-files list, mod details and game lookup, which the page works without, go to the debug log instead of a report.
+- **Unavailable collections:** a collection that Nexus is moderating, has hidden or cannot find says so (local only, in all 13 languages) instead of "Unexpected response · Refresh the page".
+- **Readable reports:** report text no longer masks every word after "mod", "file", "game" or "collection" ("Loading mod files" arrived as "Loading mod [id]"); ids, game domains and slugs are still masked. A "missing: page content region" warning now describes what the page has (layout, landmarks, custom elements, fixed test hooks, amount of text, kind of title; never text or ids), and Next.js's own 404 page is not counted as a site change. PRIVACY.md lists the new fields.
+- **Fewer pings:** the relay pings the maintainer only for manual reports and for automatic errors from 3.1.7 or newer. Warnings and older clients' reports are still posted, without a ping. This needs `npx wrangler deploy` from `relay/`; until then the deployed Worker keeps accepting this release's reports and pings as it does now.
+- **Packages:** Chrome/Edge and Firefox use 3.1.7 with unchanged permissions.
+
 ## 3.1.6 — 2026-10-16
 
 - **Compact reports:** automatic errors and warnings use one short Discord embed plus an allowlisted JSON attachment with its preview hidden. Manual reports retain the JSON the user reviewed. Errors are red; page/schema and network warnings are amber.
