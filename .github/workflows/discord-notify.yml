@@ -1,13 +1,17 @@
 name: Discord notifications
 
-# Optional: posts new releases and newly opened (or newly labelled) bug issues to Discord.
-# Does nothing when the DISCORD_WEBHOOK_URL repository secret is not set.
+# Optional: posts releases published by hand and newly labelled bug reports and feature requests to
+# Discord. Does nothing when the DISCORD_WEBHOOK_URL repository secret is not set. Releases made by
+# publish-release.yml announce themselves: a release published with the workflow's token starts no
+# other workflow, so this one never hears of them.
 
 on:
   release:
     types: [published]
+  # Labels only: an issue filed through a form arrives as an "opened" event that already carries the
+  # form's labels and a "labeled" event for each of them, so reacting to both posted every issue twice.
   issues:
-    types: [opened, labeled]
+    types: [labeled]
 
 permissions:
   contents: read
@@ -17,8 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event_name == 'release' ||
-      (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug')) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'bug')
+      (github.event.action == 'labeled' && contains(fromJSON('["bug", "enhancement"]'), github.event.label.name))
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,6 +37,7 @@ jobs:
           I_TITLE: ${{ github.event.issue.title }}
           I_URL: ${{ github.event.issue.html_url }}
           I_USER: ${{ github.event.issue.user.login }}
+          I_LABEL: ${{ github.event.label.name }}
         # Skips without the secret; waits out Discord rate limits; a failed post is a warning only.
         run: |
           if [ "$KIND" = "release" ]; then

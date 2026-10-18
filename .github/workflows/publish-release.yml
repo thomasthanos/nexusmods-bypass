@@ -43,10 +43,16 @@ jobs:
               lock.version !== version || lock.packages[''].version !== version) {
             throw new Error('Manifest and tooling versions must match.');
           }
-          if (!fs.existsSync(`internal/docs/releases/${version}.md`)) {
+          const notes = `internal/docs/releases/${version}.md`;
+          if (!fs.existsSync(notes)) {
             throw new Error(`Missing release notes for ${version}.`);
           }
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          // The title is the notes' "## <version> — <subtitle>" heading, so each release is named for
+          // what it ships (it was hard-coded, and every release would have had 3.1.7's name).
+          const escaped = version.replace(/\./g, '\\.');
+          const heading = new RegExp(`^##\\s+v?${escaped}\\s+[—–-]\\s+(.+?)\\s*$`, 'm').exec(fs.readFileSync(notes, 'utf8'));
+          const title = heading ? `v${version} — ${heading[1]}` : `v${version}`;
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\ntitle=${title.replace(/[\r\n]+/g, ' ')}\n`);
           NODE
       - run: npm ci
       - run: npm run lint
@@ -61,10 +67,12 @@ jobs:
       - name: Validate live Nexus schema
         run: node tools/schema-watch.mjs
       - name: Publish both validated packages
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.version.outputs.version }}
+          TITLE: ${{ steps.version.outputs.title }}
         run: |
           notes="internal/docs/releases/${VERSION}.md"
           if gh release view "$VERSION" --json isDraft --jq '.isDraft' > /tmp/release-is-draft; then
@@ -74,9 +82,26 @@ jobs:
             fi
           else
             gh release create "$VERSION" --draft --target "$GITHUB_SHA" \
-              --title "v${VERSION} — API reliability and collection fixes" --notes-file "$notes"
+              --title "$TITLE" --notes-file "$notes"
           fi
           gh release upload "$VERSION" \
             "dist/nexus.mods.bypass-${VERSION}.zip" \
             "dist/nexus.mods.bypass-${VERSION}-firefox.zip" --clobber
           gh release edit "$VERSION" --draft=false --latest
+          echo "published=true" >> "$GITHUB_OUTPUT"
+      # A release published with the workflow's token starts no other workflow, so discord-notify.yml
+      # never hears of it (no notice went out for 3.1.6 or 3.1.7). Only a release published just now is
+      # announced; a re-run that finds it already published says nothing.
+      - name: Announce the release on Discord
+        if: steps.publish.outputs.published == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          R_NAME: ${{ steps.version.outputs.title }}
+        # Skips without the secret; waits out Discord rate limits; a failed post is a warning only.
+        run: |
+          R_URL="$(gh release view "$VERSION" --json url --jq .url)" \
+          R_BODY="$(cat "internal/docs/releases/${VERSION}.md")" \
+            node tools/discord-notification.mjs release --send

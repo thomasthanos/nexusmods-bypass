@@ -29,6 +29,32 @@ try {
   assert.equal(run('schema').embeds[0].color, 0xe8b339);
   assert.equal(run('release', { R_NAME: '3.1.1', R_URL: 'https://github.com/thomasthanos/nexusmods-bypass/releases/tag/3.1.1', R_BODY: '<p><img src="banner.svg" /></p>\n<details>\n<summary>Updates</summary>\n- New reports\n</details>' }).embeds[0].color, 0x57f287);
   assert.equal(run('issue', { I_TITLE: 'A bug', I_URL: 'https://github.com/thomasthanos/nexusmods-bypass/issues/1', I_USER: 'tester' }).embeds[0].color, 0x3498db);
+
+  // Issue #29 "[Feature Request] Auto expand requirements screen." was filed through the bug form
+  // (the only form then) and came in as "Bug issue", twice.
+  const issue = (extra) => githubMessage('issue', { I_URL: 'https://github.com/thomasthanos/nexusmods-bypass/issues/29', I_USER: 'LimeLime875', ...extra }).embeds[0];
+  assert.equal(issue({ I_TITLE: '[Bug] Vortex does not open', I_LABEL: 'bug' }).title, 'GitHub · Bug issue: [Bug] Vortex does not open');
+  assert.equal(issue({ I_TITLE: 'Auto expand requirements', I_LABEL: 'enhancement' }).title, 'GitHub · Feature request: Auto expand requirements');
+  const misfiled = issue({ I_TITLE: '[Feature Request] Auto expand requirements screen.', I_LABEL: 'bug' });
+  assert.equal(misfiled.title, 'GitHub · Feature request: [Feature Request] Auto expand requirements screen.', 'a request filed as a bug is still a request');
+  assert.match(misfiled.description, /^Opened by LimeLime875\. Open the issue for the full request\.$/);
+  assert.match(issue({ I_TITLE: 'Crash', I_LABEL: 'bug' }).description, /full report/);
+
+  // One notice per issue: a form's labels arrive as an "opened" event that already has them and a
+  // "labeled" event for each, so only the label event posts.
+  const notifyWorkflow = fs.readFileSync('.github/workflows/discord-notify.yml', 'utf8');
+  assert.match(notifyWorkflow, /issues:\s*\n\s*types: \[labeled\]/, 'issues notify on labels only');
+  assert.doesNotMatch(notifyWorkflow, /action == 'opened'/);
+  assert.match(notifyWorkflow, /I_LABEL: \$\{\{ github\.event\.label\.name \}\}/);
+  assert.match(fs.readFileSync('.github/ISSUE_TEMPLATE/feature_request.yml', 'utf8'), /labels: \["enhancement", "nexusmods-bypass"\]/,
+    'feature requests have their own form');
+
+  // A release published with the workflow's token starts no other workflow, so discord-notify never
+  // heard of 3.1.6 or 3.1.7: the publish job announces its own release. Its title comes from the notes.
+  const publish = fs.readFileSync('.github/workflows/publish-release.yml', 'utf8');
+  assert.doesNotMatch(publish, /API reliability and collection fixes/, 'no release title is hard-coded');
+  assert.match(publish, /--title "\$\{\{ steps\.version\.outputs\.title \}\}"|--title "\$TITLE"/);
+  assert.match(publish, /node tools\/discord-notification\.mjs release --send/);
   fs.writeFileSync(summary, 'x'.repeat(7000));
   assert.ok(run('schema').embeds[0].description.length <= 3900);
   // Release notes full of emoji are cut between characters, never inside one.

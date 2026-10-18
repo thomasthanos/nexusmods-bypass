@@ -24,8 +24,11 @@ export function githubMessage(kind, input) {
     url = input.R_URL;
     color = COLORS.success;
   } else if (kind === 'issue') {
-    title = `GitHub · Bug issue: ${input.I_TITLE || 'New issue'}`;
-    description = `Opened by ${quiet(input.I_USER || 'a user')}. Open the issue for the full report.`;
+    // The label says what was filed; a "[Feature Request]" title filed through the bug form is still
+    // a request (issue #29 came in as "Bug issue").
+    const request = input.I_LABEL === 'enhancement' || /^\s*\[(?:feature(?: request)?|request|idea|suggestion)\]/i.test(input.I_TITLE || '');
+    title = `GitHub · ${request ? 'Feature request' : 'Bug issue'}: ${input.I_TITLE || 'New issue'}`;
+    description = `Opened by ${quiet(input.I_USER || 'a user')}. Open the issue for the full ${request ? 'request' : 'report'}.`;
     url = input.I_URL;
     color = COLORS.notice;
   } else if (kind === 'manifest' || kind === 'schema') {
