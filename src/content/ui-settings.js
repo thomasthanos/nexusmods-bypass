@@ -19,6 +19,7 @@
     { key: 'ShowAlertsOnError', label: () => NXTK.t('setShowAlertsOnErrorLabel', null, 'Show error popups'), type: 'bool', desc: () => NXTK.t('setShowAlertsOnErrorDesc', null, 'Show a message when a download cannot start, with available actions to help you continue. Turning this off hides these popups; it does not fix the problem.') },
     { key: 'HidePremiumUpsells', label: () => NXTK.t('setHidePremiumUpsellsLabel', null, 'Hide ads and Premium panels'), type: 'bool', desc: () => NXTK.t('setHidePremiumUpsellsDesc', null, 'Hide advertisements and Premium upgrade panels on Nexus, and skip the download countdown. This does not give you a Premium account or Premium download speeds.') },
     { key: 'HandleArchivedFiles', label: () => NXTK.t('setHandleArchivedFilesLabel', null, 'Buttons for older file versions'), type: 'bool', desc: () => NXTK.t('setHandleArchivedFilesDesc', null, 'Add download buttons to older file versions that Nexus has moved to its archive. This does not restore deleted files or unlock restricted content.') },
+    { key: 'ExpandRequirements', label: () => NXTK.t('setExpandRequirementsLabel', null, 'Open the Requirements section'), type: 'bool', desc: () => NXTK.t('setExpandRequirementsDesc', null, 'On a mod\'s Description tab, show the Requirements section open instead of collapsed. You can still close it. This does not download the required mods.') },
     {
       key: 'WabbajackImport',
       label: () => NXTK.t('setWabbajackImportLabel', null, 'Wabbajack modlist import (beta)'),
@@ -68,7 +69,7 @@
   const SETTING_GROUPS = [
     { name: 'downloads', titleKey: 'setSectionFlow', title: 'Downloads', keys: ['AutoStartDownload', 'AutoCloseTab', 'SkipRequirements', 'HandleArchivedFiles', 'DownloadFolder'] },
     { name: 'collections', titleKey: 'setSectionPacing', title: 'Collections', keys: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'] },
-    { name: 'appearance', titleKey: 'setSectionLanguage', title: 'Appearance & language', keys: ['HidePremiumUpsells', 'ShowAlertsOnError', 'ForceEnglish'] }
+    { name: 'appearance', titleKey: 'setSectionLanguage', title: 'Appearance & language', keys: ['HidePremiumUpsells', 'ExpandRequirements', 'ShowAlertsOnError', 'ForceEnglish'] }
   ];
   const SHORT_COPY = {
     "AutoStartDownload": [
@@ -94,6 +95,10 @@
     "HandleArchivedFiles": [
       "setShortHandleArchivedFiles",
       "Add buttons to older files in the Nexus archive."
+    ],
+    "ExpandRequirements": [
+      "setShortExpandRequirements",
+      "Show a mod's requirements without a click."
     ],
     "WabbajackImport": [
       "setShortWabbajackImport",
@@ -303,20 +308,34 @@
     // Presets and individual edits share one queue, in click order. Revision checks
     // prevent an older failed write from rolling back a newer visible choice.
     function queueSetting(key, value) {
-      const revision = (settingRevisions.get(key) || 0) + 1;
-      settingRevisions.set(key, revision);
-      cfg[key] = value;
+      return queueSettings({ [key]: value });
+    }
+
+    // One write for every setting in the patch (a preset), queued behind earlier writes. A setting the
+    // user changed again meanwhile keeps that newer choice if this write fails.
+    function queueSettings(patch) {
+      const revisions = {};
+      for (const [key, value] of Object.entries(patch)) {
+        revisions[key] = (settingRevisions.get(key) || 0) + 1;
+        settingRevisions.set(key, revisions[key]);
+        cfg[key] = value;
+      }
       const save = settingWrites.then(async () => {
         let saved = false;
-        try { saved = await NexusExt.Storage.patchSetting(key, value); } catch (_) { }
-        if (saved) savedCfg[key] = value;
+        try { saved = await NexusExt.Storage.patchSettings(patch); } catch (_) { }
+        if (saved) Object.assign(savedCfg, patch);
         else {
-          if (settingRevisions.get(key) === revision) {
+          let rolledBack = false;
+          for (const key of Object.keys(patch)) {
+            if (settingRevisions.get(key) !== revisions[key]) continue;
+            rolledBack = true;
             cfg[key] = savedCfg[key];
             const input = modal.querySelector(`[data-setting="${key}"]`);
             if (input?.type === 'checkbox') input.checked = !!cfg[key];
             else if (input) input.value = typeof cfg[key] === 'number'
               ? String(cfg[key] / (Number(input.dataset.scale) || 1)) : cfg[key];
+          }
+          if (rolledBack) {
             if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
             syncImportControls();
             syncPresetState();
@@ -418,10 +437,11 @@
       flushPendingInputs();
       const name = button.dataset.preset;
       const next = NXTK.applyPreset(cfg, name);
-      const saves = [];
+      const changes = {};
       for (const key of Object.keys(NXTK.SETTING_PRESETS[name] || {})) {
-        if (cfg[key] !== next[key]) saves.push(queueSetting(key, next[key]));
+        if (cfg[key] !== next[key]) changes[key] = next[key];
       }
+      const saves = Object.keys(changes).length ? [queueSettings(changes)] : [];
       if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
       modal.querySelectorAll('input[type="checkbox"][data-setting]').forEach((input) => {
         input.checked = !!cfg[input.dataset.setting];

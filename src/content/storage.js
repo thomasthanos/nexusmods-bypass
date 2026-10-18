@@ -80,17 +80,26 @@ window.NexusExt = window.NexusExt || {};
     return saveSettings({ ...DEFAULTS });
   }
 
-  async function patchSetting(key, value) {
-    const reply = await mutateWithRetry('SETTINGS_PATCH', { patch: { [key]: value } });
+  // Several settings in one write: a preset saved one setting at a time could be read, or left if the
+  // tab closed, half applied.
+  async function patchSettings(patch) {
+    const reply = await mutateWithRetry('SETTINGS_PATCH', { patch });
     if (reply.ok && reply.value) {
       cache[SETTINGS_KEY] = reply.value;
       return true;
     }
     if (!reply.transport) return false;
-    const normalized = NXTK.normalizeSetting(key, value);
-    if (normalized === undefined) return false;
+    const normalized = {};
+    for (const [key, value] of Object.entries(patch || {})) {
+      normalized[key] = NXTK.normalizeSetting(key, value);
+      if (normalized[key] === undefined) return false;
+    }
     const current = await getSettings();
-    return saveSettings({ ...current, [key]: normalized });
+    return saveSettings({ ...current, ...normalized });
+  }
+
+  async function patchSetting(key, value) {
+    return patchSettings({ [key]: value });
   }
 
   async function getHistory() {
@@ -222,6 +231,7 @@ window.NexusExt = window.NexusExt || {};
     isContextValid,
     getSettings,
     patchSetting,
+    patchSettings,
     resetSettings,
     getHistory,
     addHistoryEntry,

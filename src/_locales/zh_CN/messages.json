@@ -35,6 +35,10 @@
   "setHandleArchivedFilesLabel": {
     "message": "旧版文件的下载按钮"
   },
+  "setExpandRequirementsLabel": {
+    "message": "展开依赖项部分",
+    "description": "Settings toggle label: open the Requirements section on a mod page."
+  },
   "btnPageSettings": {
     "message": "页面设置"
   },
@@ -574,6 +578,10 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "为 Nexus 已移入归档的旧版文件添加下载按钮。不会恢复已删除文件，也不会解除内容访问限制。"
+  },
+  "setExpandRequirementsDesc": {
+    "message": "在 Mod 的 Description 标签页中，将默认折叠的 Requirements 部分显示为展开。你仍可将其折叠。不会下载所需的 Mod。",
+    "description": "Settings toggle help text for setExpandRequirementsLabel. \"Description\" and \"Requirements\" are the names Nexus Mods shows."
   },
   "setDownloadFolderLabel": {
     "message": "浏览器下载文件夹"
@@ -2010,6 +2018,10 @@
   },
   "setShortHandleArchivedFiles": {
     "message": "为 Nexus 归档中的旧版文件添加按钮。"
+  },
+  "setShortExpandRequirements": {
+    "message": "无需点击即可显示 Mod 的依赖项。",
+    "description": "Short settings summary for setExpandRequirementsLabel."
   },
   "setShortWabbajackImport": {
     "message": "将 .wabbajack 中的 Nexus 文件加入队列（测试版）。"

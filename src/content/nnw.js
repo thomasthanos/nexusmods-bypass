@@ -577,8 +577,32 @@ window.NexusExt = window.NexusExt || {};
       if (runId !== domEnhancementRun) return;
       upsellBlocker();
       archivedFileHandler();
+      expandRequirementsSection();
       loadApiFileList();
     }).catch((cause) => Logger.warn('Could not apply page enhancements:', cause));
+  }
+
+  // Issue #29: the description tab's Requirements section, which Nexus shows collapsed, starts open.
+  // Nexus's accordion keeps its state in the DOM (an open item is dt.accopen + dd.open shown as a
+  // block), and its toggle listens for a "tap" a scripted click does not make, so the section is opened
+  // the way Nexus opens one it marks expand-default; its own toggle then closes it as usual. Each
+  // section is opened once: one the user closed stays closed, and only a re-rendered tab opens again.
+  const openedRequirementSections = new WeakSet();
+  function expandRequirementsSection() {
+    if (!cfg.ExpandRequirements || !isModPage()) return;
+    const headers = new Set(document.querySelectorAll('.accordionitems dl.accordion > dt[data-accordion-track="file_requirements"]'));
+    for (const body of document.querySelectorAll('.accordionitems dl.accordion > dd')) {
+      if (body.querySelector('main-file-requirements') && body.previousElementSibling?.tagName === 'DT') headers.add(body.previousElementSibling);
+    }
+    for (const header of headers) {
+      const body = header.nextElementSibling;
+      if (openedRequirementSections.has(header) || body?.tagName !== 'DD') continue;
+      openedRequirementSections.add(header);
+      if (body.classList.contains('open')) continue;
+      body.style.display = 'block';
+      body.classList.add('open');
+      header.classList.add('accopen');
+    }
   }
 
   // Reading the download link out of a Nexus response is done by download-url-parser.js, which the
@@ -2558,6 +2582,7 @@ window.NexusExt = window.NexusExt || {};
     parseDownloadURLFromResponse,
     parseNxmDownloadLink,
     refreshAdTimerCookie,
-    pickModalHref
+    pickModalHref,
+    expandRequirementsSection
   };
 })();

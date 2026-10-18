@@ -144,6 +144,60 @@ function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/1
   assert.ok(!nnw.includes("slowDownloadBtn.addEventListener('click'"), 'no per-button listener (it ran after Nexus\'s own)');
 }
 
+// --- Requirements section opened (issue #29) ---------------------------------------------------------
+// Nexus's toggle listens for a "tap" that a scripted click does not make, so the section is opened the
+// way Nexus opens one it marks expand-default. Checked live: Nexus's own toggle then closes it normally.
+{
+  const w = load('mod-page-requirements.html', 'https://www.nexusmods.com/stardewvalley/mods/45538');
+  w.NexusExt.Storage = { getSettings: async () => ({ ...w.NXTK.DEFAULTS }) };
+  for (const file of ['src/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+  const NNW = w.NexusExt.NNW;
+  const [reqDt, permDt, collDt] = w.document.querySelectorAll('dl.accordion > dt');
+  const state = (dt) => ({
+    header: dt.classList.contains('accopen'),
+    body: dt.nextElementSibling.classList.contains('open'),
+    shown: w.getComputedStyle(dt.nextElementSibling).display !== 'none'
+  });
+  const closed = { header: false, body: false, shown: false };
+  const open = { header: true, body: true, shown: true };
+
+  assert.equal(w.NXTK.DEFAULTS.ExpandRequirements, false, 'off unless the user turns it on');
+  NNW.expandRequirementsSection();
+  assert.deepEqual(state(reqDt), closed, 'nothing is opened while the setting is off');
+
+  NNW.updateConfig({ ...w.NXTK.DEFAULTS, ExpandRequirements: true });
+  NNW.expandRequirementsSection();
+  assert.deepEqual(state(reqDt), open, 'the Requirements section is open');
+  assert.deepEqual(state(permDt), closed, 'other sections are left alone');
+  assert.deepEqual(state(collDt), open, 'and one Nexus opened stays as it was');
+
+  // The user closes it, as Nexus's toggle does; a later pass (navigation, a settings change) keeps it closed.
+  reqDt.nextElementSibling.classList.remove('open');
+  reqDt.nextElementSibling.style.display = 'none';
+  reqDt.classList.remove('accopen');
+  NNW.expandRequirementsSection();
+  assert.deepEqual(state(reqDt), closed, 'a section the user closed stays closed');
+
+  // A description tab Nexus loads again is a new section, opened again.
+  const fresh = reqDt.cloneNode(true);
+  const freshBody = reqDt.nextElementSibling.cloneNode(true);
+  reqDt.parentElement.prepend(fresh, freshBody);
+  NNW.expandRequirementsSection();
+  assert.deepEqual(state(fresh), open, 'a re-rendered section is opened like a new page');
+
+  // Without the analytics hook, the header is found by the requirements component it opens.
+  fresh.removeAttribute('data-accordion-track');
+  const again = fresh.cloneNode(true);
+  const againBody = freshBody.cloneNode(true);
+  againBody.classList.remove('open');
+  againBody.style.display = 'none';
+  again.classList.remove('accopen');
+  fresh.parentElement.prepend(again, againBody);
+  NNW.expandRequirementsSection();
+  assert.deepEqual(state(again), open, 'found by its main-file-requirements content');
+  console.log('requirements section behavior OK');
+}
+
 // --- One owner per click (live test 2.10.1: SkyUI SDK downloaded twice; the requirements modal fetched
 // the MAIN file twice). The real nnw.js runs in the page; Nexus's own handlers are stand-ins. ---------
 (async () => {

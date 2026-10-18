@@ -35,6 +35,10 @@
   "setHandleArchivedFilesLabel": {
     "message": "Eski dosya sürümleri için düğmeler"
   },
+  "setExpandRequirementsLabel": {
+    "message": "Gereksinimler bölümünü aç",
+    "description": "Settings toggle label: open the Requirements section on a mod page."
+  },
   "btnPageSettings": {
     "message": "Sayfa ayarları"
   },
@@ -539,6 +543,10 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus arşivine taşınmış eski dosya sürümlerine indirme düğmeleri ekler. Silinen dosyaları geri getirmez veya kısıtlı içeriği açmaz."
+  },
+  "setExpandRequirementsDesc": {
+    "message": "Bir modun Description sekmesinde Requirements bölümünü kapalı yerine açık gösterir. Yine de kapatabilirsiniz. Gerekli modları indirmez.",
+    "description": "Settings toggle help text for setExpandRequirementsLabel. \"Description\" and \"Requirements\" are the names Nexus Mods shows."
   },
   "setDownloadFolderLabel": {
     "message": "Tarayıcı indirme klasörü"
@@ -2094,6 +2102,10 @@
   },
   "setShortHandleArchivedFiles": {
     "message": "Nexus arşivindeki eski dosyalara düğmeler ekler."
+  },
+  "setShortExpandRequirements": {
+    "message": "Bir modun gereksinimlerini tıklamadan gösterir.",
+    "description": "Short settings summary for setExpandRequirementsLabel."
   },
   "setShortWabbajackImport": {
     "message": ".wabbajack listesindeki Nexus dosyalarını sıraya ekle (beta)."

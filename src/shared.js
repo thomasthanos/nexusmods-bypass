@@ -238,6 +238,7 @@
     HandleArchivedFiles: true,
     CloudflareFallback: true,
     HidePremiumUpsells: true,
+    ExpandRequirements: false,
     DebugLogs: false,
     AutoErrorReports: false,
     AutoReportDiagnostics: false,

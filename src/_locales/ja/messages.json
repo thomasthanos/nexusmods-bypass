@@ -35,6 +35,10 @@
   "setHandleArchivedFilesLabel": {
     "message": "古いファイルのダウンロードボタン"
   },
+  "setExpandRequirementsLabel": {
+    "message": "必須MODの欄を開いておく",
+    "description": "Settings toggle label: open the Requirements section on a mod page."
+  },
   "btnPageSettings": {
     "message": "ページ設定"
   },
@@ -539,6 +543,10 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus のアーカイブに移された古いファイルにダウンロードボタンを追加します。削除されたファイルの復元や、アクセス制限の解除は行いません。"
+  },
+  "setExpandRequirementsDesc": {
+    "message": "MODの Description タブで、折りたたまれている Requirements の欄を開いた状態で表示します。閉じることもできます。必須MODはダウンロードされません。",
+    "description": "Settings toggle help text for setExpandRequirementsLabel. \"Description\" and \"Requirements\" are the names Nexus Mods shows."
   },
   "setDownloadFolderLabel": {
     "message": "ブラウザーのダウンロードフォルダー"
@@ -2010,6 +2018,10 @@
   },
   "setShortHandleArchivedFiles": {
     "message": "Nexus アーカイブ内の古いファイルにボタンを追加します。"
+  },
+  "setShortExpandRequirements": {
+    "message": "クリックせずにMODの必須項目を表示します。",
+    "description": "Short settings summary for setExpandRequirementsLabel."
   },
   "setShortWabbajackImport": {
     "message": ".wabbajack の Nexus ファイルをキューに追加します（ベータ）。"

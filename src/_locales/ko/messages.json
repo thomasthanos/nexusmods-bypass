@@ -35,6 +35,10 @@
   "setHandleArchivedFilesLabel": {
     "message": "이전 파일 버전 다운로드 버튼"
   },
+  "setExpandRequirementsLabel": {
+    "message": "필수 항목 섹션 펼치기",
+    "description": "Settings toggle label: open the Requirements section on a mod page."
+  },
   "btnPageSettings": {
     "message": "페이지 설정"
   },
@@ -539,6 +543,10 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Nexus 보관함으로 옮겨진 이전 파일 버전에 다운로드 버튼을 추가합니다. 삭제된 파일을 복원하거나 접근 제한을 해제하지는 않습니다."
+  },
+  "setExpandRequirementsDesc": {
+    "message": "모드의 Description 탭에서 접혀 있는 Requirements 섹션을 펼친 상태로 표시합니다. 다시 접을 수 있습니다. 필요한 모드를 다운로드하지는 않습니다.",
+    "description": "Settings toggle help text for setExpandRequirementsLabel. \"Description\" and \"Requirements\" are the names Nexus Mods shows."
   },
   "setDownloadFolderLabel": {
     "message": "브라우저 다운로드 폴더"
@@ -2010,6 +2018,10 @@
   },
   "setShortHandleArchivedFiles": {
     "message": "Nexus 보관함의 이전 파일에 버튼을 추가합니다."
+  },
+  "setShortExpandRequirements": {
+    "message": "클릭하지 않고 모드의 필수 항목을 표시합니다.",
+    "description": "Short settings summary for setExpandRequirementsLabel."
   },
   "setShortWabbajackImport": {
     "message": ".wabbajack의 Nexus 파일을 대기열에 추가합니다(베타)."

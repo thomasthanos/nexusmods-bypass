@@ -35,6 +35,10 @@
   "setHandleArchivedFilesLabel": {
     "message": "Κουμπιά για παλιές εκδόσεις αρχείων"
   },
+  "setExpandRequirementsLabel": {
+    "message": "Ανοιχτή ενότητα απαιτήσεων",
+    "description": "Settings toggle label: open the Requirements section on a mod page."
+  },
   "btnPageSettings": {
     "message": "Ρυθμίσεις σελίδας"
   },
@@ -609,6 +613,10 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Προσθέτει κουμπιά λήψης σε παλιές εκδόσεις αρχείων που το Nexus έχει μεταφέρει στο αρχείο του (Archive). Δεν επαναφέρει διαγραμμένα αρχεία και δεν ξεκλειδώνει περιορισμένο περιεχόμενο."
+  },
+  "setExpandRequirementsDesc": {
+    "message": "Στο tab Description ενός mod, δείχνει την ενότητα Requirements ανοιχτή αντί για κλειστή. Μπορείτε ακόμα να την κλείσετε. Δεν κατεβάζει τα mods που απαιτούνται.",
+    "description": "Settings toggle help text for setExpandRequirementsLabel. \"Description\" and \"Requirements\" are the names Nexus Mods shows."
   },
   "setDownloadFolderLabel": {
     "message": "Φάκελος λήψεων περιηγητή"
@@ -2094,6 +2102,10 @@
   },
   "setShortHandleArchivedFiles": {
     "message": "Προσθέτει κουμπιά σε παλιές εκδόσεις στο αρχείο του Nexus."
+  },
+  "setShortExpandRequirements": {
+    "message": "Δείχνει τις απαιτήσεις ενός mod χωρίς κλικ.",
+    "description": "Short settings summary for setExpandRequirementsLabel."
   },
   "setShortWabbajackImport": {
     "message": "Βάλε σε σειρά τα αρχεία Nexus μιας λίστας .wabbajack (beta)."

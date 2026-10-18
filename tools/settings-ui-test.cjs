@@ -72,6 +72,32 @@ async function settingsRegressionTests() {
       assert.equal(input.checked, true, 'later manual choice stays visible');
       assert.match(f.modal().querySelector('#nxtk-preset-note').textContent, /Custom/);
     }],
+    ['a preset is saved in one write', async (f) => {
+      // Saved one setting at a time, the Browser preset could be read (and left, if the tab closed)
+      // with the new download method and the old "close the tab" choice.
+      const send = f.w.chrome.runtime.sendMessage;
+      const patches = [];
+      f.w.chrome.runtime.sendMessage = (message, callback) => {
+        if (message.type === 'SETTINGS_PATCH') patches.push(message.payload.patch);
+        send(message, callback);
+      };
+      f.modal().querySelector('[data-preset="browser"]').click();
+      await tick();
+      assert.equal(patches.length, 1, 'one write for the whole preset');
+      assert.deepEqual({ ...patches[0] }, { NDC_downloadMethod: 1, AutoCloseTab: false }, 'with every setting it changes');
+      assert.equal(f.store.nxtk_settings.NDC_downloadMethod, 1);
+      assert.equal(f.store.nxtk_settings.AutoCloseTab, false);
+    }],
+    ['a rejected preset rolls every setting back', async (f) => {
+      const send = f.w.chrome.runtime.sendMessage;
+      f.w.chrome.runtime.sendMessage = (message, callback) => message.type === 'SETTINGS_PATCH'
+        ? callback({ ok: false, error: 'write-rejected' }) : send(message, callback);
+      f.modal().querySelector('[data-preset="browser"]').click();
+      await tick();
+      assert.equal(f.modal().querySelector('[data-setting="AutoCloseTab"]').checked, true, 'the switch shows the saved value again');
+      assert.ok(f.modal().querySelector('[data-preset="vortex"]').classList.contains('nxtk-preset-active'), 'and the preset that is really saved');
+      assert.ok(f.w.document.querySelector('[role="alertdialog"]'), 'the failure is visible');
+    }],
     ['rejected save restores the saved value and shows an explanation', async (f) => {
       const send = f.w.chrome.runtime.sendMessage;
       f.w.chrome.runtime.sendMessage = (message, callback) => message.type === 'SETTINGS_PATCH'
@@ -143,7 +169,7 @@ async function settingsRegressionTests() {
     const groups = {
       downloads: ['AutoStartDownload', 'AutoCloseTab', 'SkipRequirements', 'HandleArchivedFiles', 'DownloadFolder'],
       collections: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'],
-      appearance: ['HidePremiumUpsells', 'ShowAlertsOnError', 'ForceEnglish']
+      appearance: ['HidePremiumUpsells', 'ExpandRequirements', 'ShowAlertsOnError', 'ForceEnglish']
     };
     for (const [group, keys] of Object.entries(groups)) {
       const section = find(`[data-settings-group="${group}"]`);
@@ -151,8 +177,8 @@ async function settingsRegressionTests() {
       assert.deepEqual([...section.querySelectorAll('[data-setting]')].map((el) => el.dataset.setting), keys);
     }
     assert.equal(find('#nxtk-advanced-body').hidden, true);
-    assert.equal(modal().querySelectorAll('[data-setting]').length, 19, 'all settings appear exactly once');
-    assert.equal(new Set([...modal().querySelectorAll('[data-setting]')].map((el) => el.dataset.setting)).size, 19);
+    assert.equal(modal().querySelectorAll('[data-setting]').length, 20, 'all settings appear exactly once');
+    assert.equal(new Set([...modal().querySelectorAll('[data-setting]')].map((el) => el.dataset.setting)).size, 20);
     for (const input of modal().querySelectorAll('[data-setting]')) {
       assert.ok(input.labels?.length || input.getAttribute('aria-labelledby'), `${input.dataset.setting} has an accessible label`);
     }

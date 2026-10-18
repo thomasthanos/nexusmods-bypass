@@ -35,6 +35,10 @@
   "setHandleArchivedFilesLabel": {
     "message": "Przyciski dla starszych wersji plików"
   },
+  "setExpandRequirementsLabel": {
+    "message": "Otwieraj sekcję wymagań",
+    "description": "Settings toggle label: open the Requirements section on a mod page."
+  },
   "btnPageSettings": {
     "message": "Ustawienia strony"
   },
@@ -539,6 +543,10 @@
   },
   "setHandleArchivedFilesDesc": {
     "message": "Dodaje przyciski do starszych wersji plików przeniesionych do archiwum Nexus. Nie przywraca usuniętych plików i nie odblokowuje treści z ograniczonym dostępem."
+  },
+  "setExpandRequirementsDesc": {
+    "message": "Na karcie Description moda pokazuje sekcję Requirements rozwiniętą zamiast zwiniętej. Nadal możesz ją zwinąć. Nie pobiera wymaganych modów.",
+    "description": "Settings toggle help text for setExpandRequirementsLabel. \"Description\" and \"Requirements\" are the names Nexus Mods shows."
   },
   "setDownloadFolderLabel": {
     "message": "Folder pobierania przeglądarki"
@@ -2262,6 +2270,10 @@
   },
   "setShortHandleArchivedFiles": {
     "message": "Dodaje przyciski do starszych plików w archiwum Nexus."
+  },
+  "setShortExpandRequirements": {
+    "message": "Pokazuje wymagania moda bez klikania.",
+    "description": "Short settings summary for setExpandRequirementsLabel."
   },
   "setShortWabbajackImport": {
     "message": "Dodaj pliki Nexus z listy .wabbajack do kolejki (beta)."
