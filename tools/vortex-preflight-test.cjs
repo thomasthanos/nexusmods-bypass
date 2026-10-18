@@ -387,6 +387,31 @@ function createHarness(choice) {
   await api.fetchRevisions();
   assert.equal(api.lastError.code, 'nexus_api_changed');
 
+  // Asked with X-Requested-With, Nexus answers a mod page with the tab fragment, which has no nxm link,
+  // and the deck handed that answer on to the page resolver as already loaded. The deck asks for the
+  // page the way a click does (as nnw.js has since 3.1.7).
+  {
+    const asked = [];
+    const nxm = 'nxm://game/mods/1/files/2?key=k&expires=2000000000&user_id=7';
+    NexusExt.Errors.request = async (url, options) => {
+      asked.push({ url, options });
+      return { ok: true, status: 200, text: `<mod-file-download download-url="${nxm.replace(/&/g, '&amp;')}"></mod-file-download>`, finalUrl: url };
+    };
+    const savedNnw = NexusExt.NNW;
+    NexusExt.NNW = {
+      parseDownloadURLFromResponse: () => null,
+      parseNxmDownloadLink: (text) => (String(text || '').includes('nxm://') ? nxm : null)
+    };
+    const deck = new NexusExt.NDC('game', 'collection');
+    const mod = { fileId: 2, file: { fileId: 2, url: 'https://www.nexusmods.com/game/mods/1?tab=files&file_id=2', mod: { game: { id: 9 } } } };
+    const found = await deck.fetchDownloadLink(mod);
+    NexusExt.NNW = savedNnw;
+    assert.equal(found.downloadUrl, nxm);
+    assert.equal(asked.length, 1);
+    assert.equal(asked[0].url, 'https://www.nexusmods.com/game/mods/1?tab=files&file_id=2&nmm=1');
+    assert.equal(asked[0].options.headers?.['X-Requested-With'], undefined, 'the file page is loaded the way a click loads it');
+  }
+
   // ---- Vortex hand-off improvements (feat/vortex-handoff).
   {
     const S = shared.NXTK;

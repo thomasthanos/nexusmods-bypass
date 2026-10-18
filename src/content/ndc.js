@@ -419,10 +419,11 @@ window.NexusExt = window.NexusExt || {};
     }
 
     // Only a Vortex run resolves links in the page; a browser run hands its whole queue to the worker.
+    // The file page is loaded as a click loads it: asked with X-Requested-With, Nexus answers with the
+    // tab fragment, which has no nxm link, and getDownloadUrl below reuses this answer for its page step.
     async fetchDownloadLink(mod) {
       const pageResponse = await Errors.request(this.fileLinkFor(mod), {
-        credentials: 'include',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        credentials: 'include'
       }, {
         timeoutMs: this.requestTimeout,
         context: 'Loading Vortex download link',
