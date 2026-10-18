@@ -751,6 +751,97 @@ test('Vortex button without href skips the requirements modal and says it is sen
   await page.close();
 });
 
+// The "N files downloaded" ask under a finished run was one row that could not wrap: in a narrow deck
+// the links and buttons kept their width and the text was squeezed to one letter per line, with
+// "Later" and × pushed off the edge (screenshot, 2026-10-18). Built with the same elements and
+// classes as ui-collection.js, so the real stylesheet lays it out.
+test('rating ask under the deck wraps instead of squeezing its text', async () => {
+  for (const [width, height] of [[360, 800], [560, 900], [1280, 800]]) {
+    const page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123', width, height, 1);
+    const deck = page.locator('#nxtk-control-deck');
+    await expect(deck).toBeVisible({ timeout: 30000 });
+    const layout = await deck.evaluate((el) => {
+      const row = document.createElement('div');
+      row.className = 'nxtk-deck-ask';
+      const stars = document.createElement('span');
+      stars.className = 'nxtk-deck-ask-stars';
+      stars.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14"></svg>'.repeat(5);
+      const copy = document.createElement('span');
+      copy.className = 'nxtk-deck-ask-copy';
+      copy.textContent = '100 files downloaded. A short review helps other modders find this.';
+      const actions = document.createElement('span');
+      actions.className = 'nxtk-deck-ask-actions';
+      for (const [cls, text] of [['nxtk-deck-ask-cta', 'Rate on Chrome Web Store'], ['nxtk-deck-ask-alt', 'Star on GitHub']]) {
+        const link = document.createElement('a');
+        link.className = cls;
+        link.href = '#';
+        link.textContent = text;
+        actions.append(link);
+      }
+      const later = document.createElement('button');
+      later.className = 'nxtk-deck-ask-later';
+      later.textContent = 'Later';
+      const dismiss = document.createElement('button');
+      dismiss.className = 'nxtk-deck-ask-dismiss';
+      dismiss.textContent = '×';
+      row.append(stars, copy, actions, later, dismiss);
+      el.append(row);
+      const box = (node) => node.getBoundingClientRect();
+      const r = box(row);
+      const d = box(el);
+      const lineHeight = parseFloat(getComputedStyle(copy).lineHeight) || 16;
+      return {
+        copyWidth: box(copy).width,
+        copyLines: Math.round(box(copy).height / lineHeight),
+        rowWidth: r.width,
+        inRow: [stars, copy, actions, later, dismiss].every((n) => box(n).left >= r.left - 1 && box(n).right <= r.right + 1),
+        inDeck: r.left >= d.left - 1 && r.right <= d.right + 1
+      };
+    });
+    const tag = `${width}x${height}`;
+    expect(layout.copyWidth, `${tag}: the text keeps a readable width`).toBeGreaterThanOrEqual(Math.min(200, layout.rowWidth * 0.6));
+    expect(layout.copyLines, `${tag}: the text takes a few lines, not one per letter`).toBeLessThanOrEqual(4);
+    expect(layout.inRow, `${tag}: links and buttons stay inside the row`).toBe(true);
+    expect(layout.inDeck, `${tag}: the row stays inside the deck`).toBe(true);
+    await deck.locator('.nxtk-deck-ask').screenshot({ path: path.join(shotDir, `rating-ask-${tag}.png`) });
+    await page.close();
+  }
+});
+
+// The popup asks in the same row shape, 380px wide: its text was squeezed the same way.
+test('rating ask in the popup wraps instead of squeezing its text', async () => {
+  const worker = await serviceWorker(context);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 380, height: 600 });
+  await page.goto(`chrome-extension://${new URL(worker.url()).host}/popup/popup.html`);
+  await settle(page);
+  const layout = await page.evaluate(() => {
+    const box = document.getElementById('popupRating');
+    document.getElementById('ratingStars').innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13"></svg>'.repeat(5);
+    document.getElementById('ratingCopy').textContent = '100 files downloaded. A short review helps other modders find this.';
+    document.getElementById('ratingLink').textContent = 'Rate on Chrome Web Store';
+    document.getElementById('ratingStarLink').textContent = 'Star on GitHub';
+    box.hidden = false;
+    const rect = (node) => node.getBoundingClientRect();
+    const r = rect(box);
+    const copy = document.getElementById('ratingCopy');
+    const lineHeight = parseFloat(getComputedStyle(copy).lineHeight) || 16;
+    return {
+      copyWidth: rect(copy).width,
+      copyLines: Math.round(rect(copy).height / lineHeight),
+      rowWidth: r.width,
+      inRow: [...box.children].every((n) => rect(n).left >= r.left - 1 && rect(n).right <= r.right + 1),
+      overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth
+    };
+  });
+  expect(layout.copyWidth, 'the text keeps a readable width').toBeGreaterThanOrEqual(Math.min(200, layout.rowWidth * 0.6));
+  expect(layout.copyLines, 'the text takes a few lines, not one per letter').toBeLessThanOrEqual(4);
+  expect(layout.inRow, 'links and buttons stay inside the box').toBe(true);
+  expect(layout.overflowX, 'the popup does not scroll sideways').toBeLessThanOrEqual(1);
+  await page.locator('#popupRating').screenshot({ path: path.join(shotDir, 'rating-ask-popup.png') });
+  await page.close();
+});
+
 test('settings button stays small at 125/150% zoom and never covers Download all mods', async () => {
   for (const zoom of [1.25, 1.5]) {
     const page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123', 1280, 720, zoom);

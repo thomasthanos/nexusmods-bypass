@@ -416,11 +416,14 @@ html, body {
   border-color: rgba(224, 64, 64, .28);
 }
 
+/* At 380px the links and the close button wrap to a second line: as a row that could not wrap, they
+   kept their width and squeezed the text to one letter per line. */
 .popup-rating {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px 8px;
   margin: 0 0 10px;
   padding: 8px 10px;
   background: rgba(217, 143, 64, 0.10);
@@ -430,15 +433,16 @@ html, body {
 }
 .popup-rating[hidden] { display: none; }
 .popup-rating-copy {
-  flex: 1 1 130px;
+  flex: 1 1 200px;
   min-width: 0;
   color: var(--nxtk-text-muted, #b6b3c2);
 }
 .popup-rating-actions {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 4px 10px;
 }
 .popup-rating-cta,
 .popup-rating-alt {
@@ -457,6 +461,7 @@ html, body {
 .popup-rating-stars svg { fill: var(--nxtk-accent, #d98f40); }
 .popup-rating button {
   flex: 0 0 auto;
+  margin-left: auto;
   padding: 3px 8px;
   font-size: 10px;
   color: var(--nxtk-text-dim);
