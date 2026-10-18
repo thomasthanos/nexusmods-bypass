@@ -1,6 +1,6 @@
 name: Discord notifications
 
-# Optional: posts releases published by hand and newly labelled bug reports and feature requests to
+# Optional: posts releases published by hand and newly labelled bug reports, feature requests and questions to
 # Discord. Does nothing when the DISCORD_WEBHOOK_URL repository secret is not set. Releases made by
 # publish-release.yml announce themselves: a release published with the workflow's token starts no
 # other workflow, so this one never hears of them.
@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event_name == 'release' ||
-      (github.event.action == 'labeled' && contains(fromJSON('["bug", "enhancement"]'), github.event.label.name))
+      (github.event.action == 'labeled' && contains(fromJSON('["bug", "enhancement", "question"]'), github.event.label.name))
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

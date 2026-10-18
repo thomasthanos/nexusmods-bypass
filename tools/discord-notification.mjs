@@ -26,9 +26,12 @@ export function githubMessage(kind, input) {
   } else if (kind === 'issue') {
     // The label says what was filed; a "[Feature Request]" title filed through the bug form is still
     // a request (issue #29 came in as "Bug issue").
-    const request = input.I_LABEL === 'enhancement' || /^\s*\[(?:feature(?: request)?|request|idea|suggestion)\]/i.test(input.I_TITLE || '');
-    title = `GitHub · ${request ? 'Feature request' : 'Bug issue'}: ${input.I_TITLE || 'New issue'}`;
-    description = `Opened by ${quiet(input.I_USER || 'a user')}. Open the issue for the full ${request ? 'request' : 'report'}.`;
+    const issueTitle = String(input.I_TITLE || '');
+    const [kindName, kindNoun] = input.I_LABEL === 'question' || /^\s*\[question\]/i.test(issueTitle) ? ['Question', 'question']
+      : input.I_LABEL === 'enhancement' || /^\s*\[(?:feature(?: request)?|request|idea|suggestion)\]/i.test(issueTitle) ? ['Feature request', 'request']
+        : ['Bug issue', 'report'];
+    title = `GitHub · ${kindName}: ${issueTitle || 'New issue'}`;
+    description = `Opened by ${quiet(input.I_USER || 'a user')}. Open the issue for the full ${kindNoun}.`;
     url = input.I_URL;
     color = COLORS.notice;
   } else if (kind === 'manifest' || kind === 'schema') {

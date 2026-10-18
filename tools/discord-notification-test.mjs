@@ -39,6 +39,9 @@ try {
   assert.equal(misfiled.title, 'GitHub · Feature request: [Feature Request] Auto expand requirements screen.', 'a request filed as a bug is still a request');
   assert.match(misfiled.description, /^Opened by LimeLime875\. Open the issue for the full request\.$/);
   assert.match(issue({ I_TITLE: 'Crash', I_LABEL: 'bug' }).description, /full report/);
+  const question = issue({ I_TITLE: '[Question] How do I send a collection to Vortex?', I_LABEL: 'question' });
+  assert.equal(question.title, 'GitHub · Question: [Question] How do I send a collection to Vortex?', 'the question form has its own notice');
+  assert.match(question.description, /full question/);
 
   // One notice per issue: a form's labels arrive as an "opened" event that already has them and a
   // "labeled" event for each, so only the label event posts.
@@ -48,6 +51,9 @@ try {
   assert.match(notifyWorkflow, /I_LABEL: \$\{\{ github\.event\.label\.name \}\}/);
   assert.match(fs.readFileSync('.github/ISSUE_TEMPLATE/feature_request.yml', 'utf8'), /labels: \["enhancement", "nexusmods-bypass"\]/,
     'feature requests have their own form');
+  assert.match(fs.readFileSync('.github/ISSUE_TEMPLATE/question.yml', 'utf8'), /labels: \["question", "nexusmods-bypass"\]/,
+    'and questions too');
+  assert.match(notifyWorkflow, /\["bug", "enhancement", "question"\]/, 'each form\'s label posts a notice');
 
   // A release published with the workflow's token starts no other workflow, so discord-notify never
   // heard of 3.1.6 or 3.1.7: the publish job announces its own release. Its title comes from the notes.

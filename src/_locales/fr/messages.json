@@ -1800,8 +1800,32 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Ouvre une issue GitHub préremplie. Un rapport trop long pour le lien est d'abord copié dans le presse-papiers.",
+    "message": "Ouvre un formulaire d'issue GitHub : un rapport de bug (avec votre rapport de diagnostic), une demande de fonctionnalité ou une question.",
     "description": "UI string."
+  },
+  "githubMenuBug": {
+    "message": "Rapport de bug",
+    "description": "Popup \"Report on GitHub\" menu item: open the bug report form."
+  },
+  "githubMenuBugDesc": {
+    "message": "Quelque chose ne fonctionne pas. S'ouvre avec votre rapport de diagnostic.",
+    "description": "Help line under githubMenuBug."
+  },
+  "githubMenuFeature": {
+    "message": "Demande de fonctionnalité",
+    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  },
+  "githubMenuFeatureDesc": {
+    "message": "Proposez une nouveauté ou un changement.",
+    "description": "Help line under githubMenuFeature."
+  },
+  "githubMenuQuestion": {
+    "message": "Question",
+    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+  },
+  "githubMenuQuestionDesc": {
+    "message": "Demandez comment quelque chose fonctionne.",
+    "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {
     "message": "$CODE$ — nouvelle tentative ($N$)",

@@ -1716,8 +1716,32 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "打开预填的 GitHub Issue。链接放不下的报告会先复制到剪贴板。",
+    "message": "打开 GitHub 议题表单：错误报告（附带诊断报告）、功能请求或提问。",
     "description": "UI string."
+  },
+  "githubMenuBug": {
+    "message": "错误报告",
+    "description": "Popup \"Report on GitHub\" menu item: open the bug report form."
+  },
+  "githubMenuBugDesc": {
+    "message": "出现问题时使用。打开时会自动填入你的诊断报告。",
+    "description": "Help line under githubMenuBug."
+  },
+  "githubMenuFeature": {
+    "message": "功能请求",
+    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  },
+  "githubMenuFeatureDesc": {
+    "message": "提出新功能或改动建议。",
+    "description": "Help line under githubMenuFeature."
+  },
+  "githubMenuQuestion": {
+    "message": "提问",
+    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+  },
+  "githubMenuQuestionDesc": {
+    "message": "询问某项功能如何使用。",
+    "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {
     "message": "$CODE$ — 正在重试（第 $N$ 次）",

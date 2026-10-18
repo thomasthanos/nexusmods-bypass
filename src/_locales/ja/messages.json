@@ -1716,8 +1716,32 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "入力済みの GitHub Issue を開きます。リンクに収まらないレポートは先にクリップボードへコピーされます。",
+    "message": "GitHub の Issue フォームを開きます: 不具合の報告（診断レポート付き）、機能のリクエスト、または質問。",
     "description": "UI string."
+  },
+  "githubMenuBug": {
+    "message": "不具合の報告",
+    "description": "Popup \"Report on GitHub\" menu item: open the bug report form."
+  },
+  "githubMenuBugDesc": {
+    "message": "うまく動かないときに。診断レポートが入力された状態で開きます。",
+    "description": "Help line under githubMenuBug."
+  },
+  "githubMenuFeature": {
+    "message": "機能のリクエスト",
+    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  },
+  "githubMenuFeatureDesc": {
+    "message": "新しい機能や変更を提案します。",
+    "description": "Help line under githubMenuFeature."
+  },
+  "githubMenuQuestion": {
+    "message": "質問",
+    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+  },
+  "githubMenuQuestionDesc": {
+    "message": "使い方などを質問します。",
+    "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {
     "message": "$CODE$ — 再試行中 ($N$ 回目)",

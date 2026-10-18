@@ -1716,8 +1716,32 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "미리 채운 GitHub 이슈를 엽니다. 링크에 담기지 않는 보고서는 먼저 클립보드에 복사됩니다.",
+    "message": "GitHub 이슈 양식을 엽니다: 버그 신고(진단 보고서 포함), 기능 요청 또는 질문.",
     "description": "UI string."
+  },
+  "githubMenuBug": {
+    "message": "버그 신고",
+    "description": "Popup \"Report on GitHub\" menu item: open the bug report form."
+  },
+  "githubMenuBugDesc": {
+    "message": "무언가 작동하지 않을 때. 진단 보고서가 채워진 채로 열립니다.",
+    "description": "Help line under githubMenuBug."
+  },
+  "githubMenuFeature": {
+    "message": "기능 요청",
+    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  },
+  "githubMenuFeatureDesc": {
+    "message": "새로운 기능이나 변경을 제안합니다.",
+    "description": "Help line under githubMenuFeature."
+  },
+  "githubMenuQuestion": {
+    "message": "질문",
+    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+  },
+  "githubMenuQuestionDesc": {
+    "message": "사용 방법 등을 질문합니다.",
+    "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {
     "message": "$CODE$ — 다시 시도 중 ($N$번째)",

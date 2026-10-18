@@ -180,6 +180,93 @@
     }).catch(() => undefined);
   }
 
+  // A bug report opens the bug form with the diagnostic report in it; a report too long for the link
+  // is shortened there and copied whole to the clipboard.
+  async function reportBugOnGithub() {
+    NXTK.setActivity({ trigger: 'popup' });
+    let issueUrl = NXTK.REPORT_ISSUE_URL;
+    let copied = false;
+    let complete = false;
+    try {
+      const result = await NXTK.buildReportIssueUrl();
+      issueUrl = result.url;
+      complete = result.complete;
+      if (!complete && result.report) copied = await NXTK.copyText(result.report);
+    } catch (_) {
+      copied = false;
+    }
+    if (complete) {
+      showStatus(NXTK.t('popupReportFull', null, 'GitHub opens with the full report — just describe what happened.'), 'info');
+    } else if (copied) {
+      showStatus(NXTK.t('popupReportShortened', null, 'Report shortened to fit — the full copy is on your clipboard.'), 'info');
+    } else {
+      showStatus(NXTK.t('popupReportNoCopy', null, 'GitHub opens prefilled — the full report could not be copied.'), 'error', { record: false });
+    }
+    setTimeout(() => createTab(issueUrl), 600);
+  }
+
+  // The other forms carry no diagnostics: each opens with its own labels (enhancement, question).
+  const ISSUE_FORMS = Object.freeze({ feature: 'feature_request.yml', question: 'question.yml' });
+  function openIssueForm(kind) {
+    const url = new URL(NXTK.ISSUE_NEW_URL);
+    url.searchParams.set('template', ISSUE_FORMS[kind]);
+    createTab(url.href);
+  }
+
+  // "Report on GitHub" is a menu button (WAI-ARIA menu pattern): Enter, Space or ArrowDown opens it
+  // on the first form, ArrowUp on the last; arrows, Home and End move; Escape closes it back onto the
+  // button; Tab or a click elsewhere closes it. Every issue filed from here used to be a bug.
+  function setupGithubMenu() {
+    const button = document.getElementById('reportBug');
+    const menu = document.getElementById('githubReportMenu');
+    if (!button || !menu) return;
+    const items = () => Array.from(menu.querySelectorAll('[role="menuitem"]'));
+    const onOutside = (event) => {
+      if (!menu.contains(event.target) && !button.contains(event.target)) close({ restoreFocus: false });
+    };
+    const open = (index = 0) => {
+      menu.hidden = false;
+      button.setAttribute('aria-expanded', 'true');
+      const list = items();
+      list[(index + list.length) % list.length]?.focus();
+      document.addEventListener('pointerdown', onOutside, true);
+    };
+    function close({ restoreFocus = true } = {}) {
+      if (menu.hidden) return;
+      menu.hidden = true;
+      button.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('pointerdown', onOutside, true);
+      if (restoreFocus) button.focus();
+    }
+    button.addEventListener('click', () => (menu.hidden ? open(0) : close()));
+    button.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      event.preventDefault();
+      open(event.key === 'ArrowDown' ? 0 : -1);
+    });
+    menu.addEventListener('keydown', (event) => {
+      const list = items();
+      const at = list.indexOf(document.activeElement);
+      const move = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: list.length - 1 }[event.key];
+      if (move !== undefined) {
+        event.preventDefault();
+        list[(move + list.length) % list.length].focus();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      } else if (event.key === 'Tab') {
+        close({ restoreFocus: false });
+      }
+    });
+    menu.addEventListener('click', (event) => {
+      const item = event.target.closest('[role="menuitem"]');
+      if (!item) return;
+      close({ restoreFocus: false });
+      if (item.dataset.issueKind === 'bug') reportBugOnGithub();
+      else openIssueForm(item.dataset.issueKind);
+    });
+  }
+
   const QUEUE_REFRESH_MS = 2000;
 
   // Runs the worker is still holding, each with a Stop. A modlist run whose deck was lost to a
@@ -373,28 +460,7 @@
       createTab(chrome.runtime.getURL('debug-page/debug.html'));
     });
 
-    document.getElementById('reportBug').addEventListener('click', async () => {
-      NXTK.setActivity({ trigger: 'popup' });
-      let issueUrl = NXTK.REPORT_ISSUE_URL;
-      let copied = false;
-      let complete = false;
-      try {
-        const result = await NXTK.buildReportIssueUrl();
-        issueUrl = result.url;
-        complete = result.complete;
-        if (!complete && result.report) copied = await NXTK.copyText(result.report);
-      } catch (_) {
-        copied = false;
-      }
-      if (complete) {
-        showStatus(NXTK.t('popupReportFull', null, 'GitHub opens with the full report — just describe what happened.'), 'info');
-      } else if (copied) {
-        showStatus(NXTK.t('popupReportShortened', null, 'Report shortened to fit — the full copy is on your clipboard.'), 'info');
-      } else {
-        showStatus(NXTK.t('popupReportNoCopy', null, 'GitHub opens prefilled — the full report could not be copied.'), 'error', { record: false });
-      }
-      setTimeout(() => createTab(issueUrl), 600);
-    });
+    setupGithubMenu();
 
     document.getElementById('supportGithubSponsor')?.addEventListener('click', () => createTab(GITHUB_SPONSOR_URL));
     document.getElementById('supportPaypal')?.addEventListener('click', () => createTab(PAYPAL_URL));

@@ -228,3 +228,71 @@ test('popup: the section tabs follow the ARIA tab pattern, and each action opens
   // Only Nexus and the extension's own pages were asked for anything.
   expect(blockedRequests(ctx).filter((url) => !/^https:\/\/([a-z-]+\.)?nexusmods\.com\//.test(url))).toEqual([]);
 });
+
+// Every issue filed from the popup was a bug: "Report on GitHub" opened the bug form only, so a
+// feature request came in labelled bug (issue #29). The button now opens a menu of the three forms.
+test('popup: Report on GitHub opens a menu to file a bug, a feature request or a question', async () => {
+  // GitHub answers with a stub, so nothing leaves the test and no request counts as blocked.
+  await ctx.route('https://github.com/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>GitHub</title>' }));
+  try {
+    const popup = await extensionPage(ctx, 'popup/popup.html');
+    popup.on('pageerror', (error) => pageErrors.push(`popup: ${error.message}`));
+    await popup.setViewportSize({ width: 380, height: 600 });
+    await popup.locator('#tabHelp').click();
+    const button = popup.locator('#reportBug');
+    const menu = popup.locator('#githubReportMenu');
+    const items = menu.getByRole('menuitem');
+    await expect(button).toHaveAttribute('aria-haspopup', 'menu');
+    await expect(button).toHaveAttribute('aria-expanded', 'false');
+    await expect(menu).toBeHidden();
+
+    await button.click();
+    await expect(menu).toBeVisible();
+    await expect(button).toHaveAttribute('aria-expanded', 'true');
+    await expect(items).toHaveCount(3);
+    await expect(items.nth(0)).toBeFocused();
+    for (const [key, index] of [['ArrowDown', 1], ['End', 2], ['ArrowDown', 0], ['ArrowUp', 2], ['Home', 0]]) {
+      await popup.keyboard.press(key);
+      await expect(items.nth(index)).toBeFocused();
+    }
+    const box = await menu.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, width: document.documentElement.clientWidth,
+        overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+    });
+    expect(box.left, 'the menu stays inside the popup').toBeGreaterThanOrEqual(0);
+    expect(box.right).toBeLessThanOrEqual(box.width);
+    expect(box.overflowX).toBeLessThanOrEqual(0);
+    await popup.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(button).toBeFocused();
+    await expect(button).toHaveAttribute('aria-expanded', 'false');
+
+    await popup.keyboard.press('ArrowDown');
+    await expect(menu, 'ArrowDown on the button opens it too').toBeVisible();
+    // The open menu covers the help text below it, so "elsewhere" is the tab bar above.
+    await popup.locator('#tabHelp').click();
+    await expect(menu, 'a click elsewhere closes it').toBeHidden();
+
+    // What the new tab asks GitHub for (the offline harness never commits that navigation).
+    const pick = async (index) => {
+      await button.click();
+      const [request] = await Promise.all([
+        ctx.waitForEvent('request', { predicate: (r) => r.url().startsWith('https://github.com/'), timeout: 15000 }),
+        items.nth(index).click()
+      ]);
+      await expect(menu).toBeHidden();
+      return new URL(request.url());
+    };
+    for (const [index, template] of [[1, 'feature_request.yml'], [2, 'question.yml']]) {
+      const url = await pick(index);
+      expect(`${url.origin}${url.pathname}`).toBe('https://github.com/thomasthanos/nexusmods-bypass/issues/new');
+      expect(url.searchParams.get('template')).toBe(template);
+    }
+    const bug = await pick(0);
+    expect(bug.searchParams.get('template'), 'a bug report keeps its prefilled diagnostics').toBe('nexus_bug_report.yml');
+    expect(bug.searchParams.get('title')).toBe('[Bug] ');
+  } finally {
+    await ctx.unroute('https://github.com/**');
+  }
+});

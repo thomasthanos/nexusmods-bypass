@@ -1800,8 +1800,32 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Önceden doldurulmuş bir GitHub issue açar. Bağlantıya sığmayan rapor önce panoya kopyalanır.",
+    "message": "Bir GitHub issue formu açar: hata bildirimi (tanılama raporunuzla), özellik isteği veya soru.",
     "description": "UI string."
+  },
+  "githubMenuBug": {
+    "message": "Hata bildirimi",
+    "description": "Popup \"Report on GitHub\" menu item: open the bug report form."
+  },
+  "githubMenuBugDesc": {
+    "message": "Bir şey çalışmıyor. Tanılama raporunuz doldurulmuş olarak açılır.",
+    "description": "Help line under githubMenuBug."
+  },
+  "githubMenuFeature": {
+    "message": "Özellik isteği",
+    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  },
+  "githubMenuFeatureDesc": {
+    "message": "Yeni bir şey veya bir değişiklik önerin.",
+    "description": "Help line under githubMenuFeature."
+  },
+  "githubMenuQuestion": {
+    "message": "Soru",
+    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+  },
+  "githubMenuQuestionDesc": {
+    "message": "Bir şeyin nasıl çalıştığını sorun.",
+    "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {
     "message": "$CODE$ — yeniden deneniyor ($N$. deneme)",

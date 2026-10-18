@@ -1968,8 +1968,32 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Открывает заполненный issue на GitHub. Слишком длинный для ссылки отчёт сначала копируется в буфер обмена.",
+    "message": "Открывает форму issue на GitHub: сообщение об ошибке (с диагностическим отчётом), запрос функции или вопрос.",
     "description": "UI string."
+  },
+  "githubMenuBug": {
+    "message": "Сообщение об ошибке",
+    "description": "Popup \"Report on GitHub\" menu item: open the bug report form."
+  },
+  "githubMenuBugDesc": {
+    "message": "Что-то не работает. Открывается с заполненным диагностическим отчётом.",
+    "description": "Help line under githubMenuBug."
+  },
+  "githubMenuFeature": {
+    "message": "Запрос функции",
+    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  },
+  "githubMenuFeatureDesc": {
+    "message": "Предложите что-то новое или изменение.",
+    "description": "Help line under githubMenuFeature."
+  },
+  "githubMenuQuestion": {
+    "message": "Вопрос",
+    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+  },
+  "githubMenuQuestionDesc": {
+    "message": "Спросите, как что-то работает.",
+    "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {
     "message": "$CODE$ — повтор (попытка $N$)",

@@ -1800,8 +1800,32 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Ανοίγει ένα συμπληρωμένο GitHub issue. Αν η αναφορά δεν χωράει στον σύνδεσμο, αντιγράφεται πρώτα στο πρόχειρο.",
+    "message": "Ανοίγει μια φόρμα issue στο GitHub: αναφορά σφάλματος (με την αναφορά διαγνωστικών σας), αίτημα λειτουργίας ή ερώτηση.",
     "description": "UI string."
+  },
+  "githubMenuBug": {
+    "message": "Αναφορά σφάλματος",
+    "description": "Popup \"Report on GitHub\" menu item: open the bug report form."
+  },
+  "githubMenuBugDesc": {
+    "message": "Κάτι δεν δουλεύει. Ανοίγει με την αναφορά διαγνωστικών σας συμπληρωμένη.",
+    "description": "Help line under githubMenuBug."
+  },
+  "githubMenuFeature": {
+    "message": "Αίτημα λειτουργίας",
+    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  },
+  "githubMenuFeatureDesc": {
+    "message": "Προτείνετε κάτι νέο ή μια αλλαγή.",
+    "description": "Help line under githubMenuFeature."
+  },
+  "githubMenuQuestion": {
+    "message": "Ερώτηση",
+    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+  },
+  "githubMenuQuestionDesc": {
+    "message": "Ρωτήστε πώς λειτουργεί κάτι.",
+    "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {
     "message": "$CODE$ — νέα προσπάθεια ($N$)",
