@@ -11,6 +11,17 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
+## 3.1.8 — 2026-10-18
+
+- **Requirements in view ([#29](https://github.com/thomasthanos/nexusmods-bypass/issues/29)):** new setting *Open the Requirements section* (`ExpandRequirements`, off by default, under Appearance & language, in all 13 languages). Nexus's accordion keeps its state in the DOM and its toggle listens for a "tap" a scripted click does not make, so the section is opened the way Nexus opens one it marks `expand-default`; Nexus's own toggle then closes it as usual. Each section is opened once: one the user closed stays closed.
+- **Dropped downloads retried:** Chrome's `downloads.cancel` does nothing to an interrupted download and still reports success, so a collection file cut off by a lost connection stayed resumable and failed as "NETWORK_FAILED [transient] cleanup_failed" instead of being retried. The queue now erases its own resumable record and retries once the record is confirmed gone; if the erase cannot be confirmed the file fails as before, so no second copy runs. Firefox's confirmed cancel leads to the retry too, and Stop retires such a download again.
+- **Vortex links in collection runs:** the collection deck loads its file pages without `X-Requested-With`, as 3.1.7 did for single files; it passed the tab fragment, which has no `nxm://` link, to the link resolver as the page already loaded.
+- **Report on GitHub menu:** the popup button opens a menu (WAI-ARIA menu pattern) of the bug report (with the diagnostic report), feature request and new question forms, labelled `bug`, `enhancement` and `question`.
+- **Fixes:** the review ask under a finished run and in the popup wraps instead of squeezing its text to one letter per line. A Quick setup preset is saved as one settings patch, never half applied; a failed save rolls back every setting it changed that the user has not changed since.
+- **Repository:** issue notices post once per issue, on the label (`bug`, `enhancement`, `question`), named by kind; a form's "opened" and "labeled" events posted every issue twice. Release titles come from the notes' `## <version> — <subtitle>` heading instead of a hard-coded one, and the publish job announces its own release on Discord, since a release published with the workflow's token starts no other workflow.
+- **Relay baseline:** 3.1.8, so 3.1.7 and older clients no longer ping once the Worker is redeployed.
+- **Packages:** Chrome/Edge and Firefox use 3.1.8 with unchanged permissions.
+
 ## 3.1.7 — 2026-10-18
 
 - **The right file for Vortex and Mod Organizer 2:** Nexus's download dialog now names a file by its uid (the game id × 2³² plus the file id) and links to `/api/files/<uid>/download`. That uid was read as the file id, so the link search lost its scope, the download generator was asked for a file that does not exist, and the correct `nxm://` link was then refused as another file's. This was the most frequent report from 3.1.5 and 3.1.6 ("the nxm link names another file"). Clicks, dialogs, the API route, the collection deck and the final Vortex check now read either form.
