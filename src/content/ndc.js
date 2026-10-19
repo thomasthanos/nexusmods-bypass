@@ -421,13 +421,17 @@ window.NexusExt = window.NexusExt || {};
     // Only a Vortex run resolves links in the page; a browser run hands its whole queue to the worker.
     // The file page is loaded as a click loads it: asked with X-Requested-With, Nexus answers with the
     // tab fragment, which has no nxm link, and getDownloadUrl below reuses this answer for its page step.
+    // Nothing here is recorded: the run retries a file and waits out a lost connection, and every
+    // attempt was reported on its own (mostly from tabs in the background) even when the file then
+    // went through. The run records how a file ends (recordFileFailure).
     async fetchDownloadLink(mod) {
       const pageResponse = await Errors.request(this.fileLinkFor(mod), {
         credentials: 'include'
       }, {
         timeoutMs: this.requestTimeout,
         context: 'Loading Vortex download link',
-        signal: this.downloadSignal
+        signal: this.downloadSignal,
+        record: false
       });
       const text = pageResponse.text;
       const pageLoginError = Auth?.getResponseLoginError?.(pageResponse, 'Loading collection download link');
@@ -449,7 +453,8 @@ window.NexusExt = window.NexusExt || {};
           prefetchedText: text,
           prefetchedFinalUrl: pageResponse.finalUrl,
           prefetchedStatus: pageResponse.status,
-          signal: this.downloadSignal
+          signal: this.downloadSignal,
+          record: false
         });
         downloadUrl = resolved?.url || '';
         if (!downloadUrl && resolved?.error) {
@@ -459,8 +464,13 @@ window.NexusExt = window.NexusExt || {};
       return {
         downloadUrl,
         text,
-        error: downloadUrl ? null : Errors.create('no_nmm_link', { context: 'Reading collection download link' })
+        error: downloadUrl ? null : Errors.create('no_nmm_link', { context: 'Reading collection download link', record: false })
       };
+    }
+
+    // How a file of the run ended, once: the attempts before it were not recorded.
+    recordFileFailure(error) {
+      if (error && error.code !== 'aborted') Errors.record?.(error);
     }
 
     noteRateLimited(retryAfterSeconds) {
@@ -582,7 +592,7 @@ window.NexusExt = window.NexusExt || {};
     }
 
     resolveLinkError(result) {
-      return Errors.normalize(result?.error || Errors.create('no_nmm_link'));
+      return Errors.normalize(result?.error || Errors.create('no_nmm_link', { record: false }));
     }
 
     async fetchDownloadLinkWithRetry(mod, { attempts = 2, delayMs = 500, onAttemptFailed = null } = {}) {
@@ -763,6 +773,7 @@ window.NexusExt = window.NexusExt || {};
       }
 
       const error = this.resolveLinkError(result);
+      this.recordFileFailure(error);
       const link = `<a href="${escapeHtml(this.fileLinkFor(mod))}" target="_blank" rel="noopener noreferrer">${escapeHtml(mod.file.name)}</a>`;
       this.ui.log(`${TS('logRetryFailed', [escapeHtml(Errors.toLogMessage(error))], `Retry failed: ${escapeHtml(Errors.toLogMessage(error))}`)} ${link}`, 'error');
       if (this.showAlertsOnError && error.retryable) {
@@ -1460,12 +1471,15 @@ window.NexusExt = window.NexusExt || {};
         cloudflareStrikes = skipReason === 'cloudflare' ? cloudflareStrikes + 1 : 0;
 
         if (skipReason) {
-          // Gone, or one Cloudflare answer: noted and passed over, and the run goes on.
+          // Gone, or one Cloudflare answer: noted and passed over, and the run goes on. A gone mod is the
+          // mod's state, not a fault; a Cloudflare answer is worth a line in a bug report, as in the worker.
+          if (skipReason === 'cloudflare') this.recordFileFailure(this.resolveLinkError(downloadResult));
           this.logSkipped(`[${modNumber}] ${mod.file.name}`, skipReason);
           skipped.push({ name: mod.file.name, pageUrl: mod.file.url, reason: skipReason });
           this.advanceVortexRun();
         } else if (!downloadResult.downloadUrl) {
           const downloadError = this.resolveLinkError(downloadResult);
+          this.recordFileFailure(downloadError);
           this.ui.log(
             `[${modNumber}] ${escapeHtml(Errors.toLogMessage(downloadError))} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`,
             'error'

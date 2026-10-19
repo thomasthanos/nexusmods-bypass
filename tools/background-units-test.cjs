@@ -2686,6 +2686,14 @@ async function queueNoLinkFailureSaysWhy() {
     assert.match(entry.technicalMessage,
       /^no_download_url \| generator HTTP 200: JSON \{url\}; url empty; no link in it \| page HTTP 200: HTML page; no link in it \| file 77/,
       'with what the generator and the page answered');
+
+    // With "Hide ads and Premium panels" off the deck writes no ad-timer cookie for the queue, and the
+    // report says so: Nexus can hold a link back without it, which looks the same as no link.
+    await storageSetLocal(NXTK.SETTINGS_KEY, { HidePremiumUpsells: false });
+    const held = await context.resolveNdcBrowserUrl(item, 30000);
+    assert.match(held.detail, / \| ad timer cookie off$/);
+    await storageSetLocal(NXTK.SETTINGS_KEY, { HidePremiumUpsells: true });
+    assert.doesNotMatch((await context.resolveNdcBrowserUrl(item, 30000)).detail, /ad timer/);
   } finally {
     context.fetch = previousFetch;
     NXTK.retryDelayMs = previousDelay;

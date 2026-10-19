@@ -125,6 +125,15 @@ function workerEdgeCases(Parser) {
     ['<!doctype html><html><body><h3 id="Notice7-title">Adult content disabled</h3></body></html>', vortex, 'HTML page; adult-content notice; no link in it'],
     ['<!doctype html><html><body><h3 id="Notice7-title">Removed by author</h3></body></html>', browser, 'HTML page; removed-or-hidden notice; no link in it'],
     ['<!doctype html><html><body><button id="slowDownloadButton">Slow download</button></body></html>', vortex, 'HTML page; slow-download button; no link in it'],
+    // A plain "site notice" said nothing about why a file page had no link; the kind is named, never its words.
+    ['<!doctype html><html><body><h3 id="Notice2-title">You need to be logged in</h3></body></html>', vortex, 'HTML page; sign-in notice; no link in it'],
+    ['<!doctype html><html><body><h3 id="Notice2-title">This file has been archived</h3></body></html>', browser, 'HTML page; archived-file notice; no link in it'],
+    ['<!doctype html><html><body><h3 id="Notice2-title">Under moderation</h3></body></html>', browser, 'HTML page; moderation notice; no link in it'],
+    ['<!doctype html><html><body><h3 id="Notice2-title">Downloads unavailable</h3></body></html>', browser, 'HTML page; unavailable notice; no link in it'],
+    ['<!doctype html><html><body><h3 id="Notice2-title">Something else entirely</h3></body></html>', browser, 'HTML page; site notice; no link in it'],
+    // "A usable link was in it" could not tell the nxm:// link from a route that only leads to another page.
+    [JSON.stringify({ url: VORTEX_URL }), vortex, 'JSON {url}; a usable link was in it (nxm link)'],
+    [JSON.stringify({ fileId: 200, downloadUrl: MANUAL_URL }), browser, 'JSON {fileId, downloadUrl}; a usable link was in it (file link)'],
     ['', browser, 'empty body; no link in it'],
     ['[]', browser, 'empty JSON list; no link in it'],
     ['Service Unavailable', browser, 'plain text body; no link in it']

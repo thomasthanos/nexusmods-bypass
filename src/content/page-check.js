@@ -243,6 +243,16 @@ window.NexusExt = window.NexusExt || {};
   const FILE_MISSING_TEXT = /object not found|file (was |has been )?(not found|removed|deleted|hidden)|this file (is|has been) (no longer )?(available|removed|deleted|hidden)/i;
   // Next.js's own 404 page, which a mod route can be served as.
   const PAGE_MISSING_TEXT = /this page could not be found|^\s*404\b/i;
+  // A document with no Nexus app in it at all and a title that is not Nexus's is somebody else's page
+  // served at a mod's address: Cloudflare's check or block page, or a bare "429 Too Many Requests" or
+  // "503" page. Those were reported as "Nexus page may have changed".
+  function isForeignDocument(doc) {
+    const scripts = Array.from(doc.querySelectorAll?.('script[src]') || [], (script) => String(script.src || script.getAttribute?.('src') || ''));
+    const nexusApp = doc.getElementById?.('__next') || doc.getElementById?.('section') || scripts.some((src) => src.includes('/_next/'));
+    const title = String(doc.title || '').trim();
+    return !nexusApp && !!title && !/nexus/i.test(title);
+  }
+
   function pageVariant(doc = (typeof document !== 'undefined' ? document : null)) {
     if (!doc?.querySelector) return '';
     try {
@@ -253,6 +263,7 @@ window.NexusExt = window.NexusExt || {};
       if (ADULT_GATE_TEXT.test(text)) return 'adult content gate';
       if (FILE_MISSING_TEXT.test(text) || /not\s*found/i.test(doc.title || '')) return 'file not found';
       if (PAGE_MISSING_TEXT.test(text) || PAGE_MISSING_TEXT.test(doc.title || '')) return 'page not found';
+      if (isForeignDocument(doc)) return 'not a Nexus page';
     } catch (_) { }
     return '';
   }
@@ -325,7 +336,11 @@ window.NexusExt = window.NexusExt || {};
   function reportFailures(result, build, doc) {
     const failed = failuresOf(result);
     if (!failed.length) return;
-    const variant = pageVariant(doc);
+    let variant = pageVariant(doc);
+    // A file page where Nexus shows one of its notices instead of the download control (sign in,
+    // moderation, an archived or unavailable file): Nexus says why, and nothing has changed.
+    if (!variant && failed.every((entry) => entry.id === 'download-control')
+      && doc?.querySelector?.('[id^="Notice"][id$="-title"]')) variant = 'site notice';
     if (variant === 'file not found') {
       window.NexusExt.NNW?.Logger?.info?.('This file page says the file does not exist (removed, hidden or a wrong link); nothing to download here.');
       notifyFileMissing(doc);

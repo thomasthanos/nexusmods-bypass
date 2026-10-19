@@ -205,12 +205,21 @@ async function apiRouteRecoveryTests() {
     const result = await h.api.getDownloadUrl({ fileId: '200', isNMM: false, href });
     assert.ok(result.error, `HTTP ${status} remains an error`);
     assert.equal(h.calls.length, 1, 'authentication, access and rate limits are not worked around');
-    assert.equal(h.recorded.length, 1, 'one final failure is recorded');
+    assert.equal(h.recorded.length, 1, `one final failure is recorded (HTTP ${status}: ${result.error.code})`);
   }
-  const failed = createHarness({ sectionGameId: '130', pages: Array.from({ length: 4 }, () => ({ failure: new TypeError('Failed to fetch') })) });
+  const offline = () => createHarness({ sectionGameId: '130', pages: Array.from({ length: 4 }, () => ({ failure: new TypeError('Failed to fetch') })) });
+  const failed = offline();
   const result = await failed.api.getDownloadUrl({ fileId: '200', isNMM: false, href });
   assert.equal(result.error.code, 'network_error');
+  assert.equal(failed.recorded.length, 0, 'a connection failure is recorded a moment later, not at once');
+  // Firefox cancels a page's requests as soon as a navigation starts, before pagehide, so a request that
+  // had just begun failed "after 0ms" and was reported. Once the page is left it is not recorded.
+  const left = offline();
+  await left.api.getDownloadUrl({ fileId: '200', isNMM: false, href });
+  left.fire('pagehide');
+  await new Promise((resolve) => setTimeout(resolve, 1700));
   assert.equal(failed.recorded.length, 1, 'multiple failed attempts record just the final failure');
+  assert.equal(left.recorded.length, 0, 'and a page that was being left records nothing');
   assert.match(result.error.technicalMessage, /GET|POST/);
   assert.match(result.error.technicalMessage, /no readable HTTP response/);
   assert.doesNotMatch(result.error.technicalMessage, /api\/files\/200|\?game=|https:/);
@@ -427,6 +436,24 @@ async function missingLinkTrailTests() {
     'a link that came back without its signature says so');
   assert.doesNotMatch(unsigned.error.technicalMessage, /nxm:\/\/|key=|2000000000/, 'without the link itself');
 
+  // With "Hide ads and Premium panels" off no ad-timer cookie is written and Nexus can hold the link back
+  // until its own countdown has run, which looks just like no link: the generator's empty answers in
+  // 3.1.8 reports could not be told apart. The report says when the cookie was off.
+  const noTimer = createHarness({
+    href,
+    responses: [response('[]'), response('<!doctype html><html><body></body></html>', { finalUrl: href })]
+  });
+  noTimer.api.updateConfig({ HidePremiumUpsells: false });
+  const held = await noTimer.api.getDownloadUrl({ fileId: '35407', isNMM: true, href });
+  assert.match(held.error.technicalMessage, /^steps: generator HTTP 200: empty JSON list; no link in it \| page HTTP 200: HTML page; no link in it \| ad timer cookie off$/);
+  const withTimer = createHarness({
+    href,
+    responses: [response('[]'), response('<!doctype html><html><body></body></html>', { finalUrl: href })]
+  });
+  withTimer.api.updateConfig({ HidePremiumUpsells: true });
+  assert.doesNotMatch((await withTimer.api.getDownloadUrl({ fileId: '35407', isNMM: true, href })).error.technicalMessage, /ad timer/,
+    'and says nothing when it was written');
+
   // A browser download whose generator POST fails while the page loads: the request, not the
   // connection, is what failed, and the time it took says how.
   const blocked = createHarness({
@@ -441,6 +468,7 @@ async function missingLinkTrailTests() {
   assert.match(network.error.technicalMessage, /fetch failed after \d+ms: POST Nexus download generator; no readable HTTP response/);
   assert.match(network.error.technicalMessage,
     /steps: generator network_error \| page HTTP 200: HTML page; no link in it \| generator network_error$/);
+  await new Promise((resolve) => setTimeout(resolve, 1700)); // connection failures are recorded a moment later
   assert.equal(blocked.recorded.length, 1, 'one final failure is recorded');
 }
 

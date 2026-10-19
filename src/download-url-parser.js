@@ -408,10 +408,32 @@
   // The kind of site notice a page shows in place of a mod, by its fixed Nexus title. Only the kind is
   // reported, never the notice's text.
   const NOTICE_TITLE = /<h3\b[^>]*\bid=["']Notice\d+-title["'][^>]*>([^<]{1,80})<\/h3>/i;
+  // Fixed kinds only: the notice's own words never reach a report. A plain "site notice" said nothing
+  // about why a file page had no link.
   const NOTICE_KINDS = Object.freeze([
     [/adult content/i, 'adult-content notice'],
-    [/removed|hidden|not published|not found/i, 'removed-or-hidden notice']
+    [/removed|hidden|not published|not found/i, 'removed-or-hidden notice'],
+    [/log ?in|sign ?in|logged/i, 'sign-in notice'],
+    [/moderat|under review|pending/i, 'moderation notice'],
+    [/archiv/i, 'archived-file notice'],
+    [/premium|supporter|membership/i, 'premium notice'],
+    [/virus|malware|quarantin|suspicious|unsafe/i, 'file-safety notice'],
+    [/unavailable|not available|disabled|restricted|blocked/i, 'unavailable notice']
   ]);
+
+  // The kind of link a search found, for a report; never the link itself. "A usable link" alone could
+  // not tell a page that carried the nxm:// link from one that only pointed at another download route.
+  function linkKind(url) {
+    const text = String(url || '');
+    if (/^nxm:/i.test(text)) return 'nxm link';
+    try {
+      const parsed = new URL(text);
+      if (/(^|\.)nexus-cdn\.com$/i.test(parsed.hostname)) return 'file link';
+      if (/^\/api\/files\//i.test(parsed.pathname)) return 'download route';
+      if (/(^|\.)nexusmods\.com$/i.test(parsed.hostname)) return parsed.searchParams.has('file_id') ? 'file page' : 'Nexus page';
+    } catch (_) { }
+    return 'other link';
+  }
 
   // The shape of an answer, never its content: body type, JSON field names, which link fields came
   // back empty, the kind of site notice. Automatic reports promise no page content (PRIVACY.md).
@@ -457,7 +479,7 @@
     const settings = { ...readOptions(options), trace: new Set() };
     const found = createSearch(settings)(body);
     const parts = [describeBody(body, settings), ...[...settings.trace].slice(0, 3)];
-    if (found) parts.push('a usable link was in it');
+    if (found) parts.push(`a usable link was in it (${linkKind(found.url)})`);
     else if (!settings.trace.size) parts.push('no link in it');
     return parts.join('; ').slice(0, 220);
   }

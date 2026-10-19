@@ -625,10 +625,14 @@ window.NexusExt = window.NexusExt || {};
 
   function withTrail(error, trail, isNMM) {
     if (!error || !TRAILED_CODES.has(error.code) || !trail.length) return error;
+    // With "Hide ads and Premium panels" off the extension does not write the ad-timer cookie, and Nexus
+    // can then hold a link back until its own countdown has run: an answer with no link in it either way.
+    // A report says which it was, so the generator's empty answers can be told apart.
+    const timer = cfg.HidePremiumUpsells === false ? 'ad timer cookie off' : '';
     return {
       ...error,
       context: error.context || (isNMM ? 'Finding the Vortex link' : 'Finding the download link'),
-      technicalMessage: [error.technicalMessage, `steps: ${trail.slice(-4).join(' | ')}`].filter(Boolean).join(' | ')
+      technicalMessage: [error.technicalMessage, `steps: ${trail.slice(-4).join(' | ')}`, timer].filter(Boolean).join(' | ')
     };
   }
 
@@ -639,8 +643,9 @@ window.NexusExt = window.NexusExt || {};
     const result = await resolveDownloadUrl({ ...options, trail });
     if (result?.error) {
       result.error = withTrail(result.error, trail, options.isNMM === true);
-      // A cancel (Stop, or the page going away) is not a failure, as in nexus-api.js.
-      if (result.error.code !== 'aborted') Errors.record?.(result.error);
+      // A cancel (Stop, or the page going away) is not a failure, as in nexus-api.js. A caller that
+      // retries or waits (the collection run) passes record: false and records only how it ends.
+      if (result.error.code !== 'aborted' && options.record !== false) Errors.record?.(result.error);
     }
     return result;
   }

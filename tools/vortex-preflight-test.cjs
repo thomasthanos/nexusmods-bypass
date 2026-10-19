@@ -270,6 +270,10 @@ function createHarness(choice) {
   // after it within seconds, each with its own error dialog.
   const threeMods = () => [vortexMod(1, 'One.7z', 1), vortexMod(2, 'Two.7z', 2), vortexMod(3, 'Three.7z', 3)];
   let dropsLeft = 2;
+  // Each attempt was recorded (and reported) on its own, mostly from tabs in the background, even when
+  // the file then went through; only how a file ends is recorded now.
+  const recordedErrors = [];
+  NexusExt.Errors.record = (error) => recordedErrors.push(error.code);
   const recovered = await runVortexQueue(threeMods(), (mod) => {
     if (mod.fileId !== 2 || !dropsLeft) return '';
     dropsLeft -= 1;
@@ -281,6 +285,7 @@ function createHarness(choice) {
   assert.equal(recovered.outcome, 'finished');
   assert.ok(recovered.logs.some((line) => /^Cannot reach Nexus Mods\. Trying again in /.test(line)),
     'the wait names the connection, not a rate limit');
+  assert.deepEqual(recordedErrors, [], 'a file that went through after the waits records nothing');
 
   const down = await runVortexQueue(threeMods(), (mod) => (mod.fileId === 1 ? '' : 'offline'));
   assert.deepEqual(down.asked, ['One.7z', ...Array(NXTK.NETWORK_WAIT_MAX_STRIKES + 1).fill('Two.7z')],
@@ -288,10 +293,13 @@ function createHarness(choice) {
   assert.deepEqual(down.handed, ['One.7z']);
   assert.equal(down.outcome, 'error');
   assert.ok(down.logs.some((line) => /Collection paused/.test(line)), 'and says the completed files are kept');
+  assert.deepEqual(recordedErrors, ['offline'], 'a run that stopped on the connection records it once');
 
   const broke = await runVortexQueue(threeMods(), (mod) => (mod.fileId === 2 ? 'request_failed' : ''));
   assert.deepEqual(broke.asked, ['One.7z', 'Two.7z', 'Three.7z'], 'a fault that is not the connection fails just that file');
   assert.equal(broke.outcome, 'partial');
+  assert.deepEqual(recordedErrors, ['offline', 'request_failed'], 'and a file that failed for good, once');
+  delete NexusExt.Errors.record;
 
   // Pause holds the run after a skipped file too; the next file used to be sent while "Paused" showed.
   const STATUS_PAUSED = 1;

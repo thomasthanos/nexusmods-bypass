@@ -258,6 +258,49 @@ assert.equal(PageCheck.detectBuild(fakeDoc({ scripts: ['https://ads.example/x.js
     /text little; next error text/, 'a crashed Next.js page says so, since an extension can cause that');
   assert.equal(PageCheck.pageVariant(nextPage({ text: '404 This page could not be found.', title: '404: This page could not be found.' })), 'page not found',
     'Next.js\'s own not-found page is not a site change');
+
+  // E-0wu48au "unknown app; main none; h1 one; components none; title other": no Nexus app at all and a
+  // title that is not Nexus's is Cloudflare's check or block page, or a bare 429/503 page, at a mod's
+  // address. Reported as "Nexus page may have changed" from several builds; it is not a site change.
+  const foreign = (title, text) => ({
+    title,
+    body: { innerText: text, getElementsByTagName: () => [element('H1')] },
+    getElementById: () => null,
+    querySelector: (sel) => (sel === 'main' ? null : null),
+    querySelectorAll: (sel) => (sel === 'h1' ? [element('H1')] : [])
+  });
+  for (const [title, text] of [
+    ['Just a moment...', 'www.nexusmods.com Verify you are human by completing the action below. www.nexusmods.com needs to review the security of your connection before proceeding.'],
+    ['Attention Required! | Cloudflare', 'Sorry, you have been blocked. You are unable to access nexusmods.com.'],
+    ['429 Too Many Requests', '429 Too Many Requests nginx']
+  ]) {
+    assert.equal(PageCheck.pageVariant(foreign(title, text)), 'not a Nexus page', `not a site change: ${title}`);
+    const beforeForeign = recorded.length;
+    PageCheck.reportFailures(contentFailing, record, foreign(title, text));
+    assert.equal(recorded.length, beforeForeign, `and not reported: ${title}`);
+  }
+  assert.equal(PageCheck.pageVariant(foreign('', 'text')), '', 'a page with no title is not taken for somebody else\'s');
+  assert.equal(PageCheck.pageVariant({ ...foreign('Some Mod at Skyrim Nexus - Mods and Community', 'text') }), '',
+    'a Nexus title keeps a page with no app markers in the checks');
+  assert.equal(PageCheck.pageVariant({ ...foreign('Just a moment...', 'text'), getElementById: (id) => (id === '__next' ? {} : null) }), '',
+    'and so does the Nexus app, whatever the title');
+
+  // E-1opts0d: a file page where Nexus shows one of its notices (sign in, moderation, an archived or
+  // unavailable file) instead of the download control. Nexus says why; nothing changed.
+  const noticeFailing = PageCheck.runChecks({
+    doc: fakeDoc({ ids: { section: {} } }), loc: at('/skyrimspecialedition/mods/269', '?tab=files&file_id=97'),
+    auth: signedIn, nnw: nnwWith('1704')
+  });
+  assert.deepEqual([...noticeFailing.checks.filter((entry) => !entry.ok).map((entry) => entry.id)], ['download-control']);
+  const withNotice = { title: 'Mod at Skyrim Nexus', getElementById: (id) => (id === 'section' ? {} : null),
+    querySelector: (sel) => (sel === '[id^="Notice"][id$="-title"]' ? {} : null), querySelectorAll: () => [] };
+  const beforeNotice = recorded.length;
+  PageCheck.reportFailures(noticeFailing, record, withNotice);
+  assert.equal(recorded.length, beforeNotice, 'a Nexus notice in place of the download control is not a site change');
+  const withoutNotice = { ...withNotice, querySelector: () => null };
+  for (const key of Object.keys(session)) delete session[key]; // a new tab: the same failure may be reported again
+  PageCheck.reportFailures(noticeFailing, record, withoutNotice);
+  assert.equal(recorded.length, beforeNotice + 1, 'without one, a missing download control is still reported');
   const beforeNotFound = recorded.length;
   const bareFailing = PageCheck.runChecks({ doc: fakeDoc(), loc: at('/skyrimspecialedition/mods/269'), auth: signedIn, nnw: nnwWith('') });
   PageCheck.reportFailures(bareFailing, record, nextPage({ text: '404 This page could not be found.' }));

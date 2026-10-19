@@ -185,14 +185,31 @@ window.NexusExt = window.NexusExt || {};
 
   // `record: false` builds the error without writing it to the error log: used for an attempt whose
   // outcome is not final yet (a request that has a fallback), so only real failures are logged.
+  // A connection failure is recorded a moment later, and not at all once the page is being left.
+  // Firefox cancels a page's requests as soon as a navigation starts, well before pagehide, so a request
+  // that had only just begun failed "after 0ms" and was reported as a network fault.
+  const CONNECTION_CODES = new Set(['network_error', 'timeout', 'offline']);
+  const CONNECTION_RECORD_DELAY_MS = 1500;
+
+  function deliver(error) {
+    if (!CONNECTION_CODES.has(error.code)) {
+      NXTK.recordError(error);
+      return;
+    }
+    setTimeout(() => {
+      if (pageLeaving) return;
+      try { NXTK.recordError(error); } catch (_) { }
+    }, CONNECTION_RECORD_DELAY_MS);
+  }
+
   function create(code, overrides = {}) {
     const error = buildError(code, overrides);
-    if (overrides.record !== false) NXTK.recordError(error);
+    if (overrides.record !== false) deliver(error);
     return error;
   }
 
   function record(error) {
-    if (error && typeof error === 'object' && error.code) NXTK.recordError(error);
+    if (error && typeof error === 'object' && error.code) deliver(error);
     return error;
   }
 

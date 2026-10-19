@@ -1028,13 +1028,17 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   if (!verdict.ok) {
     // What both answers looked like, never their content, so a report says why there was no link.
     const shape = (response) => DOWNLOAD_PARSER.explainMissingLink(response.text, { mode: 'browser', fileId: item.fileId });
+    // The deck tab writes the ad-timer cookie for the queue only while "Hide ads and Premium panels" is
+    // on; without it Nexus can hold the link back, which looks the same as no link (see nnw.js).
+    const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
     return {
       ok: false,
       code: 'no_download_url',
       detail: [
         `generator HTTP ${generated.status}: ${found ? `link refused (${verdict.detail})` : shape(generated)}`,
-        `page HTTP ${page.status}: ${shape(page)}`
-      ].join(' | ')
+        `page HTTP ${page.status}: ${shape(page)}`,
+        settings?.HidePremiumUpsells === false ? 'ad timer cookie off' : ''
+      ].filter(Boolean).join(' | ')
     };
   }
   return { ok: true, url: verdict.url };
