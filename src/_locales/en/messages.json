@@ -1815,6 +1815,12 @@
   "setFollowUpdatePolicyDesc": {
     "message": "On: follow each collection file's rule. Exact keeps the listed file; Latest chooses its newest version; Prefer Exact keeps the listed file while available, replacing it only when unavailable. Off: use the listed files. Requires the official Nexus API; it does not update installed mods."
   },
+  "setWriteMo2MetaLabel": {
+    "message": "Write Mod Organizer 2 .meta files"
+  },
+  "setWriteMo2MetaDesc": {
+    "message": "Off by default. For each collection file saved in the browser, also save a .meta file beside it in the same folder, so Mod Organizer 2 knows the mod's Nexus ID, file ID and version. Only files downloaded from now on get one. It does not install anything."
+  },
   "setShowModActionsLabel": {
     "message": "Show Endorse and Track buttons"
   },
@@ -2494,6 +2500,9 @@
   },
   "setShortFollowUpdatePolicy": {
     "message": "Follow the collection creator's version choices."
+  },
+  "setShortWriteMo2Meta": {
+    "message": "Save .meta files for Mod Organizer 2 beside collection downloads."
   },
   "setShortShowModActions": {
     "message": "Likes and tracking happen only when you click."

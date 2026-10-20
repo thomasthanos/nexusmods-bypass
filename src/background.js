@@ -81,16 +81,20 @@ function enqueueStorageTask(storageKey, task) {
   return next;
 }
 
-function storageGetLocal(key, fallback) {
-  return new Promise((resolve) => {
+// strict: a read that fails rejects instead of returning the fallback. Use it before any write that
+// is based on the value, since the fallback would overwrite what is actually stored.
+function storageGetLocal(key, fallback, { strict = false } = {}) {
+  return new Promise((resolve, reject) => {
+    const failed = (error) => (strict ? reject(new Error(error)) : resolve(fallback));
     try {
       chrome.storage.local.get(key, (result) => {
-        if (getRuntimeError()) return resolve(fallback);
+        const error = getRuntimeError();
+        if (error) return failed(error);
         const value = result ? result[key] : undefined;
         resolve(value === undefined ? fallback : value);
       });
-    } catch (_) {
-      resolve(fallback);
+    } catch (cause) {
+      failed(String(cause?.message || cause));
     }
   });
 }
@@ -162,7 +166,7 @@ async function claimAutoReportPrompt(_payload, sender) {
 
 function appendErrorLogEntry(entry) {
   return enqueueStorageTask(NXTK.ERROR_LOG_KEY, async () => {
-    const stored = await storageGetLocal(NXTK.ERROR_LOG_KEY, []);
+    const stored = await storageGetLocal(NXTK.ERROR_LOG_KEY, [], { strict: true });
     const log = Array.isArray(stored) ? stored : [];
     const signature = errorEntrySignature(entry);
 
@@ -232,7 +236,7 @@ async function mutateHistory(payload, mutate) {
   const { gameId, collectionId } = payload || {};
   if (!isSafeId(gameId) || !isSafeId(collectionId)) throw new Error('invalid-collection-identifier');
   return enqueueStorageTask(STORAGE_HISTORY_KEY, async () => {
-    const stored = await storageGetLocal(STORAGE_HISTORY_KEY, {});
+    const stored = await storageGetLocal(STORAGE_HISTORY_KEY, {}, { strict: true });
     const { root, collection } = historyBranch(stored, gameId, collectionId);
     mutate(collection);
     await storageSetLocal(STORAGE_HISTORY_KEY, root);
@@ -255,8 +259,8 @@ const STORAGE_HANDLERS = {
       normalized[key] = value;
     }
     return enqueueStorageTask(NXTK.SETTINGS_KEY, async () => {
-      const stored = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-      const base = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+      const stored = await storageGetLocal(NXTK.SETTINGS_KEY, null, { strict: true });
+      const base = stored &&typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
       const next = { ...NXTK.DEFAULTS, ...base, ...normalized };
       const enablingBasicReports = base.AutoErrorReports !== true && normalized.AutoErrorReports === true;
       if (next.AutoErrorReports !== true || (enablingBasicReports && normalized.AutoReportDiagnostics !== true)) {
@@ -293,7 +297,7 @@ const STORAGE_HANDLERS = {
     const incoming = Array.isArray(payload?.entries) ? payload.entries.slice(-100) : [];
     if (!incoming.length) return { ok: true };
     return enqueueStorageTask(NXTK.DEBUG_LOG_KEY, async () => {
-      const stored = await storageGetLocal(NXTK.DEBUG_LOG_KEY, []);
+      const stored = await storageGetLocal(NXTK.DEBUG_LOG_KEY, [], { strict: true });
       const log = Array.isArray(stored) ? stored : [];
       for (const raw of incoming) {
         log.push({
@@ -349,7 +353,7 @@ const STORAGE_HANDLERS = {
 
   async TOTAL_DOWNLOADS_INCREMENT() {
     return enqueueStorageTask(NXTK.TOTAL_DOWNLOADS_KEY, async () => {
-      const count = Number(await storageGetLocal(NXTK.TOTAL_DOWNLOADS_KEY, 0)) || 0;
+      const count = Number(await storageGetLocal(NXTK.TOTAL_DOWNLOADS_KEY, 0, { strict: true })) || 0;
       const next = count + 1;
       await storageSetLocal(NXTK.TOTAL_DOWNLOADS_KEY, next);
       return next;
@@ -579,22 +583,27 @@ function sanitizeNdcJobItem(raw) {
   const historyId = raw?.historyId ?? fileId;
   const gameId = String(raw?.gameId ?? '').trim();
   const name = String(raw?.name || '').trim().slice(0, 300);
+  const modName = String(raw?.modName || '').trim().slice(0, 300);
+  const modId = /^\d{1,12}$/.test(String(raw?.modId ?? '')) ? String(raw.modId) : '';
+  const version = String(raw?.version ?? '').trim().slice(0, 40);
   const pageUrl = String(raw?.pageUrl || '').trim();
   const rawSize = Number(raw?.sizeKb);
   const sizeKb = Number.isFinite(rawSize) && rawSize > 0 && rawSize < 1e9 ? Math.round(rawSize) : 0;
   if (!isValidFileId(fileId) || !isValidHistoryId(historyId)
     || !/^\d{1,12}$/.test(gameId) || !name || !pageUrl) return null;
 
+  let domain = '';
   try {
     const parsed = new URL(pageUrl);
     const host = String(parsed.hostname || '').toLowerCase().replace(/\.$/, '');
     if (parsed.protocol !== 'https:' || (host !== 'nexusmods.com' && host !== 'www.nexusmods.com')) return null;
     if (!/^\/[^/]+\/mods\/\d+$/i.test(parsed.pathname)) return null;
+    domain = parsed.pathname.split('/')[1];
   } catch (_) {
     return null;
   }
 
-  return { fileId, historyId, gameId, name, pageUrl, sizeKb, optional: raw?.optional === true };
+  return { fileId, historyId, gameId, name, modName, modId, version, domain, pageUrl, sizeKb, optional: raw?.optional === true };
 }
 
 const SHORT_TRANSFER_RATIO = 0.5;
@@ -741,8 +750,8 @@ function cleanNdcJobs(stored) {
   return jobs;
 }
 
-async function readNdcJobs() {
-  return cleanNdcJobs(await storageGetLocal(NDC_JOBS_KEY, Object.create(null)));
+async function readNdcJobs({ strict = false } = {}) {
+  return cleanNdcJobs(await storageGetLocal(NDC_JOBS_KEY, Object.create(null), { strict }));
 }
 
 async function readNdcJob(jobId) {
@@ -758,7 +767,7 @@ function bumpNdcControl(job) {
 async function saveNdcJob(job) {
   job.updatedAt = Date.now();
   await enqueueStorageTask(NDC_JOBS_KEY, async () => {
-    const jobs = await readNdcJobs();
+    const jobs = await readNdcJobs({ strict: true });
     const stored = jobs[job.id];
     if (stored && Number(stored.controlVersion || 0) > Number(job.controlVersion || 0)) {
       job.status = stored.status;
@@ -782,7 +791,7 @@ async function saveNdcJob(job) {
 async function mutateNdcJobIf(jobId, guard, mutate) {
   let result = { applied: false, job: null };
   await enqueueStorageTask(NDC_JOBS_KEY, async () => {
-    const jobs = await readNdcJobs();
+    const jobs = await readNdcJobs({ strict: true });
     const job = jobs[jobId];
     if (!job) return;
     if (!guard(job)) {
@@ -928,8 +937,8 @@ function retryAfterMilliseconds(raw, strike = 1, random = Math.random) {
   return NXTK.withJitter(NXTK.rateLimitBackoffSeconds(strike) * 1000, random);
 }
 
-async function readSharedRateLimitUntil() {
-  const stored = await storageGetLocal(NDC_RATE_LIMIT_KEY, null);
+async function readSharedRateLimitUntil({ strict = false } = {}) {
+  const stored = await storageGetLocal(NDC_RATE_LIMIT_KEY, null, { strict });
   const until = Number(stored?.until);
   return Number.isFinite(until) ? until : 0;
 }
@@ -937,7 +946,7 @@ async function readSharedRateLimitUntil() {
 async function publishSharedRateLimit(until) {
   if (!Number.isFinite(until) || until <= Date.now()) return;
   await enqueueStorageTask(NDC_RATE_LIMIT_KEY, async () => {
-    const current = await readSharedRateLimitUntil();
+    const current = await readSharedRateLimitUntil({ strict: true });
     if (until <= current) return;
     await storageSetLocal(NDC_RATE_LIMIT_KEY, { until });
   });
@@ -1041,8 +1050,11 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
 }
 
 async function startNdcDownload(job, item, url) {
+  // The same name a single-mod download gets: the file name in the link, else "<mod name>-<file id>".
+  // Items saved before modName existed fall back to the Nexus file name.
+  const fallbackName = item.modName ? `${item.modName}-${item.fileId}` : item.name;
   const requestedName = withFallbackExtension(
-    item.name || 'nexus-download',
+    NXTK.downloadNameFromUrl(url) || fallbackName || 'nexus-download',
     extractDownloadExtension(url) || '.zip'
   );
   const filename = buildDownloadPath(job.folder, requestedName);
@@ -1405,6 +1417,7 @@ async function advanceNdcJob(jobId) {
       (current) => {
         current.activeDownloadId = started.downloadId;
         current.activeDownloadPath = startedPath;
+        current.activeFilename = started.filename;
         current.rateLimitStrikes = 0;
         current.cloudflareStrikes = 0;
         current.waitingUntil = 0;
@@ -1517,6 +1530,51 @@ function handleNdcDownloadTerminal(downloadId, state, error) {
   terminalDownloadTasks.set(downloadId, task);
   return task.finally(() => {
     if (terminalDownloadTasks.get(downloadId) === task) terminalDownloadTasks.delete(downloadId);
+  });
+}
+
+// Mod Organizer 2 reads these keys from a mod's meta.ini; its own files use the same names.
+const MO2_GAME_NAMES = { skyrimspecialedition: 'SkyrimSE' };
+
+function mo2MetaText({ domain, modId, fileId, modName, version }) {
+  return [
+    '[General]',
+    `gameName=${MO2_GAME_NAMES[domain] || domain}`,
+    `modid=${modId}`,
+    `fileid=${fileId}`,
+    `name=${modName}`,
+    `version=${version}`,
+    'newestVersion=',
+    'repository=Nexus',
+    'installed=false',
+    'uninstalled=false',
+    'paused=false',
+    'removed=false',
+    ''
+  ].join('\n');
+}
+
+// Opt-in (WriteMo2Meta). Saved in the file's folder under the name the file has on disk, so a
+// uniquified "(1)" copy gets a .meta of its own.
+async function writeMo2Meta(item, relativeName, archivePath) {
+  if (!item.modId || !relativeName || !archivePath) return;
+  const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+  if (settings?.WriteMo2Meta !== true) return;
+  const folder = downloadFolderOf(relativeName);
+  const archiveName = archivePath.split(/[\\/]/).pop();
+  const text = mo2MetaText({ domain: item.domain, modId: item.modId, fileId: item.fileId, modName: item.modName, version: item.version });
+  await new Promise((resolve, reject) => {
+    chrome.downloads.download({
+      // A text type makes the browser pick its own extension (.txt) over the .meta name.
+      url: `data:application/octet-stream,${encodeURIComponent(text)}`,
+      filename: `${folder ? `${folder}/` : ''}${archiveName}.meta`,
+      conflictAction: 'overwrite',
+      saveAs: false
+    }, (id) => {
+      const error = getRuntimeError();
+      if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
+      resolve(id);
+    });
   });
 }
 
@@ -2007,6 +2065,10 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
   );
   if (!transition.applied || !outcome) return null;
   job = transition.job;
+  // A meta file is a convenience: if it cannot be written, the collection still carries on.
+  if (outcome === 'complete') {
+    await writeMo2Meta(item, job.activeFilename, confirmedRecord?.filename).catch((cause) => recordBackgroundError('MO2 meta', cause));
+  }
   if (cannotSave) {
     handledTerminalDownloads.add(downloadId);
     pendingTerminalDownloads.delete(downloadId);
@@ -2516,7 +2578,7 @@ const NDC_QUEUE_HANDLERS = {
     }
 
     return enqueueStorageTask(NDC_CLAIM_KEY, async () => {
-      const claims = cleanNdcClaims(await storageGetLocal(NDC_CLAIM_KEY, null));
+      const claims = cleanNdcClaims(await storageGetLocal(NDC_CLAIM_KEY, null, { strict: true }));
       const key = `${gameId}/${collectionId}`;
       const held = claims[key];
       if (held && held.tabId !== tabId) return { granted: false, heldBy: held.tabId, reason: 'lease' };
@@ -2534,7 +2596,7 @@ const NDC_QUEUE_HANDLERS = {
     if (!isSafeId(gameId) || !isSafeId(collectionId)) return { released: false };
 
     return enqueueStorageTask(NDC_CLAIM_KEY, async () => {
-      const claims = cleanNdcClaims(await storageGetLocal(NDC_CLAIM_KEY, null));
+      const claims = cleanNdcClaims(await storageGetLocal(NDC_CLAIM_KEY, null, { strict: true }));
       const key = `${gameId}/${collectionId}`;
       if (!claims[key] || claims[key].tabId !== tabId) return { released: false };
       delete claims[key];
@@ -2682,7 +2744,7 @@ async function migrateNdcJobItems() {
   for (const [jobId, job] of legacy) await writeNdcJobItems(jobId, job.items);
 
   await enqueueStorageTask(NDC_JOBS_KEY, async () => {
-    const current = await storageGetLocal(NDC_JOBS_KEY, null);
+    const current = await storageGetLocal(NDC_JOBS_KEY, null, { strict: true });
     if (!current || typeof current !== 'object') return;
     const next = Object.create(null);
     for (const [jobId, job] of Object.entries(current)) {
@@ -2700,7 +2762,7 @@ async function migrateNdcJobItems() {
 }
 
 async function pruneOrphanedNdcItems() {
-  const jobs = await readNdcJobs();
+  const jobs = await readNdcJobs({ strict: true });
   const all = await new Promise((resolve) => {
     try {
       chrome.storage.local.get(null, (result) => resolve(getRuntimeError() ? null : result));

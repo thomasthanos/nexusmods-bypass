@@ -1501,6 +1501,12 @@
   "setFollowUpdatePolicyDesc": {
     "message": "Ativado: segue a regra de cada arquivo. Exact mantém o arquivo listado; Latest escolhe a versão mais recente; Prefer Exact mantém o listado enquanto disponível e só o substitui quando indisponível. Desativado: usa os arquivos listados. Requer a API oficial Nexus; não atualiza mods instalados."
   },
+  "setWriteMo2MetaLabel": {
+    "message": "Gravar arquivos .meta do Mod Organizer 2"
+  },
+  "setWriteMo2MetaDesc": {
+    "message": "Desativado por padrão. Para cada arquivo de coleção salvo pelo navegador, salva também um arquivo .meta ao lado, na mesma pasta, para que o Mod Organizer 2 conheça o ID do mod na Nexus, o ID do arquivo e a versão. Só os arquivos baixados daqui em diante recebem um. Não instala nada."
+  },
   "setShowModActionsLabel": {
     "message": "Mostrar botões Gostei e Acompanhar"
   },
@@ -2145,6 +2151,9 @@
   },
   "setShortFollowUpdatePolicy": {
     "message": "Segue as versões escolhidas pelo criador da coleção."
+  },
+  "setShortWriteMo2Meta": {
+    "message": "Salva arquivos .meta para o Mod Organizer 2 junto aos downloads de coleções."
   },
   "setShortShowModActions": {
     "message": "Gostei e acompanhamento só quando você clicar."

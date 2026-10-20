@@ -1059,15 +1059,8 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function inferBrowserDownloadName(url, fileId) {
-    let urlName = '';
-    try {
-      urlName = decodeURIComponent(new URL(url).pathname.split('/').pop() || '').trim();
-    } catch (_) {}
-
-    const knownExtension = new RegExp(`\\.(?:${NXTK.DOWNLOAD_FILE_EXTENSIONS.join('|')})$`, 'i');
-    if (knownExtension.test(urlName)) {
-      return urlName;
-    }
+    const urlName = NXTK.downloadNameFromUrl(url);
+    if (urlName) return urlName;
     const pageTitle = String(
       document.querySelector('h1')?.textContent
       || document.title.split(/\s+(?:at|on)\s+Nexus Mods/i)[0]

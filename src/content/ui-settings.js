@@ -30,6 +30,7 @@
     { key: 'NDC_smallestFirst', label: () => NXTK.t('setSmallestFirstLabel', null, 'Smallest files first'), type: 'bool', desc: () => NXTK.t('setSmallestFirstDesc', null, 'Download smaller collection files first so more files finish early. Files with no known size go last. This changes queue order, not your network speed.') },
     { key: 'UseOfficialApi', label: () => NXTK.t('setUseOfficialApiLabel', null, 'Official Nexus connection (API)'), type: 'bool', desc: () => NXTK.t('setUseOfficialApiDesc', null, 'Use the official Nexus API, its direct interface for file and collection details. Keep on for collection update rules and Endorse/Track buttons. Turn off only to try older page-based lookups if something fails.') },
     { key: 'FollowUpdatePolicy', label: () => NXTK.t('setFollowUpdatePolicyLabel', null, 'Collection file version rules'), type: 'bool', desc: () => NXTK.t('setFollowUpdatePolicyDesc', null, 'On: follow each collection file\'s rule. Exact keeps the listed file; Latest chooses its newest version; Prefer Exact keeps the listed file while available, replacing it only when unavailable. Off: use the listed files. Requires the official Nexus API; it does not update installed mods.') },
+    { key: 'WriteMo2Meta', label: () => NXTK.t('setWriteMo2MetaLabel', null, 'Write Mod Organizer 2 .meta files'), type: 'bool', desc: () => NXTK.t('setWriteMo2MetaDesc', null, 'Off by default. For each collection file saved in the browser, also save a .meta file beside it in the same folder, so Mod Organizer 2 knows the mod\'s Nexus ID, file ID and version. Only files downloaded from now on get one. It does not install anything.') },
     { key: 'ShowModActions', label: () => NXTK.t('setShowModActionsLabel', null, 'Show Endorse and Track buttons'), type: 'bool', desc: () => NXTK.t('setShowModActionsDesc', null, 'Show buttons beside collection mods. Endorse is a like for the mod; Track adds it to your Nexus tracking list. Neither action happens until you click. Nexus may require a wait after downloading before allowing Endorse. Requires the official Nexus API.') },
     { key: 'CloudflareFallback', label: () => NXTK.t('setCloudflareFallbackLabel', null, 'Open page for a browser check'), type: 'bool', desc: () => NXTK.t('setCloudflareFallbackDesc', null, 'If Nexus asks you to verify you are human, open the file page so you can complete the browser check yourself. It does not bypass the check. This is why the current tab may change pages.') },
     {
@@ -68,7 +69,7 @@
 
   const SETTING_GROUPS = [
     { name: 'downloads', titleKey: 'setSectionFlow', title: 'Downloads', keys: ['AutoStartDownload', 'AutoCloseTab', 'SkipRequirements', 'HandleArchivedFiles', 'DownloadFolder'] },
-    { name: 'collections', titleKey: 'setSectionPacing', title: 'Collections', keys: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'] },
+    { name: 'collections', titleKey: 'setSectionPacing', title: 'Collections', keys: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'WriteMo2Meta', 'ShowModActions'] },
     { name: 'appearance', titleKey: 'setSectionLanguage', title: 'Appearance & language', keys: ['HidePremiumUpsells', 'ExpandRequirements', 'ShowAlertsOnError', 'ForceEnglish'] }
   ];
   const SHORT_COPY = {
@@ -119,6 +120,10 @@
     "FollowUpdatePolicy": [
       "setShortFollowUpdatePolicy",
       "Follow the collection creator's version choices."
+    ],
+    "WriteMo2Meta": [
+      "setShortWriteMo2Meta",
+      "Save .meta files for Mod Organizer 2 beside collection downloads."
     ],
     "ShowModActions": [
       "setShortShowModActions",

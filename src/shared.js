@@ -255,6 +255,7 @@
     // Official-API migration flags (docs/nexus-site-map.md). Off restores the pre-2.10 behaviour.
     UseOfficialApi: true,
     FollowUpdatePolicy: false,
+    WriteMo2Meta: false,
     ShowModActions: true
   };
 
@@ -291,6 +292,14 @@
     ...ARCHIVE_FILE_EXTENSIONS,
     'txt', 'pdf', 'json', 'xml', 'ini', 'cfg'
   ]);
+  // The file name a Nexus download link carries, when it ends in a known extension; '' otherwise.
+  function downloadNameFromUrl(url) {
+    let name = '';
+    try {
+      name = decodeURIComponent(new URL(url).pathname.split('/').pop() || '').trim();
+    } catch (_) {}
+    return new RegExp(`\\.(?:${DOWNLOAD_FILE_EXTENSIONS.join('|')})$`, 'i').test(name) ? name : '';
+  }
 
   const RATE_LIMIT_BASE_SECONDS = 30;
   const RATE_LIMIT_MAX_SECONDS = 10 * 60;
@@ -1519,6 +1528,7 @@
     normalizeSetting,
     ARCHIVE_FILE_EXTENSIONS,
     DOWNLOAD_FILE_EXTENSIONS,
+    downloadNameFromUrl,
     RATE_LIMIT_MAX_SECONDS,
     RATE_LIMIT_MAX_STRIKES,
     parseRetryAfterSeconds,

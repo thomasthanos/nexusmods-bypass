@@ -68,7 +68,7 @@ On first install, the welcome page asks three setup questions and has a **Test V
 
 - **Quick setup:** presets *Vortex user*, *Browser downloads* and *Minimal* (a mix shows as *Custom*).
 - **Download flow:** auto-start, close the extra tab after sending to Vortex, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first.
-- **Files:** browser download folder.
+- **Files:** browser download folder. Optional `.meta` files beside collection downloads for Mod Organizer 2 (off by default, Collections section).
 - **Official Nexus API:** use the documented API for collection, mod and file details (on), follow curator update policy (off), endorse and track buttons (on). See [docs/nexus-site-map.md](docs/nexus-site-map.md).
 - **Advanced:** request timeout, close-tab delay, Vortex download speed and pause between files, official API, open the file page when Nexus asks for a browser check.
 - **Language:** Always use English.
