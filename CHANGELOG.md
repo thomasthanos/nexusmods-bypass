@@ -11,7 +11,7 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
-## Unreleased
+## 3.1.9 — 2026-10-20
 
 - **Vortex downloads that ended as a lost connection ([#30](https://github.com/thomasthanos/nexusmods-bypass/issues/30)):** a *Mod Manager Download* whose `/api/files/<uid>/download` route a fetch cannot read, while Nexus answers the other requests, is opened the way the click itself opens it, and the browser takes it to Vortex. A definitive answer from Nexus (sign-in, access denied, file not found, rate limit, Cloudflare check) is shown as it is and never opened ([#32](https://github.com/thomasthanos/nexusmods-bypass/pull/32)). A collection run fails such a file at once instead of waiting about 17 minutes for a connection that works.
 - **Fewer false reports:** Cloudflare and bare error pages at a mod's address, and Nexus notices in place of the download control, are no longer reported as site changes. A collection's Vortex run reports how each file ended, not every attempt, and a request Firefox cancels as the page navigates is not reported. A "no link" report names the kind of link or notice Nexus answered with, and whether the ad-timer cookie was off.
@@ -21,6 +21,8 @@ the repository before NexusMods Bypass was split out (2026-08-24) are folded int
 - **Saved data survives a failed read:** a storage read that feeds a write fails instead of returning the empty default, so it can no longer overwrite settings, history, queue jobs or claims.
 - **Relay:** besides 10 reports per IP an hour, the relay refuses reports once all clients together reach 500 an hour, and the tests check that its baseline matches the manifest version. This needs `npx wrangler deploy` from `relay/`.
 - **Releases:** the live Nexus schema check no longer blocks a release; the weekly schema watch still reports problems.
+- **Relay baseline:** 3.1.9, so 3.1.8 and older clients no longer ping once the Worker is redeployed.
+- **Packages:** Chrome/Edge and Firefox use 3.1.9 with unchanged permissions.
 - The collection file names, `.meta` files, busy buttons, storage reads, relay limit and release check were contributed by [@kxgcayh](https://github.com/kxgcayh) in [#31](https://github.com/thomasthanos/nexusmods-bypass/pull/31). Thank you!
 
 ## 3.1.8 — 2026-10-18
