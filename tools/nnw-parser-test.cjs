@@ -577,6 +577,77 @@ async function fileUidTests() {
     `${page}&file_id=2394&nmm=1`, 'and replaced when it names another file');
 }
 
+// Issue #30 (3.1.8, Helium on Chrome 155): "API route network_error | generator HTTP 200: JSON {url}; web
+// link outside Nexus where Vortex needs nxm | page HTTP 200: HTML page; a usable link was in it | API route
+// network_error". The route a Vortex click loads failed to fetch within milliseconds while Nexus answered
+// everything else, and the page linked back to the same route; the click ended as a lost connection,
+// which is never handed back to Nexus. A click on that route is sent on where a fetch cannot follow.
+async function unreadableRouteTests() {
+  const UID = String(9719 * 2 ** 32 + 3357);
+  const route = `https://www.nexusmods.com/api/files/${UID}/download?nmm=1`;
+  const page = 'https://www.nexusmods.com/thebloodofdawnwalker/mods/224';
+  const unreadable = () => ({ failure: new TypeError('Failed to fetch') });
+  const webLink = () => ({ body: JSON.stringify({ url: 'https://cf-files.nexus-cdn.com/thebloodofdawnwalker/224/Mod.zip?md5=x&expires=2000000000' }) });
+  const pageWithRoute = () => ({ body: `<!doctype html><html><body><mod-download-modal file='${JSON.stringify({ uid: Number(UID), vortexDownloadUrl: route })}'></mod-download-modal></body></html>` });
+  const harness = (pages) => createHarness({ href: page, sectionGameId: '9719', pages });
+
+  // A click: once the generator has answered, the route is opened as the click itself would have opened
+  // it, without loading the file page first.
+  const click = harness([unreadable(), webLink()]);
+  const opened = await click.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, canOpenRoute: true });
+  assert.deepEqual({ ...opened }, { url: route, viaRoute: true });
+  assert.equal(click.calls.length, 2, 'the route and the generator, no file page');
+  // A click on a file page link finds the route on that page.
+  const fromPage = harness([webLink(), pageWithRoute(), unreadable()]);
+  const filePage = `${page}?tab=files&file_id=3357&nmm=1`;
+  assert.deepEqual({ ...await fromPage.api.getDownloadUrl({ fileId: '3357', isNMM: true, href: filePage, canOpenRoute: true }) },
+    { url: route, viaRoute: true });
+
+  // The page answering is enough to tell, when the generator got no answer either.
+  const pageOnly = harness([unreadable(), unreadable(), pageWithRoute()]);
+  assert.equal((await pageOnly.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, canOpenRoute: true, record: false })).viaRoute, true);
+  // So is the page a collection run has already loaded and hands over.
+  const prefetched = harness([unreadable(), unreadable()]);
+  const deck = await prefetched.api.getDownloadUrl({ fileId: '3357', isNMM: true, href: filePage, record: false,
+    prefetchedText: pageWithRoute().body, prefetchedStatus: 200, prefetchedFinalUrl: filePage });
+  assert.equal(deck.error.code, 'no_nmm_link', 'a run fails the file instead of waiting for a connection that works');
+
+  // Anything else (a collection run, an automatic start) cannot open it: "no Vortex link", which a run
+  // fails the file on at once, instead of a lost connection it waits out for minutes. The page's link
+  // to the same route is not fetched again.
+  const run = harness([unreadable(), webLink(), pageWithRoute()]);
+  const notOpened = await run.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route });
+  assert.equal(notOpened.url, null);
+  assert.equal(notOpened.viaRoute, undefined);
+  assert.equal(notOpened.error.code, 'no_nmm_link');
+  assert.equal(run.calls.length, 3, 'the route once, the generator and the page');
+  assert.match(notOpened.error.technicalMessage, /^the download route answers only a page load \(a redirect a fetch cannot follow\) \| steps: API route network_error \| generator HTTP 200: JSON \{url\}; web link outside Nexus where Vortex needs nxm \| page HTTP 200: HTML page; [^|]*download route/);
+  assert.doesNotMatch(notOpened.error.technicalMessage, new RegExp(`${UID}|nexus-cdn|api/files`), 'with no link in it');
+  assert.equal(run.recorded.length, 1, 'recorded at once, as it is not a connection failure');
+
+  // Nexus answered nothing: the connection is down, and nothing is opened even for a click.
+  const offline = harness([unreadable(), unreadable(), unreadable()]);
+  const down = await offline.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, canOpenRoute: true, record: false });
+  assert.equal(down.url, null);
+  assert.equal(down.error.code, 'network_error');
+  // A route that answers is read as before, never opened.
+  const answered = harness([{ body: '{"url":""}' }, webLink(), pageWithRoute(), { body: '{"url":""}' }]);
+  const read = await answered.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, canOpenRoute: true, record: false });
+  assert.equal(read.viaRoute, undefined);
+  assert.equal(read.error.code, 'no_nmm_link');
+  assert.equal(answered.calls.length, 4, 'and the page\'s link to it is read again, as before');
+  // A rate limit or a sign-in is never worked around.
+  const limited = harness([unreadable(), { status: 429, body: 'Too Many Requests' }]);
+  const blocked = await limited.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, canOpenRoute: true, record: false });
+  assert.equal(blocked.viaRoute, undefined);
+  assert.equal(blocked.error.code, 'rate_limited');
+  const signedOut = harness([unreadable(), webLink(), { status: 401, body: '' }]);
+  assert.equal((await signedOut.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, record: false })).error.code, 'requires_login',
+    'a run stops for the sign-in instead of failing the file');
+  await new Promise((resolve) => setTimeout(resolve, 1700)); // connection failures are recorded a moment later
+  assert.equal(click.recorded.length + fromPage.recorded.length, 0, 'an opened route records nothing');
+}
+
 // E-0fk41cm: "Failed to fetch after 4580ms … page hidden". A tab that is closed or navigated drops its
 // requests with the same TypeError a dead connection gives; that is the page going away, not a fault.
 async function leavingPageTests() {
@@ -617,6 +688,7 @@ Promise.resolve()
   .then(controlClassificationTests)
   .then(missingLinkTrailTests)
   .then(fileUidTests)
+  .then(unreadableRouteTests)
   .then(leavingPageTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {

@@ -660,6 +660,9 @@ window.NexusExt = window.NexusExt || {};
     prefetchedStatus = 0,
     prefetchedError = null,
     signal = null,
+    // A click's Vortex download may end by opening the file's download route the way the click
+    // itself would have (see routeOutcome); nothing else can, since it may leave the page.
+    canOpenRoute = false,
     trail = []
   } = {}) {
     fileId = toFileId(fileId);
@@ -672,6 +675,11 @@ window.NexusExt = window.NexusExt || {};
       const shape = DownloadParser.explainMissingLink(response?.text, { mode: nmm ? 'vortex' : 'browser', fileId, baseUrl: location.href });
       trail.push(`${step} HTTP ${response?.status || 200}: ${shape}`);
     };
+    // Set once Nexus answers a request of this lookup: the connection works, so a request that got no
+    // answer at all was turned away by the browser, not lost on the way.
+    let nexusAnswered = false;
+    // A Vortex download's API route that a fetch could not read at all (see resolveApiFileUrl).
+    let unreadableRoute = null;
 
     let isApiFileHref = false;
     try {
@@ -725,12 +733,15 @@ window.NexusExt = window.NexusExt || {};
       const reused = takePrefetch(absoluteUrl);
       if (reused) {
         Logger.debug('Reusing prefetched response for', context);
+        nexusAnswered ||= reused.ok;
         return reused;
       }
-      return Errors.request(absoluteUrl, {
+      const response = await Errors.request(absoluteUrl, {
         credentials: 'include',
         headers: ajax ? { 'X-Requested-With': 'XMLHttpRequest' } : {}
       }, requestOptions(context));
+      nexusAnswered ||= response.ok;
+      return response;
     };
 
     const fetchGeneratedDownloadUrl = async (nmm = false) => {
@@ -744,6 +755,7 @@ window.NexusExt = window.NexusExt || {};
         headers,
         body
       }, requestOptions(nmm ? 'Generating Vortex download link' : 'Generating download link'));
+      nexusAnswered ||= response.ok;
 
       if (!response.ok) {
         Logger.warn('GenerateDownloadUrl failed:', response.error);
@@ -776,12 +788,20 @@ window.NexusExt = window.NexusExt || {};
       if (isNMM && !apiUrl.includes('nmm=1')) {
         apiUrl += apiUrl.includes('?') ? '&nmm=1' : '?nmm=1';
       }
+      // The file page links to the route that was clicked: asked again, it fails the same way.
+      if (unreadableRoute && new URL(apiUrl).pathname === new URL(unreadableRoute.url).pathname) {
+        return { url: null, error: unreadableRoute.error };
+      }
 
       // Loaded as a click loads it: the route redirects to the file page, and a redirect keeps the
       // X-Requested-With header, which makes Nexus answer with the tab fragment and no link.
       const response = await fetchText(apiUrl, { ajax: false, context: 'Resolving Nexus API download link' });
       if (!response.ok) {
         noteFailure('API route', response);
+        // Issue #30: no answer at all, while Nexus answers the generator and the page. A click on the
+        // route is sent on where a fetch cannot follow (to the nxm:// link itself, or through another
+        // site), and a fetch that cannot follow a redirect fails the way a lost connection does.
+        if (isNMM && !response.status && response.error?.code === 'network_error') unreadableRoute ||= { url: apiUrl, error: response.error };
         return { url: null, error: response.error };
       }
 
@@ -812,6 +832,26 @@ window.NexusExt = window.NexusExt || {};
       return { url: null, error: Errors.create(isNMM ? 'no_nmm_link' : 'no_download_url', { record: false }) };
     };
 
+    // The route could not be read but Nexus answers, so the connection is not what failed. A click
+    // opens the route as the click itself would have, and the browser follows it to Vortex. Anything
+    // else gets "no Vortex link" instead of a lost connection, which a collection run would wait out
+    // for minutes on a route that answers the same way every time.
+    const routeOutcome = () => {
+      if (!unreadableRoute || !nexusAnswered || signal?.aborted) return null;
+      if (canOpenRoute) {
+        NXTK.queueDebugEntry?.('debug', 'Download API route cannot be read by a fetch; opening it as the click would have.');
+        return { url: unreadableRoute.url, viaRoute: true };
+      }
+      return {
+        url: null,
+        error: Errors.create('no_nmm_link', {
+          context: 'Resolving Nexus API download link',
+          technicalMessage: 'the download route answers only a page load (a redirect a fetch cannot follow)',
+          record: false
+        })
+      };
+    };
+
     if (isApiFileHref) {
       const result = await resolveApiFileUrl(href);
       if (result.url) return result;
@@ -831,6 +871,10 @@ window.NexusExt = window.NexusExt || {};
       const quickNxm = parseNxmDownloadLink(quick?.url, fileId);
       if (quickNxm) return { url: quickNxm };
       if (quick?.error && Errors.isBlocking(quick.error)) return { url: null, error: quick.error };
+      // A clicked route that could not be read is opened now: that is what the click itself does, and
+      // quicker than loading the whole file page to look for another way.
+      const opened = canOpenRoute ? routeOutcome() : null;
+      if (opened) return opened;
 
       // Asked with X-Requested-With, Nexus answers a mod page with the tab fragment, which has no nxm
       // link. The download page a click opens carries it in <mod-file-download download-url>.
@@ -882,7 +926,8 @@ window.NexusExt = window.NexusExt || {};
         }
       }
 
-      return { url: null, error: latestError || quick?.error || Errors.create('no_nmm_link', { record: false }) };
+      if (latestError && Errors.isBlocking(latestError)) return { url: null, error: latestError };
+      return routeOutcome() || { url: null, error: latestError || quick?.error || Errors.create('no_nmm_link', { record: false }) };
     }
 
     if (isNMM) {
@@ -973,6 +1018,19 @@ window.NexusExt = window.NexusExt || {};
 
     if (isNMM && !isValidNxmUrl(decodedUrl)) return null;
     return decodedUrl;
+  }
+
+  // A download route a click loads (/api/files/<uid>/download on this site) when it names this file,
+  // else null. Opened, the browser follows it to Vortex as it does for Nexus's own button.
+  function fileRouteFor(url, fileId) {
+    try {
+      const parsed = new URL(url, location.href);
+      const id = toFileId(parsed.pathname.match(/^\/api\/files\/(\d+)(?:\/download)?\/?$/)?.[1]);
+      if (!id || parsed.origin !== location.origin || !NXTK.isSafeNexusPageUrl(parsed.href)) return null;
+      return !fileId || id === toFileId(fileId) ? parsed.href : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   // The text node that carries a control's visible label. Nexus's controls put an icon wrapper (a
@@ -1432,7 +1490,9 @@ window.NexusExt = window.NexusExt || {};
 
     let result;
     try {
-      result = await getDownloadUrl({ fileId, gameId: getGameId(), isNMM, href });
+      // Only a click may end by opening the file's download route: an automatic start that did could be
+      // brought back to this page by it, and start again.
+      result = await getDownloadUrl({ fileId, gameId: getGameId(), isNMM, href, canOpenRoute: isNMM && !!button });
     } catch (cause) {
       result = { url: null, error: Errors.fromException(cause, { context: 'Resolving download link' }) };
     }
@@ -1470,7 +1530,7 @@ window.NexusExt = window.NexusExt || {};
     if (button) setButtonState(button, isNMM ? 'waiting' : 'downloading', isNMM ? NXTK.t('btnStateSendingVortex', null, 'Sending to Vortex…') : '');
     let finalUrl = null;
     try {
-      finalUrl = await normalizeDownloadUrl(result.url, isNMM);
+      finalUrl = result.viaRoute ? fileRouteFor(result.url, fileId) : await normalizeDownloadUrl(result.url, isNMM);
     } catch (cause) {
       handleError(button, Errors.fromException(cause, { context: 'Validating download link' }), {
         onRetry: () => runDownload(options)
@@ -1484,7 +1544,8 @@ window.NexusExt = window.NexusExt || {};
       return false;
     }
 
-    const verdict = NXTK.validateDownloadTarget(finalUrl, { method: isNMM ? 0 : 1 });
+    // A route is not a Vortex link: fileRouteFor has checked it is this file's, on this Nexus site.
+    const verdict = result.viaRoute ? { ok: true } : NXTK.validateDownloadTarget(finalUrl, { method: isNMM ? 0 : 1 });
     if (!verdict.ok) {
       const unsafe = Errors.create('unsafe_download_url', {
         context: 'Validating download target',
@@ -1496,7 +1557,7 @@ window.NexusExt = window.NexusExt || {};
     }
     // Vortex hands a link only to the download waiting for that file: a link for another file would
     // start a separate download there and leave that one waiting.
-    if (isNMM && fileId && DownloadParser.nxmFileId(finalUrl) !== toFileId(fileId)) {
+    if (isNMM && fileId && !result.viaRoute && DownloadParser.nxmFileId(finalUrl) !== toFileId(fileId)) {
       const wrongFile = Errors.create('no_nmm_link', {
         context: 'Checking the Vortex link',
         technicalMessage: 'the nxm link names another file',
@@ -1507,6 +1568,7 @@ window.NexusExt = window.NexusExt || {};
       return false;
     }
     if (isNMM) {
+      if (result.viaRoute) Logger.info('Vortex hand-off: opening the download route as the click would have; Nexus sends it on to Vortex');
       try {
         location.assign(finalUrl);
       } catch (cause) {

@@ -124,6 +124,48 @@ test('download API fetch failure recovers through the generator without reportin
   await page.close();
 });
 
+// Issue #30: Nexus sends a click on the download route on where a fetch cannot follow (to the nxm:// link
+// itself), so the route could not be read and the click ended as a lost connection. The click now opens
+// the route as Nexus's own button does. Here a fetch of it fails and the page load is cut off as a hand-off
+// to another program is (ERR_ABORTED), which keeps the page, so the request shows the route was opened.
+test('Vortex: a download route a fetch cannot read is opened the way the click opens it (#30)', async () => {
+  const { ext, patch } = await extensionPage();
+  await patch({ NDC_downloadMethod: 0, ShowAlertsOnError: true });
+  const pageUrl = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files';
+  const page = await openPage(pageUrl, 1280, 800, 1);
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  const uid = 1704 * 2 ** 32 + 35409;
+  const routeUrl = `https://www.nexusmods.com/api/files/${uid}/download?nmm=1`;
+  const opened = [];
+  await page.route('**/api/files/**', (route) => {
+    if (!route.request().isNavigationRequest()) return route.abort('failed');
+    opened.push(route.request().url());
+    return route.abort('aborted');
+  });
+  await page.route('**/Core/Libs/Common/Managers/Downloads**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ url: 'https://cf-files.nexus-cdn.com/skyrimspecialedition/12604/SkyUI.7z?md5=x&expires=2000000000' })
+  }));
+  await page.evaluate(({ uid, routeUrl }) => {
+    const host = document.createElement('mod-file-download');
+    host.setAttribute('file', JSON.stringify({ id: 35409 }));
+    host.setAttribute('game-id', '1704');
+    const outer = host.attachShadow({ mode: 'open' });
+    const modal = document.createElement('mod-download-modal');
+    modal.setAttribute('file', JSON.stringify({ uid, downloadUrl: routeUrl.replace('?nmm=1', ''), vortexDownloadUrl: routeUrl }));
+    outer.append(modal);
+    modal.attachShadow({ mode: 'open' }).innerHTML = '<button id="v">Mod manager download</button>';
+    document.body.append(host);
+  }, { uid, routeUrl });
+  await page.locator('mod-file-download').locator('#v').click();
+  await expect.poll(() => opened, { timeout: 15000 }).toEqual([routeUrl]);
+  await expect(page.locator('.nxtk-status-toast[role="status"]')).toContainText(/Sent to Vortex/, { timeout: 5000 });
+  await expect(page.locator('[data-retry]'), 'no error dialog').toHaveCount(0);
+  expect(page.url(), 'and the page stays').toBe(pageUrl);
+  await page.close();
+  await ext.close();
+});
+
 test('automatic reports: accessible one-time Nexus invitation without extra permissions', async () => {
   const worker = await serviceWorker(context);
   await worker.evaluate(async () => {
