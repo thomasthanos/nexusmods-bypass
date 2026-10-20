@@ -166,6 +166,72 @@ test('Vortex: a download route a fetch cannot read is opened the way the click o
   await ext.close();
 });
 
+for (const [status, code] of [[200, ''], [403, 'access_denied'], [404, 'file_not_found']]) {
+  test(`Vortex: classic #30 button preserves generator HTTP ${status}`, async () => {
+    const { ext, patch, read } = await extensionPage();
+    let page;
+    try {
+      await patch({ NDC_downloadMethod: 0, AutoStartDownload: true, AutoCloseTab: true,
+        AutoErrorReports: false, ShowAlertsOnError: true }, { nxtk_error_log: [] });
+      page = await context.newPage();
+      const pageUrl = 'https://www.nexusmods.com/thebloodofdawnwalker/mods/224';
+      const routeUrl = `https://www.nexusmods.com/api/files/${9719 * 2 ** 32 + 3357}/download?nmm=1`;
+      const opened = [];
+      const generated = [];
+      let routeFetches = 0;
+      await page.route(pageUrl, route => route.fulfill({ status: 200, contentType: 'text/html',
+        body: fixture('visual-mod-page.html').replace('data-game-id="1704"', 'data-game-id="9719"') }));
+      await page.route('https://api.nexusmods.com/v2/graphql', route => {
+        if (route.request().method() !== 'POST' || route.request().postDataJSON()?.operationName !== 'GameId') return route.fallback();
+        return route.fulfill({ status: 200, contentType: 'application/json',
+          headers: { 'access-control-allow-origin': 'https://www.nexusmods.com', 'access-control-allow-credentials': 'true' },
+          body: JSON.stringify({ data: { game: { id: 9719, domainName: 'thebloodofdawnwalker' } } }) });
+      });
+      await page.route('**/api/files/**', route => {
+        if (!route.request().isNavigationRequest()) {
+          routeFetches += 1;
+          return route.abort('failed');
+        }
+        opened.push(route.request().url());
+        return route.abort('aborted');
+      });
+      await page.route('**/Core/Libs/Common/Managers/Downloads**', route => {
+        generated.push(Object.fromEntries(new URLSearchParams(route.request().postData())));
+        return route.fulfill({ status, contentType: 'application/json', body: status === 200
+          ? JSON.stringify({ url: 'https://cf-files.nexus-cdn.com/thebloodofdawnwalker/224/Mod.zip?md5=x&expires=2000000000' }) : '' });
+      });
+      await page.goto(pageUrl);
+      await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+      await page.evaluate(href => {
+        const link = document.createElement('a');
+        link.id = 'issue-30-classic';
+        link.href = href;
+        link.textContent = 'Mod Manager Download';
+        document.querySelector('#section main').append(link);
+      }, routeUrl);
+      await page.locator('#issue-30-classic').click();
+      if (status === 200) {
+        await expect.poll(() => opened).toEqual([routeUrl]);
+        await expect(page.locator('.nxtk-status-toast[role="status"]')).toContainText('Sent to Vortex');
+        await expect(page.locator('[data-retry]')).toHaveCount(0);
+        expect(await read('nxtk_error_log')).toEqual([]);
+      } else {
+        await expect(page.locator('#nxtk-error-modal .nxtk-error-code')).toContainText(code);
+        await expect.poll(async () => (await read('nxtk_error_log'))?.map(entry => entry.code)).toEqual([code]);
+        expect(opened).toEqual([]);
+        await expect(page.locator('.nxtk-status-toast[role="status"]').filter({ hasText: 'Sent to Vortex' })).toHaveCount(0);
+      }
+      expect(routeFetches).toBe(1);
+      expect(generated).toEqual([{ fid: '3357', game_id: '9719', nmm: '1' }]);
+      expect(page.url()).toBe(pageUrl);
+      expect(page.isClosed()).toBe(false);
+    } finally {
+      await page?.close();
+      await ext.close();
+    }
+  });
+}
+
 test('automatic reports: accessible one-time Nexus invitation without extra permissions', async () => {
   const worker = await serviceWorker(context);
   await worker.evaluate(async () => {

@@ -675,8 +675,8 @@ window.NexusExt = window.NexusExt || {};
       const shape = DownloadParser.explainMissingLink(response?.text, { mode: nmm ? 'vortex' : 'browser', fileId, baseUrl: location.href });
       trail.push(`${step} HTTP ${response?.status || 200}: ${shape}`);
     };
-    // Set once Nexus answers a request of this lookup: the connection works, so a request that got no
-    // answer at all was turned away by the browser, not lost on the way.
+    // Another readable Nexus response makes native navigation worth trying for a click. It does not
+    // establish why the route's fetch failed: a redirect or a transient connection fault can do that.
     let nexusAnswered = false;
     // A Vortex download's API route that a fetch could not read at all (see resolveApiFileUrl).
     let unreadableRoute = null;
@@ -705,6 +705,10 @@ window.NexusExt = window.NexusExt || {};
       signal,
       record: false
     });
+    // A terminal answer is stronger evidence than another request succeeding. Do not navigate the
+    // route or replace its denial/missing-file result with an apparent successful Vortex hand-off.
+    const isTerminalVortexError = (error) => !!error && (Errors.isBlocking(error)
+      || ['access_denied', 'file_not_found', 'mod_unavailable', 'moderation_hold', 'missing_file', 'aborted'].includes(error.code));
 
     let pendingPrefetch = (prefetchedText === null && !prefetchedError) ? null : {
       ok: !prefetchedError && prefetchedStatus >= 200 && prefetchedStatus < 400,
@@ -832,8 +836,8 @@ window.NexusExt = window.NexusExt || {};
       return { url: null, error: Errors.create(isNMM ? 'no_nmm_link' : 'no_download_url', { record: false }) };
     };
 
-    // The route could not be read but Nexus answers, so the connection is not what failed. A click
-    // opens the route as the click itself would have, and the browser follows it to Vortex. Anything
+    // The route could not be read but another Nexus request succeeded. A click can open the route as
+    // the click itself would have, letting the browser follow redirects it may not fetch. Anything
     // else gets "no Vortex link" instead of a lost connection, which a collection run would wait out
     // for minutes on a route that answers the same way every time.
     const routeOutcome = () => {
@@ -846,7 +850,7 @@ window.NexusExt = window.NexusExt || {};
         url: null,
         error: Errors.create('no_nmm_link', {
           context: 'Resolving Nexus API download link',
-          technicalMessage: 'the download route answers only a page load (a redirect a fetch cannot follow)',
+          technicalMessage: 'the download route could not be fetched while another Nexus request succeeded; no Vortex link resolved',
           record: false
         })
       };
@@ -870,7 +874,7 @@ window.NexusExt = window.NexusExt || {};
       const quick = await fetchGeneratedDownloadUrl(true);
       const quickNxm = parseNxmDownloadLink(quick?.url, fileId);
       if (quickNxm) return { url: quickNxm };
-      if (quick?.error && Errors.isBlocking(quick.error)) return { url: null, error: quick.error };
+      if (isTerminalVortexError(quick?.error)) return { url: null, error: quick.error };
       // A clicked route that could not be read is opened now: that is what the click itself does, and
       // quicker than loading the whole file page to look for another way.
       const opened = canOpenRoute ? routeOutcome() : null;
@@ -882,6 +886,7 @@ window.NexusExt = window.NexusExt || {};
       let latestError = firstResponse.error;
       Logger.info('Fetching NMM download URL');
       if (!firstResponse.ok) noteFailure('page', firstResponse);
+      if (isTerminalVortexError(firstResponse.error)) return { url: null, error: firstResponse.error };
 
       if (firstResponse.ok) {
         const firstResponseGameId = extractGameIdFromText(firstResponse.text);
@@ -900,6 +905,7 @@ window.NexusExt = window.NexusExt || {};
           if (extracted.url.includes('/api/files/')) {
             const result = await resolveApiFileUrl(extracted.url);
             if (result.url) return result;
+            if (isTerminalVortexError(result.error)) return result;
             latestError = result.error || latestError;
           }
         }
@@ -911,6 +917,7 @@ window.NexusExt = window.NexusExt || {};
             if (downloadPageUrl.includes('/api/files/')) {
               const result = await resolveApiFileUrl(downloadPageUrl);
               if (result.url) return result;
+              if (isTerminalVortexError(result.error)) return result;
               latestError = result.error || latestError;
             }
             const downloadPageResponse = await fetchText(downloadPageUrl, { ajax: false, context: 'Loading requirement download page' });
@@ -926,7 +933,7 @@ window.NexusExt = window.NexusExt || {};
         }
       }
 
-      if (latestError && Errors.isBlocking(latestError)) return { url: null, error: latestError };
+      if (isTerminalVortexError(latestError)) return { url: null, error: latestError };
       return routeOutcome() || { url: null, error: latestError || quick?.error || Errors.create('no_nmm_link', { record: false }) };
     }
 
