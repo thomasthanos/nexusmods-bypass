@@ -64,7 +64,9 @@ jobs:
         run: node tools/lint-webext.mjs
       - run: npx playwright install --with-deps chromium
       - run: npm run test:visual
+      # A Nexus outage or an unrelated schema change must not block a release. The weekly schema-watch.yml still reports it.
       - name: Validate live Nexus schema
+        continue-on-error: true
         run: node tools/schema-watch.mjs
       - name: Publish both validated packages
         id: publish

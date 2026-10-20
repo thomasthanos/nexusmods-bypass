@@ -1,7 +1,7 @@
 // Offline tests for relay/worker.js: validation, size limit, rate limit, Discord formatting.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../relay/worker.js';
+import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, GLOBAL_LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../relay/worker.js';
 
 const auto = { schema: 1, kind: 'auto', version: '3.1.5', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
 assert.equal(validateReport(auto), '');
@@ -469,6 +469,22 @@ const report = (ip, body, targetEnv = env, ctx = {}) => worker.fetch(new Request
   // A report's own code fences cannot close the code block it is shown in.
   const fenced = discordMessage({ schema: 1, kind: 'manual', version: '3.1.3', report: 'a\n```\n@everyone' }, 'f').embeds[0];
   assert.equal(fenced.description.split('```').length - 1, 2, 'only the wrapping fences remain');
+}
+
+{
+  // Many clients, each under its own IP limit, still reach the shared ceiling for the hour.
+  let refused = null;
+  for (let i = 0; i <= GLOBAL_LIMIT_PER_HOUR && !refused; i += 1) {
+    const res = await post(fresh(), `20.0.${Math.floor(i / 200)}.${i % 200}`);
+    if (res.status === 429) refused = res;
+  }
+  assert.ok(refused, 'the relay refuses once every client together reaches the hourly ceiling');
+}
+{
+  // The "older client" label compares against this baseline, so a release the relay was not updated for is caught here.
+  const toml = fs.readFileSync(new URL('../relay/wrangler.toml', import.meta.url), 'utf8');
+  const manifest = JSON.parse(fs.readFileSync(new URL('../src/manifest.json', import.meta.url), 'utf8'));
+  assert.equal(toml.match(/^RELAY_EXTENSION_VERSION = "([^"]+)"/m)?.[1], manifest.version, 'relay baseline matches the released version');
 }
 
 console.log('relay worker behavior OK');

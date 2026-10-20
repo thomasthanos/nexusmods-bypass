@@ -21,6 +21,8 @@ import { COLORS, clip, quiet, fitEmbed, postWebhook } from './discord.js';
 export { fitEmbed };
 export const MAX_BODY_BYTES = 64 * 1024;
 export const LIMIT_PER_HOUR = 10;
+// All clients together. Each report can ping the owner, so one IP per hour is not enough to stop a spam run.
+export const GLOBAL_LIMIT_PER_HOUR = 500;
 const HOUR_MS = 60 * 60 * 1000;
 // The extension stops waiting for the relay after 15 s (automatic) or 20 s (manual), so Discord
 // retries have to fit well inside that.
@@ -186,13 +188,12 @@ async function storePut(env, key, value, ttlMs, now, log) {
 
 const secondsUntilNextHour = (now) => Math.max(1, Math.ceil(((Math.floor(now / HOUR_MS) + 1) * HOUR_MS - now) / 1000));
 
-async function allow(env, ip, kind, now, log) {
+async function allow(env, scope, now, log, limit) {
   const hour = Math.floor(now / HOUR_MS);
-  // Automatic diagnostics must not use up the allowance for a user's manual report.
-  const key = `rl:${kind}:${ip}:${hour}`;
+  const key = `rl:${scope}:${hour}`;
   // A KV read can lag this isolate's own last write, so the higher count wins.
   const count = Math.max(Number(await storeGet(env, key, now, log)) || 0, Number(memoryGet(key, now)) || 0);
-  if (count >= LIMIT_PER_HOUR) return false;
+  if (count >= limit) return false;
   await storePut(env, key, String(count + 1), secondsUntilNextHour(now) * 1000 + 100000, now, log);
   return true;
 }
@@ -477,7 +478,9 @@ async function handleRequest(request, env, ctx, headers, log) {
   if (problem) return json({ error: problem }, 422, headers);
   const now = Date.now();
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
-  if (!await allow(env, ip, payload.kind, now, log)) {
+  // Automatic diagnostics must not use up the allowance for a user's manual report.
+  if (!await allow(env, `${payload.kind}:${ip}`, now, log, LIMIT_PER_HOUR)
+    || !await allow(env, 'all', now, log, GLOBAL_LIMIT_PER_HOUR)) {
     return json({ error: 'rate limited' }, 429, { ...headers, 'retry-after': String(secondsUntilNextHour(now)) });
   }
 
