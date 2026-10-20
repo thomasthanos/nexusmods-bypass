@@ -621,7 +621,7 @@ async function unreadableRouteTests() {
   assert.equal(notOpened.viaRoute, undefined);
   assert.equal(notOpened.error.code, 'no_nmm_link');
   assert.equal(run.calls.length, 3, 'the route once, the generator and the page');
-  assert.match(notOpened.error.technicalMessage, /^the download route answers only a page load \(a redirect a fetch cannot follow\) \| steps: API route network_error \| generator HTTP 200: JSON \{url\}; web link outside Nexus where Vortex needs nxm \| page HTTP 200: HTML page; [^|]*download route/);
+  assert.match(notOpened.error.technicalMessage, /^the download route could not be fetched while another Nexus request succeeded; no Vortex link resolved \| steps: API route network_error \| generator HTTP 200: JSON \{url\}; web link outside Nexus where Vortex needs nxm \| page HTTP 200: HTML page; [^|]*download route/);
   assert.doesNotMatch(notOpened.error.technicalMessage, new RegExp(`${UID}|nexus-cdn|api/files`), 'with no link in it');
   assert.equal(run.recorded.length, 1, 'recorded at once, as it is not a connection failure');
 
@@ -646,6 +646,64 @@ async function unreadableRouteTests() {
     'a run stops for the sign-in instead of failing the file');
   await new Promise((resolve) => setTimeout(resolve, 1700)); // connection failures are recorded a moment later
   assert.equal(click.recorded.length + fromPage.recorded.length, 0, 'an opened route records nothing');
+}
+
+async function unreadableRouteBoundaries() {
+  const fileId = '3357';
+  const uid = String(9719 * 2 ** 32 + Number(fileId));
+  const page = 'https://www.nexusmods.com/thebloodofdawnwalker/mods/224';
+  const route = `https://www.nexusmods.com/api/files/${uid}/download?nmm=1`;
+  const unreadable = () => ({ failure: new TypeError('Failed to fetch') });
+  const pageWithRoute = { body: `<mod-download-modal file='${JSON.stringify({ uid: Number(uid), vortexDownloadUrl: route })}'></mod-download-modal>` };
+  const harness = pages => createHarness({ href: page, sectionGameId: '9719', pages });
+  const options = { fileId, isNMM: true, href: route, canOpenRoute: true, record: false };
+
+  for (const [answer, code] of [
+    [{ status: 401 }, 'requires_login'],
+    [{ status: 403 }, 'access_denied'],
+    [{ status: 404 }, 'file_not_found'],
+    [{ status: 429, body: 'Too Many Requests' }, 'rate_limited'],
+    [{ status: 200, body: '<!doctype html><form id="challenge-form">Checking your browser</form>' }, 'cloudflare']
+  ]) {
+    const h = harness([unreadable(), answer, pageWithRoute]);
+    const result = await h.api.getDownloadUrl(options);
+    assert.equal(result.url, null, `generator ${code} must not turn into a native-route success`);
+    assert.equal(result.error?.code, code, 'the actual terminal response is preserved');
+    assert.equal(h.calls.length, 2, 'a terminal generator answer stops before loading the file page');
+
+    const direct = harness([answer]);
+    const stopped = await direct.api.getDownloadUrl(options);
+    assert.equal(stopped.error?.code, code, 'the API route itself also preserves terminal answers');
+    assert.equal(direct.calls.length, 1, 'a terminal route answer never invokes the generator');
+  }
+
+  // A completed page fetch must not erase a later explicit denial on the route it contains.
+  for (const status of [403, 404]) {
+    const h = harness([{ body: '{"url":""}' }, pageWithRoute, { status }]);
+    const result = await h.api.getDownloadUrl({ ...options, href: `${page}?tab=files&file_id=${fileId}&nmm=1` });
+    assert.equal(result.url, null);
+    assert.equal(result.error?.code, status === 403 ? 'access_denied' : 'file_not_found');
+    assert.equal(h.calls.length, 3);
+
+    const requirements = harness([{ body: '{"url":""}' },
+      { body: `<a href="${route}">Download</a>` }, { status }]);
+    const fromRequirements = await requirements.api.getDownloadUrl({ ...options,
+      href: `https://www.nexusmods.com/Core/Libs/Common/Widgets/ModRequirementsPopUp?file_id=${fileId}` });
+    assert.equal(fromRequirements.error?.code, status === 403 ? 'access_denied' : 'file_not_found');
+    assert.equal(requirements.calls.length, 3, 'requirements do not load a denied route again as a page');
+  }
+
+  const controller = new AbortController();
+  controller.abort();
+  const canceled = harness([]);
+  const result = await canceled.api.getDownloadUrl({ ...options, signal: controller.signal });
+  assert.equal(result.error?.code, 'aborted');
+  assert.equal(canceled.calls.length, 0, 'a canceled lookup performs no network request or route navigation');
+
+  const manual = harness([unreadable(), { body: JSON.stringify({ url: MANUAL_URL }) }]);
+  const browser = await manual.api.getDownloadUrl({ ...options, isNMM: false });
+  assert.equal(browser.url, MANUAL_URL);
+  assert.equal(browser.viaRoute, undefined, 'browser downloads keep using the validated file URL');
 }
 
 // E-0fk41cm: "Failed to fetch after 4580ms … page hidden". A tab that is closed or navigated drops its
@@ -689,6 +747,7 @@ Promise.resolve()
   .then(missingLinkTrailTests)
   .then(fileUidTests)
   .then(unreadableRouteTests)
+  .then(unreadableRouteBoundaries)
   .then(leavingPageTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {
