@@ -284,6 +284,11 @@ assert.equal(PageCheck.detectBuild(fakeDoc({ scripts: ['https://ads.example/x.js
     'a Nexus title keeps a page with no app markers in the checks');
   assert.equal(PageCheck.pageVariant({ ...foreign('Just a moment...', 'text'), getElementById: (id) => (id === '__next' ? {} : null) }), '',
     'and so does the Nexus app, whatever the title');
+  assert.equal(PageCheck.pageVariant({ ...foreign('Loading…', 'text'),
+    querySelectorAll: (sel) => (sel === 'script[src]' ? [{ src: 'https://www.nexusmods.com/_next/static/chunks/app-1.js' }] : []) }), '',
+  'a Nexus app known only by its scripts is still checked');
+  assert.equal(PageCheck.pageVariant({ ...foreign('Just a moment...', 'text'), getElementById: (id) => (id === 'section' ? {} : null) }), '',
+    'as is the legacy layout');
 
   // E-1opts0d: a file page where Nexus shows one of its notices (sign in, moderation, an archived or
   // unavailable file) instead of the download control. Nexus says why; nothing changed.
@@ -295,12 +300,23 @@ assert.equal(PageCheck.detectBuild(fakeDoc({ scripts: ['https://ads.example/x.js
   const withNotice = { title: 'Mod at Skyrim Nexus', getElementById: (id) => (id === 'section' ? {} : null),
     querySelector: (sel) => (sel === '[id^="Notice"][id$="-title"]' ? {} : null), querySelectorAll: () => [] };
   const beforeNotice = recorded.length;
+  // A new tab, so the once-per-tab rule cannot hide whether the notice is what kept it quiet.
+  for (const key of Object.keys(session)) delete session[key];
   PageCheck.reportFailures(noticeFailing, record, withNotice);
   assert.equal(recorded.length, beforeNotice, 'a Nexus notice in place of the download control is not a site change');
   const withoutNotice = { ...withNotice, querySelector: () => null };
   for (const key of Object.keys(session)) delete session[key]; // a new tab: the same failure may be reported again
   PageCheck.reportFailures(noticeFailing, record, withoutNotice);
   assert.equal(recorded.length, beforeNotice + 1, 'without one, a missing download control is still reported');
+  // The notice only explains a missing download control: a page that lost its content region too is
+  // still a site change, notice or not.
+  const bothFailing = PageCheck.runChecks({
+    doc: fakeDoc(), loc: at('/skyrimspecialedition/mods/270', '?tab=files&file_id=96'), auth: signedIn, nnw: nnwWith('1704')
+  });
+  assert.ok(bothFailing.checks.filter((entry) => !entry.ok).length > 1, 'the fixture fails more than the download control');
+  for (const key of Object.keys(session)) delete session[key];
+  PageCheck.reportFailures(bothFailing, record, withNotice);
+  assert.equal(recorded.length, beforeNotice + 2, 'a notice does not excuse the rest of the page going missing');
   const beforeNotFound = recorded.length;
   const bareFailing = PageCheck.runChecks({ doc: fakeDoc(), loc: at('/skyrimspecialedition/mods/269'), auth: signedIn, nnw: nnwWith('') });
   PageCheck.reportFailures(bareFailing, record, nextPage({ text: '404 This page could not be found.' }));

@@ -178,7 +178,7 @@ function createHarness({
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
   const fire = (type) => (listeners[type] || []).forEach((listener) => listener({ type }));
-  return { api: context.NexusExt.NNW, calls, state, recorded, fire };
+  return { api: context.NexusExt.NNW, errors: context.NexusExt.Errors, calls, state, recorded, fire };
 }
 
 // Discord reports from 3.1.1: an unreadable /api/files redirect stopped the flow before the
@@ -217,9 +217,22 @@ async function apiRouteRecoveryTests() {
   const left = offline();
   await left.api.getDownloadUrl({ fileId: '200', isNMM: false, href });
   left.fire('pagehide');
+  // A page restored from the back/forward cache is open again, and its failures count again.
+  const restored = offline();
+  restored.fire('pagehide');
+  restored.fire('pageshow');
+  await restored.api.getDownloadUrl({ fileId: '200', isNMM: false, href });
+  // A timeout is a connection failure too; anything else is recorded at once.
+  const direct = createHarness({ pages: [] });
+  direct.errors.create('timeout', { context: 'Loading Nexus download page' });
+  direct.errors.create('offline', { context: 'Loading Nexus download page' });
+  direct.errors.create('invalid_response', { context: 'Reading download link' });
+  assert.deepEqual(direct.recorded.map((entry) => entry.code), ['invalid_response'], 'only the connection failures wait');
   await new Promise((resolve) => setTimeout(resolve, 1700));
   assert.equal(failed.recorded.length, 1, 'multiple failed attempts record just the final failure');
   assert.equal(left.recorded.length, 0, 'and a page that was being left records nothing');
+  assert.equal(restored.recorded.length, 1, 'a page back from the back/forward cache records again');
+  assert.deepEqual(direct.recorded.map((entry) => entry.code).sort(), ['invalid_response', 'offline', 'timeout']);
   assert.match(result.error.technicalMessage, /GET|POST/);
   assert.match(result.error.technicalMessage, /no readable HTTP response/);
   assert.doesNotMatch(result.error.technicalMessage, /api\/files\/200|\?game=|https:/);

@@ -2686,6 +2686,7 @@ async function queueNoLinkFailureSaysWhy() {
     assert.match(entry.technicalMessage,
       /^no_download_url \| generator HTTP 200: JSON \{url\}; url empty; no link in it \| page HTTP 200: HTML page; no link in it \| file 77/,
       'with what the generator and the page answered');
+    assert.doesNotMatch(entry.technicalMessage, /ad timer/, 'with no saved setting (it is on by default) nothing is said');
 
     // With "Hide ads and Premium panels" off the deck writes no ad-timer cookie for the queue, and the
     // report says so: Nexus can hold a link back without it, which looks the same as no link.

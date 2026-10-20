@@ -299,7 +299,56 @@ function createHarness(choice) {
   assert.deepEqual(broke.asked, ['One.7z', 'Two.7z', 'Three.7z'], 'a fault that is not the connection fails just that file');
   assert.equal(broke.outcome, 'partial');
   assert.deepEqual(recordedErrors, ['offline', 'request_failed'], 'and a file that failed for good, once');
+
+  // Skips: a gone mod is the mod's state, not a fault, and records nothing; a Cloudflare answer is worth
+  // a line in a bug report, as in the worker, once for its file.
+  recordedErrors.length = 0;
+  await runVortexQueue(threeMods(), (mod) => (mod.fileId === 1 ? 'mod_unavailable' : mod.fileId === 2 ? 'cloudflare' : ''));
+  assert.deepEqual(recordedErrors, ['cloudflare']);
+
+  // A Retry from an error dialog that fails again is how that file ends: recorded once.
+  recordedErrors.length = 0;
+  const retrying = createHarness('vortex');
+  retrying.ndc.showAlertsOnError = false;
+  retrying.ndc.fetchDownloadLinkWithRetry = async () => ({ downloadUrl: '', error: { code: 'request_failed' } });
+  await retrying.ndc.retryMod(vortexMod(9, 'Retry.7z', 9));
+  assert.deepEqual(recordedErrors, ['request_failed']);
+  // A Stop while the link was being looked up is a cancel, not a failure.
+  retrying.ndc.fetchDownloadLinkWithRetry = async () => ({ downloadUrl: '', error: { code: 'aborted' } });
+  await retrying.ndc.retryMod(vortexMod(9, 'Retry.7z', 9));
+  assert.deepEqual(recordedErrors, ['request_failed'], 'and a cancelled retry records nothing');
   delete NexusExt.Errors.record;
+
+  // The attempts themselves are not recorded: the page request and the link lookup it falls back on
+  // are both asked not to record, so a retried or waited-out attempt never becomes a report.
+  const asking = createHarness('vortex');
+  const requests = [];
+  const lookups = [];
+  const savedRequest = NexusExt.Errors.request;
+  const savedNnw = NexusExt.NNW;
+  NexusExt.Errors.request = async (url, options, metadata) => {
+    requests.push(metadata);
+    return { ok: true, status: 200, text: '<!doctype html><html><body></body></html>', finalUrl: url };
+  };
+  NexusExt.NNW = {
+    parseDownloadURLFromResponse: () => null,
+    parseNxmDownloadLink: () => null,
+    getDownloadUrl: async (options) => { lookups.push(options); return { url: null, error: { code: 'network_error' } }; }
+  };
+  try {
+    const attempt = await asking.ndc.fetchDownloadLink(vortexMod(8, 'Asked.7z', 8));
+    assert.equal(attempt.error.code, 'network_error');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].record, false, 'the page request does not record');
+    assert.equal(lookups[0].record, false, 'nor does the link lookup');
+    NexusExt.NNW.getDownloadUrl = async () => ({ url: null, error: null });
+    const empty = await asking.ndc.fetchDownloadLink(vortexMod(8, 'Asked.7z', 8));
+    assert.equal(empty.error.code, 'no_nmm_link');
+    assert.equal(empty.error.record, false, 'and a page with no link is not recorded until the file is given up');
+  } finally {
+    NexusExt.Errors.request = savedRequest;
+    NexusExt.NNW = savedNnw;
+  }
 
   // Pause holds the run after a skipped file too; the next file used to be sent while "Paused" showed.
   const STATUS_PAUSED = 1;

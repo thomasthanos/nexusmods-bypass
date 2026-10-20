@@ -134,6 +134,15 @@ function workerEdgeCases(Parser) {
     // "A usable link was in it" could not tell the nxm:// link from a route that only leads to another page.
     [JSON.stringify({ url: VORTEX_URL }), vortex, 'JSON {url}; a usable link was in it (nxm link)'],
     [JSON.stringify({ fileId: 200, downloadUrl: MANUAL_URL }), browser, 'JSON {fileId, downloadUrl}; a usable link was in it (file link)'],
+    // E-0jjutro in 3.1.8: the page held only a route on to another page, and its uid names file 200.
+    [JSON.stringify({ vortexDownloadUrl: 'https://www.nexusmods.com/api/files/858993459400/download?nmm=1' }), vortex,
+      'JSON {vortexDownloadUrl}; a usable link was in it (download route)'],
+    [JSON.stringify({ vortexDownloadUrl: 'https://www.nexusmods.com/newvegas/mods/100?tab=files&file_id=200&nmm=1' }), vortex,
+      'JSON {vortexDownloadUrl}; a usable link was in it (file page)'],
+    ['<!doctype html><html><body><h3 id="Notice1-title">Premium members only</h3></body></html>', vortex, 'HTML page; premium notice; no link in it'],
+    ['<!doctype html><html><body><h3 id="Notice1-title">File quarantined: virus scan</h3></body></html>', browser, 'HTML page; file-safety notice; no link in it'],
+    // The first kind that fits wins: an adult-content notice that also says "disabled" stays adult content.
+    ['<!doctype html><html><body><h3 id="Notice1-title">Adult content disabled</h3></body></html>', browser, 'HTML page; adult-content notice; no link in it'],
     ['', browser, 'empty body; no link in it'],
     ['[]', browser, 'empty JSON list; no link in it'],
     ['Service Unavailable', browser, 'plain text body; no link in it']
@@ -142,6 +151,16 @@ function workerEdgeCases(Parser) {
   }
   assert.doesNotMatch(Parser.explainMissingLink('{"error":"Invalid file 200 for jane@example.com"}', browser), /jane|200|Invalid/,
     'the answer\'s own text never reaches the explanation');
+  // The kind of a link or a notice is named, never the link, its ids or the notice's words.
+  for (const [text, options] of [
+    [JSON.stringify({ vortexDownloadUrl: 'https://www.nexusmods.com/api/files/858993459400/download?nmm=1&key=secret' }), vortex],
+    [JSON.stringify({ url: VORTEX_URL }), vortex],
+    [JSON.stringify({ fileId: 200, downloadUrl: MANUAL_URL }), browser],
+    ['<!doctype html><html><body><h3 id="Notice1-title">Premium members only for jane</h3></body></html>', vortex]
+  ]) {
+    assert.doesNotMatch(Parser.explainMissingLink(text, options), /858993459400|api\/files|nexusmods\.com|nexus-cdn|secret|newvegas|members|jane|\b200\b/,
+      `nothing of the answer itself: ${text.slice(0, 50)}`);
+  }
 
   assert.equal(Parser.isSignedNxmLink(VORTEX_URL), true, 'a signed handoff link is recognised');
   assert.equal(Parser.isSignedNxmLink(VORTEX_URL.replace(/&/g, '&amp;')), true, 'also when it arrives encoded');
