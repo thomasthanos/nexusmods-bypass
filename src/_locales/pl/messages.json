@@ -1669,6 +1669,12 @@
   "setFollowUpdatePolicyDesc": {
     "message": "Włączone: stosuje regułę każdego pliku. Exact zachowuje plik z listy; Latest wybiera najnowszą wersję; Prefer Exact zachowuje wskazany plik, dopóki jest dostępny, i zastępuje go dopiero, gdy go brakuje. Wyłączone: używa plików z listy. Wymaga oficjalnego API Nexus; nie aktualizuje zainstalowanych modów."
   },
+  "setWriteMo2MetaLabel": {
+    "message": "Zapisuj pliki .meta dla Mod Organizer 2"
+  },
+  "setWriteMo2MetaDesc": {
+    "message": "Domyślnie wyłączone. Dla każdego pliku z kolekcji zapisanego w przeglądarce zapisuje też obok, w tym samym folderze, plik .meta, dzięki czemu Mod Organizer 2 zna identyfikator moda na Nexus, identyfikator pliku i wersję. Pliki pobrane od teraz dostaną go. Nic nie instaluje."
+  },
   "setShowModActionsLabel": {
     "message": "Pokaż przyciski Lubię to i Obserwuj"
   },
@@ -2313,6 +2319,9 @@
   },
   "setShortFollowUpdatePolicy": {
     "message": "Stosuje wybór wersji dokonany przez autora kolekcji."
+  },
+  "setShortWriteMo2Meta": {
+    "message": "Zapisuje pliki .meta dla Mod Organizer 2 obok pobrań z kolekcji."
   },
   "setShortShowModActions": {
     "message": "Polubienie i obserwowanie tylko po kliknięciu."

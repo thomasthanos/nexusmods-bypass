@@ -1417,6 +1417,12 @@
   "setFollowUpdatePolicyDesc": {
     "message": "开启：遵循每个文件的规则。Exact 使用指定文件；Latest 选择最新版本；Prefer Exact 在指定文件仍可用时保留它，仅在不可用时替换。关闭：使用列表中的文件。需要 Nexus 官方 API，不会更新已安装的模组。"
   },
+  "setWriteMo2MetaLabel": {
+    "message": "为 Mod Organizer 2 写入 .meta 文件"
+  },
+  "setWriteMo2MetaDesc": {
+    "message": "默认关闭。对于浏览器保存的每个合集文件，同时在同一文件夹中保存一个 .meta 文件，让 Mod Organizer 2 知道该模组的 Nexus ID、文件 ID 和版本。只有之后下载的文件才会生成。不会安装任何内容。"
+  },
   "setShowModActionsLabel": {
     "message": "显示点赞和关注按钮"
   },
@@ -2061,6 +2067,9 @@
   },
   "setShortFollowUpdatePolicy": {
     "message": "遵循合集作者选择的版本规则。"
+  },
+  "setShortWriteMo2Meta": {
+    "message": "在合集下载旁保存 Mod Organizer 2 用的 .meta 文件。"
   },
   "setShortShowModActions": {
     "message": "仅在点击时点赞或关注。"

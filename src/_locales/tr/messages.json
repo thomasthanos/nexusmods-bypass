@@ -1501,6 +1501,12 @@
   "setFollowUpdatePolicyDesc": {
     "message": "Açık: her dosyanın kuralını izler. Exact listedeki dosyayı korur; Latest en yeni sürümü seçer; Prefer Exact listedeki dosyayı erişilebilir olduğu sürece korur, yalnızca erişilemezse değiştirir. Kapalı: listedeki dosyaları kullanır. Resmi Nexus API'si gerekir; kurulu modları güncellemez."
   },
+  "setWriteMo2MetaLabel": {
+    "message": "Mod Organizer 2 .meta dosyalarını yaz"
+  },
+  "setWriteMo2MetaDesc": {
+    "message": "Varsayılan olarak kapalı. Tarayıcıya kaydedilen her koleksiyon dosyası için aynı klasöre bir .meta dosyası da kaydeder; böylece Mod Organizer 2 modun Nexus kimliğini, dosya kimliğini ve sürümünü bilir. Yalnızca bundan sonra indirilen dosyalar için oluşturulur. Hiçbir şey kurmaz."
+  },
   "setShowModActionsLabel": {
     "message": "Beğen ve Takip et düğmelerini göster"
   },
@@ -2145,6 +2151,9 @@
   },
   "setShortFollowUpdatePolicy": {
     "message": "Koleksiyon hazırlayıcısının sürüm seçimlerini izler."
+  },
+  "setShortWriteMo2Meta": {
+    "message": "Koleksiyon indirmelerinin yanına Mod Organizer 2 için .meta dosyaları kaydeder."
   },
   "setShortShowModActions": {
     "message": "Beğenme ve takip yalnızca tıklayınca gerçekleşir."

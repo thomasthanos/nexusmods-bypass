@@ -1501,6 +1501,12 @@
   "setFollowUpdatePolicyDesc": {
     "message": "Ein: folgt der Regel für jede Sammlungsdatei. Exact behält die gelistete Datei; Latest wählt die neueste Version; Prefer Exact behält die gelistete Datei, solange sie verfügbar ist, und ersetzt sie erst bei Nichtverfügbarkeit. Aus: verwendet die gelisteten Dateien. Benötigt die offizielle Nexus-API; aktualisiert keine installierten Mods."
   },
+  "setWriteMo2MetaLabel": {
+    "message": "Mod Organizer 2 .meta-Dateien schreiben"
+  },
+  "setWriteMo2MetaDesc": {
+    "message": "Standardmäßig aus. Speichert für jede im Browser gespeicherte Collection-Datei zusätzlich eine .meta-Datei im selben Ordner, damit Mod Organizer 2 Nexus-Mod-ID, Datei-ID und Version kennt. Nur ab jetzt heruntergeladene Dateien bekommen eine. Es wird nichts installiert."
+  },
   "setShowModActionsLabel": {
     "message": "Endorse- und Track-Buttons anzeigen"
   },
@@ -2145,6 +2151,9 @@
   },
   "setShortFollowUpdatePolicy": {
     "message": "Die Versionswahl des Sammlungserstellers befolgen."
+  },
+  "setShortWriteMo2Meta": {
+    "message": "Speichert .meta-Dateien für Mod Organizer 2 neben Collection-Downloads."
   },
   "setShortShowModActions": {
     "message": "Gefällt mir und Beobachten nur per Klick."

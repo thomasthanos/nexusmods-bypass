@@ -892,6 +892,9 @@ window.NexusExt = window.NexusExt || {};
           historyId: historyEntryId(mod),
           gameId: mod.file.mod.game.id,
           name: mod.file.name,
+          modName: mod.file.mod.name,
+          modId: mod.file.mod.modId,
+          version: mod.file.version,
           pageUrl: mod.file.url,
           sizeKb: mod.file.size,
           optional: mod.optional === true

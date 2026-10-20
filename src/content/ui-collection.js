@@ -1172,17 +1172,35 @@
     const menu = $('#nxtk-dl-menu');
     const menuController = bindDropdownToggle($('#nxtk-menu-toggle'), menu, { portal: true });
 
-    const startCollectionDownload = async (mods, type) => {
+    // The clicked button stays busy from the click until the progress deck opens, or the start is refused.
+    let startingButton = null;
+    const setStarting = (button) => {
+      if (!button) return;
+      startingButton = button;
+      button.disabled = true;
+      button.classList.add('nxtk-btn-loading');
+      button.setAttribute('aria-busy', 'true');
+    };
+    const endStarting = () => {
+      if (!startingButton) return;
+      startingButton.disabled = false;
+      startingButton.classList.remove('nxtk-btn-loading');
+      startingButton.removeAttribute('aria-busy');
+      startingButton = null;
+    };
+
+    const startCollectionDownload = async (mods, type, button) => {
       menuController?.close();
       if (!await confirmLargeRun(mods)) return;
+      setStarting(button);
       runUiTask(
-        () => ndc.downloadMods(mods, type),
+        () => ndc.downloadMods(mods, type).finally(endStarting),
         { context: 'Starting collection download', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }
       );
     };
-    $('#nxtk-dl-all').addEventListener('click', () => startCollectionDownload(ndc.mods.all, 'all'));
-    $('#nxtk-dl-mandatory').addEventListener('click', () => startCollectionDownload(ndc.mods.mandatory, 'mandatory'));
-    $('#nxtk-dl-optional').addEventListener('click', () => startCollectionDownload(ndc.mods.optional, 'optional'));
+    $('#nxtk-dl-all').addEventListener('click', (event) => startCollectionDownload(ndc.mods.all, 'all', event.currentTarget));
+    $('#nxtk-dl-mandatory').addEventListener('click', (event) => startCollectionDownload(ndc.mods.mandatory, 'mandatory', event.currentTarget));
+    $('#nxtk-dl-optional').addEventListener('click', (event) => startCollectionDownload(ndc.mods.optional, 'optional', event.currentTarget));
     // Menu actions run after the menu has closed and its portal is gone, and a failure is shown
     // instead of leaving the click with no visible result.
     const fromMenu = (label, open) => (event) => {
@@ -1347,6 +1365,7 @@
     };
 
     ui.startDownload = (count, { resumed = false } = {}) => {
+      endStarting();
       state.running = true;
       deck.querySelector('.nxtk-deck-ask')?.remove();
       menuController?.close();

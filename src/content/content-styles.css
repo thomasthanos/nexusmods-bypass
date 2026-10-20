@@ -592,6 +592,21 @@
   align-items: stretch;
   overflow: visible;
 }
+/* A collection button waiting for its download to start: a spinner after the label, not a second label. */
+.nxtk-btn-loading { cursor: progress; }
+.nxtk-btn-loading::after {
+  content: '';
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-inline-start: 0.5em;
+  vertical-align: -0.1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: nxtk-spin 0.8s linear infinite;
+}
+
 .nxtk-btn-split > .nxtk-btn-collection {
   min-width: 0;
   border-top-right-radius: 0;

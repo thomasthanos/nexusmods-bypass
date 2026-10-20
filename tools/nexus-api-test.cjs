@@ -319,7 +319,7 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     const nnw = fs.readFileSync('src/content/nnw.js', 'utf8');
     assert.match(nnw, /cfg\.UseOfficialApi !== false/);
     const shared = fs.readFileSync('src/shared.js', 'utf8');
-    assert.match(shared, /UseOfficialApi: true,\s*FollowUpdatePolicy: false,\s*ShowModActions: true/);
+    assert.match(shared, /UseOfficialApi: true,\s*FollowUpdatePolicy: false,\s*WriteMo2Meta: false,\s*ShowModActions: true/);
   }
 
   // ---- NDC behaviour with a stub API.

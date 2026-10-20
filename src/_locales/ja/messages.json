@@ -1417,6 +1417,12 @@
   "setFollowUpdatePolicyDesc": {
     "message": "オン：各ファイルのルールに従います。Exact は指定されたファイル、Latest は最新版を使います。Prefer Exact は指定されたファイルが利用できる間はそのまま使い、利用できなくなった場合だけ置き換えます。オフ：リストのファイルを使います。公式 Nexus API が必要で、インストール済み MOD の更新は行いません。"
   },
+  "setWriteMo2MetaLabel": {
+    "message": "Mod Organizer 2 用の .meta ファイルを書き出す"
+  },
+  "setWriteMo2MetaDesc": {
+    "message": "既定ではオフです。ブラウザに保存したコレクションの各ファイルについて、同じフォルダに .meta ファイルも保存します。これにより Mod Organizer 2 が Nexus の mod ID、ファイル ID、バージョンを認識できます。今後ダウンロードするファイルだけが対象です。何もインストールしません。"
+  },
   "setShowModActionsLabel": {
     "message": "いいね・ウォッチのボタンを表示"
   },
@@ -2061,6 +2067,9 @@
   },
   "setShortFollowUpdatePolicy": {
     "message": "コレクション作者のバージョン指定に従います。"
+  },
+  "setShortWriteMo2Meta": {
+    "message": "コレクションのダウンロードと一緒に Mod Organizer 2 用の .meta ファイルを保存します。"
   },
   "setShortShowModActions": {
     "message": "いいね・ウォッチはクリックした時のみ行います。"

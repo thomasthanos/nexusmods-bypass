@@ -11,6 +11,18 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
+## Unreleased
+
+- **Vortex downloads that ended as a lost connection ([#30](https://github.com/thomasthanos/nexusmods-bypass/issues/30)):** a *Mod Manager Download* whose `/api/files/<uid>/download` route a fetch cannot read, while Nexus answers the other requests, is opened the way the click itself opens it, and the browser takes it to Vortex. A definitive answer from Nexus (sign-in, access denied, file not found, rate limit, Cloudflare check) is shown as it is and never opened ([#32](https://github.com/thomasthanos/nexusmods-bypass/pull/32)). A collection run fails such a file at once instead of waiting about 17 minutes for a connection that works.
+- **Fewer false reports:** Cloudflare and bare error pages at a mod's address, and Nexus notices in place of the download control, are no longer reported as site changes. A collection's Vortex run reports how each file ended, not every attempt, and a request Firefox cancels as the page navigates is not reported. A "no link" report names the kind of link or notice Nexus answered with, and whether the ad-timer cookie was off.
+- **Collection file names:** collection files get the same name as single-mod downloads: the name in the download link, otherwise `<mod name>-<file id>`.
+- **Mod Organizer 2 `.meta` files:** new setting *Write Mod Organizer 2 .meta files* (`WriteMo2Meta`, off by default, under Collections, in all 13 languages). After a collection file is saved in the browser, a `.meta` file with its Nexus mod id, file id and version is saved beside it.
+- **Busy download buttons:** *Download all mods* (and the mandatory and optional ones) show a spinner and stay disabled until the progress deck opens or the start is refused.
+- **Saved data survives a failed read:** a storage read that feeds a write fails instead of returning the empty default, so it can no longer overwrite settings, history, queue jobs or claims.
+- **Relay:** besides 10 reports per IP an hour, the relay refuses reports once all clients together reach 500 an hour, and the tests check that its baseline matches the manifest version. This needs `npx wrangler deploy` from `relay/`.
+- **Releases:** the live Nexus schema check no longer blocks a release; the weekly schema watch still reports problems.
+- The collection file names, `.meta` files, busy buttons, storage reads, relay limit and release check were contributed by [@kxgcayh](https://github.com/kxgcayh) in [#31](https://github.com/thomasthanos/nexusmods-bypass/pull/31). Thank you!
+
 ## 3.1.8 — 2026-10-18
 
 - **Requirements in view ([#29](https://github.com/thomasthanos/nexusmods-bypass/issues/29)):** new setting *Open the Requirements section* (`ExpandRequirements`, off by default, under Appearance & language, in all 13 languages). Nexus's accordion keeps its state in the DOM and its toggle listens for a "tap" a scripted click does not make, so the section is opened the way Nexus opens one it marks `expand-default`; Nexus's own toggle then closes it as usual. Each section is opened once: one the user closed stays closed.

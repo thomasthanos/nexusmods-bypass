@@ -3182,8 +3182,68 @@ async function controlStormEndsStopped() {
   }
 }
 
+// A failed read must stop a write, never replace the stored value with the empty fallback.
+async function failedReadNeverOverwrites() {
+  const N = context.NXTK;
+  await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, HideDownloadPopup: true });
+  const realGet = global.chrome.storage.local.get;
+  global.chrome.storage.local.get = (keys, cb) => {
+    global.chrome.runtime.lastError = { message: 'read failed' };
+    cb && cb({});
+    global.chrome.runtime.lastError = null;
+  };
+  try {
+    await assert.rejects(context.__STORAGE_HANDLERS.SETTINGS_PATCH({ patch: { HideDownloadPopup: false } }), /read failed/);
+  } finally {
+    global.chrome.storage.local.get = realGet;
+  }
+  assert.equal((await storageGetLocal(N.SETTINGS_KEY, null)).HideDownloadPopup, true, 'the saved setting survives');
+}
+
+// Single mods and collections name a file the same way: the name in the link when it has a known extension.
+function downloadNameFromLink() {
+  const name = context.NXTK.downloadNameFromUrl;
+  assert.equal(name('https://supporter-files.nexus-cdn.com/1704/12604/SkyUI_5_2_SE-12604-5-2SE.7z?token=x'), 'SkyUI_5_2_SE-12604-5-2SE.7z');
+  assert.equal(name('https://cf-files.nexus-cdn.com/1704/x/Some%20Mod.zip'), 'Some Mod.zip');
+  assert.equal(name('https://cf-files.nexus-cdn.com/1704/x/download'), '', 'no known extension means no name from the link');
+  assert.equal(name('not a url'), '');
+  const item = context.sanitizeNdcJobItem({ fileId: 12604, gameId: '1704', name: 'Main file.7z', modName: 'SkyUI', pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/12604' });
+  assert.equal(item.modName, 'SkyUI', 'a collection item keeps its mod name for the fallback file name');
+  assert.equal(item.domain, 'skyrimspecialedition', 'the game comes from the mod page address');
+}
+
+// The .meta is opt-in and sits beside the finished file, under the name that file has on disk.
+async function mo2MetaBesideCollectionFile() {
+  const N = context.NXTK;
+  const text = context.mo2MetaText({ domain: 'skyrimspecialedition', modId: '12604', fileId: '5', modName: 'SkyUI', version: '5.2' });
+  assert.match(text, /^\[General\]\ngameName=SkyrimSE\nmodid=12604\nfileid=5\nname=SkyUI\nversion=5\.2\n/);
+  const injected = context.mo2MetaText({ domain: 'skyrimspecialedition', modId: '12604', fileId: '5', modName: 'SkyUI\ninstalled=true', version: '5.2\r\n' });
+  assert.doesNotMatch(injected, /^installed=true$/m, 'a line break in a name never adds a key of its own');
+  assert.match(injected, /^name=SkyUI installed=true\nversion=5\.2\n/m);
+  const item = { modId: '12604', fileId: '5', domain: 'skyrimspecialedition', modName: 'SkyUI', version: '5.2' };
+  const saved = global.chrome.downloads;
+  const started = [];
+  global.chrome.downloads = { download: (options, cb) => { started.push(options); cb(started.length); } };
+  try {
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
+    await context.writeMo2Meta(item, 'Collection/SkyUI.7z', '/Users/me/Downloads/Collection/SkyUI (1).7z');
+    assert.equal(started.length, 0, 'nothing is written unless the setting is on');
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
+    await context.writeMo2Meta(item, 'Collection/SkyUI.7z', '/Users/me/Downloads/Collection/SkyUI (1).7z');
+    assert.equal(started[0].filename, 'Collection/SkyUI (1).7z.meta', 'the meta follows the name on disk');
+    assert.equal(started[0].conflictAction, 'overwrite');
+    assert.match(decodeURIComponent(started[0].url), /modid=12604/);
+  } finally {
+    global.chrome.downloads = saved;
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
+  }
+}
+
 jobStateBehaviour()
   .then(writeQueueRelease)
+  .then(failedReadNeverOverwrites)
+  .then(downloadNameFromLink)
+  .then(mo2MetaBesideCollectionFile)
   .then(missingQueueItemsBehaviour)
   .then(reconnectScopeBehaviour)
   .then(errorLogCollapsing)
