@@ -1421,7 +1421,7 @@
     "message": "Mod Organizer 2 用の .meta ファイルを書き出す"
   },
   "setWriteMo2MetaDesc": {
-    "message": "既定ではオフです。ブラウザに保存したコレクションの各ファイルについて、同じフォルダに .meta ファイルも保存します。これにより Mod Organizer 2 が Nexus の mod ID、ファイル ID、バージョンを認識できます。今後ダウンロードするファイルだけが対象です。何もインストールしません。"
+    "message": "既定ではオフです。ブラウザに保存した mod の各ファイル（mod ページからでもコレクションからでも）について、同じフォルダに .meta ファイルも保存します。これにより Mod Organizer 2 が Nexus の mod ID、ファイル ID、バージョンを認識し、説明を表示したり Nexus のページを開いたりできます。今後ダウンロードするファイルだけが対象です。何もインストールしません。"
   },
   "setShowModActionsLabel": {
     "message": "いいね・ウォッチのボタンを表示"
@@ -2069,7 +2069,7 @@
     "message": "コレクション作者のバージョン指定に従います。"
   },
   "setShortWriteMo2Meta": {
-    "message": "コレクションのダウンロードと一緒に Mod Organizer 2 用の .meta ファイルを保存します。"
+    "message": "ブラウザのダウンロードと一緒に Mod Organizer 2 用の .meta ファイルを保存します。"
   },
   "setShortShowModActions": {
     "message": "いいね・ウォッチはクリックした時のみ行います。"

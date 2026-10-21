@@ -1421,7 +1421,7 @@
     "message": "为 Mod Organizer 2 写入 .meta 文件"
   },
   "setWriteMo2MetaDesc": {
-    "message": "默认关闭。对于浏览器保存的每个合集文件，同时在同一文件夹中保存一个 .meta 文件，让 Mod Organizer 2 知道该模组的 Nexus ID、文件 ID 和版本。只有之后下载的文件才会生成。不会安装任何内容。"
+    "message": "默认关闭。对于浏览器保存的每个模组文件（无论来自模组页面还是合集），同时在同一文件夹中保存一个 .meta 文件，让 Mod Organizer 2 知道该模组的 Nexus ID、文件 ID 和版本，并能显示简介、打开它的 Nexus 页面。只有之后下载的文件才会生成。不会安装任何内容。"
   },
   "setShowModActionsLabel": {
     "message": "显示点赞和关注按钮"
@@ -2069,7 +2069,7 @@
     "message": "遵循合集作者选择的版本规则。"
   },
   "setShortWriteMo2Meta": {
-    "message": "在合集下载旁保存 Mod Organizer 2 用的 .meta 文件。"
+    "message": "在浏览器下载的文件旁保存 Mod Organizer 2 用的 .meta 文件。"
   },
   "setShortShowModActions": {
     "message": "仅在点击时点赞或关注。"

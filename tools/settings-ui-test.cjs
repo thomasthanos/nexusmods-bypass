@@ -167,8 +167,8 @@ async function settingsRegressionTests() {
   try {
     await w.NexusExt.UIKit.settings.open();
     const groups = {
-      downloads: ['AutoStartDownload', 'AutoCloseTab', 'SkipRequirements', 'HandleArchivedFiles', 'DownloadFolder'],
-      collections: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'WriteMo2Meta', 'ShowModActions'],
+      downloads: ['AutoStartDownload', 'AutoCloseTab', 'SkipRequirements', 'HandleArchivedFiles', 'DownloadFolder', 'WriteMo2Meta'],
+      collections: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'],
       appearance: ['HidePremiumUpsells', 'ExpandRequirements', 'ShowAlertsOnError', 'ForceEnglish']
     };
     for (const [group, keys] of Object.entries(groups)) {

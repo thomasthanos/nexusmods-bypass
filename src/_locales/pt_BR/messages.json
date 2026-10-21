@@ -1505,7 +1505,7 @@
     "message": "Gravar arquivos .meta do Mod Organizer 2"
   },
   "setWriteMo2MetaDesc": {
-    "message": "Desativado por padrão. Para cada arquivo de coleção salvo pelo navegador, salva também um arquivo .meta ao lado, na mesma pasta, para que o Mod Organizer 2 conheça o ID do mod na Nexus, o ID do arquivo e a versão. Só os arquivos baixados daqui em diante recebem um. Não instala nada."
+    "message": "Desativado por padrão. Para cada arquivo de mod salvo pelo navegador, da página de um mod ou de uma coleção, salva também um arquivo .meta ao lado, na mesma pasta, para que o Mod Organizer 2 conheça o ID do mod na Nexus, o ID do arquivo e a versão, e possa mostrar a descrição e abrir a página do mod na Nexus. Só os arquivos baixados daqui em diante recebem um. Não instala nada."
   },
   "setShowModActionsLabel": {
     "message": "Mostrar botões Gostei e Acompanhar"
@@ -2153,7 +2153,7 @@
     "message": "Segue as versões escolhidas pelo criador da coleção."
   },
   "setShortWriteMo2Meta": {
-    "message": "Salva arquivos .meta para o Mod Organizer 2 junto aos downloads de coleções."
+    "message": "Salva arquivos .meta para o Mod Organizer 2 junto aos downloads do navegador."
   },
   "setShortShowModActions": {
     "message": "Gostei e acompanhamento só quando você clicar."

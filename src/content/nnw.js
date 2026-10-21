@@ -1140,6 +1140,14 @@ window.NexusExt = window.NexusExt || {};
     return `${pageTitle || 'nexus-mod'}${idSuffix}`;
   }
 
+  // The mod's name, for the Mod Organizer 2 .meta a browser download can get: the page heading, else the
+  // title up to " at <game> Nexus" (classic) or " at Nexus Mods".
+  function currentModName() {
+    const heading = String((document.querySelector('#pagetitle h1') || document.querySelector('h1'))?.textContent || '').replace(/\s+/g, ' ').trim();
+    const name = heading || String(document.title || '').split(/\s+(?:at|on)\s+(?:.*?\s)?Nexus\b/i)[0].replace(/\s+/g, ' ').trim();
+    return name.slice(0, 300);
+  }
+
   async function startManagedFileDownload(url, fileId) {
     try {
       const settings = await NexusExt.Storage.getSettings();
@@ -1150,7 +1158,10 @@ window.NexusExt = window.NexusExt || {};
         fallbackExtension: '.zip',
         // The worker de-duplicates by game+file across every tab and content-script copy.
         fileId: String(fileId || ''),
-        gameId: String(getGameId() || '')
+        gameId: String(getGameId() || ''),
+        // Labels for the Mod Organizer 2 .meta (WriteMo2Meta); the worker takes game and mod from this page.
+        modName: currentModName(),
+        version: fileVersionOf(fileId)
       });
       if (reply?.ok && reply.value?.duplicate) Logger.info(`File ${fileId} is already downloading; not starting a second copy.`);
       if (reply?.ok) return true;
@@ -2480,6 +2491,18 @@ window.NexusExt = window.NexusExt || {};
       return name && text.includes(name) && (!file.version || text.includes(String(file.version).toLowerCase()));
     });
     return matches.length === 1 ? String(matches[0].fileId) : '';
+  }
+
+  // The version Nexus lists for a file, for the same .meta: the API's file list, else the classic files
+  // tab header; '' when neither says.
+  function fileVersionOf(fileId) {
+    const id = toFileId(fileId);
+    if (!id) return '';
+    const listed = apiFileList.key.endsWith(`:${currentModId()}`)
+      ? apiFileList.files.find((file) => toFileId(file?.fileId) === id)?.version
+      : '';
+    const header = document.querySelector(`.file-expander-header[data-id="${id}"]`)?.dataset?.version;
+    return String(listed || header || '').trim().slice(0, 40);
   }
 
   // Nexus can draw the archived list after the page has settled, or draw a file again; the files without

@@ -245,6 +245,40 @@ const archivedFilesDone = (async () => {
   console.log('archived files behavior OK');
 })();
 
+// --- A browser download names its mod and version (E-1u4nb29) -------------------------------------------
+// For the Mod Organizer 2 .meta the worker writes once the file has finished: without them MO2 showed no
+// description for a mod saved from its page. Awaited by the last block, which ends the run.
+const browserDownloadLabelsDone = (async () => {
+  const w = load('file-page-signed-in.html');
+  const commands = [];
+  w.fetch = async (url) => {
+    const generator = String(url).includes('GenerateDownloadUrl');
+    const body = generator ? JSON.stringify({ url: 'https://cf-files.nexus-cdn.com/1704/12604/SkyUI_5_2_SE-12604-5-2SE.7z?md5=a&expires=1' }) : '';
+    return { ok: generator, status: generator ? 200 : 404, url: String(url), text: async () => body, headers: { get: () => '' } };
+  };
+  w.NexusExt.Storage = {
+    getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: false, NDC_downloadMethod: 1 }),
+    sendDownloadCommand: async (type, payload) => { commands.push({ type, payload }); return { ok: true, value: {} }; }
+  };
+  for (const file of ['src/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+  await w.NexusExt.NNW.init();
+  // The classic files tab names a file's version on its header.
+  const header = w.document.createElement('dt');
+  header.className = 'file-expander-header';
+  header.dataset.id = '734848';
+  header.dataset.version = '5.2SE';
+  w.document.body.append(header);
+  w.document.getElementById('slowDownloadButton').dispatchEvent(new w.MouseEvent('click', { bubbles: true, composed: true, cancelable: true, button: 0 }));
+  for (let i = 0; i < 100 && !commands.some((c) => c.type === 'DOWNLOAD_START'); i += 1) await new Promise((r) => setTimeout(r, 20));
+  const start = commands.find((c) => c.type === 'DOWNLOAD_START');
+  assert.ok(start, 'the click starts a browser download');
+  assert.equal(start.payload.fileId, '734848');
+  assert.equal(start.payload.modName, 'SkyUI', 'the mod, from a classic title ("SkyUI at Skyrim Special Edition Nexus")');
+  assert.equal(start.payload.version, '5.2SE', 'and the version its header names');
+  // Left open: the page's observers and timers still run after the start, and the run's exit ends them.
+  console.log('browser download labels OK');
+})();
+
 // --- One owner per click (live test 2.10.1: SkyUI SDK downloaded twice; the requirements modal fetched
 // the MAIN file twice). The real nnw.js runs in the page; Nexus's own handlers are stand-ins. ---------
 (async () => {
@@ -333,6 +367,7 @@ const archivedFilesDone = (async () => {
   assert.equal(pick({ modalFileId: '', buttonHref: `${base}?tab=files&file_id=9` }), `${base}?tab=files&file_id=9`);
   console.log('click ownership behavior OK');
   await archivedFilesDone;
+  await browserDownloadLabelsDone;
   // nnw.js keeps page timers running; the suite is done.
   w.close();
   process.exit(process.exitCode || 0);

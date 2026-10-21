@@ -1505,7 +1505,7 @@
     "message": "Mod Organizer 2 .meta dosyalarını yaz"
   },
   "setWriteMo2MetaDesc": {
-    "message": "Varsayılan olarak kapalı. Tarayıcıya kaydedilen her koleksiyon dosyası için aynı klasöre bir .meta dosyası da kaydeder; böylece Mod Organizer 2 modun Nexus kimliğini, dosya kimliğini ve sürümünü bilir. Yalnızca bundan sonra indirilen dosyalar için oluşturulur. Hiçbir şey kurmaz."
+    "message": "Varsayılan olarak kapalı. Tarayıcıya kaydedilen her mod dosyası için (mod sayfasından ya da bir koleksiyondan) aynı klasöre bir .meta dosyası da kaydeder; böylece Mod Organizer 2 modun Nexus kimliğini, dosya kimliğini ve sürümünü bilir, açıklamasını gösterebilir ve Nexus sayfasını açabilir. Yalnızca bundan sonra indirilen dosyalar için oluşturulur. Hiçbir şey kurmaz."
   },
   "setShowModActionsLabel": {
     "message": "Beğen ve Takip et düğmelerini göster"
@@ -2153,7 +2153,7 @@
     "message": "Koleksiyon hazırlayıcısının sürüm seçimlerini izler."
   },
   "setShortWriteMo2Meta": {
-    "message": "Koleksiyon indirmelerinin yanına Mod Organizer 2 için .meta dosyaları kaydeder."
+    "message": "Tarayıcı indirmelerinin yanına Mod Organizer 2 için .meta dosyaları kaydeder."
   },
   "setShortShowModActions": {
     "message": "Beğenme ve takip yalnızca tıklayınca gerçekleşir."

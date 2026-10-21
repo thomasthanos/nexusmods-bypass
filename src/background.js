@@ -502,7 +502,7 @@ function searchRecentDownloads(now) {
 }
 
 const DOWNLOAD_HANDLERS = {
-  async DOWNLOAD_START(payload) {
+  async DOWNLOAD_START(payload, sender) {
     if (!hasDownloadsApi()) throw new Error('no-permission');
     const url = String(payload?.url || '');
     const verdict = NXTK.validateDownloadTarget(url, { method: 1 });
@@ -541,6 +541,8 @@ const DOWNLOAD_HANDLERS = {
           resolve(id);
         });
       });
+      // A .meta for Mod Organizer 2 is a convenience: if it cannot be set up, the download goes on.
+      await rememberSingleMo2Meta(downloadId, payload, sender, filename).catch((cause) => recordBackgroundError('MO2 meta', cause));
       return { downloadId, filename };
     })();
     if (fileKey) {
@@ -1537,8 +1539,20 @@ function handleNdcDownloadTerminal(downloadId, state, error) {
   });
 }
 
-// Mod Organizer 2 reads these keys from a mod's meta.ini; its own files use the same names.
-const MO2_GAME_NAMES = { skyrimspecialedition: 'SkyrimSE' };
+// Mod Organizer 2 reads these keys from a mod's meta.ini; its own files use the same names. Its games
+// go by their own short names, which are not always Nexus's (newvegas is FalloutNV).
+const MO2_GAME_NAMES = {
+  skyrimspecialedition: 'SkyrimSE',
+  skyrim: 'Skyrim',
+  fallout4: 'Fallout4',
+  newvegas: 'FalloutNV',
+  fallout3: 'Fallout3',
+  oblivion: 'Oblivion',
+  morrowind: 'Morrowind',
+  enderal: 'Enderal',
+  enderalspecialedition: 'EnderalSE',
+  starfield: 'Starfield'
+};
 // One line per key: a line break in a mod's name or version would start a key of its own.
 const iniValue = (value) => String(value ?? '').replace(/[\r\n]+/g, ' ').trim();
 
@@ -1549,6 +1563,7 @@ function mo2MetaText({ domain, modId, fileId, modName, version }) {
     `modid=${iniValue(modId)}`,
     `fileid=${iniValue(fileId)}`,
     `name=${iniValue(modName)}`,
+    `modName=${iniValue(modName)}`,
     `version=${iniValue(version)}`,
     'newestVersion=',
     'repository=Nexus',
@@ -1582,6 +1597,102 @@ async function writeMo2Meta(item, relativeName, archivePath) {
       resolve(id);
     });
   });
+}
+
+// E-1u4nb29: a mod saved from its page in the browser and installed with Mod Organizer 2 had no
+// description, and MO2's Nexus link did not open its page: MO2 knew neither mod nor game. With
+// WriteMo2Meta on it now gets the .meta a collection file gets, once it has finished. What it is for
+// waits in session storage, which outlives a worker stopped during a long download.
+const SINGLE_MO2_META_PREFIX = 'nxtk_mo2_meta:';
+const sessionStandIn = new Map();
+
+function sessionArea() {
+  return chrome.storage?.session || null;
+}
+
+function sessionGet(key) {
+  const area = sessionArea();
+  if (!area) return Promise.resolve(sessionStandIn.get(key) ?? null);
+  return new Promise((resolve) => {
+    try {
+      area.get(key, (result) => resolve(getRuntimeError() ? null : (result?.[key] ?? null)));
+    } catch (_) {
+      resolve(null);
+    }
+  });
+}
+
+function sessionSet(key, value) {
+  const area = sessionArea();
+  if (!area) {
+    sessionStandIn.set(key, value);
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    try {
+      area.set({ [key]: value }, () => resolve(void getRuntimeError()));
+    } catch (_) {
+      resolve();
+    }
+  });
+}
+
+function sessionRemove(key) {
+  const area = sessionArea();
+  if (!area) {
+    sessionStandIn.delete(key);
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    try {
+      area.remove(key, () => resolve(void getRuntimeError()));
+    } catch (_) {
+      resolve();
+    }
+  });
+}
+
+// The game and mod a Nexus mod page is for, from its address (/<game>/mods/<id>); null for any other page.
+function nexusModPageOf(value) {
+  try {
+    const url = new URL(String(value || ''));
+    const host = url.hostname.toLowerCase().replace(/\.$/, '');
+    if (url.protocol !== 'https:' || (host !== 'nexusmods.com' && host !== 'www.nexusmods.com')) return null;
+    const match = /^\/([a-z0-9_-]{1,80})\/mods\/(\d{1,12})(?:\/|$)/i.exec(url.pathname);
+    return match ? { domain: match[1].toLowerCase(), modId: match[2] } : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Game and mod come from the page that asked, not from the message; the name and version only label it.
+async function rememberSingleMo2Meta(downloadId, payload, sender, relativeName) {
+  const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+  if (settings?.WriteMo2Meta !== true) return;
+  const page = nexusModPageOf(sender?.url || sender?.tab?.url);
+  const fileId = String(payload?.fileId ?? '');
+  if (!page || !/^\d{1,12}$/.test(fileId)) return;
+  await sessionSet(`${SINGLE_MO2_META_PREFIX}${downloadId}`, {
+    ...page,
+    fileId,
+    modName: String(payload?.modName || '').trim().slice(0, 300),
+    version: String(payload?.version ?? '').trim().slice(0, 40),
+    relativeName
+  });
+}
+
+// Once per download: the entry is taken before the .meta is written.
+async function writeSingleMo2Meta(downloadId) {
+  const key = `${SINGLE_MO2_META_PREFIX}${downloadId}`;
+  const entry = await sessionGet(key);
+  if (!entry) return;
+  await sessionRemove(key);
+  const record = await searchDownload(downloadId);
+  await writeMo2Meta(entry, entry.relativeName, record?.filename);
+}
+
+function forgetSingleMo2Meta(downloadId) {
+  return sessionRemove(`${SINGLE_MO2_META_PREFIX}${downloadId}`);
 }
 
 async function handleNdcDownloadTerminalUnlocked(downloadId, state, error) {
@@ -2656,6 +2767,8 @@ if (chrome.downloads?.onChanged) {
     const state = String(delta?.state?.current || '');
     if (!Number.isInteger(downloadId) || !['complete', 'interrupted'].includes(state)) return;
 
+    (state === 'complete' ? writeSingleMo2Meta(downloadId) : forgetSingleMo2Meta(downloadId))
+      .catch((cause) => recordBackgroundError('MO2 meta', cause));
     handleNdcDownloadTerminal(downloadId, state, delta?.error?.current || null)
       .then((nextJobId) => (nextJobId ? processNdcJob(nextJobId) : undefined))
       .catch((cause) => recordBackgroundError('collection download terminal', cause));

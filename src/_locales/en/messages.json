@@ -1819,7 +1819,7 @@
     "message": "Write Mod Organizer 2 .meta files"
   },
   "setWriteMo2MetaDesc": {
-    "message": "Off by default. For each collection file saved in the browser, also save a .meta file beside it in the same folder, so Mod Organizer 2 knows the mod's Nexus ID, file ID and version. Only files downloaded from now on get one. It does not install anything."
+    "message": "Off by default. For each mod file saved in the browser, from a mod page or a collection, also save a .meta file beside it in the same folder, so Mod Organizer 2 knows the mod's Nexus ID, file ID and version, and can show its description and open its Nexus page. Only files downloaded from now on get one. It does not install anything."
   },
   "setShowModActionsLabel": {
     "message": "Show Endorse and Track buttons"
@@ -2502,7 +2502,7 @@
     "message": "Follow the collection creator's version choices."
   },
   "setShortWriteMo2Meta": {
-    "message": "Save .meta files for Mod Organizer 2 beside collection downloads."
+    "message": "Save .meta files for Mod Organizer 2 beside browser downloads."
   },
   "setShortShowModActions": {
     "message": "Likes and tracking happen only when you click."

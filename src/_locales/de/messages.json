@@ -1505,7 +1505,7 @@
     "message": "Mod Organizer 2 .meta-Dateien schreiben"
   },
   "setWriteMo2MetaDesc": {
-    "message": "Standardmäßig aus. Speichert für jede im Browser gespeicherte Collection-Datei zusätzlich eine .meta-Datei im selben Ordner, damit Mod Organizer 2 Nexus-Mod-ID, Datei-ID und Version kennt. Nur ab jetzt heruntergeladene Dateien bekommen eine. Es wird nichts installiert."
+    "message": "Standardmäßig aus. Speichert für jede im Browser gespeicherte Mod-Datei, von einer Mod-Seite oder aus einer Collection, zusätzlich eine .meta-Datei im selben Ordner, damit Mod Organizer 2 Nexus-Mod-ID, Datei-ID und Version kennt, die Beschreibung anzeigen und die Nexus-Seite der Mod öffnen kann. Nur ab jetzt heruntergeladene Dateien bekommen eine. Es wird nichts installiert."
   },
   "setShowModActionsLabel": {
     "message": "Endorse- und Track-Buttons anzeigen"
@@ -2153,7 +2153,7 @@
     "message": "Die Versionswahl des Sammlungserstellers befolgen."
   },
   "setShortWriteMo2Meta": {
-    "message": "Speichert .meta-Dateien für Mod Organizer 2 neben Collection-Downloads."
+    "message": "Speichert .meta-Dateien für Mod Organizer 2 neben Browser-Downloads."
   },
   "setShortShowModActions": {
     "message": "Gefällt mir und Beobachten nur per Klick."

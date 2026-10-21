@@ -1673,7 +1673,7 @@
     "message": "Zapisuj pliki .meta dla Mod Organizer 2"
   },
   "setWriteMo2MetaDesc": {
-    "message": "Domyślnie wyłączone. Dla każdego pliku z kolekcji zapisanego w przeglądarce zapisuje też obok, w tym samym folderze, plik .meta, dzięki czemu Mod Organizer 2 zna identyfikator moda na Nexus, identyfikator pliku i wersję. Pliki pobrane od teraz dostaną go. Nic nie instaluje."
+    "message": "Domyślnie wyłączone. Dla każdego pliku moda zapisanego w przeglądarce, ze strony moda lub z kolekcji, zapisuje też obok, w tym samym folderze, plik .meta, dzięki czemu Mod Organizer 2 zna identyfikator moda na Nexus, identyfikator pliku i wersję, a także może pokazać jego opis i otworzyć jego stronę na Nexus. Pliki pobrane od teraz dostaną go. Nic nie instaluje."
   },
   "setShowModActionsLabel": {
     "message": "Pokaż przyciski Lubię to i Obserwuj"
@@ -2321,7 +2321,7 @@
     "message": "Stosuje wybór wersji dokonany przez autora kolekcji."
   },
   "setShortWriteMo2Meta": {
-    "message": "Zapisuje pliki .meta dla Mod Organizer 2 obok pobrań z kolekcji."
+    "message": "Zapisuje pliki .meta dla Mod Organizer 2 obok pobrań z przeglądarki."
   },
   "setShortShowModActions": {
     "message": "Polubienie i obserwowanie tylko po kliknięciu."

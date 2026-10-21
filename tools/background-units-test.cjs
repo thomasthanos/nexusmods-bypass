@@ -3216,10 +3216,12 @@ function downloadNameFromLink() {
 async function mo2MetaBesideCollectionFile() {
   const N = context.NXTK;
   const text = context.mo2MetaText({ domain: 'skyrimspecialedition', modId: '12604', fileId: '5', modName: 'SkyUI', version: '5.2' });
-  assert.match(text, /^\[General\]\ngameName=SkyrimSE\nmodid=12604\nfileid=5\nname=SkyUI\nversion=5\.2\n/);
+  assert.match(text, /^\[General\]\ngameName=SkyrimSE\nmodid=12604\nfileid=5\nname=SkyUI\nmodName=SkyUI\nversion=5\.2\n/);
+  assert.match(context.mo2MetaText({ domain: 'newvegas', modId: '1', fileId: '2', modName: 'M', version: '1' }), /^gameName=FalloutNV$/m,
+    'a game goes by Mod Organizer 2\'s own name for it');
   const injected = context.mo2MetaText({ domain: 'skyrimspecialedition', modId: '12604', fileId: '5', modName: 'SkyUI\ninstalled=true', version: '5.2\r\n' });
   assert.doesNotMatch(injected, /^installed=true$/m, 'a line break in a name never adds a key of its own');
-  assert.match(injected, /^name=SkyUI installed=true\nversion=5\.2\n/m);
+  assert.match(injected, /^name=SkyUI installed=true\nmodName=SkyUI installed=true\nversion=5\.2\n/m);
   const item = { modId: '12604', fileId: '5', domain: 'skyrimspecialedition', modName: 'SkyUI', version: '5.2' };
   const saved = global.chrome.downloads;
   const started = [];
@@ -3239,11 +3241,80 @@ async function mo2MetaBesideCollectionFile() {
   }
 }
 
+// E-1u4nb29: a mod saved from its page in the browser and installed with Mod Organizer 2 had no
+// description, and MO2's Nexus link did not open its page. With WriteMo2Meta on, a single download gets
+// the .meta a collection file gets, once it has finished.
+async function singleDownloadGetsMo2Meta() {
+  const N = context.NXTK;
+  const H = context.__DOWNLOAD_HANDLERS;
+  const savedDownloads = global.chrome.downloads;
+  const savedSession = global.chrome.storage.session;
+  const session = {};
+  global.chrome.storage.session = {
+    get: (key, cb) => cb(key in session ? { [key]: structuredClone(session[key]) } : {}),
+    set: (items, cb) => { Object.assign(session, structuredClone(items)); if (cb) cb(); },
+    remove: (key, cb) => { delete session[key]; if (cb) cb(); }
+  };
+  const started = [];
+  const onDisk = new Map();
+  global.chrome.downloads = {
+    ...(savedDownloads || {}),
+    download: (options, cb) => { started.push(options); cb(900 + started.length); },
+    search: (query, cb) => cb(onDisk.has(query?.id) ? [{ id: query.id, state: 'complete', filename: onDisk.get(query.id) }] : [])
+  };
+  const page = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=35407';
+  const start = (fileId, sender = { url: page, tab: { id: 3 } }) => {
+    context.__recentDownloadStarts.clear();
+    return H.DOWNLOAD_START({ url: `https://cf-files.nexus-cdn.com/1704/12604/SkyUI_5_2_SE-12604-5-2SE.7z?md5=a&n=${fileId}`,
+      folder: 'Mods', filename: 'SkyUI_5_2_SE-12604-5-2SE.7z', fileId, gameId: '1704', modName: 'SkyUI', version: '5.2SE' }, sender);
+  };
+  const metas = () => started.filter((options) => options.filename.endsWith('.meta'));
+  try {
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
+    const off = await start('35407');
+    assert.deepEqual(Object.keys(session), [], 'off: nothing is kept for later either');
+    onDisk.set(off.downloadId, 'C:\\Users\\me\\Downloads\\Mods\\SkyUI_5_2_SE-12604-5-2SE.7z');
+    await context.writeSingleMo2Meta(off.downloadId);
+    assert.equal(metas().length, 0, 'off: the file and nothing else');
+
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
+    const on = await start('35408');
+    assert.equal(metas().length, 0, 'nothing is written while the file is still downloading');
+    onDisk.set(on.downloadId, 'C:\\Users\\me\\Downloads\\Mods\\SkyUI_5_2_SE-12604-5-2SE (1).7z');
+    await context.writeSingleMo2Meta(on.downloadId);
+    assert.equal(metas().length, 1);
+    assert.equal(metas()[0].filename, 'Mods/SkyUI_5_2_SE-12604-5-2SE (1).7z.meta', 'beside the file, under the name it has on disk');
+    const text = decodeURIComponent(metas()[0].url.slice(metas()[0].url.indexOf(',') + 1));
+    assert.match(text, /^\[General\]\ngameName=SkyrimSE\nmodid=12604\nfileid=35408\nname=SkyUI\nmodName=SkyUI\nversion=5\.2SE\n/);
+    await context.writeSingleMo2Meta(on.downloadId);
+    assert.equal(metas().length, 1, 'once per download');
+
+    // Game and mod come from the page that asked: another site, or a Nexus page that is not a mod's, gets none.
+    for (const url of ['https://example.com/skyrimspecialedition/mods/12604', 'https://www.nexusmods.com/skyrimspecialedition/collections/abc']) {
+      const other = await start('35409', { url, tab: { id: 3 } });
+      onDisk.set(other.downloadId, 'C:\\Users\\me\\Downloads\\Mods\\other.7z');
+      await context.writeSingleMo2Meta(other.downloadId);
+    }
+    assert.equal(metas().length, 1, 'no .meta for a request from anywhere else');
+    // A download that fails leaves nothing waiting.
+    const failed = await start('35410');
+    assert.equal(Object.keys(session).length, 1);
+    await context.forgetSingleMo2Meta(failed.downloadId);
+    assert.deepEqual(Object.keys(session), [], 'nothing is left waiting');
+  } finally {
+    global.chrome.downloads = savedDownloads;
+    global.chrome.storage.session = savedSession;
+    context.__recentDownloadStarts.clear();
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
+  }
+}
+
 jobStateBehaviour()
   .then(writeQueueRelease)
   .then(failedReadNeverOverwrites)
   .then(downloadNameFromLink)
   .then(mo2MetaBesideCollectionFile)
+  .then(singleDownloadGetsMo2Meta)
   .then(missingQueueItemsBehaviour)
   .then(reconnectScopeBehaviour)
   .then(errorLogCollapsing)

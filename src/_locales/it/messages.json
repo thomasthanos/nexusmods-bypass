@@ -1505,7 +1505,7 @@
     "message": "Scrivi i file .meta di Mod Organizer 2"
   },
   "setWriteMo2MetaDesc": {
-    "message": "Disattivato di default. Per ogni file di collezione salvato nel browser, salva anche un file .meta accanto, nella stessa cartella, così Mod Organizer 2 conosce l'ID del mod su Nexus, l'ID del file e la versione. Solo i file scaricati da ora in poi ne ricevono uno. Non installa nulla."
+    "message": "Disattivato di default. Per ogni file di mod salvato nel browser, dalla pagina di un mod o da una collezione, salva anche un file .meta accanto, nella stessa cartella, così Mod Organizer 2 conosce l'ID del mod su Nexus, l'ID del file e la versione, e può mostrarne la descrizione e aprirne la pagina Nexus. Solo i file scaricati da ora in poi ne ricevono uno. Non installa nulla."
   },
   "setShowModActionsLabel": {
     "message": "Mostra pulsanti Mi piace e Segui"
@@ -2153,7 +2153,7 @@
     "message": "Segue le versioni scelte dal creatore della raccolta."
   },
   "setShortWriteMo2Meta": {
-    "message": "Salva file .meta per Mod Organizer 2 accanto ai download delle collezioni."
+    "message": "Salva file .meta per Mod Organizer 2 accanto ai download del browser."
   },
   "setShortShowModActions": {
     "message": "Mi piace e monitoraggio solo quando fai clic."

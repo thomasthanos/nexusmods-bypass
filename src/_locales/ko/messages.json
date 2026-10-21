@@ -1421,7 +1421,7 @@
     "message": "Mod Organizer 2용 .meta 파일 쓰기"
   },
   "setWriteMo2MetaDesc": {
-    "message": "기본값은 꺼짐입니다. 브라우저에 저장되는 컬렉션 파일마다 같은 폴더에 .meta 파일도 함께 저장하여 Mod Organizer 2가 Nexus 모드 ID, 파일 ID, 버전을 알 수 있게 합니다. 지금부터 다운로드하는 파일에만 적용됩니다. 아무것도 설치하지 않습니다."
+    "message": "기본값은 꺼짐입니다. 브라우저에 저장되는 모드 파일(모드 페이지에서든 컬렉션에서든)마다 같은 폴더에 .meta 파일도 함께 저장하여 Mod Organizer 2가 Nexus 모드 ID, 파일 ID, 버전을 알고 설명을 표시하거나 Nexus 페이지를 열 수 있게 합니다. 지금부터 다운로드하는 파일에만 적용됩니다. 아무것도 설치하지 않습니다."
   },
   "setShowModActionsLabel": {
     "message": "좋아요 및 관심 등록 버튼 표시"
@@ -2069,7 +2069,7 @@
     "message": "컬렉션 제작자의 버전 선택을 따릅니다."
   },
   "setShortWriteMo2Meta": {
-    "message": "컬렉션 다운로드 옆에 Mod Organizer 2용 .meta 파일을 저장합니다."
+    "message": "브라우저 다운로드 옆에 Mod Organizer 2용 .meta 파일을 저장합니다."
   },
   "setShortShowModActions": {
     "message": "좋아요와 관심 등록은 클릭할 때만 실행합니다."
