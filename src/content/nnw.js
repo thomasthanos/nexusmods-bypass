@@ -2405,13 +2405,23 @@ window.NexusExt = window.NexusExt || {};
 
   const ARCHIVED_DOWNLOADS_CLASS = 'accordion-downloads';
 
+  // The box of this header's own file. In the classic files tab every file is a dt.file-expander-header
+  // with its own dd beside it, all in one dl, and the box is inside that dd; so a box is looked for only
+  // up to the next header. Searching the header's parent found the first file's box for every header,
+  // and only the first archived file got its buttons (issue #33).
   function findArchivedDownloadBox(header) {
     if (!header) return null;
 
-    const sibling = header.nextElementSibling;
-    if (sibling?.classList?.contains(ARCHIVED_DOWNLOADS_CLASS)) return sibling;
-
-    return header.parentElement?.querySelector(`.${ARCHIVED_DOWNLOADS_CLASS}`) || null;
+    for (let node = header.nextElementSibling; node && !node.classList?.contains('file-expander-header'); node = node.nextElementSibling) {
+      if (node.classList?.contains(ARCHIVED_DOWNLOADS_CLASS)) return node;
+      const inside = node.querySelector?.(`.${ARCHIVED_DOWNLOADS_CLASS}`);
+      if (inside) return inside;
+    }
+    // A header wrapped on its own, together with its box.
+    const parent = header.parentElement;
+    return parent?.getElementsByClassName('file-expander-header').length === 1
+      ? parent.querySelector(`.${ARCHIVED_DOWNLOADS_CLASS}`)
+      : null;
   }
 
   function buildArchivedDownloadLink(href, label) {
@@ -2650,6 +2660,7 @@ window.NexusExt = window.NexusExt || {};
     parseNxmDownloadLink,
     refreshAdTimerCookie,
     pickModalHref,
-    expandRequirementsSection
+    expandRequirementsSection,
+    archivedFileHandler
   };
 })();

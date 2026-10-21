@@ -198,6 +198,27 @@ function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/1
   console.log('requirements section behavior OK');
 }
 
+// --- Archived files (issue #33) -------------------------------------------------------------------
+// Every file is a header with its own dd in one dl. The box was looked for in the header's parent, the
+// dl, which found the first file's box for every header: only the top archived file got its buttons.
+{
+  const page = 'https://www.nexusmods.com/riseofthetombraider/mods/23';
+  const w = load('mod-files-archived.html', `${page}?tab=files&category=archived`);
+  w.NexusExt.Storage = { getSettings: async () => ({ ...w.NXTK.DEFAULTS }) };
+  for (const file of ['src/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+  const NNW = w.NexusExt.NNW;
+  NNW.updateConfig({ ...w.NXTK.DEFAULTS, HandleArchivedFiles: true });
+  NNW.archivedFileHandler();
+  const links = (id) => [...w.document.querySelector(`dd[data-id="${id}"] .accordion-downloads`).querySelectorAll('a')].map((a) => a.href);
+  for (const id of ['301', '202', '101']) {
+    assert.deepEqual(links(id), [`${page}?tab=files&file_id=${id}&nmm=1`, `${page}?tab=files&file_id=${id}`],
+      `archived file ${id} gets its own Mod manager and Manual download buttons`);
+  }
+  NNW.archivedFileHandler();
+  assert.equal(w.document.querySelectorAll('.accordion-downloads a').length, 6, 'a second pass adds nothing');
+  console.log('archived files behavior OK');
+}
+
 // --- One owner per click (live test 2.10.1: SkyUI SDK downloaded twice; the requirements modal fetched
 // the MAIN file twice). The real nnw.js runs in the page; Nexus's own handlers are stand-ins. ---------
 (async () => {
