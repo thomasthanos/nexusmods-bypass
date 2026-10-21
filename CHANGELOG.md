@@ -11,10 +11,12 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
-## Unreleased
+## 3.2.0 — 2026-10-21
 
 - **Archived files ([#33](https://github.com/thomasthanos/nexusmods-bypass/issues/33)):** every file in a mod's file archive gets its own *Mod manager download* and *Manual download* buttons; only the top one did, because each file's box was looked for in the whole list. A file Nexus draws after the page has loaded gets its buttons too, and a file Nexus holds back or its virus scan flagged keeps what Nexus shows.
 - **Mod Organizer 2 `.meta` files for single mods:** *Write Mod Organizer 2 .meta files* now also covers a file downloaded from a mod page in the browser, not only collection files, so MO2 shows the mod's description and its Nexus link opens the mod's page. The setting moves from **Collections** to **Downloads**, the `.meta` also names the mod (`modName`), and games go by MO2's own names (`newvegas` is `FalloutNV`, `enderalspecialedition` is `EnderalSE`).
+- **Relay baseline:** 3.2.0, so 3.1.9 and older clients no longer ping once the Worker is redeployed.
+- **Packages:** Chrome/Edge and Firefox use 3.2.0 with unchanged permissions.
 
 ## 3.1.9 — 2026-10-20
 
