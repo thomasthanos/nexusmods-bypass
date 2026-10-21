@@ -232,6 +232,34 @@ for (const [status, code] of [[200, ''], [403, 'access_denied'], [404, 'file_not
   });
 }
 
+// Issue #33: in a mod's archived files only the top file got download buttons. The extension's own content
+// script on the archived category of the classic files tab, including a file Nexus draws after the page.
+test('archived files: every file gets its own download buttons, also one drawn later (#33)', async () => {
+  const { ext, patch } = await extensionPage();
+  let page;
+  try {
+    await patch({ HandleArchivedFiles: true });
+    page = await context.newPage();
+    const mod = 'https://www.nexusmods.com/riseofthetombraider/mods/23';
+    const url = `${mod}?tab=files&category=archived`;
+    await page.route(url, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: fixture('mod-files-archived.html') }));
+    await page.goto(url);
+    const hrefs = (id) => page.locator(`#file-expander-header-${id} + dd .accordion-downloads a`).evaluateAll((links) => links.map((a) => a.href));
+    const buttons = (id) => [`${mod}?tab=files&file_id=${id}&nmm=1`, `${mod}?tab=files&file_id=${id}`];
+    for (const id of ['301', '202', '101', '55', '92']) {
+      await expect.poll(() => hrefs(id), { timeout: 15000, message: `archived file ${id} has its own buttons` }).toEqual(buttons(id));
+    }
+    expect(await hrefs('77'), 'a notice Nexus put in the box stays').toEqual([]);
+    await page.evaluate(() => document.querySelector('dl.accordion').insertAdjacentHTML('beforeend',
+      '<dt id="file-expander-header-44" class="file-expander-header" data-id="44"><p>Late</p></dt>'
+      + '<dd data-id="44"><div class="tabbed-block"><ul class="accordion-downloads"></ul></div></dd>'));
+    await expect.poll(() => hrefs('44'), { timeout: 5000, message: 'a file drawn later gets its buttons' }).toEqual(buttons('44'));
+  } finally {
+    await page?.close();
+    await ext.close();
+  }
+});
+
 test('automatic reports: accessible one-time Nexus invitation without extra permissions', async () => {
   const worker = await serviceWorker(context);
   await worker.evaluate(async () => {

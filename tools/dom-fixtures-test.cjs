@@ -201,7 +201,8 @@ function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/1
 // --- Archived files (issue #33) -------------------------------------------------------------------
 // Every file is a header with its own dd in one dl. The box was looked for in the header's parent, the
 // dl, which found the first file's box for every header: only the top archived file got its buttons.
-{
+// Awaited by the last block, which ends the run.
+const archivedFilesDone = (async () => {
   const page = 'https://www.nexusmods.com/riseofthetombraider/mods/23';
   const w = load('mod-files-archived.html', `${page}?tab=files&category=archived`);
   w.NexusExt.Storage = { getSettings: async () => ({ ...w.NXTK.DEFAULTS }) };
@@ -209,15 +210,40 @@ function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/1
   const NNW = w.NexusExt.NNW;
   NNW.updateConfig({ ...w.NXTK.DEFAULTS, HandleArchivedFiles: true });
   NNW.archivedFileHandler();
-  const links = (id) => [...w.document.querySelector(`dd[data-id="${id}"] .accordion-downloads`).querySelectorAll('a')].map((a) => a.href);
+  const box = (id) => w.document.getElementById(`file-expander-header-${id}`).nextElementSibling.querySelector('.accordion-downloads');
+  const links = (id) => [...box(id).querySelectorAll('a')].map((a) => a.href);
+  const buttons = (id) => [`${page}?tab=files&file_id=${id}&nmm=1`, `${page}?tab=files&file_id=${id}`];
   for (const id of ['301', '202', '101']) {
-    assert.deepEqual(links(id), [`${page}?tab=files&file_id=${id}&nmm=1`, `${page}?tab=files&file_id=${id}`],
-      `archived file ${id} gets its own Mod manager and Manual download buttons`);
+    assert.deepEqual(links(id), buttons(id), `archived file ${id} gets its own Mod manager and Manual download buttons`);
   }
+  assert.deepEqual(links('55'), buttons('55'), 'also when only the header\'s id names the file');
+  assert.match(box('77').textContent, /under review/, 'a notice Nexus put in the box stays');
+  assert.deepEqual(links('77'), [], 'with no buttons beside it');
+  assert.deepEqual(links('88'), [`${page}?tab=files&category=archived#preview-88`], 'a file the virus scan flagged keeps what Nexus shows');
+  assert.deepEqual(links('92'), buttons('92'), 'a file with no box of its own never takes the next file\'s');
+  assert.deepEqual([...w.document.querySelectorAll('#file-row-66 a')].map((a) => a.href), buttons('66'),
+    'a file wrapped on its own finds the box beside it');
+  const added = () => w.document.querySelectorAll('.accordion-downloads[data-nxtk-done] a').length;
   NNW.archivedFileHandler();
-  assert.equal(w.document.querySelectorAll('.accordion-downloads a').length, 6, 'a second pass adds nothing');
+  assert.equal(added(), 12, 'a second pass adds nothing');
+
+  // Nexus draws another file after the page has settled: it gets its buttons without a page change.
+  const list = w.document.querySelector('dl.accordion');
+  const addFile = (id) => list.insertAdjacentHTML('beforeend', `<dt id="file-expander-header-${id}" class="file-expander-header" data-id="${id}"><p>Late</p></dt>`
+    + `<dd data-id="${id}"><div class="tabbed-block"><ul class="accordion-downloads"></ul></div></dd>`);
+  addFile('44');
+  await new Promise((r) => setTimeout(r, 400));
+  assert.deepEqual(links('44'), buttons('44'), 'a file Nexus draws later gets its buttons too');
+
+  // Turned off: Nexus's boxes come back, and nothing is added any more.
+  NNW.updateConfig({ ...w.NXTK.DEFAULTS, HandleArchivedFiles: false });
+  assert.equal(added(), 0, 'every box is back as Nexus drew it');
+  addFile('33');
+  await new Promise((r) => setTimeout(r, 400));
+  assert.deepEqual(links('33'), [], 'and a file drawn later stays as it is');
+  w.close();
   console.log('archived files behavior OK');
-}
+})();
 
 // --- One owner per click (live test 2.10.1: SkyUI SDK downloaded twice; the requirements modal fetched
 // the MAIN file twice). The real nnw.js runs in the page; Nexus's own handlers are stand-ins. ---------
@@ -306,6 +332,7 @@ function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/1
   assert.equal(pick({ modalFileId: '', linksJson: '' }), '', 'unknown file: left to Nexus, never guessed');
   assert.equal(pick({ modalFileId: '', buttonHref: `${base}?tab=files&file_id=9` }), `${base}?tab=files&file_id=9`);
   console.log('click ownership behavior OK');
+  await archivedFilesDone;
   // nnw.js keeps page timers running; the suite is done.
   w.close();
   process.exit(process.exitCode || 0);

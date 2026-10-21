@@ -2414,6 +2414,8 @@ window.NexusExt = window.NexusExt || {};
 
     for (let node = header.nextElementSibling; node && !node.classList?.contains('file-expander-header'); node = node.nextElementSibling) {
       if (node.classList?.contains(ARCHIVED_DOWNLOADS_CLASS)) return node;
+      // Never the box inside an element that holds another file.
+      if (node.querySelector?.('.file-expander-header')) continue;
       const inside = node.querySelector?.(`.${ARCHIVED_DOWNLOADS_CLASS}`);
       if (inside) return inside;
     }
@@ -2480,16 +2482,40 @@ window.NexusExt = window.NexusExt || {};
     return matches.length === 1 ? String(matches[0].fileId) : '';
   }
 
+  // Nexus can draw the archived list after the page has settled, or draw a file again; the files without
+  // buttons then get theirs. Watched only while an archived list is open, as Nexus No Wait ++ does.
+  let archivedListObserver = null;
+  let archivedPassTimer = null;
+  function watchArchivedList(active) {
+    if (!active) {
+      archivedListObserver?.disconnect();
+      archivedListObserver = null;
+      clearTimeout(archivedPassTimer);
+      return;
+    }
+    if (archivedListObserver || !document.body) return;
+    archivedListObserver = new MutationObserver((mutations) => {
+      if (!mutations.some((mutation) => mutation.addedNodes.length)) return;
+      clearTimeout(archivedPassTimer);
+      archivedPassTimer = setTimeout(archivedFileHandler, 200);
+    });
+    archivedListObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
   function archivedFileHandler() {
-    if (!cfg.HandleArchivedFiles) return;
-    if (!isModPage()) return;
+    if (!cfg.HandleArchivedFiles || !isModPage()) {
+      watchArchivedList(false);
+      return;
+    }
     let pageUrl;
     try {
       pageUrl = new URL(location.href);
     } catch (_) {
+      watchArchivedList(false);
       return;
     }
     const isArchivedView = pageUrl.searchParams.get('category') === 'archived';
+    watchArchivedList(isArchivedView);
     if (pageUrl.searchParams.get('tab') === 'files' && !isArchivedView) {
       const archiveUrl = buildArchivedFilesUrl(pageUrl.href);
       cancelArchivedFooterWait?.();
@@ -2518,9 +2544,14 @@ window.NexusExt = window.NexusExt || {};
     const base = getModPagePath() || `${location.origin}${normalizeModPathname(location.pathname)}`;
     const claimed = new Set();
     for (const header of headers) {
-      const fileId = String(header?.dataset?.id ?? '') || apiFileIdForHeader(header);
+      const fileId = String(header?.dataset?.id ?? '')
+        || String(header?.id || '').match(/^file-expander-header-(\d+)$/)?.[1]
+        || apiFileIdForHeader(header);
       const box = findArchivedDownloadBox(header);
       if (!ARCHIVED_FILE_ID_PATTERN.test(fileId) || !box || box.dataset.nxtkDone) continue;
+      // A notice Nexus put in the box, or a file its virus scan flagged, keeps what Nexus shows: buttons
+      // there would only lead to a failed download.
+      if (box.querySelector('p') || header.querySelector('.icon-tickunsafe')) continue;
 
       if (claimed.has(box)) {
         Logger.warn('Archived files: two headers resolved to the same download box; skipping', fileId);
@@ -2543,6 +2574,7 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function resetArchivedFileHandler() {
+    watchArchivedList(false);
     document.querySelectorAll('[data-nxtk-archive]').forEach((el) => {
       el.remove();
     });

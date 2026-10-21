@@ -33,7 +33,32 @@
   <div class="tabbed-block"><ul class="accordion-downloads clearfix"></ul></div>
   <div class="files-description"><p>First release.</p></div>
 </dd>
-</dl></div>
+<!-- A header that names its file only in its id. -->
+<dt id="file-expander-header-55" class="file-expander-header clearfix"><p>Patch</p></dt>
+<dd class="clearfix" style="display: none;">
+  <div class="tabbed-block"><ul class="accordion-downloads clearfix"></ul></div>
+</dd>
+<!-- A file Nexus holds back says so in its box. -->
+<dt id="file-expander-header-77" class="file-expander-header clearfix" data-id="77"><p>Removed patch</p></dt>
+<dd class="clearfix" data-id="77" style="display: none;">
+  <div class="tabbed-block"><ul class="accordion-downloads clearfix"><li><p>This file is under review.</p></li></ul></div>
+</dd>
+<!-- A file its virus scan flagged. -->
+<dt id="file-expander-header-88" class="file-expander-header clearfix" data-id="88"><p>Flagged tool <i class="icon icon-tickunsafe"></i></p></dt>
+<dd class="clearfix" data-id="88" style="display: none;">
+  <div class="tabbed-block"><ul class="accordion-downloads clearfix"><li><a class="btn inline-flex" href="#preview-88"><span class="flex-label">Preview file contents</span></a></li></ul></div>
+</dd>
+</dl>
+<!-- A file with no box of its own, then one with a box: the first must never take the second's. -->
+<dl class="accordion">
+<dt id="file-expander-header-91" class="file-expander-header clearfix" data-id="91"><p>Notes only</p></dt>
+<dd class="clearfix" data-id="91"><div class="files-description"><p>Read me.</p></div></dd>
+<dt id="file-expander-header-92" class="file-expander-header clearfix" data-id="92"><p>Hotfix</p></dt>
+<dd class="clearfix" data-id="92"><div class="tabbed-block"><ul class="accordion-downloads clearfix"></ul></div></dd>
+</dl>
+<!-- A file wrapped on its own, with its box before the header. -->
+<div class="file-row" id="file-row-66"><ul class="accordion-downloads clearfix"></ul><div id="file-expander-header-66" class="file-expander-header clearfix" data-id="66"><p>Wrapped</p></div></div>
+</div>
 </div>
 <div id="files-tab-footer"><p>Looking for older files? They are in the archive.</p></div>
 </div>
