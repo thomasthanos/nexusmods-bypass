@@ -68,7 +68,7 @@ helper, Skyrim, Fallout, modding
 
 - **Single purpose:** This extension improves the Nexus Mods download workflow: it automates the supported download steps, starts downloads on supported file pages, and downloads full collections (or Wabbajack modlists' Nexus files) as a paced queue. It runs only on nexusmods.com.
 - **Data collected:** none — all storage is local. Link
-  [PRIVACY.md](https://github.com/thomasthanos/nexusmods-bypass/blob/main/PRIVACY.md)
+  <a href="https://github.com/thomasthanos/nexusmods-bypass/blob/main/PRIVACY.md"><kbd>PRIVACY.md</kbd></a>
   as the privacy policy URL. It lives at the repo root, not under `nexus.mods.bypass/` —
   the old path 404s, and the store will not approve a dead privacy policy link.
 - **Permissions justification:**
