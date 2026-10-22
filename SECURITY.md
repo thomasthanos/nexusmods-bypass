@@ -2,31 +2,33 @@
   <img src="docs/assets/header-security.svg" alt="Security Policy" width="100%" />
 </p>
 
-<p align="center"><sub><a href="README.md">← README</a> · <a href="PRIVACY.md">Privacy</a> · <a href="CONTRIBUTING.md">Contributing</a> · <a href="CHANGELOG.md">Changelog</a></sub></p>
+<p align="center">
+  <sub><a href="README.md">← README</a> · <a href="PRIVACY.md">Privacy</a> · <a href="CONTRIBUTING.md">Contributing</a> · <a href="CHANGELOG.md">Changelog</a></sub>
+</p>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
-
 ## Supported Versions
 
-Currently, only the latest major version of NexusMods Bypass is supported with security updates. We highly recommend keeping your browser extension up to date.
+Only the latest major version of NexusMods Bypass receives security updates. We recommend keeping your browser extension updated to the [latest release](https://github.com/thomasthanos/nexusmods-bypass/releases/latest).
 
-| Version | Supported          |
-| ------- | ------------------ |
-| >= 2.x  | :white_check_mark: |
-| < 2.x   | :x:                |
+| Version | Supported |
+| ------- | --------- |
+| 3.x     | ✅        |
+| 2.x and older | ❌ |
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in NexusMods Bypass, please do not disclose it publicly until we've had a chance to investigate and release a fix.
+If you discover a security vulnerability in NexusMods Bypass, please report it privately. Do not publish the details or open a public issue before we've had an opportunity to investigate and release a fix.
 
-**Please report security issues via GitHub's Private Vulnerability Reporting:**
-1. Navigate to the **[Security tab](https://github.com/thomasthanos/nexusmods-bypass/security)** of this repository.
-2. Select **Advisories** from the left sidebar.
-3. Click the **Report a vulnerability** button.
-4. Fill in the details of the vulnerability, including step-by-step instructions on how to reproduce it and the potential impact.
+**Report security vulnerabilities using GitHub's private vulnerability reporting:**
 
-We take all security reports seriously and will review your submission as quickly as possible. We aim to acknowledge your report within 48 hours and will keep you informed of our progress toward a fix.
+1. Open this repository's [Security tab](https://github.com/thomasthanos/nexusmods-bypass/security).
+2. Select **Advisories**.
+3. Click **Report a vulnerability**.
+4. Include the affected version, steps to reproduce the issue, its potential impact, and a proof of concept if available. Avoid including real credentials or other sensitive data.
+
+We take security reports seriously and aim to acknowledge submissions within 48 hours. We will share updates as we investigate and work on a fix.
 
 Thank you for helping keep NexusMods Bypass secure!
 
