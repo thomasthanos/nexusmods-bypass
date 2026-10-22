@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/header-security.svg" alt="Security Policy" width="100%" />
+  <img src="docs/assets/header-security.svg?v=21a0fef23445" alt="Security Policy" width="100%" />
 </p>
 
 <p align="center">
