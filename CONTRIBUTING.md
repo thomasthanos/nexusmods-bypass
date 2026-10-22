@@ -1,7 +1,7 @@
 <div id="top"></div>
 
 <p align="center">
-  <img src="docs/assets/header-contributing.svg" alt="Contributing to NexusMods Bypass" width="100%" />
+  <img src="docs/assets/header-contributing.svg?v=65a40bf33611" alt="Contributing to NexusMods Bypass" width="100%" />
 </p>
 
 <p align="center">
