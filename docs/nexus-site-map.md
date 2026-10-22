@@ -2,16 +2,21 @@
   <img src="assets/header-site-map.svg" alt="Nexus Mods site map & official API study" width="100%" />
 </p>
 
-<p align="center"><sub><a href="../README.md">← README</a> · <a href="../PRIVACY.md">Privacy</a> · <a href="../CONTRIBUTING.md">Contributing</a> · <a href="../CHANGELOG.md">Changelog</a></sub></p>
+<p align="center">
+  <a href="../README.md"><kbd> ← README </kbd></a>&ensp;·&ensp;
+  <a href="../PRIVACY.md"><kbd> 🔒 Privacy </kbd></a>&ensp;·&ensp;
+  <a href="../CONTRIBUTING.md"><kbd> 🤝 Contributing </kbd></a>&ensp;·&ensp;
+  <a href="../CHANGELOG.md"><kbd> 📋 Changelog </kbd></a>
+</p>
 
 <img src="assets/divider.svg" alt="" width="100%" />
 
 
-This is a study of how nexusmods.com is structured and which **official, documented** interfaces could replace the extension's DOM scraping and internal endpoints. Like the [Reverse-Engineering](https://github.com/mytechnotalent/Reverse-Engineering) course, it works from observation, but only through legitimate sources:
+This is a study of how nexusmods.com is structured and which **official, documented** interfaces could replace the extension's DOM scraping and internal endpoints. Like the <a href="https://github.com/mytechnotalent/Reverse-Engineering"><kbd>Reverse-Engineering</kbd></a> course, it works from observation, but only through legitimate sources:
 
 - the public API documentation,
 - public GraphQL schema introspection (which Nexus serves without authentication),
-- the open-source official clients ([Vortex](https://github.com/Nexus-Mods/Vortex), [NexusMods.App](https://github.com/Nexus-Mods/NexusMods.App), [node-nexus-api](https://github.com/Nexus-Mods/node-nexus-api)),
+- the open-source official clients (<a href="https://github.com/Nexus-Mods/Vortex"><kbd>Vortex</kbd></a>, <a href="https://github.com/Nexus-Mods/NexusMods.App"><kbd>NexusMods.App</kbd></a>, <a href="https://github.com/Nexus-Mods/node-nexus-api"><kbd>node-nexus-api</kbd></a>),
 - this repository's own code.
 
 Nothing here touches Cloudflare protection, Premium gating or authentication. The download-link logic is out of scope and is not changed by this document.
