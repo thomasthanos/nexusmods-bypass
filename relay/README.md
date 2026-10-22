@@ -2,7 +2,12 @@
   <img src="../docs/assets/header-relay.svg" alt="Bug-report relay" width="100%" />
 </p>
 
-<p align="center"><sub><a href="../README.md">← README</a> · <a href="../PRIVACY.md">Privacy</a> · <a href="../CONTRIBUTING.md">Contributing</a> · <a href="../CHANGELOG.md">Changelog</a></sub></p>
+<p align="center">
+  <a href="../README.md"><kbd> ← README </kbd></a>&ensp;·&ensp;
+  <a href="../PRIVACY.md"><kbd> 🔒 Privacy </kbd></a>&ensp;·&ensp;
+  <a href="../CONTRIBUTING.md"><kbd> 🤝 Contributing </kbd></a>&ensp;·&ensp;
+  <a href="../CHANGELOG.md"><kbd> 📋 Changelog </kbd></a>
+</p>
 
 <img src="../docs/assets/divider.svg" alt="" width="100%" />
 
@@ -16,7 +21,7 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 Updated on 2026-10-15 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev with the 3.1.2 Worker.
 Production version `68f921b1-01e1-474b-88ec-cbc7a2d9aa48` serves 100% of traffic.
 Read-back of the deployed module exactly matched `relay/worker.js` from
-[`1c98652`](https://github.com/thomasthanos/nexusmods-bypass/commit/1c9865299dfd0a212c1813b0e2cde723b0828ff0)
+<a href="https://github.com/thomasthanos/nexusmods-bypass/commit/1c9865299dfd0a212c1813b0e2cde723b0828ff0"><kbd><code>1c98652</code></kbd></a>
 (source SHA-256 `9b338e00637e45bfd791cfa9e0f5b32eb2968b4e249ba8724f04230ed9d71ed0`).
 The existing `DISCORD_WEBHOOK_URL` secret, maintainer setting, CORS origins and KV binding were inherited.
 No secret value was retrieved or replaced.
