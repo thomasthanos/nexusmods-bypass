@@ -24,7 +24,7 @@
 
 ## 🐛 Reporting a bug
 
-Use the <a href="[https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose](https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose)"><kbd>📝 Guided Issue Form ↗</kbd></a> and include:
+Use the <a href="https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose"><kbd>📝 Guided Issue Form ↗</kbd></a> and include:
 
 - **Extension version**
 - **Browser** and browser version
@@ -40,12 +40,12 @@ Use the <a href="[https://github.com/thomasthanos/nexusmods-bypass/issues/new/ch
 
 ## 💡 Ideas and questions
 
-Suggestions and questions go to <a href="[https://github.com/thomasthanos/nexusmods-bypass/discussions](https://github.com/thomasthanos/nexusmods-bypass/discussions)"><kbd>💬 GitHub Discussions ↗</kbd></a>:
+Suggestions and questions go to <a href="https://github.com/thomasthanos/nexusmods-bypass/discussions"><kbd>💬 GitHub Discussions ↗</kbd></a>:
 
 | Category | Purpose |
 | :--- | :--- |
-| <a href="[https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=ideas](https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=ideas)"><kbd> 💬 Ideas ↗ </kbd></a> | For something the extension should do or do differently. |
-| <a href="[https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=q-a](https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=q-a)"><kbd> ❓ Q&A ↗ </kbd></a> | For how something works. |
+| <a href="https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=ideas"><kbd> 💬 Ideas ↗ </kbd></a> | For something the extension should do or do differently. |
+| <a href="https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=q-a"><kbd> ❓ Q&A ↗ </kbd></a> | For how something works. |
 
 > [!TIP]
 > An upvote or a comment on an existing idea helps more than a second one.
@@ -94,5 +94,5 @@ Suggestions and questions go to <a href="[https://github.com/thomasthanos/nexusm
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
 <p align="center">
-  <a href="[https://github.com/thomasthanos](https://github.com/thomasthanos)"><img src="docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
 </p>
