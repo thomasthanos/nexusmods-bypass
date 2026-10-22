@@ -13,7 +13,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  diagnostics:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       startsWith(github.event.head_commit.message, 'chore(release): publish '))
+    uses: ./.github/workflows/diagnostics-check.yml
+
   publish:
+    needs: diagnostics
     # Publication is deliberate: ordinary merges never create a release.
     if: >-
       github.ref == 'refs/heads/main' &&

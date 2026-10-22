@@ -11,10 +11,14 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
-## Unreleased
+## 3.3.0 — 2026-10-22
 
 - **Ideas and questions in GitHub Discussions:** in the popup's **Report on GitHub** menu, *Idea or suggestion* and *Question* start a new discussion in *Ideas* or *Q&A* instead of an issue; a bug report is still an issue with the diagnostic report. The in-page settings have a **Suggest an idea** link beside **Report a bug**, in all 13 languages.
 - **Repository:** the feature request and question issue forms became discussion forms, the issue chooser links to them, and a new discussion is announced on Discord like a new issue.
+- **Private diagnostics source:** the independent `diagnostics/` package contains the Cloudflare Hono API, D1 schema and mobile PWA dashboard. Reports are validated, sanitized and grouped by fingerprint; rules identify site changes and regressions, and eligible events can reach Discord and Web Push. The Access-protected dashboard includes issue workflow, release-health comparisons, report timelines, copyable AI debug context and push-device management.
+- **Diagnostics setup:** the new service has not been deployed or connected to the extension. It requires a separately configured domain, Cloudflare Access application, D1 database, secrets and deployment. Existing extension reporting continues through `relay/`; heartbeat telemetry requires separate client integration and consent.
+- **Relay baseline:** 3.3.0, so 3.2.0 and older clients no longer ping once the existing relay Worker is separately redeployed.
+- **Packages:** Chrome/Edge and Firefox use 3.3.0 with unchanged permissions and opt-in reporting behavior.
 
 ## 3.2.0 — 2026-10-21
 

@@ -1,0 +1,51 @@
+name = "nexusmods-diagnostics"
+main = "src/index.ts"
+compatibility_date = "2026-10-21"
+workers_dev = false
+preview_urls = false
+
+# The entrypoint is delivered in Phase 3; assets are delivered in Phase 4.
+# Every asset request must pass the Access-verifying Worker first.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nexusmods-diagnostics"
+# Wrangler provisions this database when deployed; no invented database ID.
+
+[vars]
+MAX_BODY_BYTES = "65536"
+PUSH_COOLDOWN_SECONDS = "1800"
+DETECTION_WINDOW_SECONDS = "900"
+SPIKE_REPORT_THRESHOLD = "10"
+DISTINCT_INSTALL_THRESHOLD = "3"
+RATE_LIMIT_WINDOW_SECONDS = "60"
+INGEST_IP_LIMIT = "60"
+INGEST_INSTALL_LIMIT = "20"
+HEARTBEAT_IP_LIMIT = "120"
+HEARTBEAT_INSTALL_LIMIT = "10"
+
+# Required runtime environment bindings; values are set outside version control.
+# Public configuration is also bound as secrets to avoid fabricated account values.
+[secrets]
+required = [
+  "VAPID_PUBLIC_KEY",
+  "VAPID_PRIVATE_KEY",
+  "VAPID_SUBJECT",
+  "DISCORD_WEBHOOK_URL",
+  "CF_ACCESS_TEAM_DOMAIN",
+  "CF_ACCESS_AUD",
+  "RATE_LIMIT_HASH_SECRET"
+]
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+invocation_logs = false

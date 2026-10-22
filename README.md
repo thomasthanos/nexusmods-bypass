@@ -143,6 +143,8 @@ npm run test:visual    # Playwright tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/nexus-site-map.md](docs/nexus-site-map.md) and [SECURITY.md](SECURITY.md).
+
+The independent [private diagnostics service and mobile dashboard](diagnostics/README.md) live in `diagnostics/`, with their own dependencies and tests. Deployment and extension-client integration are separate setup steps; the shipped extension continues to use the existing reporting relay and consent settings.
 </details>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />

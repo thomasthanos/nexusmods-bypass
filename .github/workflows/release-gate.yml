@@ -5,6 +5,9 @@ on:
   pull_request:
 
 jobs:
+  diagnostics:
+    uses: ./.github/workflows/diagnostics-check.yml
+
   gate:
     runs-on: ubuntu-latest
     steps:
