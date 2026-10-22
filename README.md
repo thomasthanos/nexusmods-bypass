@@ -25,6 +25,8 @@
   <img src="docs/assets/install-steps.svg" alt="Download the ZIP, load it, sign in to Nexus Mods" width="100%" />
 </p>
 
+<a id="manual-install"></a>
+
 <details>
 <summary><strong>Manual install</strong> — Install from a ZIP</summary>
 
