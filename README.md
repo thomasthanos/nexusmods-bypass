@@ -154,5 +154,5 @@ The independent <a href="diagnostics/README.md"><kbd>private diagnostics service
 Source-available under the repository <a href="LICENSE"><kbd>licence</kbd></a>; the name, `src/icons/` and `internal/` are excluded. `src/content/nnw.js` is <a href="src/LICENSE-GPL-3.0-or-later.txt"><kbd>GPL-3.0-or-later</kbd></a>, based on <a href="https://github.com/torkelicious/nexus-no-wait-pp"><kbd>Nexus No Wait ++</kbd></a> — see <a href="THIRD-PARTY-NOTICES.md"><kbd>third-party notices</kbd></a>.
 
 <p align="center">
-  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasT. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg?v=52bfdbe" alt="Built with care by ThomasT. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
 </p>
