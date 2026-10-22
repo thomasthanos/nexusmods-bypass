@@ -2,7 +2,12 @@
   <img src="docs/assets/header-privacy.svg" alt="Privacy policy - NexusMods Bypass" width="100%" />
 </p>
 
-<p align="center"><sub><a href="README.md">← README</a> · <a href="PRIVACY.md">Privacy</a> · <a href="CONTRIBUTING.md">Contributing</a> · <a href="CHANGELOG.md">Changelog</a></sub></p>
+<p align="center">
+  <a href="README.md"><kbd> ← README </kbd></a>&ensp;·&ensp;
+  <kbd><b> 🔒 Privacy </b></kbd>&ensp;·&ensp;
+  <a href="CONTRIBUTING.md"><kbd> 🤝 Contributing </kbd></a>&ensp;·&ensp;
+  <a href="CHANGELOG.md"><kbd> 📋 Changelog </kbd></a>
+</p>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
