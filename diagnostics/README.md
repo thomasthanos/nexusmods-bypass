@@ -287,17 +287,17 @@ Navigation, filter changes, detail requests, report history and comparisons use 
 4. Tap **Enable on this device** and respond to the system notification prompt. The permission request occurs directly in that click gesture; `PushManager.subscribe()` uses `userVisibleOnly: true` and the application-server key.
 5. Tap **Send test notification**. The result distinguishes provider acceptance, partial failure, no registered devices and failed delivery. It sends to all registered devices and is capped at one request per minute per verified identity.
 
-Home Screen installation and a direct user action for notification permission follow [WebKit's Web Push guidance](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/). The UI detects capabilities rather than assuming a browser version. iOS 27 is the requested target; real installation, native permission behavior, Access session continuity, APNs delivery, lock-screen presentation, badges and notification opening have not been tested on a physical iPhone in this workspace.
+Home Screen installation and a direct user action for notification permission follow <a href="https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/"><kbd>WebKit's Web Push guidance</kbd></a>. The UI detects capabilities rather than assuming a browser version. iOS 27 is the requested target; real installation, native permission behavior, Access session continuity, APNs delivery, lock-screen presentation, badges and notification opening have not been tested on a physical iPhone in this workspace.
 
 An existing browser subscription can be explicitly synced to the server. If server registration fails, the local subscription is preserved for retry. Disabling removes the server registration before the browser subscription; an API failure keeps recovery possible. VAPID-key replacement is a separate deliberate action. Denied permission and non-standalone iOS browsers receive guidance. Device lists contain metadata only; endpoints and encryption keys are not displayed. Current-device identity is established through a protected sync rather than persistent client credentials.
 
-The service worker displays a visible bounded fallback for malformed pushes, preserves the full fingerprint notification tag for grouping, and updates supported application badges without allowing a badge error to suppress a notification. Click handling validates the origin, exact root route, issue ID, trigger and fingerprint before focusing/navigating an existing window or opening a new one. Invalid links open the safe root. “Close” does not navigate. See [notification click handling](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerGlobalScope/notificationclick_event) and [application badging](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/setAppBadge).
+The service worker displays a visible bounded fallback for malformed pushes, preserves the full fingerprint notification tag for grouping, and updates supported application badges without allowing a badge error to suppress a notification. Click handling validates the origin, exact root route, issue ID, trigger and fingerprint before focusing/navigating an existing window or opening a new one. Invalid links open the safe root. “Close” does not navigate. See <a href="https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerGlobalScope/notificationclick_event"><kbd>notification click handling</kbd></a> and <a href="https://developer.mozilla.org/en-US/docs/Web/API/Navigator/setAppBadge"><kbd>application badging</kbd></a>.
 
 The worker has no fetch handler, response cache or offline app shell. Private API/page data is not written to Cache Storage, localStorage or IndexedDB. A browser-managed service-worker registration/subscription persists as required for push. Updates follow the platform lifecycle; fully close and reopen the app when applying a new service-worker version. Access protects the manifest, icons and service-worker script as well as the UI, so physical-device validation of authenticated installation/update fetches is part of deployment verification.
 
 ### Styling and browser verification
 
-The requested Tailwind browser CDN is pinned to `@tailwindcss/browser@4.3.3` with SHA-384 subresource integrity, anonymous CORS and no referrer. Complete local CSS provides the same usable layout when the CDN fails. Tailwind's [Play CDN documentation](https://tailwindcss.com/docs/installation/play-cdn) describes it as a development option; this implementation retains it because the brief explicitly requires CDN Tailwind and no frontend build. No additional runtime dependency was introduced. Static response CSP permits the pinned CDN host and local modules, allows generated styles, and restricts connections, workers, manifests and images to this origin.
+The requested Tailwind browser CDN is pinned to `@tailwindcss/browser@4.3.3` with SHA-384 subresource integrity, anonymous CORS and no referrer. Complete local CSS provides the same usable layout when the CDN fails. Tailwind's <a href="https://tailwindcss.com/docs/installation/play-cdn"><kbd>Play CDN documentation</kbd></a> describes it as a development option; this implementation retains it because the brief explicitly requires CDN Tailwind and no frontend build. No additional runtime dependency was introduced. Static response CSP permits the pinned CDN host and local modules, allows generated styles, and restricts connections, workers, manifests and images to this origin.
 
 Run the browser suite separately after installing its development browser:
 
@@ -318,9 +318,9 @@ The helper prints a loopback-only URL and generates temporary RSA/VAPID keys and
 
 ## Official references
 
-- [Wrangler configuration: automatic provisioning and required secrets](https://developers.cloudflare.com/workers/wrangler/configuration/)
-- [Worker-first static asset routing](https://developers.cloudflare.com/workers/static-assets/routing/worker-script/)
-- [D1 foreign-key enforcement](https://developers.cloudflare.com/d1/sql-api/foreign-keys/)
-- [D1 database API and atomic batches](https://developers.cloudflare.com/d1/worker-api/d1-database/)
-- [Zod schema APIs](https://zod.dev/api)
-- [WebCrypto Web Push](https://github.com/block65/webcrypto-web-push)
+- <a href="https://developers.cloudflare.com/workers/wrangler/configuration/"><kbd>Wrangler configuration: automatic provisioning and required secrets</kbd></a>
+- <a href="https://developers.cloudflare.com/workers/static-assets/routing/worker-script/"><kbd>Worker-first static asset routing</kbd></a>
+- <a href="https://developers.cloudflare.com/d1/sql-api/foreign-keys/"><kbd>D1 foreign-key enforcement</kbd></a>
+- <a href="https://developers.cloudflare.com/d1/worker-api/d1-database/"><kbd>D1 database API and atomic batches</kbd></a>
+- <a href="https://zod.dev/api"><kbd>Zod schema APIs</kbd></a>
+- <a href="https://github.com/block65/webcrypto-web-push"><kbd>WebCrypto Web Push</kbd></a>
