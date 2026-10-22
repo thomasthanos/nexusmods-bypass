@@ -1,21 +1,78 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="180" viewBox="0 0 1200 180" role="img" aria-labelledby="t d">
-  <title id="t">Security</title><desc id="d">How to report a vulnerability privately</desc>
-  <style>text { font-family: 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif; } .glow-a { animation: drift 14s ease-in-out infinite alternate; } .halo { transform-box: fill-box; transform-origin: center; animation: pulse 4.5s ease-in-out infinite; }
-  @keyframes drift { to { transform: translate(120px, 20px); } } @keyframes pulse { 0%,100% { transform: scale(.92); opacity: .65; } 50% { transform: scale(1.06); opacity: 1; } } @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }</style>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="180" viewBox="0 0 1200 180" role="img" aria-labelledby="security-title security-description">
+  <title id="security-title">Security</title>
+  <desc id="security-description">How to report a vulnerability privately — NexusMods Bypass</desc>
+  <style>
+    text { font-family: Inter, 'Segoe UI', Arial, sans-serif; }
+    .light-trail { stroke-dasharray: 115 990; animation: travel 12s linear infinite; }
+    @keyframes travel { to { stroke-dashoffset: -1105; } }
+    @media (prefers-reduced-motion: reduce) {
+      .light-trail { animation: none; opacity: 0; }
+      .motion { display: none; }
+    }
+  </style>
   <defs>
-    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#151c31"/><stop offset="1" stop-color="#0e1325"/></linearGradient>
-    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#aab4ff" stop-opacity=".26"/><stop offset="1" stop-color="#aab4ff" stop-opacity=".07"/></linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#f0a24d"/><stop offset=".5" stop-color="#8b83ff"/><stop offset="1" stop-color="#45c8e6"/></linearGradient>
-    <radialGradient id="glowA"><stop stop-color="#f0a24d" stop-opacity=".35"/><stop offset="1" stop-color="#f0a24d" stop-opacity="0"/></radialGradient>
-    <radialGradient id="glowB"><stop stop-color="#8b83ff" stop-opacity=".32"/><stop offset="1" stop-color="#8b83ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="surface" x1="0" y1="0" x2="1200" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10192d"/>
+      <stop offset="0.52" stop-color="#0c1427"/>
+      <stop offset="1" stop-color="#131b3b"/>
+    </linearGradient>
+    <linearGradient id="outline" x1="0" y1="0" x2="1200" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4c5f8c" stop-opacity="0.75"/>
+      <stop offset="0.53" stop-color="#37445f" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#5d5a98" stop-opacity="0.6"/>
+    </linearGradient>
+    <radialGradient id="warm-haze">
+      <stop stop-color="#e99446" stop-opacity="0.25"/>
+      <stop offset="0.52" stop-color="#dc7534" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#dc7534" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="violet-haze">
+      <stop stop-color="#6255d9" stop-opacity="0.26"/>
+      <stop offset="0.7" stop-color="#6255d9" stop-opacity="0.065"/>
+      <stop offset="1" stop-color="#6255d9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="arc" x1="680" y1="165" x2="1190" y2="96" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#44518c" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#7466ed" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#a292ff" stop-opacity="0.2"/>
+    </linearGradient>
+    <clipPath id="frame-clip"><rect x="9" y="9" width="1182" height="162" rx="22"/></clipPath>
   </defs>
-  <rect x=".75" y=".75" width="1198.5" height="178.5" rx="26" fill="url(#face)" stroke="url(#edge)" stroke-width="1.5"/>
-  <ellipse class="glow-a" cx="260" cy="60" rx="300" ry="120" fill="url(#glowA)"/>
-  <ellipse cx="1000" cy="150" rx="320" ry="120" fill="url(#glowB)"/>
-  <circle class="halo" cx="108" cy="90" r="44" fill="#f0a24d" fill-opacity=".08" stroke="#f0a24d" stroke-opacity=".4"/>
-  <rect x="78" y="60" width="60" height="60" rx="17" fill="#f0a24d" fill-opacity=".14" stroke="#f0a24d" stroke-opacity=".55"/>
-  <g transform="translate(92 74) scale(1)" fill="none" stroke="#f0a24d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14h16v12H8zM11 14V10a5 5 0 0 1 10 0v4"/></g>
-  <text x="176" y="86" font-size="36" font-weight="750" fill="#f1f4ff" letter-spacing="-.8">Security</text>
-  <text x="178" y="120" font-size="16" fill="#9aa3c7">How to report a vulnerability privately</text>
-  <text x="1150" y="44" font-size="12" font-weight="700" fill="#f0a24d" text-anchor="end" letter-spacing="1.2">NEXUSMODS BYPASS</text>
+
+  <rect x="9" y="9" width="1182" height="162" rx="22" fill="url(#surface)"/>
+  <g clip-path="url(#frame-clip)">
+    <ellipse cx="225" cy="80" rx="310" ry="153" fill="url(#warm-haze)"/>
+    <ellipse cx="1040" cy="143" rx="360" ry="180" fill="url(#violet-haze)"/>
+    <path d="M 14 144 C 150 188, 246 179, 383 153" fill="none" stroke="#d08b46" stroke-opacity="0.13" stroke-width="1.4"/>
+    <path d="M 645 175 C 830 104, 1004 58, 1210 116" fill="none" stroke="url(#arc)" stroke-width="1.4"/>
+    <path class="light-trail" d="M 645 175 C 830 104, 1004 58, 1210 116" fill="none" stroke="#9584ff" stroke-opacity="0.65" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M 792 190 C 956 123, 1096 117, 1220 151" fill="none" stroke="#877bea" stroke-opacity="0.12" stroke-width="1.4"/>
+    <circle cx="1112" cy="119" r="1.7" fill="#aa94ff" opacity="0.64"/>
+  </g>
+  <rect x="9.75" y="9.75" width="1180.5" height="160.5" rx="21.25" fill="none" stroke="url(#outline)" stroke-width="1.5"/>
+
+  <circle cx="104" cy="90" r="47" fill="#f2a34e" fill-opacity="0.045" stroke="#f2a34e" stroke-opacity="0.22" stroke-width="1.3"/>
+  <circle cx="104" cy="90" r="36" fill="#f2a34e" fill-opacity="0.085" stroke="#f2a34e" stroke-opacity="0.5" stroke-width="1.5"/>
+  <circle class="motion" cx="104" cy="90" r="48" fill="none" stroke="#f6b363" stroke-width="1.2" stroke-opacity="0.4">
+    <animate attributeName="r" values="43;55;55" keyTimes="0;0.62;1" dur="4.8s" repeatCount="indefinite"/>
+    <animate attributeName="stroke-opacity" values="0.32;0;0" keyTimes="0;0.62;1" dur="4.8s" repeatCount="indefinite"/>
+  </circle>
+  <circle class="motion" cx="104" cy="90" r="48" fill="none" stroke="#f6b363" stroke-width="1.2" stroke-opacity="0.4">
+    <animate attributeName="r" values="43;55;55" keyTimes="0;0.62;1" dur="4.8s" begin="2.4s" repeatCount="indefinite"/>
+    <animate attributeName="stroke-opacity" values="0.32;0;0" keyTimes="0;0.62;1" dur="4.8s" begin="2.4s" repeatCount="indefinite"/>
+  </circle>
+  <g fill="none" stroke="#f6ab58" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 94 84 V 77 A 10 10 0 0 1 114 77 V 84"/>
+    <rect x="89" y="84" width="30" height="27" rx="4"/>
+  </g>
+  <circle cx="104" cy="97" r="2" fill="#f6ab58"/>
+  <g class="motion">
+    <circle cx="104" cy="42" r="2.2" fill="#ffc47a">
+      <animateTransform attributeName="transform" type="rotate" from="0 104 90" to="360 104 90" dur="16s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <text x="178" y="88" fill="#f5f6ff" font-size="38" font-weight="750" letter-spacing="-0.7">Security</text>
+  <text x="180" y="121" fill="#aeb9d8" font-size="16" font-weight="400">How to report a vulnerability privately</text>
+  <text x="1153" y="42" text-anchor="end" fill="#f6a64e" font-size="12" font-weight="700" letter-spacing="1.2">NEXUSMODS BYPASS</text>
 </svg>
