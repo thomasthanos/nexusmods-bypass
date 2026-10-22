@@ -4,22 +4,55 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Something broken instead?** Use the [bug report form](https://github.com/thomasthanos/nexusmods-bypass/issues/new?template=nexus_bug_report.yml):
-        it carries the diagnostic report that makes a fault findable.
+        Got an idea to make **NexusMods Bypass** better? We'd love to hear it!
 
-        Searching the ideas first is worth a moment: if someone has suggested the same thing, an upvote
-        or a comment there helps more than a second discussion.
-  - type: textarea
-    id: idea
+        > **Something not working?** Use the [bug report form](https://github.com/thomasthanos/nexusmods-bypass/issues/new?template=nexus_bug_report.yml) instead — it grabs the error log so we can fix it.
+        > Also, take a quick look to see if someone already suggested this; giving their post a 👍 helps a lot!
+
+  - type: input
+    id: title
     attributes:
-      label: What would you like the extension to do?
-      placeholder: "Expand the requirements screen on its own, so…"
+      label: What's the idea in a nutshell?
+      placeholder: "e.g., Automatically resume a collection if the connection drops"
     validations:
       required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does this fit best?
+      options:
+        - Collection queue & downloading
+        - Mod page / Files tab downloads
+        - Vortex or Mod Organizer 2
+        - Popup, settings & interface
+        - Nexus site changes or API
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: How would it work?
+      description: Tell us what you'd like to see and how you imagine it working.
+      placeholder: "It would be great if the extension could..."
+    validations:
+      required: true
+
   - type: textarea
     id: why
     attributes:
-      label: Why, and where?
-      description: The page or step it is for (a mod page, a collection, Vortex, Mod Organizer 2…) and what it would save you.
+      label: Why would this help?
+      description: What does it save you, or what's annoying right now without it?
+      placeholder: "Right now I have to manually..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Screenshots or links (optional)
+      description: Feel free to drop a screenshot, mock-up, or link to a mod/collection.
     validations:
       required: false

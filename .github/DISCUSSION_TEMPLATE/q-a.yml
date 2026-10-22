@@ -4,22 +4,47 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Something broken instead?** Use the [bug report form](https://github.com/thomasthanos/nexusmods-bypass/issues/new?template=nexus_bug_report.yml):
-        it carries the diagnostic report that makes a fault findable.
+        Need some help or wondering how something works? Ask away!
 
-        The [troubleshooting section](https://github.com/thomasthanos/nexusmods-bypass#-troubleshooting)
-        answers the common ones: downloads that pause, ask you to sign in, or stop at a Cloudflare check.
-  - type: textarea
+        > **Quick tip:** Downloads pausing or asking you to sign in is usually Nexus rate-limiting or Cloudflare checks. The [troubleshooting section](https://github.com/thomasthanos/nexusmods-bypass#-troubleshooting) in the README explains what to do.
+        > If something is clearly broken, head to the [bug report form](https://github.com/thomasthanos/nexusmods-bypass/issues/new?template=nexus_bug_report.yml) instead.
+
+  - type: input
     id: question
     attributes:
-      label: What would you like to know?
-      placeholder: "How do I send a whole collection to Vortex…"
+      label: What's your question?
+      placeholder: "e.g., How do I get .meta files to show up in Mod Organizer 2?"
     validations:
       required: true
-  - type: textarea
-    id: tried
+
+  - type: dropdown
+    id: topic
     attributes:
-      label: What did you try?
-      description: The page you were on and what happened, if it helps.
+      label: What's it about?
+      options:
+        - Vortex setup
+        - Mod Organizer 2 (MO2)
+        - Collections & queue
+        - Direct browser downloads
+        - Extension settings
+        - Browser / install issues (Chrome, Firefox, Edge)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: More details
+      description: Tell us what you're trying to do, what happened, or what you've already tried.
+      placeholder: "I was trying to... but then..."
+    validations:
+      required: false
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser & OS (optional)
+      placeholder: "e.g., Firefox on Windows 11"
     validations:
       required: false

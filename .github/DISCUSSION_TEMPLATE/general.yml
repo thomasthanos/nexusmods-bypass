@@ -1,0 +1,26 @@
+title: "[Discussion] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Pull up a chair! This space is for general chatter about modding, collections, or the extension.
+
+        > Got a feature request? Drop it in [Ideas](https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=ideas).
+        > Need help? Head over to [Q&A](https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=q-a).
+        > Found a bug? Use the [bug report form](https://github.com/thomasthanos/nexusmods-bypass/issues/new?template=nexus_bug_report.yml).
+
+  - type: input
+    id: topic
+    attributes:
+      label: Topic
+      placeholder: "What would you like to talk about?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      placeholder: "Fire away..."
+    validations:
+      required: true

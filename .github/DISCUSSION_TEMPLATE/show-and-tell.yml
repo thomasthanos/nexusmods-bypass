@@ -1,0 +1,31 @@
+title: "[Show and Tell] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Show off your setup! Whether it's a huge collection you downloaded smoothly, a cool MO2/Vortex workflow, or a tip for other modders, share it here.
+
+  - type: input
+    id: title
+    attributes:
+      label: What are you sharing?
+      placeholder: "e.g., Smooth 300-mod Skyrim list with MO2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: story
+    attributes:
+      label: The details
+      description: Walk us through your setup, how you used the extension, or any tips you discovered.
+      placeholder: "Here's how I set things up..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Links & screenshots (optional)
+      description: Got pictures or links to the collection? Drop them here.
+    validations:
+      required: false
