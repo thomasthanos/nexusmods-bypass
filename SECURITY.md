@@ -3,14 +3,17 @@
 </p>
 
 <p align="center">
-  <sub><a href="README.md">← README</a> · <a href="PRIVACY.md">Privacy</a> · <a href="CONTRIBUTING.md">Contributing</a> · <a href="CHANGELOG.md">Changelog</a></sub>
+  <a href="README.md"><kbd> ← README </kbd></a>&ensp;·&ensp;
+  <a href="PRIVACY.md"><kbd> 🔒 Privacy </kbd></a>&ensp;·&ensp;
+  <a href="CONTRIBUTING.md"><kbd> 🤝 Contributing </kbd></a>&ensp;·&ensp;
+  <a href="CHANGELOG.md"><kbd> 📋 Changelog </kbd></a>
 </p>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
 ## Supported Versions
 
-Only the latest major version of NexusMods Bypass receives security updates. We recommend keeping your browser extension updated to the [latest release](https://github.com/thomasthanos/nexusmods-bypass/releases/latest).
+Only the latest major version of NexusMods Bypass receives security updates. We recommend keeping your browser extension updated to the <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd>latest release</kbd></a>.
 
 | Version | Supported |
 | ------- | --------- |
@@ -23,7 +26,7 @@ If you discover a security vulnerability in NexusMods Bypass, please report it p
 
 **Report security vulnerabilities using GitHub's private vulnerability reporting:**
 
-1. Open this repository's [Security tab](https://github.com/thomasthanos/nexusmods-bypass/security).
+1. Open this repository's <a href="https://github.com/thomasthanos/nexusmods-bypass/security"><kbd>Security tab</kbd></a>.
 2. Select **Advisories**.
 3. Click **Report a vulnerability**.
 4. Include the affected version, steps to reproduce the issue, its potential impact, and a proof of concept if available. Avoid including real credentials or other sensitive data.
