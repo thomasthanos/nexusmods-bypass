@@ -753,6 +753,6 @@ node_modules/
 
 ## Supporting files and verification
 
-The committed dependency lockfile is [package-lock.json](../diagnostics/package-lock.json). Full setup, privacy, database-write, and phase-boundary documentation is in [README.md](../diagnostics/README.md). Executable tests are [ingest.test.mjs](../diagnostics/test/ingest.test.mjs), [example.test.mjs](../diagnostics/test/example.test.mjs), and [schema.test.mjs](../diagnostics/test/schema.test.mjs).
+The committed dependency lockfile is <a href="../diagnostics/package-lock.json"><kbd>package-lock.json</kbd></a>. Full setup, privacy, database-write, and phase-boundary documentation is in <a href="../diagnostics/README.md"><kbd>README.md</kbd></a>. Executable tests are <a href="../diagnostics/test/ingest.test.mjs"><kbd>ingest.test.mjs</kbd></a>, <a href="../diagnostics/test/example.test.mjs"><kbd>example.test.mjs</kbd></a>, and <a href="../diagnostics/test/schema.test.mjs"><kbd>schema.test.mjs</kbd></a>.
 
 Verified on 2026-10-21: diagnostics type checking and all 40 tests pass; the schema applied to local Cloudflare D1; Wrangler binding type generation passes; the seven approved runtime libraries bundle for Web API execution; existing extension tests and repository lint pass. No remote deployment, resource creation, or message delivery was performed.
