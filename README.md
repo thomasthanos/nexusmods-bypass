@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/thomasthanos/nexusmods-bypass?display_name=tag&style=flat-square&color=f0a24d&labelColor=151c31" /></a>
-  <a href="https://github.com/thomasthanos/nexusmods-bypass/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/thomasthanos/nexusmods-bypass/total?style=flat-square&label=downloads&color=8b83ff&labelColor=151c31" /></a>
-  <img alt="Chrome, Edge, Firefox 140+" src="https://img.shields.io/badge/chrome%20%C2%B7%20edge%20%C2%B7%20firefox-MV3-45c8e6?style=flat-square&labelColor=151c31" />
-  <a href="LICENSE"><img alt="Licence: source-available" src="https://img.shields.io/badge/licence-source--available-f0b86e?style=flat-square&labelColor=151c31" /></a>
+  <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest" title="Latest stable release"><img alt="Latest release" height="24" src="https://img.shields.io/github/v/release/thomasthanos/nexusmods-bypass?display_name=tag&amp;style=flat&amp;label=release&amp;color=f0a24d&amp;labelColor=151c31&amp;logo=github&amp;logoColor=white" /></a>
+  <a href="https://github.com/thomasthanos/nexusmods-bypass/releases" title="Total GitHub release asset downloads"><img alt="GitHub release downloads" height="24" src="https://img.shields.io/github/downloads/thomasthanos/nexusmods-bypass/total?style=flat&amp;label=downloads&amp;color=8b83ff&amp;labelColor=151c31&amp;logo=github&amp;logoColor=white" /></a>
+  <a href="#manual-install" title="Supported browsers"><img alt="Chrome, Edge and Firefox — Manifest V3" height="24" src="https://img.shields.io/badge/Chrome%20%7C%20Edge%20%7C%20Firefox-MV3-45c8e6?style=flat&amp;labelColor=151c31" /></a>
+  <a href="LICENSE" title="Read the source-available licence"><img alt="Licence: source-available" height="24" src="https://img.shields.io/badge/licence-source--available-f0b86e?style=flat&amp;labelColor=151c31" /></a>
 </p>
 
 <p align="center">
