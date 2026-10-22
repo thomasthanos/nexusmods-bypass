@@ -32,7 +32,7 @@
 
 #### Chrome, Edge, Brave, Opera
 
-1. Download the latest `nexus.mods.bypass-<version>.zip` from the [Releases page](https://github.com/thomasthanos/nexusmods-bypass/releases/latest).
+1. Download the latest `nexus.mods.bypass-<version>.zip` from the <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd>Releases page</kbd></a>.
 2. Extract the `.zip` file into a new folder.
 3. Open `chrome://extensions` (or `edge://extensions`).
 4. Enable **Developer mode** in the top right.
@@ -44,7 +44,7 @@
 
 #### Firefox 140 or newer
 
-1. Download the latest `nexus.mods.bypass-<version>-firefox.zip` from the [Releases page](https://github.com/thomasthanos/nexusmods-bypass/releases/latest).
+1. Download the latest `nexus.mods.bypass-<version>-firefox.zip` from the <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd>Releases page</kbd></a>.
 2. Open `about:debugging#/runtime/this-firefox`.
 3. Click **Load Temporary Add-on** and select the `.zip` file directly (no need to extract it).
 
@@ -69,7 +69,7 @@ On first install, the welcome page asks three setup questions and has a **Test V
 - **Quick setup:** presets *Vortex user*, *Browser downloads* and *Minimal* (a mix shows as *Custom*).
 - **Download flow:** auto-start, close the extra tab after sending to Vortex, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first.
 - **Files:** browser download folder. Optional `.meta` files for Mod Organizer 2 beside each file saved in the browser, from a mod page or a collection, so MO2 shows the mod's description and opens its Nexus page (off by default).
-- **Official Nexus API:** use the documented API for collection, mod and file details (on), follow curator update policy (off), endorse and track buttons (on). See [docs/nexus-site-map.md](docs/nexus-site-map.md).
+- **Official Nexus API:** use the documented API for collection, mod and file details (on), follow curator update policy (off), endorse and track buttons (on). See <a href="docs/nexus-site-map.md"><kbd>docs/nexus-site-map.md</kbd></a>.
 - **Advanced:** request timeout, close-tab delay, Vortex download speed and pause between files, official API, open the file page when Nexus asks for a browser check.
 - **Language:** Always use English.
 </details>
@@ -77,7 +77,7 @@ On first install, the welcome page asks three setup questions and has a **Test V
 <details>
 <summary><strong>Privacy &amp; permissions</strong> — Local data and access</summary>
 
-Settings, history and logs stay in local extension storage; no analytics or accounts. Reports are opt-in and show the exact redacted JSON first. Details: [PRIVACY.md](PRIVACY.md).
+Settings, history and logs stay in local extension storage; no analytics or accounts. Reports are opt-in and show the exact redacted JSON first. Details: <a href="PRIVACY.md"><kbd>PRIVACY.md</kbd></a>.
 
 | Permission | Used for |
 |---|---|
@@ -93,8 +93,8 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 <details>
 <summary><strong>Bug reports &amp; debug log</strong> — Reports and diagnostics</summary>
 
-- **Send bug report** (popup → Help & Bugs, or **Add details** on an error): describe it, review the redacted JSON, then send through the [relay](relay/README.md), save/copy it, or open a prefilled [GitHub issue](https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose).
-- **Ideas and questions** (Help & Bugs → **Report on GitHub** → *Idea or suggestion* or *Question*, or **Suggest an idea** in the settings): open a new [GitHub discussion](https://github.com/thomasthanos/nexusmods-bypass/discussions) in *Ideas* or *Q&A*, where others can upvote and answer. Bug reports stay issues.
+- **Send bug report** (popup → Help & Bugs, or **Add details** on an error): describe it, review the redacted JSON, then send through the <a href="relay/README.md"><kbd>relay</kbd></a>, save/copy it, or open a prefilled <a href="https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose"><kbd>GitHub issue</kbd></a>.
+- **Ideas and questions** (Help & Bugs → **Report on GitHub** → *Idea or suggestion* or *Question*, or **Suggest an idea** in the settings): open a new <a href="https://github.com/thomasthanos/nexusmods-bypass/discussions"><kbd>GitHub discussion</kbd></a> in *Ideas* or *Q&A*, where others can upvote and answer. Bug reports stay issues.
 - **Debug log** (Help & Bugs → Debug log): opt-in live log with filters, search and export.
 - **Automatic error reports**: off by default. A one-time, keyboard-accessible invitation on Nexus Mods after an update lets you opt in with one click, without another browser permission. New extension faults send minimal technical diagnostics; repeated faults are grouped, failed sends retry, and you can switch reporting off at any time.
 </details>
@@ -142,16 +142,16 @@ npm run build          # regression checks, then Chrome and Firefox zips
 npm run test:visual    # Playwright tests
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/nexus-site-map.md](docs/nexus-site-map.md) and [SECURITY.md](SECURITY.md).
+See <a href="CONTRIBUTING.md"><kbd>CONTRIBUTING.md</kbd></a>, <a href="docs/nexus-site-map.md"><kbd>docs/nexus-site-map.md</kbd></a> and <a href="SECURITY.md"><kbd>SECURITY.md</kbd></a>.
 
-The independent [private diagnostics service and mobile dashboard](diagnostics/README.md) live in `diagnostics/`, with their own dependencies and tests. Deployment and extension-client integration are separate setup steps; the shipped extension continues to use the existing reporting relay and consent settings.
+The independent <a href="diagnostics/README.md"><kbd>private diagnostics service and mobile dashboard</kbd></a> live in `diagnostics/`, with their own dependencies and tests. Deployment and extension-client integration are separate setup steps; the shipped extension continues to use the existing reporting relay and consent settings.
 </details>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
 ## Licence
 
-Source-available under the repository [licence](LICENSE); the name, `src/icons/` and `internal/` are excluded. `src/content/nnw.js` is [GPL-3.0-or-later](src/LICENSE-GPL-3.0-or-later.txt), based on [Nexus No Wait ++](https://github.com/torkelicious/nexus-no-wait-pp) — see [third-party notices](THIRD-PARTY-NOTICES.md).
+Source-available under the repository <a href="LICENSE"><kbd>licence</kbd></a>; the name, `src/icons/` and `internal/` are excluded. `src/content/nnw.js` is <a href="src/LICENSE-GPL-3.0-or-later.txt"><kbd>GPL-3.0-or-later</kbd></a>, based on <a href="https://github.com/torkelicious/nexus-no-wait-pp"><kbd>Nexus No Wait ++</kbd></a> — see <a href="THIRD-PARTY-NOTICES.md"><kbd>third-party notices</kbd></a>.
 
 <p align="center">
   <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasT. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
