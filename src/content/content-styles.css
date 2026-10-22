@@ -1144,6 +1144,17 @@
   cursor: default;
   opacity: 0.75;
 }
+a.nxtk-settings-report { text-decoration: none; }
+/* Report a bug (an issue) and Suggest an idea (a GitHub discussion), side by side; they wrap when narrow.
+   The pair fills the room left on its line, centred in it, so Done keeps the right end. */
+.nxtk-settings-github {
+  display: inline-flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
 .nxtk-settings-version {
   display: flex;
   align-items: center;
@@ -1613,6 +1624,8 @@
 #nxtk-settings-modal .nxtk-settings-report {
   padding: 7px 10px; min-height: 34px; font-size: 12px; white-space: normal; max-width: 100%;
 }
+/* A long translation can push Done onto a line of its own: it stays at the right end there too. */
+#nxtk-settings-modal .nxtk-modal-footer [data-close] { margin-left: auto; }
 #nxtk-settings-modal #nxtk-wj-import { margin-top: 10px; }
 @media (min-width: 760px) {
   #nxtk-settings-modal .nxtk-settings-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }

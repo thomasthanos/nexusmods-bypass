@@ -94,6 +94,7 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 <summary><strong>Bug reports &amp; debug log</strong> — Reports and diagnostics</summary>
 
 - **Send bug report** (popup → Help & Bugs, or **Add details** on an error): describe it, review the redacted JSON, then send through the [relay](relay/README.md), save/copy it, or open a prefilled [GitHub issue](https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose).
+- **Ideas and questions** (Help & Bugs → **Report on GitHub** → *Idea or suggestion* or *Question*, or **Suggest an idea** in the settings): open a new [GitHub discussion](https://github.com/thomasthanos/nexusmods-bypass/discussions) in *Ideas* or *Q&A*, where others can upvote and answer. Bug reports stay issues.
 - **Debug log** (Help & Bugs → Debug log): opt-in live log with filters, search and export.
 - **Automatic error reports**: off by default. A one-time, keyboard-accessible invitation on Nexus Mods after an update lets you opt in with one click, without another browser permission. New extension faults send minimal technical diagnostics; repeated faults are grouped, failed sends retry, and you can switch reporting off at any time.
 </details>

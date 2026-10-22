@@ -8,6 +8,7 @@
   const { svgIcon, escapeHtml, L, openModal, copyReportAndOpenIssue } = kit;
 
   kit.registerIcons({
+    bulb: '<svg viewBox="0 0 24 24"><path d="M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1Zm3-19a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2Zm2.85 11.1-.85.6V16h-4v-2.3l-.85-.6a5 5 0 1 1 5.7 0Z"/></svg>',
     chevronRight: '<svg viewBox="0 0 24 24"><path d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z"/></svg>',
     github: '<svg viewBox="0 0 24 24"><path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.24c-3.22.7-3.9-1.37-3.9-1.37-.53-1.34-1.29-1.69-1.29-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.04 1.77 2.72 1.26 3.38.96.1-.75.41-1.26.74-1.55-2.57-.29-5.27-1.29-5.27-5.69 0-1.26.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.16 1.18A10.9 10.9 0 0 1 12 6.14c.98 0 1.96.13 2.88.39 2.19-1.49 3.16-1.18 3.16-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.82 1.19 3.08 0 4.41-2.71 5.39-5.29 5.68.42.36.78 1.07.78 2.16v3.24c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z"/></svg>'
   });
@@ -244,7 +245,10 @@
       </div>
       <div class="nxtk-modal-footer">
         <button class="nxtk-btn nxtk-btn-secondary" data-reset>${L('setRestoreDefaults', 'Restore defaults')}</button>
-        <button type="button" class="nxtk-settings-report" data-report-issue>${svgIcon('github')}<span data-report-label>${L('setReportOnGithub', 'Report a bug')}</span></button>
+        <div class="nxtk-settings-github">
+          <button type="button" class="nxtk-settings-report" data-report-issue>${svgIcon('github')}<span data-report-label>${L('setReportOnGithub', 'Report a bug')}</span></button>
+          <a class="nxtk-settings-report" data-suggest-idea href="${escapeHtml(NXTK.newDiscussionUrl('idea'))}" target="_blank" rel="noopener noreferrer" title="${L('setSuggestIdeaTip', 'Share an idea or ask a question in GitHub Discussions')}">${svgIcon('bulb')}<span>${L('setSuggestIdea', 'Suggest an idea')}</span></a>
+        </div>
         <button class="nxtk-btn nxtk-btn-primary" data-close>${L('btnDone', 'Done')}</button>
       </div>
     `

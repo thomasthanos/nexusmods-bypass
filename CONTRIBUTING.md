@@ -25,6 +25,13 @@ Use the [guided issue form](https://github.com/thomasthanos/nexusmods-bypass/iss
 
 Do not include Nexus credentials, cookies, tokens, or private URLs.
 
+## Ideas and questions
+
+Suggestions and questions go to [GitHub Discussions](https://github.com/thomasthanos/nexusmods-bypass/discussions):
+[*Ideas*](https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=ideas) for something the extension
+should do or do differently, [*Q&A*](https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=q-a) for
+how something works. An upvote or a comment on an existing idea helps more than a second one.
+
 ## Sending a pull request
 
 1. Fork the repository and create a focused branch.

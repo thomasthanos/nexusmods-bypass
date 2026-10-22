@@ -575,6 +575,14 @@
   "setReportOnGithub": {
     "message": "Αναφορά σφάλματος"
   },
+  "setSuggestIdea": {
+    "message": "Προτείνετε μια ιδέα",
+    "description": "Settings footer link beside setReportOnGithub: start a GitHub discussion in Ideas."
+  },
+  "setSuggestIdeaTip": {
+    "message": "Μοιραστείτε μια ιδέα ή κάντε μια ερώτηση στις GitHub Discussions",
+    "description": "Tooltip of setSuggestIdea."
+  },
   "setRestoreTitle": {
     "message": "Επαναφορά προεπιλογών"
   },
@@ -1806,7 +1814,7 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Ανοίγει μια φόρμα issue στο GitHub: αναφορά σφάλματος (με την αναφορά διαγνωστικών σας), αίτημα λειτουργίας ή ερώτηση.",
+    "message": "Ανοίγει το GitHub: αναφορά σφάλματος ως issue (με την αναφορά διαγνωστικών σας), ή μια ιδέα ή ερώτηση στις GitHub Discussions.",
     "description": "UI string."
   },
   "githubMenuBug": {
@@ -1817,20 +1825,20 @@
     "message": "Κάτι δεν δουλεύει. Ανοίγει με την αναφορά διαγνωστικών σας συμπληρωμένη.",
     "description": "Help line under githubMenuBug."
   },
-  "githubMenuFeature": {
-    "message": "Αίτημα λειτουργίας",
-    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  "githubMenuIdea": {
+    "message": "Ιδέα ή πρόταση",
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Ideas."
   },
-  "githubMenuFeatureDesc": {
-    "message": "Προτείνετε κάτι νέο ή μια αλλαγή.",
-    "description": "Help line under githubMenuFeature."
+  "githubMenuIdeaDesc": {
+    "message": "Προτείνετε κάτι νέο ή μια αλλαγή, στις GitHub Discussions.",
+    "description": "Help line under githubMenuIdea."
   },
   "githubMenuQuestion": {
     "message": "Ερώτηση",
-    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Q&A."
   },
   "githubMenuQuestionDesc": {
-    "message": "Ρωτήστε πώς λειτουργεί κάτι.",
+    "message": "Ρωτήστε πώς λειτουργεί κάτι, στις GitHub Discussions.",
     "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {

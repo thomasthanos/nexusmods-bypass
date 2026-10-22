@@ -183,6 +183,17 @@ async function settingsRegressionTests() {
       assert.ok(input.labels?.length || input.getAttribute('aria-labelledby'), `${input.dataset.setting} has an accessible label`);
     }
 
+    // The footer: a bug report is an issue with its diagnostics; an idea is a new GitHub discussion.
+    const idea = find('.nxtk-modal-footer [data-suggest-idea]');
+    assert.ok(idea, 'Suggest an idea sits in the footer');
+    assert.equal(idea.closest('.nxtk-settings-github'), find('.nxtk-modal-footer [data-report-issue]').closest('.nxtk-settings-github'),
+      'beside Report a bug');
+    assert.equal(idea.getAttribute('href'), 'https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=ideas');
+    assert.equal(idea.getAttribute('target'), '_blank');
+    assert.match(idea.getAttribute('rel'), /noopener/);
+    assert.match(idea.textContent, /Suggest an idea/);
+    assert.equal(find('.nxtk-modal-footer').children.length, 3, 'the footer keeps its three parts: reset, GitHub, Done');
+
     // Help opens separately: tapping information must never change the neighbouring setting.
     const row = find('[data-key="AutoStartDownload"]');
     const help = row.querySelector('[data-setting-help]');

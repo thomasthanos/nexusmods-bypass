@@ -11,6 +11,15 @@
   const ISSUE_NEW_URL = `${GITHUB_REPO_URL}/issues/new`;
   const REPORT_ISSUE_URL = `${GITHUB_REPO_URL}/issues/new/choose`;
   const TROUBLESHOOTING_URL = `${GITHUB_REPO_URL}#troubleshooting`;
+  // Ideas and questions go to GitHub Discussions; only a bug is an issue, with its diagnostic report.
+  // The categories are GitHub's own defaults, so they exist once Discussions is on for the repository.
+  const DISCUSSIONS_URL = `${GITHUB_REPO_URL}/discussions`;
+  const DISCUSSION_CATEGORIES = Object.freeze({ idea: 'ideas', question: 'q-a' });
+  function newDiscussionUrl(kind) {
+    const url = new URL(`${DISCUSSIONS_URL}/new`);
+    url.searchParams.set('category', DISCUSSION_CATEGORIES[kind] || DISCUSSION_CATEGORIES.idea);
+    return url.href;
+  }
   // Each store issues its own extension id, so the id is what says where a copy came from —
   // and that is the only listing where its rating can be left. The browser running it says
   // nothing: Edge installs from the Chrome Web Store just as happily as from its own.
@@ -1509,6 +1518,8 @@
     ISSUE_NEW_URL,
     REPORT_ISSUE_URL,
     TROUBLESHOOTING_URL,
+    DISCUSSIONS_URL,
+    newDiscussionUrl,
     getStoreReviewUrl,
     getStoreListing,
     dueRatingMilestone,

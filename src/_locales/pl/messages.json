@@ -505,6 +505,14 @@
   "setReportOnGithub": {
     "message": "Zgłoś błąd"
   },
+  "setSuggestIdea": {
+    "message": "Zaproponuj pomysł",
+    "description": "Settings footer link beside setReportOnGithub: start a GitHub discussion in Ideas."
+  },
+  "setSuggestIdeaTip": {
+    "message": "Podziel się pomysłem lub zadaj pytanie w GitHub Discussions",
+    "description": "Tooltip of setSuggestIdea."
+  },
   "setRestoreTitle": {
     "message": "Przywróć domyślne"
   },
@@ -1974,7 +1982,7 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Otwiera formularz zgłoszenia na GitHubie: zgłoszenie błędu (z raportem diagnostycznym), prośbę o funkcję lub pytanie.",
+    "message": "Otwiera GitHuba: zgłoszenie błędu jako issue (z raportem diagnostycznym) albo pomysł lub pytanie w GitHub Discussions.",
     "description": "UI string."
   },
   "githubMenuBug": {
@@ -1985,20 +1993,20 @@
     "message": "Coś nie działa. Otwiera się z wypełnionym raportem diagnostycznym.",
     "description": "Help line under githubMenuBug."
   },
-  "githubMenuFeature": {
-    "message": "Prośba o funkcję",
-    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  "githubMenuIdea": {
+    "message": "Pomysł lub sugestia",
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Ideas."
   },
-  "githubMenuFeatureDesc": {
-    "message": "Zaproponuj coś nowego lub zmianę.",
-    "description": "Help line under githubMenuFeature."
+  "githubMenuIdeaDesc": {
+    "message": "Zaproponuj coś nowego lub zmianę w GitHub Discussions.",
+    "description": "Help line under githubMenuIdea."
   },
   "githubMenuQuestion": {
     "message": "Pytanie",
-    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Q&A."
   },
   "githubMenuQuestionDesc": {
-    "message": "Zapytaj, jak coś działa.",
+    "message": "Zapytaj, jak coś działa, w GitHub Discussions.",
     "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {

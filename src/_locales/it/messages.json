@@ -505,6 +505,14 @@
   "setReportOnGithub": {
     "message": "Segnala un problema"
   },
+  "setSuggestIdea": {
+    "message": "Suggerisci un'idea",
+    "description": "Settings footer link beside setReportOnGithub: start a GitHub discussion in Ideas."
+  },
+  "setSuggestIdeaTip": {
+    "message": "Condividi un'idea o fai una domanda in GitHub Discussions",
+    "description": "Tooltip of setSuggestIdea."
+  },
   "setRestoreTitle": {
     "message": "Ripristina impostazioni"
   },
@@ -1806,7 +1814,7 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Apre un modulo di issue su GitHub: una segnalazione di bug (con il tuo rapporto diagnostico), una richiesta di funzionalità o una domanda.",
+    "message": "Apre GitHub: una segnalazione di bug come issue (con il tuo rapporto diagnostico), oppure un'idea o una domanda in GitHub Discussions.",
     "description": "UI string."
   },
   "githubMenuBug": {
@@ -1817,20 +1825,20 @@
     "message": "Qualcosa non funziona. Si apre con il tuo rapporto diagnostico.",
     "description": "Help line under githubMenuBug."
   },
-  "githubMenuFeature": {
-    "message": "Richiesta di funzionalità",
-    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  "githubMenuIdea": {
+    "message": "Idea o suggerimento",
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Ideas."
   },
-  "githubMenuFeatureDesc": {
-    "message": "Proponi qualcosa di nuovo o una modifica.",
-    "description": "Help line under githubMenuFeature."
+  "githubMenuIdeaDesc": {
+    "message": "Proponi qualcosa di nuovo o una modifica, in GitHub Discussions.",
+    "description": "Help line under githubMenuIdea."
   },
   "githubMenuQuestion": {
     "message": "Domanda",
-    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Q&A."
   },
   "githubMenuQuestionDesc": {
-    "message": "Chiedi come funziona qualcosa.",
+    "message": "Chiedi come funziona qualcosa, in GitHub Discussions.",
     "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {

@@ -575,6 +575,14 @@
   "setReportOnGithub": {
     "message": "Relatar um erro"
   },
+  "setSuggestIdea": {
+    "message": "Sugerir uma ideia",
+    "description": "Settings footer link beside setReportOnGithub: start a GitHub discussion in Ideas."
+  },
+  "setSuggestIdeaTip": {
+    "message": "Compartilhe uma ideia ou faça uma pergunta no GitHub Discussions",
+    "description": "Tooltip of setSuggestIdea."
+  },
   "setRestoreTitle": {
     "message": "Restaurar padrões"
   },
@@ -1806,7 +1814,7 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Abre um formulário de issue no GitHub: relatório de bug (com seu relatório de diagnóstico), pedido de recurso ou pergunta.",
+    "message": "Abre o GitHub: relatório de bug como issue (com seu relatório de diagnóstico), ou ideia ou pergunta no GitHub Discussions.",
     "description": "UI string."
   },
   "githubMenuBug": {
@@ -1817,20 +1825,20 @@
     "message": "Algo não funciona. Abre com seu relatório de diagnóstico preenchido.",
     "description": "Help line under githubMenuBug."
   },
-  "githubMenuFeature": {
-    "message": "Pedido de recurso",
-    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  "githubMenuIdea": {
+    "message": "Ideia ou sugestão",
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Ideas."
   },
-  "githubMenuFeatureDesc": {
-    "message": "Sugira algo novo ou uma mudança.",
-    "description": "Help line under githubMenuFeature."
+  "githubMenuIdeaDesc": {
+    "message": "Sugira algo novo ou uma mudança, no GitHub Discussions.",
+    "description": "Help line under githubMenuIdea."
   },
   "githubMenuQuestion": {
     "message": "Pergunta",
-    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Q&A."
   },
   "githubMenuQuestionDesc": {
-    "message": "Pergunte como algo funciona.",
+    "message": "Pergunte como algo funciona, no GitHub Discussions.",
     "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {

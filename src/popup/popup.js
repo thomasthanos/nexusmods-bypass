@@ -205,16 +205,14 @@
     setTimeout(() => createTab(issueUrl), 600);
   }
 
-  // The other forms carry no diagnostics: each opens with its own labels (enhancement, question).
-  const ISSUE_FORMS = Object.freeze({ feature: 'feature_request.yml', question: 'question.yml' });
-  function openIssueForm(kind) {
-    const url = new URL(NXTK.ISSUE_NEW_URL);
-    url.searchParams.set('template', ISSUE_FORMS[kind]);
-    createTab(url.href);
+  // An idea or a question is not a fault: it opens a new GitHub discussion in its category, with no
+  // diagnostics. Filed as issues, they sat among the bug reports.
+  function openDiscussion(kind) {
+    createTab(NXTK.newDiscussionUrl(kind));
   }
 
   // "Report on GitHub" is a menu button (WAI-ARIA menu pattern): Enter, Space or ArrowDown opens it
-  // on the first form, ArrowUp on the last; arrows, Home and End move; Escape closes it back onto the
+  // on the first item, ArrowUp on the last; arrows, Home and End move; Escape closes it back onto the
   // button; Tab or a click elsewhere closes it. Every issue filed from here used to be a bug.
   function setupGithubMenu() {
     const button = document.getElementById('reportBug');
@@ -262,8 +260,8 @@
       const item = event.target.closest('[role="menuitem"]');
       if (!item) return;
       close({ restoreFocus: false });
-      if (item.dataset.issueKind === 'bug') reportBugOnGithub();
-      else openIssueForm(item.dataset.issueKind);
+      if (item.dataset.githubKind === 'bug') reportBugOnGithub();
+      else openDiscussion(item.dataset.githubKind);
     });
   }
 

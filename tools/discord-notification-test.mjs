@@ -49,11 +49,28 @@ try {
   assert.match(notifyWorkflow, /issues:\s*\n\s*types: \[labeled\]/, 'issues notify on labels only');
   assert.doesNotMatch(notifyWorkflow, /action == 'opened'/);
   assert.match(notifyWorkflow, /I_LABEL: \$\{\{ github\.event\.label\.name \}\}/);
-  assert.match(fs.readFileSync('.github/ISSUE_TEMPLATE/feature_request.yml', 'utf8'), /labels: \["enhancement", "nexusmods-bypass"\]/,
-    'feature requests have their own form');
-  assert.match(fs.readFileSync('.github/ISSUE_TEMPLATE/question.yml', 'utf8'), /labels: \["question", "nexusmods-bypass"\]/,
-    'and questions too');
-  assert.match(notifyWorkflow, /\["bug", "enhancement", "question"\]/, 'each form\'s label posts a notice');
+  assert.match(notifyWorkflow, /\["bug", "enhancement", "question"\]/, 'a labelled issue posts a notice');
+
+  // Ideas and questions are GitHub discussions, each category with its own form; the issue chooser
+  // sends them there, and a new discussion posts one notice named after its category.
+  assert.match(fs.readFileSync('.github/DISCUSSION_TEMPLATE/ideas.yml', 'utf8'), /labels: \["enhancement"\]/, 'ideas have their own form');
+  assert.match(fs.readFileSync('.github/DISCUSSION_TEMPLATE/q-a.yml', 'utf8'), /labels: \["question"\]/, 'and questions too');
+  assert.ok(!fs.existsSync('.github/ISSUE_TEMPLATE/feature_request.yml') && !fs.existsSync('.github/ISSUE_TEMPLATE/question.yml'),
+    'neither is an issue form any more');
+  const chooser = fs.readFileSync('.github/ISSUE_TEMPLATE/config.yml', 'utf8');
+  assert.match(chooser, /discussions\/new\?category=ideas/);
+  assert.match(chooser, /discussions\/new\?category=q-a/);
+  assert.match(notifyWorkflow, /discussion:\s*\n\s*types: \[created\]/, 'a new discussion posts a notice');
+  assert.match(notifyWorkflow, /D_CATEGORY: \$\{\{ github\.event\.discussion\.category\.name \}\}/);
+  assert.match(notifyWorkflow, /tools\/discord-notification\.mjs discussion --send/);
+  const discussion = (extra) => run('discussion', { D_URL: 'https://github.com/thomasthanos/nexusmods-bypass/discussions/1', D_USER: 'someone', ...extra }).embeds[0];
+  const idea = discussion({ D_TITLE: '[Idea] Dark mode', D_CATEGORY: 'Ideas' });
+  assert.equal(idea.title, 'GitHub · Idea: [Idea] Dark mode');
+  assert.equal(idea.description, 'Started by someone in Ideas. Open the discussion to reply.');
+  assert.equal(idea.url, 'https://github.com/thomasthanos/nexusmods-bypass/discussions/1');
+  assert.equal(idea.color, 0x3498db);
+  assert.equal(discussion({ D_TITLE: '[Question] Does it work with MO2?', D_CATEGORY: 'Q&A' }).title, 'GitHub · Question: [Question] Does it work with MO2?');
+  assert.equal(discussion({ D_TITLE: 'Hello', D_CATEGORY: 'General' }).title, 'GitHub · Discussion: Hello', 'any other category is a plain discussion');
 
   // A release published with the workflow's token starts no other workflow, so discord-notify never
   // heard of 3.1.6 or 3.1.7: the publish job announces its own release. Its title comes from the notes.

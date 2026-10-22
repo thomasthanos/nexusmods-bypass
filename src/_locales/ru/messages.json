@@ -645,6 +645,14 @@
   "setReportOnGithub": {
     "message": "Сообщить об ошибке"
   },
+  "setSuggestIdea": {
+    "message": "Предложить идею",
+    "description": "Settings footer link beside setReportOnGithub: start a GitHub discussion in Ideas."
+  },
+  "setSuggestIdeaTip": {
+    "message": "Поделитесь идеей или задайте вопрос в GitHub Discussions",
+    "description": "Tooltip of setSuggestIdea."
+  },
   "setRestoreTitle": {
     "message": "Сброс настроек"
   },
@@ -1974,7 +1982,7 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Открывает форму issue на GitHub: сообщение об ошибке (с диагностическим отчётом), запрос функции или вопрос.",
+    "message": "Открывает GitHub: сообщение об ошибке как issue (с диагностическим отчётом) или идею либо вопрос в GitHub Discussions.",
     "description": "UI string."
   },
   "githubMenuBug": {
@@ -1985,20 +1993,20 @@
     "message": "Что-то не работает. Открывается с заполненным диагностическим отчётом.",
     "description": "Help line under githubMenuBug."
   },
-  "githubMenuFeature": {
-    "message": "Запрос функции",
-    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  "githubMenuIdea": {
+    "message": "Идея или предложение",
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Ideas."
   },
-  "githubMenuFeatureDesc": {
-    "message": "Предложите что-то новое или изменение.",
-    "description": "Help line under githubMenuFeature."
+  "githubMenuIdeaDesc": {
+    "message": "Предложите что-то новое или изменение в GitHub Discussions.",
+    "description": "Help line under githubMenuIdea."
   },
   "githubMenuQuestion": {
     "message": "Вопрос",
-    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Q&A."
   },
   "githubMenuQuestionDesc": {
-    "message": "Спросите, как что-то работает.",
+    "message": "Спросите, как что-то работает, в GitHub Discussions.",
     "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {

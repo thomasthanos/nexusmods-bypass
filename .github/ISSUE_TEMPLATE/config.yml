@@ -3,3 +3,9 @@ contact_links:
   - name: Read this first — downloads that stop, pause or ask you to sign in
     url: https://github.com/thomasthanos/nexusmods-bypass#-troubleshooting
     about: Rate limits, sign-in and Cloudflare checks are Nexus asking you to wait or log in, not extension faults. The troubleshooting section covers each one.
+  - name: Idea or suggestion
+    url: https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=ideas
+    about: Something the extension should do, or do differently. Ideas live in GitHub Discussions, where others can upvote them.
+  - name: Question
+    url: https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=q-a
+    about: How something in the extension works. Questions live in GitHub Discussions (Q&A), where an answer can be marked.

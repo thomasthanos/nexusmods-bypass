@@ -11,6 +11,11 @@ Each entry links to its commit; sub-bullets come from the commit message and its
 (from `manifest.json`) and Git tags are noted where they happened. Commits for other extensions that shared
 the repository before NexusMods Bypass was split out (2026-08-24) are folded into collapsed sections.
 
+## Unreleased
+
+- **Ideas and questions in GitHub Discussions:** in the popup's **Report on GitHub** menu, *Idea or suggestion* and *Question* start a new discussion in *Ideas* or *Q&A* instead of an issue; a bug report is still an issue with the diagnostic report. The in-page settings have a **Suggest an idea** link beside **Report a bug**, in all 13 languages.
+- **Repository:** the feature request and question issue forms became discussion forms, the issue chooser links to them, and a new discussion is announced on Discord like a new issue.
+
 ## 3.2.0 — 2026-10-21
 
 - **Archived files ([#33](https://github.com/thomasthanos/nexusmods-bypass/issues/33)):** every file in a mod's file archive gets its own *Mod manager download* and *Manual download* buttons; only the top one did, because each file's box was looked for in the whole list. A file Nexus draws after the page has loaded gets its buttons too, and a file Nexus holds back or its virus scan flagged keeps what Nexus shows.

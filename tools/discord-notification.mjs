@@ -2,8 +2,8 @@
 // dispatcher the report relay uses (relay/discord.js): Discord's rate limits are waited out, gateway
 // errors are retried with backoff, and a failed post is a workflow warning, never a failed job. The
 // webhook comes from DISCORD_WEBHOOK_URL and is never printed or put on a command line.
-//   node tools/discord-notification.mjs <release|issue|manifest|schema> [summary.md]          print it
-//   node tools/discord-notification.mjs <release|issue|manifest|schema> [summary.md] --send   post it
+//   node tools/discord-notification.mjs <release|issue|discussion|manifest|schema> [summary.md]          print it
+//   node tools/discord-notification.mjs <release|issue|discussion|manifest|schema> [summary.md] --send   post it
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { COLORS, clip, quiet, fitEmbed, postWebhook } from '../relay/discord.js';
@@ -33,6 +33,14 @@ export function githubMessage(kind, input) {
     title = `GitHub · ${kindName}: ${issueTitle || 'New issue'}`;
     description = `Opened by ${quiet(input.I_USER || 'a user')}. Open the issue for the full ${kindNoun}.`;
     url = input.I_URL;
+    color = COLORS.notice;
+  } else if (kind === 'discussion') {
+    // Ideas and questions are GitHub discussions; the category says which.
+    const category = String(input.D_CATEGORY || '');
+    const kindName = /\bq\s*&\s*a\b|question/i.test(category) ? 'Question' : /idea|suggest/i.test(category) ? 'Idea' : 'Discussion';
+    title = `GitHub · ${kindName}: ${input.D_TITLE || 'New discussion'}`;
+    description = `Started by ${quiet(input.D_USER || 'a user')} in ${quiet(category || 'Discussions')}. Open the discussion to reply.`;
+    url = input.D_URL;
     color = COLORS.notice;
   } else if (kind === 'manifest' || kind === 'schema') {
     title = kind === 'manifest' ? `GitHub · Permissions: ${input.TITLE || 'Manifest update'}` : 'GitHub · Nexus API schema warning';

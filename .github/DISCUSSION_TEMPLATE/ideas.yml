@@ -1,0 +1,25 @@
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Something broken instead?** Use the [bug report form](https://github.com/thomasthanos/nexusmods-bypass/issues/new?template=nexus_bug_report.yml):
+        it carries the diagnostic report that makes a fault findable.
+
+        Searching the ideas first is worth a moment: if someone has suggested the same thing, an upvote
+        or a comment there helps more than a second discussion.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like the extension to do?
+      placeholder: "Expand the requirements screen on its own, so…"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why, and where?
+      description: The page or step it is for (a mod page, a collection, Vortex, Mod Organizer 2…) and what it would save you.
+    validations:
+      required: false

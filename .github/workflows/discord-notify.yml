@@ -1,8 +1,8 @@
 name: Discord notifications
 
-# Optional: posts releases published by hand and newly labelled bug reports, feature requests and questions to
-# Discord. Does nothing when the DISCORD_WEBHOOK_URL repository secret is not set. Releases made by
-# publish-release.yml announce themselves: a release published with the workflow's token starts no
+# Optional: posts releases published by hand, newly labelled issues and new discussions (ideas and
+# questions) to Discord. Does nothing when the DISCORD_WEBHOOK_URL repository secret is not set. Releases
+# made by publish-release.yml announce themselves: a release published with the workflow's token starts no
 # other workflow, so this one never hears of them.
 
 on:
@@ -12,6 +12,9 @@ on:
   # form's labels and a "labeled" event for each of them, so reacting to both posted every issue twice.
   issues:
     types: [labeled]
+  # Ideas and questions are GitHub discussions: one notice when one is started.
+  discussion:
+    types: [created]
 
 permissions:
   contents: read
@@ -20,7 +23,7 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     if: >-
-      github.event_name == 'release' ||
+      github.event_name == 'release' || github.event_name == 'discussion' ||
       (github.event.action == 'labeled' && contains(fromJSON('["bug", "enhancement", "question"]'), github.event.label.name))
     steps:
       - uses: actions/checkout@v4
@@ -38,10 +41,16 @@ jobs:
           I_URL: ${{ github.event.issue.html_url }}
           I_USER: ${{ github.event.issue.user.login }}
           I_LABEL: ${{ github.event.label.name }}
+          D_TITLE: ${{ github.event.discussion.title }}
+          D_URL: ${{ github.event.discussion.html_url }}
+          D_USER: ${{ github.event.discussion.user.login }}
+          D_CATEGORY: ${{ github.event.discussion.category.name }}
         # Skips without the secret; waits out Discord rate limits; a failed post is a warning only.
         run: |
           if [ "$KIND" = "release" ]; then
             node tools/discord-notification.mjs release --send
+          elif [ "$KIND" = "discussion" ]; then
+            node tools/discord-notification.mjs discussion --send
           else
             node tools/discord-notification.mjs issue --send
           fi

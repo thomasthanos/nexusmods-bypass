@@ -358,6 +358,8 @@ html, body {
 .popup-menu [role="menuitem"]:focus-visible { box-shadow: inset 0 0 0 1px rgba(217, 143, 64, .6); }
 .popup-menu-title { font-size: 12.5px; font-weight: 600; line-height: 1.25; }
 .popup-menu-desc { font-size: 11px; line-height: 1.35; color: var(--nxtk-text-dim); }
+/* Between the bug report (an issue) and the items that open GitHub Discussions. */
+.popup-menu-sep { height: 1px; margin: 3px 8px; background: rgba(255, 255, 255, .1); }
 
 /* Local raised surfaces: leave the shared report/onboarding buttons untouched. */
 .popup-help-primary,

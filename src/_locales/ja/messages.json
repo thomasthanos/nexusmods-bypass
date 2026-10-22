@@ -505,6 +505,14 @@
   "setReportOnGithub": {
     "message": "不具合を報告"
   },
+  "setSuggestIdea": {
+    "message": "アイデアを提案",
+    "description": "Settings footer link beside setReportOnGithub: start a GitHub discussion in Ideas."
+  },
+  "setSuggestIdeaTip": {
+    "message": "GitHub Discussions でアイデアを共有したり質問したりできます",
+    "description": "Tooltip of setSuggestIdea."
+  },
   "setRestoreTitle": {
     "message": "既定値に戻す"
   },
@@ -1722,7 +1730,7 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "GitHub の Issue フォームを開きます: 不具合の報告（診断レポート付き）、機能のリクエスト、または質問。",
+    "message": "GitHub を開きます: 不具合の報告は Issue として（診断レポート付き）、アイデアや質問は GitHub Discussions で。",
     "description": "UI string."
   },
   "githubMenuBug": {
@@ -1733,20 +1741,20 @@
     "message": "うまく動かないときに。診断レポートが入力された状態で開きます。",
     "description": "Help line under githubMenuBug."
   },
-  "githubMenuFeature": {
-    "message": "機能のリクエスト",
-    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  "githubMenuIdea": {
+    "message": "アイデア・提案",
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Ideas."
   },
-  "githubMenuFeatureDesc": {
-    "message": "新しい機能や変更を提案します。",
-    "description": "Help line under githubMenuFeature."
+  "githubMenuIdeaDesc": {
+    "message": "新しい機能や変更を GitHub Discussions で提案します。",
+    "description": "Help line under githubMenuIdea."
   },
   "githubMenuQuestion": {
     "message": "質問",
-    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Q&A."
   },
   "githubMenuQuestionDesc": {
-    "message": "使い方などを質問します。",
+    "message": "使い方などを GitHub Discussions で質問します。",
     "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {

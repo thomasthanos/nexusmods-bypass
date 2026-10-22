@@ -230,8 +230,9 @@ test('popup: the section tabs follow the ARIA tab pattern, and each action opens
 });
 
 // Every issue filed from the popup was a bug: "Report on GitHub" opened the bug form only, so a
-// feature request came in labelled bug (issue #29). The button now opens a menu of the three forms.
-test('popup: Report on GitHub opens a menu to file a bug, a feature request or a question', async () => {
+// feature request came in labelled bug (issue #29). The button opens a menu: a bug report is an issue
+// with its diagnostics, an idea or a question a new GitHub discussion in its category.
+test('popup: Report on GitHub opens a menu: a bug report, or an idea or a question in Discussions', async () => {
   // GitHub answers with a stub, so nothing leaves the test and no request counts as blocked.
   await ctx.route('https://github.com/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>GitHub</title>' }));
   try {
@@ -284,10 +285,10 @@ test('popup: Report on GitHub opens a menu to file a bug, a feature request or a
       await expect(menu).toBeHidden();
       return new URL(request.url());
     };
-    for (const [index, template] of [[1, 'feature_request.yml'], [2, 'question.yml']]) {
+    for (const [index, category] of [[1, 'ideas'], [2, 'q-a']]) {
       const url = await pick(index);
-      expect(`${url.origin}${url.pathname}`).toBe('https://github.com/thomasthanos/nexusmods-bypass/issues/new');
-      expect(url.searchParams.get('template')).toBe(template);
+      expect(`${url.origin}${url.pathname}`).toBe('https://github.com/thomasthanos/nexusmods-bypass/discussions/new');
+      expect(url.searchParams.get('category')).toBe(category);
     }
     const bug = await pick(0);
     expect(bug.searchParams.get('template'), 'a bug report keeps its prefilled diagnostics').toBe('nexus_bug_report.yml');

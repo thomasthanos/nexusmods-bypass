@@ -722,6 +722,14 @@
     "message": "Report a bug",
     "description": "Support button in the settings footer."
   },
+  "setSuggestIdea": {
+    "message": "Suggest an idea",
+    "description": "Settings footer link beside setReportOnGithub: start a GitHub discussion in Ideas."
+  },
+  "setSuggestIdeaTip": {
+    "message": "Share an idea or ask a question in GitHub Discussions",
+    "description": "Tooltip of setSuggestIdea."
+  },
   "setRestoreTitle": {
     "message": "Restore Defaults",
     "description": "Confirm dialog title."
@@ -2135,7 +2143,7 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Opens a GitHub issue form: a bug report (prefilled with your diagnostic report), a feature request or a question.",
+    "message": "Opens GitHub: a bug report as an issue (prefilled with your diagnostic report), or an idea or a question in GitHub Discussions.",
     "description": "UI string."
   },
   "githubMenuBug": {
@@ -2146,20 +2154,20 @@
     "message": "Something is broken. Opens with your diagnostic report filled in.",
     "description": "Help line under githubMenuBug."
   },
-  "githubMenuFeature": {
-    "message": "Feature request",
-    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  "githubMenuIdea": {
+    "message": "Idea or suggestion",
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Ideas."
   },
-  "githubMenuFeatureDesc": {
-    "message": "Suggest something new, or a change.",
-    "description": "Help line under githubMenuFeature."
+  "githubMenuIdeaDesc": {
+    "message": "Suggest something new or a change, in GitHub Discussions.",
+    "description": "Help line under githubMenuIdea."
   },
   "githubMenuQuestion": {
     "message": "Question",
-    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Q&A."
   },
   "githubMenuQuestionDesc": {
-    "message": "Ask how something works.",
+    "message": "Ask how something works, in GitHub Discussions.",
     "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {

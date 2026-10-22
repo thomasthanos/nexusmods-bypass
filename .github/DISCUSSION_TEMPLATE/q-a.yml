@@ -1,13 +1,11 @@
-name: "NexusMods Bypass — Question"
-description: "Ask how something in the extension works."
 title: "[Question] "
-labels: ["question", "nexusmods-bypass"]
+labels: ["question"]
 body:
   - type: markdown
     attributes:
       value: |
-        **Something broken instead?** Use the bug report form: it carries the diagnostic report that
-        makes a fault findable.
+        **Something broken instead?** Use the [bug report form](https://github.com/thomasthanos/nexusmods-bypass/issues/new?template=nexus_bug_report.yml):
+        it carries the diagnostic report that makes a fault findable.
 
         The [troubleshooting section](https://github.com/thomasthanos/nexusmods-bypass#-troubleshooting)
         answers the common ones: downloads that pause, ask you to sign in, or stop at a Cloudflare check.

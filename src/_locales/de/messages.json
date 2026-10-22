@@ -575,6 +575,14 @@
   "setReportOnGithub": {
     "message": "Fehler melden"
   },
+  "setSuggestIdea": {
+    "message": "Idee vorschlagen",
+    "description": "Settings footer link beside setReportOnGithub: start a GitHub discussion in Ideas."
+  },
+  "setSuggestIdeaTip": {
+    "message": "Teilen Sie eine Idee oder stellen Sie eine Frage in GitHub Discussions",
+    "description": "Tooltip of setSuggestIdea."
+  },
   "setRestoreTitle": {
     "message": "Standard wiederherstellen"
   },
@@ -1806,7 +1814,7 @@
     "description": "UI string."
   },
   "btnGithubReportTip": {
-    "message": "Öffnet ein GitHub-Issue-Formular: einen Fehlerbericht (mit Ihrem Diagnosebericht), einen Funktionswunsch oder eine Frage.",
+    "message": "Öffnet GitHub: einen Fehlerbericht als Issue (mit Ihrem Diagnosebericht) oder eine Idee bzw. Frage in GitHub Discussions.",
     "description": "UI string."
   },
   "githubMenuBug": {
@@ -1817,20 +1825,20 @@
     "message": "Etwas funktioniert nicht. Öffnet sich mit Ihrem Diagnosebericht.",
     "description": "Help line under githubMenuBug."
   },
-  "githubMenuFeature": {
-    "message": "Funktionswunsch",
-    "description": "Popup \"Report on GitHub\" menu item: open the feature request form."
+  "githubMenuIdea": {
+    "message": "Idee oder Vorschlag",
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Ideas."
   },
-  "githubMenuFeatureDesc": {
-    "message": "Schlagen Sie etwas Neues oder eine Änderung vor.",
-    "description": "Help line under githubMenuFeature."
+  "githubMenuIdeaDesc": {
+    "message": "Schlagen Sie etwas Neues oder eine Änderung vor, in GitHub Discussions.",
+    "description": "Help line under githubMenuIdea."
   },
   "githubMenuQuestion": {
     "message": "Frage",
-    "description": "Popup \"Report on GitHub\" menu item: open the question form."
+    "description": "Popup \"Report on GitHub\" menu item: start a GitHub discussion in Q&A."
   },
   "githubMenuQuestionDesc": {
-    "message": "Fragen Sie, wie etwas funktioniert.",
+    "message": "Fragen Sie, wie etwas funktioniert, in GitHub Discussions.",
     "description": "Help line under githubMenuQuestion."
   },
   "logRetryingAttempt": {
