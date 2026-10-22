@@ -42,11 +42,11 @@ The PNG files are present in the project and linked here; SVG source files are i
 
 | Asset | SHA-256 |
 | --- | --- |
-| [apple-touch-icon.png](../diagnostics/public/icons/apple-touch-icon.png) | 23995d689c677fdc9723effaa8daa26ed66e2adb78a7c31195cf4d64cad156f8 |
-| [badge-96.png](../diagnostics/public/icons/badge-96.png) | 002476a269e460e4a37709540e4948308da5bc069bd0180b490ecc757de845e9 |
-| [icon-192.png](../diagnostics/public/icons/icon-192.png) | 3cd76a32bb211d58beaf0f7f34fe893d1bf7f2cd39aeab368dd328555852b812 |
-| [icon-512.png](../diagnostics/public/icons/icon-512.png) | 09955e9a9e3ce96e97de462e7efc6c5b79955bb3f6daed542e5925482c30b66e |
-| [maskable-512.png](../diagnostics/public/icons/maskable-512.png) | c111d8b8a79e2d7c0ad6c1327469a11e5b1851f6d4dca4cb0e3841fc6d5a6206 |
+| <a href="../diagnostics/public/icons/apple-touch-icon.png"><kbd>apple-touch-icon.png</kbd></a> | 23995d689c677fdc9723effaa8daa26ed66e2adb78a7c31195cf4d64cad156f8 |
+| <a href="../diagnostics/public/icons/badge-96.png"><kbd>badge-96.png</kbd></a> | 002476a269e460e4a37709540e4948308da5bc069bd0180b490ecc757de845e9 |
+| <a href="../diagnostics/public/icons/icon-192.png"><kbd>icon-192.png</kbd></a> | 3cd76a32bb211d58beaf0f7f34fe893d1bf7f2cd39aeab368dd328555852b812 |
+| <a href="../diagnostics/public/icons/icon-512.png"><kbd>icon-512.png</kbd></a> | 09955e9a9e3ce96e97de462e7efc6c5b79955bb3f6daed542e5925482c30b66e |
+| <a href="../diagnostics/public/icons/maskable-512.png"><kbd>maskable-512.png</kbd></a> | c111d8b8a79e2d7c0ad6c1327469a11e5b1851f6d4dca4cb0e3841fc6d5a6206 |
 
 ## diagnostics/public/.assetsignore
 
