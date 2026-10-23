@@ -1,10 +1,11 @@
 name = "nexusmods-diagnostics"
+account_id = "f8aaefaa3460108d5ba660b547f776b1"
 main = "src/index.ts"
 compatibility_date = "2026-10-21"
 workers_dev = false
 preview_urls = false
+routes = [{ pattern = "diagnostics.thomast.uk", custom_domain = true }]
 
-# The entrypoint is delivered in Phase 3; assets are delivered in Phase 4.
 # Every asset request must pass the Access-verifying Worker first.
 [assets]
 directory = "./public"
@@ -15,7 +16,7 @@ not_found_handling = "single-page-application"
 [[d1_databases]]
 binding = "DB"
 database_name = "nexusmods-diagnostics"
-# Wrangler provisions this database when deployed; no invented database ID.
+database_id = "6865480a-8004-4731-b518-f3f9c42fb8a5"
 
 [vars]
 MAX_BODY_BYTES = "65536"

@@ -2,7 +2,22 @@
 
 This independent package contains the complete private diagnostics system: configuration, schema, privacy and delivery services, Hono API, and the buildless mobile PWA dashboard. The existing extension and deployed `../relay/` keep their current contracts.
 
-The Worker API and Phase 4 PWA are implemented. Deployment requires your real domain, Cloudflare Access application, D1 database, and secret bindings; no remote deployment has been performed.
+The Worker API and Phase 4 PWA are deployed at [diagnostics.thomast.uk](https://diagnostics.thomast.uk). Cloudflare Access requires the configured owner's email and independent MFA. The existing extension still sends reports to the legacy relay; connecting its new diagnostics and heartbeat contracts is a separate integration, so this dashboard initially has no extension data.
+
+## Live deployment
+
+The initial production deployment was completed on 23 October 2026 with Worker version `fd492afc-93f6-4a3b-bc5f-9b2fa2f20eaa`:
+
+- Worker: `nexusmods-diagnostics`, serving the API and all PWA assets on the custom HTTPS domain.
+- D1: `nexusmods-diagnostics`, restricted to the EU and running in EEUR. Its actual database ID is bound in `wrangler.toml`.
+- Access: the entire hostname requires owner-only login and MFA through biometrics, a security key, or an authenticator application. Sessions last 24 hours. Only exact `/api/ingest` and `/api/heartbeat` destination overrides are public; they do not implicitly cover subpaths.
+- Secrets: all seven required bindings are stored as encrypted Worker secrets. Secret values and temporary deployment files are excluded from Git.
+
+For first-time MFA enrollment, sign in to the [team enrollment page](https://thomast-server.cloudflareaccess.com/AddMfaDevice) with the configured owner email, then register Face ID or another allowed authenticator. Open the dashboard in Safari and follow the iPhone installation instructions below. Physical-device installation, authenticated session continuity and notification delivery must be checked on the actual phone.
+
+To redeploy this existing Worker, run `npm run check` and then `npm run deploy` from this directory. Wrangler preserves existing encrypted secrets; do not generate replacement VAPID keys during routine deployments. Provisioning a different account or database requires updating the real IDs, custom domain, Access policy and secret bindings together.
+
+The initial schema was applied through the authenticated Cloudflare D1 query API using the complete canonical `schema.sql`; the current CLI OAuth session could not use D1's file-import endpoint. All 33 application schema objects were independently compared with the source: nine tables, sixteen indexes and eight triggers. Public production smoke checks confirmed Access challenges on private assets/admin paths and path variants, valid extension CORS preflights, and rejection of invalid payloads and origins. No synthetic production report or external notification was sent.
 
 ## Directory structure
 
@@ -100,7 +115,7 @@ npm run db:init:local
 
 All seven runtime dependencies requested in the brief are pinned in `package.json`, with a committed npm lockfile. `wrangler.toml` declares `DB` and `ASSETS`, uses the current compatibility date, and enables `run_worker_first = true` for every static asset. No Node compatibility flag is enabled.
 
-`workers_dev = false` and `preview_urls = false` avoid alternative public URLs. Configure the real custom domain and Access application before publishing the server/dashboard in their later phases. No domain, account ID, database UUID, webhook, or VAPID key is invented here. D1's ID is omitted using Wrangler's supported automatic provisioning; the resource is created only when an authorized deployment actually runs. To use a pre-created database instead, set the real `database_id` returned by Cloudflare under `[[d1_databases]]`.
+`workers_dev = false` and `preview_urls = false` avoid alternative public URLs. `wrangler.toml` contains the deployed account, custom domain and D1 database IDs. Access was configured before attaching the hostname to the Worker. The D1 EU jurisdiction is a property of the provisioned database, not a Wrangler binding option.
 
 The following runtime environment names are declared in `[secrets].required`; their values stay outside source control. Account-specific public settings also use secret bindings so that configuration has no fake values:
 
@@ -114,7 +129,7 @@ The following runtime environment names are declared in `[secrets].required`; th
 | `CF_ACCESS_AUD` | The audience tag for the private Access application |
 | `RATE_LIMIT_HASH_SECRET` | A separately generated random secret for HMAC hashing IP rate-limit subjects |
 
-For local development, put the real values in an ignored `.dev.vars` file beside `wrangler.toml`. Before a later deployment, set the same names through Cloudflare's encrypted secret configuration. For example, Wrangler's interactive commands are:
+For local development, put the real values in an ignored `.dev.vars` file beside `wrangler.toml`. The deployed Worker already has these secrets. When deliberately replacing a binding, Wrangler's interactive commands are:
 
 ```powershell
 npx wrangler secret put VAPID_PUBLIC_KEY
@@ -126,7 +141,7 @@ npx wrangler secret put CF_ACCESS_AUD
 npx wrangler secret put RATE_LIMIT_HASH_SECRET
 ```
 
-These commands are setup instructions for a later deployment; none were run during Phase 1. `secret put` can create/deploy a Worker version, so use the dashboard or the appropriate version workflow when coordinating an existing deployment. Never paste secret values into shell command arguments or commit `.dev.vars`.
+The initial deployment uploaded all seven bindings together using Wrangler's `--secrets-file` option and an ignored local JSON file. `secret put` can create/deploy a Worker version, so use the dashboard or the appropriate version workflow when coordinating an existing deployment. Never paste secret values into shell command arguments or commit `.dev.vars` or a secrets file.
 
 The Access application must protect the dashboard and `/api/admin/*`; only the exact public ingest and heartbeat paths may bypass the edge login challenge. The Worker verifies the Access JWT's signature, issuer, audience, expiry, not-before and issued-at claims using `@hono/cloudflare-access` before serving protected APIs or assets. Configure Access to forward `Cf-Access-Jwt-Assertion`; a `CF_Authorization` cookie alone is rejected. Configure the permitted owner identity and required MFA/passkey policy in Access. Extension-origin CORS is a browser boundary, not client authentication.
 
@@ -174,7 +189,7 @@ The example is TypeScript intended for the extension's build/background context 
 
 ## Phase boundary and operational limits
 
-No remote resources, secrets, extension preferences, or Access policies were created or changed. Delivery tests use generated local keys and mocked HTTP boundaries. All four phases are implemented. The tracked `.assetsignore` excludes hidden files from the published asset directory.
+All four phases are implemented and the diagnostics Worker, D1, custom domain and owner-only Access policy are deployed as described above. Existing extension preferences and the legacy relay were not changed. Delivery tests use generated local keys and mocked HTTP boundaries; live Discord and device-push delivery are not implied by those tests. The tracked `.assetsignore` excludes hidden files from the published asset directory.
 
 The requested sub-50 ms ingest response is a performance target to measure after the complete D1 path exists, not a guarantee Phase 1 can establish. `waitUntil()` moves delivery out of the response path but is not a durable delivery queue; later delivery code must describe and handle its failure semantics.
 
