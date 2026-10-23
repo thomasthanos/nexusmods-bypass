@@ -17,11 +17,22 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-3-3-1"><kbd> 3.3.1 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-0"><kbd> 3.3.0 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-2-0"><kbd> 3.2.0 </kbd></a>&ensp;·&ensp;
-  <a href="#release-3-1-9"><kbd> 3.1.9 </kbd></a>&ensp;·&ensp;
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases"><kbd> All releases ↗ </kbd></a>
 </p>
+
+<a id="release-3-3-1"></a>
+
+## 3.3.1 — 2026-10-23
+
+- **Private diagnostics deployed:** the independent maintainer service now runs on Cloudflare with a custom HTTPS domain, an EU D1 database and owner-only Access login with MFA. Deployment configuration and mobile PWA installation guidance are documented in the <a href="https://github.com/thomasthanos/nexusmods-bypass/blob/main/diagnostics/README.md"><kbd>diagnostics README</kbd></a>. The extension still uses the legacy reporting relay; the new diagnostics and heartbeat integration is not part of this release.
+- **Discussions:** Ideas and Q&A forms have clearer prompts, topic choices and submission checklists; General Discussion and Show and Tell have dedicated forms.
+- **Documentation and repository:** refreshed contribution and security guidance, compact documentation links, navigable release history, responsive badges and SVG assets, and a new project social preview.
+- **Development dependencies:** upgraded `web-ext` and updated its dependency tree, including `adm-zip`, `tmp` and `shell-quote`; the older transitive `uuid` dependency is removed.
+- **Relay source baseline:** 3.3.1. The existing relay Worker is not redeployed by this release and keeps its deployed configuration until a separate deployment.
+- **Packages:** Chrome/Edge and Firefox use 3.3.1. Download behavior, extension permissions and opt-in reporting are unchanged; no new automatic or heartbeat telemetry is enabled.
 
 <a id="release-3-3-0"></a>
 
