@@ -16,8 +16,17 @@ function fixture({ privateReports = false } = {}) {
   let delivery = async () => ({ ok: true, status: 200, json: async () => ({ ok: true }) });
   const sent = [];
   const alarms = [];
+  const readErrors = new Map();
   const deps = {
-    kit, read: async (key, fallback) => structuredClone(store[key] ?? fallback),
+    kit, read: async (key, fallback, { strict = false } = {}) => {
+      const failure = readErrors.get(key);
+      if (failure && failure.skip-- <= 0) {
+        readErrors.delete(key);
+        if (strict) throw new Error('storage read failed');
+        return fallback;
+      }
+      return structuredClone(store[key] ?? fallback);
+    },
     write: async (key, value) => { store[key] = structuredClone(value); }, clock: () => now,
     api: {
       runtime: { getManifest: () => ({ version: '3.1.1' }) },
@@ -32,11 +41,69 @@ function fixture({ privateReports = false } = {}) {
     enablePrivate: () => { store[kit.SETTINGS_KEY].AutoErrorReports = true; store[kit.SETTINGS_KEY].PrivateDiagnostics = true; },
     disable: () => { store[kit.SETTINGS_KEY].AutoErrorReports = false; },
     advance: (ms) => { now += ms; }, delivery: (fn) => { delivery = fn; }, restart: () => { reporter = new SelectedReporter(deps); },
+    failReadOnce: (key, skip = 0) => { readErrors.set(key, { skip }); },
     entry: (overrides = {}) => kit.buildErrorEntry({ code: 'nexus_api_changed', context: 'Reading collection response', ...overrides })
   };
 }
 
 async function run() {
+  for (const privateReports of [false, true]) {
+    for (const failedRead of ['queue', 'settings', 'delivery-settings']) {
+      const f = fixture({ privateReports });
+      if (privateReports) f.enablePrivate(); else f.enable();
+      f.store[f.kit.SETTINGS_KEY].AutoReportDiagnostics = true;
+      f.store[f.kit.DEBUG_LOG_KEY] = [{ at: Date.UTC(2026, 9, 14, 12) - 1000,
+        page: 'extension', text: 'Before the failed request' }];
+      f.delivery(async () => { throw new TypeError('connection lost'); });
+      await f.reporter.enqueue(f.entry()); await f.reporter.flush();
+      const saved = structuredClone(f.store[f.KEY]);
+      const original = f.sent[0].payload;
+      f.restart(); f.advance(60000);
+      f.alarms.length = 0; // The one-shot alarm was consumed before its listener called flush().
+      f.failReadOnce(failedRead === 'queue' ? f.KEY : f.kit.SETTINGS_KEY,
+        failedRead === 'delivery-settings' ? 1 : 0);
+      await assert.rejects(f.reporter.flush(), /storage read failed/,
+        `${failedRead}: unreadable storage must not be treated as an empty queue or revoked consent`);
+      assert.deepEqual(f.store[f.KEY], saved, `${failedRead}: a failed read preserves the durable report`);
+      assert.equal(f.sent.length, 1, `${failedRead}: no delivery is attempted without readable consent and state`);
+      assert.equal(f.alarms.length, 1, `${failedRead}: a consumed alarm is replaced after the transient failure`);
+      assert.equal(f.alarms[0].name, f.reporter.alarm);
+      assert.equal(f.alarms[0].when, Date.UTC(2026, 9, 14, 12) + 120000, 'storage recovery is retried in one minute');
+      f.delivery(async (_url, init) => ({ ok: true, json: async () => ({ ok: true,
+        ...(privateReports ? { report_id: JSON.parse(init.body).report_id } : {}) }) }));
+      await f.reporter.flush();
+      assert.deepEqual(f.sent[1].payload, original, `${failedRead}: recovery retries the original report`);
+      assert.equal(f.store[f.KEY].pending.length, 0, `${failedRead}: recovered storage permits delivery`);
+    }
+    {
+      const f = fixture({ privateReports });
+      if (privateReports) f.enablePrivate(); else f.enable();
+      f.delivery(async () => { throw new TypeError('connection lost'); });
+      await f.reporter.enqueue(f.entry()); await f.reporter.flush();
+      f.alarms.length = 0;
+      f.disable(); await f.reporter.flush();
+      assert.equal(f.alarms.length, 0, 'explicitly revoked consent does not arm a recovery alarm');
+      assert.equal(f.store[f.KEY].pending.length, 0);
+    }
+    {
+      const f = fixture({ privateReports });
+      if (privateReports) f.enablePrivate(); else f.enable();
+      f.delivery(async () => { throw new TypeError('connection lost'); });
+      await f.reporter.enqueue(f.entry()); await f.reporter.flush();
+      f.alarms.length = 0;
+      const read = f.reporter.read;
+      let stopped;
+      f.reporter.read = async () => {
+        f.reporter.read = read;
+        stopped = f.reporter.stop();
+        throw new Error('storage read failed');
+      };
+      await assert.rejects(f.reporter.flush(), /storage read failed/);
+      await stopped;
+      assert.equal(f.alarms.length, 0, 'stopping a failed flush does not resurrect its retry alarm');
+      assert.equal(f.store[f.KEY].pending.length, 0);
+    }
+  }
   {
     const f = fixture({ privateReports: true });
     f.enable();

@@ -22,6 +22,7 @@
     "@hono/zod-validator": "0.9.1",
     "compare-versions": "6.1.1",
     "error-stack-parser-es": "2.0.1",
+    "fast-xml-parser": "5.11.2",
     "hono": "4.13.13",
     "zod": "4.6.7"
   },

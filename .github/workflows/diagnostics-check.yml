@@ -28,8 +28,8 @@ jobs:
       - run: npx playwright install --with-deps chromium webkit
       - name: Mobile PWA browser tests
         run: npm run test:browser
-      - name: WebKit protected mutation origin regression
-        run: node --test test/browser/origin.test.mjs
+      - name: WebKit mobile PWA and protected mutation regressions
+        run: npm run test:browser
         env:
           NXTK_DIAGNOSTICS_BROWSER: webkit
       - name: Worker bundle without deployment

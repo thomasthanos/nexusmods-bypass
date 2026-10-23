@@ -10,6 +10,8 @@ const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:
 const issueIdentifier = (value) => /^[1-9][0-9]{0,15}$/.test(String(value)) && Number.isSafeInteger(Number(value)) ? Number(value) : null;
 const humanize = (value) => String(value ?? 'unknown').replaceAll('_', ' ');
 const REPORT_SETUP = 'In the updated extension, open Settings → Diagnostics and enable “Send technical error reports automatically” and “Private diagnostics dashboard”. New automatic reports appear here after opt-in. Earlier Discord messages and manual reports are not imported.';
+const GITHUB_ISSUES_URL = 'https://github.com/thomasthanos/nexusmods-bypass/issues';
+const GITHUB_DISCUSSIONS_URL = 'https://github.com/thomasthanos/nexusmods-bypass/discussions';
 
 /** The dashboard keeps private diagnostics in memory and renders data only as text. */
 export function createDashboard({ document: doc = globalThis.document, window: win = globalThis.window, request: suppliedRequest, mountPush = mountPushManager } = {}) {
@@ -19,6 +21,8 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   const listeners = [];
   const overviewFilters = { ...dateRange(30), browser: '', destination: '' };
   let issueFilters = { ...dateRange(30), q: '', version: '', browser: '', os: '', destination: '', download_mode: '', status: '', fault_origin: '', category: '', severity: '', muted: '' };
+  let automaticOverviewDates = true;
+  let automaticIssueDates = true;
   let currentView = 'overview';
   let viewGeneration = 0;
   let detailGeneration = 0;
@@ -201,6 +205,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   }
 
   async function loadOverview() {
+    if (automaticOverviewDates) Object.assign(overviewFilters, dateRange(30));
     const generation = ++viewGeneration; abortAll('view:');
     const target = elements['view-overview']; loading(target);
     try {
@@ -215,7 +220,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       const form = node('form', 'toolbar'); form.dataset.form = 'overview';
       form.append(field('From', 'from', filters.from), field('To', 'to', filters.to), field('Browser', 'browser', filters.browser, BROWSERS), field('Destination', 'destination', filters.destination, ['browser', 'vortex', 'mo2']));
       const apply = node('button', 'button button-primary', 'Apply'); apply.type = 'submit'; form.append(apply);
-      form.addEventListener('submit', (event) => { event.preventDefault(); const next = filtersFrom(form, overviewFilters); if (!validDates(next.from, next.to)) return dateError(form); Object.assign(overviewFilters, next); releasePage = 1; void loadOverview(); }); target.append(form);
+      form.addEventListener('submit', (event) => { event.preventDefault(); const next = filtersFrom(form, overviewFilters); if (!validDates(next.from, next.to)) return dateError(form); if (next.from !== overviewFilters.from || next.to !== overviewFilters.to) automaticOverviewDates = false; Object.assign(overviewFilters, next); releasePage = 1; void loadOverview(); }); target.append(form);
       const metrics = summary.releases ?? {};
       const grid = node('div', 'metric-grid');
       grid.append(metric('Real success rate', formatPercent(metrics.success_rate_percent), `${formatNumber(metrics.success_count)} / ${formatNumber(metrics.attempts_count)} attempts`), metric('Fallback usage', formatPercent(metrics.fallback_rate_percent), `${formatNumber(metrics.fallback_triggered_count)} attempts used fallback`), metric('Issues in window', formatNumber(summary.issues?.total), `${formatNumber(summary.issues?.regressed_count)} regressed · ${formatNumber(summary.issues?.new_count)} new`), metric('Retained reports', formatNumber(summary.reports?.total), `${formatNumber(summary.reports?.distinct_installs)} anonymous installs`));
@@ -279,12 +284,85 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     wrapper.append(form, result); target.append(wrapper);
   }
 
+  async function loadGithubIssues(target, generation) {
+    loading(target, 'Loading open GitHub issues…');
+    try {
+      const data = await request('view:github', '/github-issues');
+      if (!isCurrent(generation)) return;
+      if (!Array.isArray(data?.items)) throw new Error('Invalid GitHub response');
+      target.replaceChildren(); settled(target);
+      if (data.stale) target.append(node('p', 'inline-message', 'GitHub is temporarily unavailable. Showing the last cached list; use Refresh to retry.'));
+      if (!data.items.length) empty(target, 'No open GitHub issues', 'New public reports will appear here after the next refresh.');
+      else {
+        const list = node('div', 'issue-list');
+        for (const issue of data.items) {
+          const url = safeGithubUrl(issue?.url);
+          if (!Number.isSafeInteger(issue?.number) || issue.number < 1 || issue.state !== 'open' || typeof issue.title !== 'string' || url !== `${GITHUB_ISSUES_URL}/${issue.number}`) continue;
+          const row = node('a', 'issue-row'); row.href = url; row.target = '_blank'; row.rel = 'noopener noreferrer';
+          const main = node('span', 'issue-main');
+          const title = node('span', 'issue-row-heading'); title.append(node('strong', '', issue.title), tag('GitHub'), tag('open', 'success'));
+          const metadata = node('span', 'issue-row-meta'); metadata.append(node('span', '', `#${issue.number} · Updated ${relativeTime(issue.updated_at)}`));
+          if (Array.isArray(issue.labels)) for (const label of issue.labels) if (typeof label === 'string') metadata.append(tag(label));
+          if (Number.isSafeInteger(issue.comments) && issue.comments >= 0) metadata.append(node('span', '', `${formatNumber(issue.comments)} comments`));
+          main.append(title, metadata); row.append(main); list.append(row);
+        }
+        target.append(list);
+      }
+      if (data.truncated) target.append(node('p', 'muted', 'More open issues are available in the complete GitHub list.'));
+      target.append(node('p', 'muted', `GitHub last checked ${formatDate(data.fetched_at)}.`));
+    } catch (error) {
+      if (!isCurrent(generation) || error?.name === 'AbortError') return;
+      settled(target); target.replaceChildren(node('p', 'inline-message', 'GitHub issues are temporarily unavailable. Use Refresh to retry, or open the repository on GitHub.'));
+    }
+  }
+  async function loadGithubDiscussions(target, generation) {
+    loading(target, 'Loading recent GitHub discussions…');
+    try {
+      const data = await request('view:github-discussions', '/github-discussions');
+      if (!isCurrent(generation)) return;
+      if (!Array.isArray(data?.items)) throw new Error('Invalid GitHub response');
+      target.replaceChildren(); settled(target);
+      if (data.stale) target.append(node('p', 'inline-message', 'GitHub discussions are temporarily unavailable. Showing the last cached feed; use Refresh to retry.'));
+      const list = node('div', 'issue-list');
+      for (const discussion of data.items) {
+        if (!Number.isSafeInteger(discussion?.number) || discussion.number < 1 || typeof discussion.title !== 'string'
+          || discussion.url !== `${GITHUB_DISCUSSIONS_URL}/${discussion.number}`) continue;
+        const row = node('a', 'issue-row'); row.href = discussion.url; row.target = '_blank'; row.rel = 'noopener noreferrer';
+        const main = node('span', 'issue-main');
+        const title = node('span', 'issue-row-heading'); title.append(node('strong', '', discussion.title), tag('Discussion'));
+        main.append(title, node('span', 'issue-row-meta', `#${discussion.number} · Updated ${relativeTime(discussion.updated_at)}`));
+        row.append(main); list.append(row);
+      }
+      if (list.childElementCount) target.append(list);
+      else empty(target, 'No recent GitHub discussions', 'The public feed has no recent discussions. Open GitHub to browse the complete discussion list.');
+      target.append(node('p', 'muted', `Recent discussion feed last checked ${formatDate(data.fetched_at)}.`));
+    } catch (error) {
+      if (!isCurrent(generation) || error?.name === 'AbortError') return;
+      settled(target); target.replaceChildren(node('p', 'inline-message', 'GitHub discussions are temporarily unavailable. Use Refresh to retry, or open discussions on GitHub.'));
+    }
+  }
+  function resetIssueFilters() {
+    automaticIssueDates = true;
+    issueFilters = { ...Object.fromEntries(Object.keys(issueFilters).map((key) => [key, ''])), ...dateRange(30) };
+    issuePage = 1; void loadIssues();
+  }
   async function loadIssues() {
-    const generation = ++viewGeneration; abortAll('view:'); const target = elements['view-issues']; loading(target);
+    if (automaticIssueDates) Object.assign(issueFilters, dateRange(30));
+    const generation = ++viewGeneration; abortAll('view:'); const view = elements['view-issues']; view.replaceChildren(); settled(view);
+    view.append(heading('Issues', 'Public GitHub issues, recent discussions and automatic extension diagnostics.', 1));
+    const github = section('Open GitHub issues', 'Public reports from thomasthanos/nexusmods-bypass. Diagnostic date, status and environment filters apply below.'); github.dataset.githubIssues = '';
+    const repository = node('a', 'button button-quiet button-small', 'Open GitHub issues ↗'); repository.href = GITHUB_ISSUES_URL; repository.target = '_blank'; repository.rel = 'noopener noreferrer'; github.append(repository);
+    const githubContent = node('div'); github.append(githubContent); view.append(github);
+    const discussions = section('Recent GitHub discussions', 'Recent entries from the public repository feed. Diagnostic filters apply to extension reports below.'); discussions.dataset.githubDiscussions = '';
+    const discussionRepository = node('a', 'button button-quiet button-small', 'Open GitHub discussions ↗'); discussionRepository.href = GITHUB_DISCUSSIONS_URL; discussionRepository.target = '_blank'; discussionRepository.rel = 'noopener noreferrer'; discussions.append(discussionRepository);
+    const discussionsContent = node('div'); discussions.append(discussionsContent); view.append(discussions);
+    const target = node('section', 'stack'); target.dataset.diagnosticIssues = ''; target.setAttribute('aria-label', 'Automatic extension diagnostics'); view.append(target);
+    const githubPending = Promise.all([loadGithubIssues(githubContent, generation), loadGithubDiscussions(discussionsContent, generation)]);
+    loading(target, 'Loading extension diagnostics…');
     try {
       const data = await request('view:issues', `/issues${queryString({ ...issueFilters, page: issuePage, limit: 20 })}`);
       if (!isCurrent(generation)) return;
-      target.replaceChildren(); settled(target); target.append(heading('Issues', 'Search grouped failures, then inspect the report that explains them. Dates use UTC.', 1));
+      target.replaceChildren(); settled(target); target.append(heading('Extension diagnostics', 'Grouped opt-in error reports. Search failures, then inspect their evidence. Dates use UTC.'));
       const form = node('form', 'panel'); form.dataset.form = 'issues';
       const primary = node('div', 'toolbar'); primary.append(field('Search', 'q', issueFilters.q), field('Status', 'status', issueFilters.status, STATUSES), field('Version', 'version', issueFilters.version));
       primary.querySelector('[name="q"]').maxLength = 200; primary.querySelector('[name="version"]').maxLength = 64;
@@ -295,12 +373,13 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       for (const [label, name, choices] of [['Browser', 'browser', BROWSERS], ['OS', 'os', SYSTEMS], ['Destination', 'destination', ['browser', 'vortex', 'mo2']], ['Mode', 'download_mode', ['manual', 'auto']], ['Fault origin', 'fault_origin', FAULTS], ['Severity', 'severity', ['debug', 'info', 'warning', 'error', 'fatal']], ['Muted', 'muted', ['true', 'false']]]) advanced.append(field(label, name, issueFilters[name], choices));
       advanced.append(field('Category', 'category', issueFilters.category), field('From', 'from', issueFilters.from), field('To', 'to', issueFilters.to)); advanced.querySelector('[name="category"]').maxLength = 80;
       disclosure.append(advanced); form.append(disclosure);
-      form.append(button('Reset filters', () => { issueFilters = { ...Object.fromEntries(Object.keys(issueFilters).map((key) => [key, ''])), ...dateRange(30) }; issuePage = 1; void loadIssues(); }, 'button button-quiet button-small'));
+      form.append(button('Reset filters', resetIssueFilters, 'button button-quiet button-small'));
       form.addEventListener('submit', (event) => {
         event.preventDefault(); const next = filtersFrom(form, issueFilters); if (!validDates(next.from, next.to)) return dateError(form);
         if ((next.version && !SEMVER.test(next.version)) || (next.category && !/^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/.test(next.category))) {
           form.querySelector('[data-validation]')?.remove(); const validation = node('p', 'inline-message', 'Enter a complete release version and a category identifier, such as DOM_SELECTOR_MISSING.'); validation.dataset.validation = ''; validation.setAttribute('role', 'alert'); form.append(validation); return;
         }
+        if (next.from !== issueFilters.from || next.to !== issueFilters.to) automaticIssueDates = false;
         issueFilters = next; issuePage = 1; void loadIssues();
       }); target.append(form);
       const list = node('div', 'issue-list'); list.setAttribute('aria-label', 'Filtered issues');
@@ -310,9 +389,10 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     } catch (error) {
       if (isCurrent(generation)) {
         showError(target, error, () => { void loadIssues(); });
-        if (!invalidated && error?.name !== 'AbortError') target.append(button('Reset filters', () => { issueFilters = { ...Object.fromEntries(Object.keys(issueFilters).map((key) => [key, ''])), ...dateRange(30) }; issuePage = 1; void loadIssues(); }, 'button button-quiet'));
+        if (!invalidated && error?.name !== 'AbortError') target.append(button('Reset filters', resetIssueFilters, 'button button-quiet'));
       }
     }
+    await githubPending;
   }
 
   async function loadSettings() {

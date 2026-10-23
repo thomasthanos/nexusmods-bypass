@@ -36,7 +36,7 @@
 
     async enabled() {
       if (!this.kit.RELAY_CONFIGURED) return false;
-      const settings = await this.read(this.kit.SETTINGS_KEY, null);
+      const settings = await this.read(this.kit.SETTINGS_KEY, null, { strict: true });
       return settings?.AutoErrorReports === true && settings?.PrivateDiagnostics !== true;
     }
 
@@ -46,7 +46,8 @@
 
     async state() {
       const now = this.clock();
-      const saved = await this.read(this.key, null) || {};
+      // A transient storage failure must not replace durable reports with an empty queue.
+      const saved = await this.read(this.key, null, { strict: true }) || {};
       const day = new Date(now).toISOString().slice(0, 10);
       return {
         day, count: saved.day === day ? Number(saved.count) || 0 : 0,
@@ -84,7 +85,7 @@
         const state = await this.state();
         const now = this.clock();
         const observedAt = Number.isFinite(entry.at) && entry.at > 0 ? Math.min(entry.at, now) : now;
-        const settings = await this.read(this.kit.SETTINGS_KEY, null);
+        const settings = await this.read(this.kit.SETTINGS_KEY, null, { strict: true });
         const diagnostics = settings?.AutoReportDiagnostics === true
           ? this.kit.autoReportDiagnostics(entry, await this.read(this.kit.DEBUG_LOG_KEY, []), now) : null;
         let pending = state.pending.find((p) => p.fingerprint === fingerprint);
@@ -147,7 +148,7 @@
             item.attempts += 1;
             state.attempts += 1;
             item.nextAt = now + Math.min(3600000, 60000 * 2 ** (item.attempts - 1));
-            const settings = await this.read(this.kit.SETTINGS_KEY, null);
+            const settings = await this.read(this.kit.SETTINGS_KEY, null, { strict: true });
             if (settings?.AutoReportDiagnostics !== true) delete item.payload.diagnostics;
             if (!this.deliveryAllowed(item, settings)) {
               state.pending = state.pending.filter((pending) => pending !== item);
@@ -219,7 +220,17 @@
             await this.schedule(state);
           });
         }
-      })();
+      })().catch(async (cause) => {
+        // Alarm events consume a one-shot alarm. A transient storage error before schedule()
+        // must leave another wakeup, without trying to read that same unavailable storage.
+        // Serialize with stop(): if it starts during alarm creation, its clear runs afterwards.
+        await this.serial(async () => {
+          if (generation === this.generation) {
+            await this.api.alarms.create(this.alarm, { when: this.clock() + 60000 });
+          }
+        }).catch(() => undefined);
+        throw cause;
+      });
       this.running = run;
       const clear = () => { if (this.running === run) this.running = null; };
       run.then(clear, clear);
@@ -270,7 +281,7 @@
 
     async enabled() {
       if (!this.kit.RELAY_CONFIGURED) return false;
-      const settings = await this.read(this.kit.SETTINGS_KEY, null);
+      const settings = await this.read(this.kit.SETTINGS_KEY, null, { strict: true });
       return settings?.AutoErrorReports === true && settings?.PrivateDiagnostics === true;
     }
 

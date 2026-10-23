@@ -24,6 +24,10 @@ export async function startPreviewServer() {
   globalThis.fetch = async (input) => {
     const url = input instanceof Request ? input.url : String(input);
     if (url === 'https://fixture.cloudflareaccess.com/cdn-cgi/access/certs') return Response.json({ keys: [jwk] });
+    if (url === 'https://api.github.com/repos/thomasthanos/nexusmods-bypass/issues?state=open&sort=updated&direction=desc&per_page=100&page=1') return Response.json([
+      { number: 34, title: 'Changing the download folder', html_url: 'https://github.com/thomasthanos/nexusmods-bypass/issues/34', state: 'open', labels: [{ name: 'question' }], created_at: '2026-10-20T10:00:00Z', updated_at: '2026-10-22T11:00:00Z', comments: 2 }
+    ]);
+    if (url === 'https://github.com/thomasthanos/nexusmods-bypass/discussions.atom') return new Response('<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Discussions</title><id>https://github.com/thomasthanos/nexusmods-bypass/discussions</id><updated>2026-10-22T11:00:00Z</updated><entry><id>https://github.com/thomasthanos/nexusmods-bypass/discussions/35</id><title>Collection troubleshooting</title><link rel="alternate" href="https://github.com/thomasthanos/nexusmods-bypass/discussions/35"/><updated>2026-10-22T11:00:00Z</updated></entry></feed>', { headers: { 'content-type': 'application/atom+xml; charset=utf-8' } });
     throw new Error('External delivery is disabled in the synthetic preview');
   };
   const vapid = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);

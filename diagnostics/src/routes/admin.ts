@@ -8,6 +8,8 @@ import { ingestionOptions, integerSetting, notificationConfiguration } from '../
 import { browserSchema, destinationSchema, metricDateSchema, osSchema, severitySchema, versionSchema } from '../schemas/ingest.ts';
 import { validateSubscription } from '../services/delivery.ts';
 import { sendTestNotification } from '../services/notifications.ts';
+import { getGithubIssues } from '../services/github.ts';
+import { getGithubDiscussions } from '../services/github-discussions.ts';
 import { sanitizeText } from '../utils/sanitize.ts';
 
 type SqlValue = string | number | null;
@@ -143,6 +145,18 @@ function subscriptionValue(row: SubscriptionRow) {
 
 /** Parent Worker verifies Access and same-origin mutations before mounting. */
 export const adminRoutes = new Hono<AppEnv>();
+
+adminRoutes.get('/github-issues', async (c) => {
+  if (!query(c, z.strictObject({}))) return badRequest(c);
+  try { return c.json(await getGithubIssues({ now: () => c.get('serverNow') })); }
+  catch { return c.json({ error: 'GitHub issues unavailable' }, 503); }
+});
+
+adminRoutes.get('/github-discussions', async (c) => {
+  if (!query(c, z.strictObject({}))) return badRequest(c);
+  try { return c.json(await getGithubDiscussions({ now: () => c.get('serverNow') })); }
+  catch { return c.json({ error: 'GitHub discussions unavailable' }, 503); }
+});
 
 adminRoutes.get('/overview', async (c) => {
   const input = query(c, overviewQuerySchema);

@@ -2,7 +2,7 @@
 
 This independent package contains the complete private diagnostics system: configuration, schema, privacy and delivery services, Hono API, and the buildless mobile PWA dashboard. The existing extension and deployed `../relay/` keep their current contracts.
 
-The Worker API and mobile PWA are deployed at [diagnostics.thomast.uk](https://diagnostics.thomast.uk). Cloudflare Access requires the configured owner's email and independent MFA. The extension's separate **Private diagnostics dashboard** opt-in connects future automatic error reports through the existing relay. Existing reporting choices do not enable this integration, and historical Discord reports are not imported. Heartbeat/download-attempt telemetry remains a separate, unimplemented client integration.
+The Worker API and mobile PWA are deployed at [diagnostics.thomast.uk](https://diagnostics.thomast.uk). Cloudflare Access requires the configured owner's email and independent MFA. **Issues** also shows open public GitHub issues and recent Discussions from this repository, independently of diagnostic filters. The extension's separate **Private diagnostics dashboard** opt-in connects future automatic error reports through the existing relay. Existing reporting choices do not enable this integration, and historical Discord reports are not imported. Heartbeat/download-attempt telemetry remains a separate, unimplemented client integration.
 
 ## Live deployment
 
@@ -12,6 +12,8 @@ The initial production deployment was completed on 23 October 2026 with Worker v
 - D1: `nexusmods-diagnostics`, restricted to the EU and running in EEUR. Its actual database ID is bound in `wrangler.toml`.
 - Access: the entire hostname requires owner-only login and MFA through biometrics, a security key, or an authenticator application. Sessions last 24 hours. Only exact `/api/ingest` and `/api/heartbeat` destination overrides are public; they do not implicitly cover subpaths.
 - Secrets: all seven required bindings are stored as encrypted Worker secrets. Secret values and temporary deployment files are excluded from Git.
+
+The mobile GitHub Issues and Discussions update was deployed on 23 October 2026 as Worker version `56291536-a124-402e-bd96-fa5b362deb74`, using native Workers Assets. The existing D1 and all seven encrypted secrets were preserved. Public checks confirm Access challenges on the dashboard, scripts and both GitHub admin endpoints, and a valid extension CORS preflight on ingestion. Tests cover the real protected API with SQLite and live public GitHub sources; physical iPhone installation and notification display still require a device check.
 
 The team App Launcher is enabled with the same owner-only identity policy so MFA enrollment is available before the first dashboard login. For first-time enrollment, sign in to the [team enrollment page](https://thomast-server.cloudflareaccess.com/AddMfaDevice) with the configured owner email, then register Face ID or another allowed authenticator. Open the dashboard in Safari and follow the iPhone installation instructions below. Physical-device installation, authenticated session continuity and notification delivery must be checked on the actual phone.
 
@@ -38,6 +40,10 @@ The initial schema was applied through the authenticated Cloudflare D1 query API
 The client creates a random local installation seed only after consent and sends its SHA-256 hash with browser/OS information and redacted technical errors. Extra debug lines still require the separate extra-diagnostics choice. A saved UUID and immutable delivery body make retries idempotent. Disabling reporting clears pending reports; it does not remove already accepted server records. No new manifest host permission is needed: requests use the existing relay hostname from the extension's background context.
 
 **Errors are not attempt telemetry.** This extension integration does not send heartbeat deltas, successful-download counts or fallback counts. Overview leaves success/fallback rates unavailable until genuine attempt data exists. Empty report lists remain possible until users install this client, explicitly enable the setting and encounter an eligible fault. The service does not import older Discord messages.
+
+**GitHub issues are a separate source.** The protected `/api/admin/github-issues` endpoint reads only open issues from the fixed public `thomasthanos/nexusmods-bypass` repository. Pull requests are excluded. The dashboard shows GitHub titles, labels and links without converting them into diagnostic reports or changing occurrence/install counts. This needs no GitHub token and never writes to GitHub. The Worker caches only normalized public issue metadata for five minutes and can show a clearly marked cached list during a temporary GitHub outage; private dashboard responses remain `no-store`. Refresh updates all sources. When the app resumes on a later UTC day, untouched default date ranges advance; deliberately selected historical ranges stay fixed.
+
+**Discussions are another independent source.** The protected `/api/admin/github-discussions` endpoint reads this repository's public Atom feed and exposes only recent discussion titles, canonical links, numbers and update times. The feed is a recent list, not an exhaustive archive or an open/answered-status query. It uses the same public-cache freshness and stale-fallback policy, with a separate cache. No GitHub token, author profiles, post bodies or external images reach the dashboard. XML document types and entity declarations are rejected before parsing, links stay within the fixed repository, and UI content renders as text. A failure in any source leaves the other sources usable.
 
 ## Directory structure
 
@@ -133,7 +139,7 @@ npm run db:init:local
 
 ## Configuration and secrets
 
-All seven runtime dependencies requested in the brief are pinned in `package.json`, with a committed npm lockfile. `wrangler.toml` declares `DB` and `ASSETS`, uses the current compatibility date, and enables `run_worker_first = true` for every static asset. No Node compatibility flag is enabled.
+Runtime dependencies are pinned in `package.json`, with a committed npm lockfile. `fast-xml-parser` handles the public Discussions Atom feed only, with declarations rejected and parsing limits applied. `wrangler.toml` declares `DB` and `ASSETS`, uses the current compatibility date, and enables `run_worker_first = true` for every static asset. No Node compatibility flag is enabled.
 
 `workers_dev = false` and `preview_urls = false` avoid alternative public URLs. `wrangler.toml` contains the deployed account, custom domain and D1 database IDs. Access was configured before attaching the hostname to the Worker. The D1 EU jurisdiction is a property of the provisioned database, not a Wrangler binding option.
 

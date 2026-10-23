@@ -19,6 +19,8 @@ function setup(t, handler, url = 'https://diagnostics.test/', options = {}) {
   const request = async (path, options = {}) => {
     calls.push({ path, options });
     if (handler) { const response = handler(path, options); if (response !== undefined) return response; }
+    if (path === '/github-issues') return { items: [], total: 0, truncated: false, repository_url: 'https://github.com/thomasthanos/nexusmods-bypass/issues', fetched_at: '2026-10-22T12:00:00.000Z', stale: false };
+    if (path === '/github-discussions') return { items: [], total: 0, repository_url: 'https://github.com/thomasthanos/nexusmods-bypass/discussions', fetched_at: '2026-10-22T12:00:00.000Z', stale: false };
     if (path.startsWith('/overview')) return overview;
     if (path.startsWith('/releases/compare')) return { before: { version: '3.1.0', attempts_count: 0, success_rate_percent: null, fallback_rate_percent: null }, after: { version: '3.2.0', attempts_count: 0, success_rate_percent: null, fallback_rate_percent: null }, success_rate_delta_pp: null, fallback_rate_delta_pp: null };
     if (path.startsWith('/releases')) return { items: [{ version: '3.2.0', ...overview.releases }], total: 1, page: 1, limit: 10 };
@@ -73,6 +75,188 @@ test('issue filters send every dimension together and reset pagination', async (
   const query = new URL(path, 'https://example.test').searchParams;
   for (const [name, value] of Object.entries(values)) assert.equal(query.get(name), value);
   assert.equal(query.get('page'), '1');
+});
+
+test('resuming across UTC midnight advances automatic issue and overview dates', async (t) => {
+  let clock = Date.UTC(2026, 9, 22, 23, 59);
+  t.mock.method(Date, 'now', () => clock);
+  const { app, document, dom, calls } = setup(t);
+  await app.navigate('issues');
+  clock = Date.UTC(2026, 9, 23, 0, 1);
+  dom.window.dispatchEvent(new dom.window.PageTransitionEvent('pageshow', { persisted: true })); await tick();
+  const resumed = calls.filter(({ path }) => path.startsWith('/issues?')).at(-1).path;
+  assert.match(resumed, /from=2026-09-24&to=2026-10-23/);
+  assert.equal(document.querySelector('[data-form="issues"] [name="to"]').value, '2026-10-23');
+  await app.navigate('overview');
+  assert.match(calls.filter(({ path }) => path.startsWith('/overview?')).at(-1).path, /from=2026-09-24&to=2026-10-23/);
+  clock = Date.UTC(2026, 9, 24, 0, 1);
+  document.querySelector('#refresh-button').click(); await tick();
+  assert.match(calls.filter(({ path }) => path.startsWith('/overview?')).at(-1).path, /from=2026-09-25&to=2026-10-24/);
+});
+
+test('automatic date rollover preserves deliberately selected historical ranges', async (t) => {
+  let clock = Date.UTC(2026, 9, 22, 23, 59);
+  t.mock.method(Date, 'now', () => clock);
+  const { app, document, calls } = setup(t);
+  await app.navigate('issues');
+  const form = document.querySelector('[data-form="issues"]');
+  form.elements.namedItem('from').value = '2026-09-01'; form.elements.namedItem('to').value = '2026-09-10';
+  form.dispatchEvent(new document.defaultView.Event('submit', { cancelable: true })); await tick();
+  clock = Date.UTC(2026, 9, 23, 0, 1);
+  document.querySelector('#refresh-button').click(); await tick();
+  assert.match(calls.filter(({ path }) => path.startsWith('/issues?')).at(-1).path, /from=2026-09-01&to=2026-09-10/);
+  [...document.querySelectorAll('[data-form="issues"] button')].find((button) => button.textContent === 'Reset filters').click(); await tick();
+  clock = Date.UTC(2026, 9, 24, 0, 1);
+  document.querySelector('#refresh-button').click(); await tick();
+  assert.match(calls.filter(({ path }) => path.startsWith('/issues?')).at(-1).path, /from=2026-09-25&to=2026-10-24/);
+});
+
+const githubIssue = (overrides = {}) => ({ number: 34, title: 'Changing the download folder', url: 'https://github.com/thomasthanos/nexusmods-bypass/issues/34', state: 'open', labels: ['question'], created_at: '2026-10-20T10:00:00Z', updated_at: '2026-10-22T11:00:00Z', comments: 2, ...overrides });
+const githubResult = (items, overrides = {}) => ({ items, total: items.length, truncated: false, repository_url: 'https://github.com/thomasthanos/nexusmods-bypass/issues', fetched_at: '2026-10-22T12:00:00.000Z', stale: false, ...overrides });
+
+test('GitHub issues remain visible independently of diagnostic filters and render untrusted text safely', async (t) => {
+  const { app, document, calls } = setup(t, (path) => path === '/github-issues' ? githubResult([
+    githubIssue({ title: '<img src=x onerror=alert(1)>', labels: ['<script>bad</script>'] }),
+    githubIssue({ number: 35, title: 'External issue', url: 'https://github.com/other/repo/issues/35' })
+  ]) : undefined);
+  await app.navigate('issues');
+  const panel = document.querySelector('[data-github-issues]');
+  assert.ok(panel, 'Issues must display the independent GitHub source');
+  assert.match(panel.textContent, /GitHub/); assert.match(panel.textContent, /<img src=x/); assert.match(panel.textContent, /<script>bad/);
+  assert.equal(panel.querySelector('img, script, [onerror]'), null);
+  const link = panel.querySelector('a[href$="/34"]');
+  assert.equal(link?.target, '_blank'); assert.match(link?.rel ?? '', /noopener/); assert.match(link?.rel ?? '', /noreferrer/);
+  assert.equal(panel.querySelector('a[href*="other/repo"]'), null);
+  const form = document.querySelector('[data-form="issues"]');
+  form.elements.namedItem('status').value = 'fixed';
+  form.elements.namedItem('from').value = '2026-09-01'; form.elements.namedItem('to').value = '2026-09-10';
+  form.dispatchEvent(new document.defaultView.Event('submit', { cancelable: true })); await tick();
+  assert.match(document.querySelector('[data-github-issues]').textContent, /<img src=x/);
+  assert.ok(calls.filter(({ path }) => path.startsWith('/github-issues')).every(({ path }) => path === '/github-issues'));
+  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /NETWORK_UNREACHABLE/);
+});
+
+test('slow or unavailable GitHub issues never hide diagnostic reports', async (t) => {
+  const pending = deferred();
+  const { app, document } = setup(t, (path) => path === '/github-issues' ? pending.promise.then(() => { throw Object.assign(new Error('private upstream response'), { status: 503 }); }) : undefined);
+  const navigation = app.navigate('issues'); await tick();
+  assert.match(document.querySelector('#view-issues').textContent, /NETWORK_UNREACHABLE/);
+  pending.resolve();
+  await navigation;
+  assert.match(document.querySelector('[data-github-issues]').textContent, /GitHub.*unavailable/i);
+  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /NETWORK_UNREACHABLE/);
+  assert.doesNotMatch(document.body.textContent, /private upstream response/);
+});
+
+test('GitHub issues still load when diagnostic reports are unavailable', async (t) => {
+  const { app, document } = setup(t, (path) => {
+    if (path === '/github-issues') return githubResult([githubIssue()]);
+    if (path.startsWith('/issues?')) return Promise.reject(Object.assign(new Error('unavailable'), { status: 503 }));
+    return undefined;
+  });
+  await app.navigate('issues');
+  assert.match(document.querySelector('[data-github-issues]')?.textContent ?? '', /Changing the download folder/);
+  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /could not be loaded/);
+});
+
+test('GitHub empty and cached results explain their source state', async (t) => {
+  let result = githubResult([]);
+  const { app, document } = setup(t, (path) => path === '/github-issues' ? result : undefined);
+  await app.navigate('issues');
+  assert.match(document.querySelector('[data-github-issues]')?.textContent ?? '', /No open GitHub issues/);
+  result = githubResult([githubIssue()], { stale: true, truncated: true });
+  document.querySelector('#refresh-button').click(); await tick();
+  const panel = document.querySelector('[data-github-issues]');
+  assert.match(panel.textContent, /cached|saved/i); assert.match(panel.textContent, /temporarily unavailable/i);
+  assert.match(panel.textContent, /Refresh/); assert.match(panel.textContent, /more|complete|all/i);
+  assert.match(panel.textContent, /Changing the download folder/);
+});
+
+const githubDiscussion = (overrides = {}) => ({ number: 35, title: 'Ideas for the next release', url: 'https://github.com/thomasthanos/nexusmods-bypass/discussions/35', updated_at: '2026-10-22T11:00:00Z', ...overrides });
+const discussionsResult = (items, overrides = {}) => ({ items, total: items.length, repository_url: 'https://github.com/thomasthanos/nexusmods-bypass/discussions', fetched_at: '2026-10-22T12:00:00.000Z', stale: false, ...overrides });
+
+test('recent GitHub discussions render text and canonical links independently of diagnostic filters', async (t) => {
+  const invalidUrls = ['javascript:alert(1)', 'https://github.com/other/repo/discussions/35', 'https://github.com/thomasthanos/nexusmods-bypass/discussions/035', 'https://github.com/thomasthanos/nexusmods-bypass/discussions/35?next=private', 'https://github.com/thomasthanos/nexusmods-bypass/discussions/35#fragment', 'https://user@github.com/thomasthanos/nexusmods-bypass/discussions/35'];
+  const { app, document, calls } = setup(t, (path) => path === '/github-discussions' ? discussionsResult([
+    githubDiscussion({ title: '<img src=x onerror=alert(1)> <script>bad</script>' }),
+    ...invalidUrls.map((url) => githubDiscussion({ title: 'Unsafe discussion link', url })),
+    githubDiscussion({ number: Number.MAX_SAFE_INTEGER + 1, title: 'Unsafe identifier' }),
+    githubDiscussion({ number: 36, title: 'Mismatched identifier' })
+  ], { repository_url: 'javascript:alert(1)' }) : undefined);
+  await app.navigate('issues');
+  const panel = document.querySelector('[data-github-discussions]');
+  assert.ok(panel, 'Issues must show the recent public discussion source');
+  assert.match(panel.textContent, /Recent GitHub discussions/); assert.match(panel.textContent, /<img src=x/); assert.match(panel.textContent, /<script>bad/);
+  assert.equal(panel.querySelector('img, script, [onerror]'), null);
+  assert.equal(panel.querySelectorAll('a.issue-row').length, 1);
+  const link = panel.querySelector('a.issue-row');
+  assert.equal(link.href, githubDiscussion().url); assert.equal(link.target, '_blank'); assert.match(link.rel, /noopener/); assert.match(link.rel, /noreferrer/);
+  assert.equal(panel.querySelector('a[href^="javascript:"]'), null);
+  assert.doesNotMatch(panel.textContent, /Unsafe discussion link|Unsafe identifier|Mismatched identifier/);
+  const form = document.querySelector('[data-form="issues"]');
+  form.elements.namedItem('status').value = 'fixed'; form.elements.namedItem('from').value = '2026-09-01'; form.elements.namedItem('to').value = '2026-09-10';
+  form.dispatchEvent(new document.defaultView.Event('submit', { cancelable: true })); await tick();
+  assert.match(document.querySelector('[data-github-discussions]').textContent, /<img src=x/);
+  assert.ok(calls.filter(({ path }) => path.startsWith('/github-discussions')).every(({ path }) => path === '/github-discussions'));
+  assert.equal(document.querySelector('[data-diagnostic-issues] .issue-count strong').textContent, '12', 'public discussions do not add diagnostic counts');
+});
+
+test('slow or unavailable discussions leave GitHub issues and automatic diagnostics usable', async (t) => {
+  const pending = Promise.withResolvers();
+  const { app, document } = setup(t, (path) => path === '/github-discussions' ? pending.promise : path === '/github-issues' ? githubResult([githubIssue()]) : undefined);
+  const navigation = app.navigate('issues'); await tick();
+  assert.match(document.querySelector('[data-github-discussions]')?.textContent ?? '', /Loading.*discussions/);
+  assert.match(document.querySelector('[data-github-issues]').textContent, /Changing the download folder/);
+  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /NETWORK_UNREACHABLE/);
+  pending.reject(Object.assign(new Error('PRIVATE UPSTREAM DETAIL'), { status: 503 })); await navigation;
+  assert.match(document.querySelector('[data-github-discussions]').textContent, /discussions.*unavailable/i);
+  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /NETWORK_UNREACHABLE/);
+  assert.doesNotMatch(document.body.textContent, /PRIVATE UPSTREAM DETAIL/);
+});
+
+test('discussions still load when other issue sources fail', async (t) => {
+  const { app, document } = setup(t, (path) => path === '/github-discussions' ? discussionsResult([githubDiscussion()]) : path === '/github-issues' || path.startsWith('/issues?') ? Promise.reject(Object.assign(new Error('unavailable'), { status: 503 })) : undefined);
+  await app.navigate('issues');
+  assert.match(document.querySelector('[data-github-discussions]')?.textContent ?? '', /Ideas for the next release/);
+  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /could not be loaded/);
+  assert.match(document.querySelector('[data-github-issues]').textContent, /unavailable/);
+});
+
+test('recent discussions explain empty and stale feed results without claiming an exhaustive list', async (t) => {
+  let result = discussionsResult([]);
+  const { app, document } = setup(t, (path) => path === '/github-discussions' ? result : undefined);
+  await app.navigate('issues');
+  assert.match(document.querySelector('[data-github-discussions]')?.textContent ?? '', /No recent GitHub discussions/);
+  result = discussionsResult([githubDiscussion()], { stale: true }); document.querySelector('#refresh-button').click(); await tick();
+  const panel = document.querySelector('[data-github-discussions]');
+  assert.match(panel.textContent, /cached|saved/i); assert.match(panel.textContent, /temporarily unavailable/); assert.match(panel.textContent, /Refresh/);
+  assert.match(panel.textContent, /Ideas for the next release/); assert.match(panel.textContent, /recent|feed/i); assert.doesNotMatch(panel.textContent, /No open|all open/);
+});
+
+test('late discussion responses cannot overwrite refreshed results or restore an expired session', async (t) => {
+  const pending = deferred(); const afterExpiry = deferred(); let requests = 0;
+  const { app, document } = setup(t, (path) => {
+    if (path !== '/github-discussions') return undefined;
+    requests++;
+    return requests === 1 ? pending.promise : requests === 3 ? afterExpiry.promise : discussionsResult([githubDiscussion({ title: 'Fresh discussion' })]);
+  });
+  const first = app.navigate('issues'); await tick(); await app.navigate('issues');
+  pending.resolve(discussionsResult([githubDiscussion({ title: 'STALE DISCUSSION' })])); await first;
+  assert.match(document.querySelector('[data-github-discussions]').textContent, /Fresh discussion/); assert.doesNotMatch(document.body.textContent, /STALE DISCUSSION/);
+  const expired = app.navigate('issues'); await tick(); app.invalidateSession();
+  afterExpiry.resolve(discussionsResult([githubDiscussion({ title: 'EXPIRED DISCUSSION' })])); await expired;
+  assert.equal(document.querySelector('#view-issues').textContent, ''); assert.doesNotMatch(document.body.textContent, /EXPIRED DISCUSSION/);
+});
+
+test('discussion authentication failures clear active private views but ignore abandoned requests', async (t) => {
+  const pending = Promise.withResolvers(); let requests = 0;
+  const { app, document } = setup(t, (path) => path === '/github-discussions' ? ++requests === 1 ? pending.promise : Promise.reject(Object.assign(new Error('PRIVATE AUTH DETAIL'), { status: 401 })) : undefined);
+  const first = app.navigate('issues'); await tick(); await app.navigate('settings');
+  pending.reject(Object.assign(new Error('expired old discussion request'), { status: 401 })); await first;
+  assert.equal(document.querySelector('#app-message').hidden, true); assert.match(document.querySelector('#view-settings').textContent, /Settings/);
+  await app.navigate('issues');
+  assert.equal(document.querySelector('#view-issues').textContent, ''); assert.equal(document.querySelector('#view-settings').textContent, '');
+  assert.equal(document.querySelector('#app-message').hidden, false); assert.doesNotMatch(document.body.textContent, /PRIVATE AUTH DETAIL/);
 });
 
 test('detail renders hostile evidence as text, a measured HTTP waterfall and a lifecycle PATCH', async (t) => {

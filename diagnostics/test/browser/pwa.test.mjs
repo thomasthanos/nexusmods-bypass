@@ -16,7 +16,11 @@ before(async () => {
 });
 after(async () => { await browser?.close(); await preview?.close(); });
 async function session(t, width = 390, blockCdn = true) {
-  const context = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1 });
+  // Windows headless WebKit exposes PushManager.getSubscription but its native
+  // implementation freezes the page. UI smoke tests disable that emulator
+  // capability; push lifecycle and service-worker behavior have dedicated tests.
+  const context = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1,
+    ...(engineName === 'webkit' && process.platform === 'win32' ? { serviceWorkers: 'block' } : {}) });
   t.after(() => context.close());
   const page = await context.newPage();
   if (blockCdn) await page.route('https://cdn.jsdelivr.net/**', (route) => route.abort());
@@ -109,8 +113,8 @@ test('desktop filters, hostile diagnostic text, deep links and settings work wit
   await page.locator('[data-form="issues"] details').evaluate((element) => { element.open = true; });
   await page.locator('[name="destination"]').selectOption('vortex');
   await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
-  await expect(page.locator('#view-issues .issue-list .issue-row')).toHaveCount(1);
-  await expect(page.locator('#view-issues .issue-list')).toContainText('HANDOFF_FAILURE');
+  await expect(page.locator('[data-diagnostic-issues] .issue-list .issue-row')).toHaveCount(1);
+  await expect(page.locator('[data-diagnostic-issues] .issue-list')).toContainText('HANDOFF_FAILURE');
   await page.screenshot({ path: new URL('issues-desktop.png', screenshots).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
   await page.goto(`${preview.origin}/?issue=${preview.ids.network}`);
   await expect(page.locator('#issue-detail')).toContainText('<img src=x');
@@ -170,6 +174,66 @@ test('restoring a mobile page refreshes its current reports from the Worker', as
   await loaded;
   await expect(page.locator('#view-issues .issue-list .issue-row').first()).toBeVisible();
   assert.equal(await page.locator('[data-view="issues"]').getAttribute('aria-current'), 'page');
+  assert.deepEqual(errors, []);
+});
+
+test('phone Issues shows public GitHub issues and discussions independently of diagnostic filters', async (t) => {
+  const { page, errors } = await session(t, 390);
+  await openOverview(page);
+  await page.locator('[data-view="issues"]').click();
+  const github = page.locator('[data-github-issues]');
+  const discussions = page.locator('[data-github-discussions]');
+  await expect(github.getByRole('link', { name: /Changing the download folder/ })).toHaveAttribute('href', 'https://github.com/thomasthanos/nexusmods-bypass/issues/34');
+  await expect(discussions.getByRole('link', { name: /Collection troubleshooting/ })).toHaveAttribute('href', 'https://github.com/thomasthanos/nexusmods-bypass/discussions/35');
+  await expect(github).toContainText('GitHub');
+  await page.locator('[data-form="issues"] [name="status"]').selectOption('ignored');
+  await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+  await expect(page.locator('[data-diagnostic-issues]')).toContainText('No matching issues');
+  await expect(github.getByRole('link', { name: /Changing the download folder/ })).toBeVisible();
+  await expect(discussions.getByRole('link', { name: /Collection troubleshooting/ })).toBeVisible();
+  await noOverflow(page);
+  await page.screenshot({ path: new URL('issues-mobile.png', screenshots).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
+  assert.deepEqual(errors, []);
+});
+
+test('320px GitHub source cards fit hostile long text and reject foreign discussion links', async (t) => {
+  const { page, errors } = await session(t, 320);
+  const title = '<img src=x onerror=window.__githubXss=true>' + 'x'.repeat(512);
+  const fetched_at = new Date().toISOString();
+  await page.route('**/api/admin/github-issues', (route) => route.fulfill({ json: {
+    items: [{ number: 34, title, url: 'https://github.com/thomasthanos/nexusmods-bypass/issues/34', state: 'open',
+      labels: ['<script>bad</script>', 'y'.repeat(100)], updated_at: fetched_at, comments: 1 }],
+    total: 1, truncated: false, fetched_at, stale: false
+  } }));
+  await page.route('**/api/admin/github-discussions', (route) => route.fulfill({ json: {
+    items: [{ number: 35, title, url: 'https://github.com/thomasthanos/nexusmods-bypass/discussions/35', updated_at: fetched_at },
+      { number: 36, title: 'Foreign discussion', url: 'https://github.com/other/repo/discussions/36', updated_at: fetched_at }],
+    total: 2, fetched_at, stale: false
+  } }));
+  await openOverview(page);
+  await page.locator('[data-view="issues"]').click();
+  await expect(page.locator('[data-github-issues]')).toContainText(title);
+  await expect(page.locator('[data-github-discussions]')).toContainText(title);
+  assert.equal(await page.locator('[data-github-issues] img, [data-github-issues] script, [data-github-discussions] img, [data-github-discussions] script').count(), 0);
+  assert.equal(await page.locator('[data-github-discussions] a[href*="other/repo"]').count(), 0);
+  assert.equal(await page.evaluate(() => window.__githubXss), undefined);
+  await noOverflow(page);
+  assert.deepEqual(errors, []);
+});
+
+test('mobile Refresh advances the default UTC window after midnight and loads newly arrived issues', async (t) => {
+  const { page, context, errors } = await session(t);
+  const day = Math.floor(Date.now() / 86_400_000) * 86_400_000;
+  await context.addInitScript(({ day }) => { let current = day - 60_000; Date.now = () => current; window.advanceDiagnosticsClock = () => { current = day + 60_000; }; }, { day });
+  await openOverview(page);
+  await page.locator('[data-view="issues"]').click();
+  await expect(page.locator('[data-diagnostic-issues]')).toContainText('No matching issues');
+  await page.evaluate(() => window.advanceDiagnosticsClock());
+  const updated = page.waitForResponse((response) => response.url().includes('/api/admin/issues?') && response.status() === 200);
+  await page.getByRole('button', { name: 'Refresh diagnostics' }).click();
+  await updated;
+  await expect(page.locator('[data-diagnostic-issues] .issue-row').first()).toBeVisible();
+  await expect(page.locator('[data-form="issues"] [name="to"]')).toHaveValue(new Date(day).toISOString().slice(0, 10));
   assert.deepEqual(errors, []);
 });
 

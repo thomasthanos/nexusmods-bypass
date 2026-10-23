@@ -141,7 +141,7 @@ textarea { resize: vertical; min-height: 140px; }
 .tag-success, .tag[data-tone="success"], .badge-status[data-status="fixed"] { border-color: #3d6757; background: #1d352e; color: var(--mint); }
 .tag-muted, .badge-status[data-status="ignored"] { color: var(--secondary); background: #232637; }
 .issue-list { display: grid; min-width: 0; }
-.issue-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; padding: 20px 0; border: 0; border-bottom: 1px solid var(--line-soft); border-radius: 0; background: transparent; color: var(--text); text-align: left; }
+.issue-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; padding: 20px 0; border: 0; border-bottom: 1px solid var(--line-soft); border-radius: 0; background: transparent; color: var(--text); text-align: left; text-decoration: none; }
 .issue-row:first-child { padding-top: 0; }
 .issue-row:last-child { border-bottom: 0; padding-bottom: 0; }
 .issue-row:hover { background: #22263866; }
