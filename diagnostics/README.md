@@ -17,6 +17,15 @@ The team App Launcher is enabled with the same owner-only identity policy so MFA
 
 To redeploy this existing Worker, run `npm run check` and then `npm run deploy` from this directory. Wrangler preserves existing encrypted secrets; do not generate replacement VAPID keys during routine deployments. Provisioning a different account or database requires updating the real IDs, custom domain, Access policy and secret bindings together.
 
+When an API connector supports Worker uploads but cannot authenticate the separate Workers Assets upload, the same dashboard can be packaged inside the Worker:
+
+```sh
+npx wrangler deploy --dry-run --outdir .wrangler/release-dry-run
+node tools/build-portable-worker.mjs
+```
+
+The three modules in `.wrangler/portable/` use `index.js` as their entrypoint. Upload them as JavaScript modules, preserve the existing D1, encrypted secrets and public configuration, and omit the native `ASSETS` binding and assets metadata. The entrypoint passes its static-file provider into the unchanged application, so the real Access verifier still runs before every private page, script and API request. Public files are byte-identical to `public/`, responses remain `no-store`, and no report data or credentials enter the bundle. This avoids the separate asset-upload authentication requirement; it does not bypass dashboard authentication. A later ordinary Wrangler deployment can use the native Assets binding again. CI builds and tests both packaging paths.
+
 The initial schema was applied through the authenticated Cloudflare D1 query API using the complete canonical `schema.sql`; the current CLI OAuth session could not use D1's file-import endpoint. All 33 application schema objects were independently compared with the source: nine tables, sixteen indexes and eight triggers. Public production smoke checks confirmed Access challenges on private assets/admin paths and path variants, valid extension CORS preflights, and rejection of invalid payloads and origins. No synthetic production report or external notification was sent.
 
 ## Receiving extension reports

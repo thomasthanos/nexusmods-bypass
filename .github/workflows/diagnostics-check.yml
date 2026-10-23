@@ -30,6 +30,8 @@ jobs:
         run: npm run test:browser
       - name: Worker bundle without deployment
         run: npx wrangler deploy --dry-run --outdir .wrangler/release-dry-run
+      - name: Portable authenticated dashboard bundle
+        run: node tools/build-portable-worker.mjs
       - name: Upload diagnostics screenshots
         if: always()
         uses: actions/upload-artifact@v4
