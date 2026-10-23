@@ -1,5 +1,6 @@
 import { createApiClient, formatNumber, formatPercent, formatDate, relativeTime, buildDebugPrompt, safeGithubUrl, queryString, dateRange } from './lib.js';
 import { mountPushManager } from './push.js';
+import { mountGrowth } from './growth.js';
 
 const STATUSES = ['new', 'investigating', 'fixed', 'regressed', 'ignored'];
 const BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera', 'brave', 'other'];
@@ -37,6 +38,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   let historyGeneration = 0;
   let historyData = null;
   let pushManager = null;
+  let growthManager = null;
   let toastTimer;
   let recoveryController = null;
   let recoveryPending = null;
@@ -180,7 +182,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   function invalidateSession(info) {
     if (invalidated || destroyed) return;
     invalidated = true; viewGeneration++; detailGeneration++; abortAll();
-    pushManager?.dispose(); pushManager = null; detail = null; selectedReport = null; historyData = null;
+    pushManager?.dispose(); pushManager = null; growthManager?.dispose(); growthManager = null; detail = null; selectedReport = null; historyData = null;
     for (const view of VIEWS) elements[`view-${view}`].replaceChildren();
     elements['issue-detail'].replaceChildren();
     if (elements['issue-dialog'].open) elements['issue-dialog'].close();
@@ -239,7 +241,12 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   async function loadOverview() {
     if (automaticOverviewDates) Object.assign(overviewFilters, dateRange(30));
     const generation = ++viewGeneration; abortAll('view:');
-    const target = elements['view-overview']; loading(target);
+    growthManager?.dispose(); growthManager = null;
+    const root = elements['view-overview']; root.replaceChildren(heading('Overview', 'Listing audience, store feedback and release health from opt-in telemetry.', 1));
+    const growth = node('div'); growth.dataset.growth = '';
+    const target = node('div', 'stack'); target.dataset.overviewDiagnostics = ''; root.append(growth, target); loading(target);
+    growthManager = mountGrowth(growth, { document: doc, window: win, notify,
+      request: (path, options) => request(`view:growth:${path}:${options?.body?.ids?.join(',') ?? ''}`, path, options) });
     try {
       const filters = { ...overviewFilters };
       const [summary, releases] = await Promise.all([
@@ -248,7 +255,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       ]);
       if (!isCurrent(generation)) return;
       target.replaceChildren(); settled(target);
-      target.append(heading('Overview', 'Release health from opt-in session telemetry. Date filters use UTC.', 1));
+      target.append(heading('Opt-in release health', 'Date filters use UTC. Listing audience and store totals use their own windows.'));
       const form = node('form', 'toolbar overview-filters'); form.dataset.form = 'overview';
       form.append(field('From', 'from', filters.from), field('To', 'to', filters.to), field('Browser', 'browser', filters.browser, BROWSERS), field('Destination', 'destination', filters.destination, ['browser', 'vortex', 'mo2']));
       const apply = node('button', 'button button-primary', 'Apply'); apply.type = 'submit'; form.append(apply);
@@ -648,7 +655,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   }
   async function navigate(view) {
     if (!VIEWS.includes(view) || invalidated || destroyed) return;
-    currentView = view; viewGeneration++; abortAll('view:'); pushManager?.dispose(); pushManager = null;
+    currentView = view; viewGeneration++; abortAll('view:'); pushManager?.dispose(); pushManager = null; growthManager?.dispose(); growthManager = null;
     for (const name of VIEWS) { const target = elements[`view-${name}`]; target.hidden = name !== view; if (name !== view) target.replaceChildren(); }
     for (const item of doc.querySelectorAll('[data-view]')) { const active = item.dataset.view === view; item.setAttribute('aria-current', active ? 'page' : 'false'); item.classList.toggle('is-active', active); }
     if (view === 'overview') await loadOverview(); else if (view === 'issues') await loadIssues(); else await loadSettings();
@@ -716,7 +723,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   updateConnection(); void navigate('overview');
   const initial = issueIdentifier(new URL(win.location.href).searchParams.get('issue'));
   if (initial !== null) void openIssue(initial, { replace: true });
-  return { navigate, openIssue, invalidateSession, destroy() { if (destroyed) return; destroyed = true; recoveryController?.abort(); viewGeneration++; detailGeneration++; abortAll(); pushManager?.dispose(); pushManager = null; detail = null; selectedReport = null; historyData = null; win.clearTimeout(toastTimer); for (const remove of listeners) remove(); for (const view of VIEWS) elements[`view-${view}`].replaceChildren(); elements['issue-detail'].replaceChildren(); } };
+  return { navigate, openIssue, invalidateSession, destroy() { if (destroyed) return; destroyed = true; recoveryController?.abort(); viewGeneration++; detailGeneration++; abortAll(); pushManager?.dispose(); pushManager = null; growthManager?.dispose(); growthManager = null; detail = null; selectedReport = null; historyData = null; win.clearTimeout(toastTimer); for (const remove of listeners) remove(); for (const view of VIEWS) elements[`view-${view}`].replaceChildren(); elements['issue-detail'].replaceChildren(); } };
 }
 
 if (typeof document !== 'undefined' && typeof window !== 'undefined' && document.getElementById('main-content')) createDashboard();

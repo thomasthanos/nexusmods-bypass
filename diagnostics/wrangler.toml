@@ -6,6 +6,9 @@ workers_dev = false
 preview_urls = false
 routes = [{ pattern = "diagnostics.thomast.uk", custom_domain = true }]
 
+[triggers]
+crons = ["*/15 * * * *"]
+
 # Every asset request must pass the Access-verifying Worker first.
 [assets]
 directory = "./public"
@@ -32,6 +35,8 @@ HEARTBEAT_INSTALL_LIMIT = "10"
 
 # Required runtime environment bindings; values are set outside version control.
 # Public configuration is also bound as secrets to avoid fabricated account values.
+# Optional GA4_OAUTH_CREDENTIALS is connected with tools/connect-ga4.mjs.
+# Its absence leaves the private Analytics cards explicitly unconfigured.
 [secrets]
 required = [
   "VAPID_PUBLIC_KEY",

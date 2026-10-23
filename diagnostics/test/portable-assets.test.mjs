@@ -8,10 +8,10 @@ import { readPublicAssets, portableModules } from '../tools/build-portable-worke
 import { bindings, createAccessFixture } from './helpers/access.mjs';
 import { createTestDatabase } from './helpers/d1.mjs';
 
-async function fixture(t) {
+async function fixture(t, source) {
   const directory = await mkdtemp(join(tmpdir(), 'nxtk-portable-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const backend = `export { default } from ${JSON.stringify(new URL('../src/index.ts', import.meta.url).href)};`;
+  const backend = source ?? `export { default } from ${JSON.stringify(new URL('../src/index.ts', import.meta.url).href)};`;
   const files = await readPublicAssets();
   await writeFile(join(directory, 'package.json'), '{"type":"module"}');
   for (const [name, content] of Object.entries(portableModules(backend, files))) await writeFile(join(directory, name), content);
@@ -22,7 +22,8 @@ async function fixture(t) {
 
 test('portable files exactly match the public text and binary assets without private caches', async (t) => {
   const f = await fixture(t);
-  assert.equal(Object.keys(f.files).length, 14);
+  assert.equal(Object.keys(f.files).length, 15);
+  assert.ok(f.files['/growth.js']);
   assert.ok(!Object.keys(f.files).some((name) => name.includes('.assetsignore')));
   for (const path of Object.keys(f.files)) {
     const response = await f.assets.fetch(new Request('https://diagnostics.example' + path));
@@ -69,4 +70,13 @@ test('portable deployment serves the current dashboard and real API after a veri
   assert.equal(api.status, 200);
   assert.equal((await api.json()).reports.total, 0);
   assert.ok(access.requests.every((url) => url === 'https://fixture.cloudflareaccess.com/cdn-cgi/access/certs'));
+});
+
+test('portable entrypoint forwards cron events and their environment to the monitoring Worker', async (t) => {
+  const { worker } = await fixture(t, `export default { scheduled(event, env, context) {
+    context.waitUntil(Promise.resolve().then(() => { env.events.push(event.cron); }));
+  } };`);
+  const env = { events: [] }; const pending = [];
+  await worker.scheduled({ cron: '*/15 * * * *' }, env, { waitUntil(promise) { pending.push(promise); } });
+  await Promise.all(pending); assert.deepEqual(env.events, ['*/15 * * * *']);
 });

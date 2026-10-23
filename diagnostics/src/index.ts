@@ -6,6 +6,8 @@ import type { ErrorReport } from './schemas/ingest.ts';
 import { acceptErrorReport, acceptHeartbeat, IngestionConflict } from './services/ingestion.ts';
 import { sendIssueNotifications } from './services/notifications.ts';
 import adminRoutes from './routes/admin.ts';
+import growthRoutes from './routes/growth.ts';
+import { syncStore, dispatchReviewPush } from './services/store-monitor.ts';
 import { ingestionOptions, notificationConfiguration } from './http/config.ts';
 import {
   boundedJson, limitAdminPushTest, limitPublicInstall, limitPublicIp,
@@ -96,6 +98,7 @@ app.post('/api/heartbeat', limitPublicIp, boundedJson, limitPublicInstall,
 
 app.use('/api/admin/push/test', limitAdminPushTest);
 app.route('/api/admin', adminRoutes);
+app.route('/api/admin', growthRoutes);
 
 // API typos never fall through to a static application's SPA fallback.
 app.all('/api', (c) => c.json({ error: 'Not found' }, 404));
@@ -113,4 +116,12 @@ app.onError((error, c) => {
 });
 
 export { app };
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledController, env: AppEnv['Bindings'], context: ExecutionContext) {
+    context.waitUntil((async () => {
+      await syncStore(env.DB);
+      await dispatchReviewPush(env.DB, env, 'https://diagnostics.thomast.uk');
+    })().catch(() => logFailure('diagnostics_store_monitor_failed', crypto.randomUUID())));
+  }
+};

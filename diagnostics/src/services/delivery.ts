@@ -22,7 +22,7 @@ export type PushPayload = {
   title: string;
   body: string;
   tag: string;
-  data: { url: string; issue_id: number | null; fingerprint: string | null; trigger: string };
+  data: { url: string; issue_id: number | null; fingerprint: string | null; trigger: string; review_id?: string };
   badge_count: number;
 };
 
@@ -159,10 +159,11 @@ function checkedPayload(payload: PushPayload): PushPayload {
   if (!Number.isSafeInteger(payload.badge_count) || payload.badge_count < 0) throw new Error('Invalid badge count');
   if (payload.data.issue_id !== null && (!Number.isSafeInteger(payload.data.issue_id) || payload.data.issue_id <= 0)) throw new Error('Invalid issue ID');
   if (payload.data.fingerprint !== null && !/^[a-f0-9]{64}$/.test(payload.data.fingerprint)) throw new Error('Invalid fingerprint');
+  if (payload.data.review_id !== undefined && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(payload.data.review_id)) throw new Error('Invalid review ID');
   secureUrl(payload.data.url);
   return {
     title: sanitizeText(payload.title), body: sanitizeText(payload.body), tag: payload.data.fingerprint ?? sanitizeText(payload.tag),
-    data: { url: payload.data.url, issue_id: payload.data.issue_id, fingerprint: payload.data.fingerprint, trigger: sanitizeText(payload.data.trigger) }, badge_count: payload.badge_count,
+    data: { url: payload.data.url, issue_id: payload.data.issue_id, fingerprint: payload.data.fingerprint, trigger: sanitizeText(payload.data.trigger), ...(payload.data.review_id ? { review_id: payload.data.review_id } : {}) }, badge_count: payload.badge_count,
   };
 }
 

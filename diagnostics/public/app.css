@@ -1487,3 +1487,58 @@ td:first-child { color: var(--text); font-weight: 550; }
   .nav-button[aria-current="page"] { outline: 2px solid Highlight; }
   .timeline-bar { background: Highlight; }
 }
+
+/* Listing audience and public store feedback share the existing soft surfaces. */
+.growth-overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; min-width: 0; }
+.growth-panel { min-width: 0; }
+.growth-panel .panel-heading { align-items: flex-start; }
+.growth-panel .panel-heading > div { min-width: 0; flex: 1 1 240px; }
+.growth-panel .button { min-height: 44px; }
+.growth-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.growth-metric { min-width: 0; padding: 4px 0; }
+.growth-metric + .growth-metric { border-left: 1px solid var(--line); padding-left: 20px; }
+.growth-label { color: var(--secondary); font-size: .82rem; line-height: 1.4; margin-bottom: 10px; }
+.growth-value { color: var(--text); font-size: clamp(1.8rem, 3vw, 2.55rem); line-height: 1.15; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.growth-note, .growth-trend { color: var(--secondary); font-size: .8rem; line-height: 1.5; margin: 9px 0 0; overflow-wrap: anywhere; }
+.growth-trend[data-direction="up"] { color: var(--mint); }
+.growth-trend[data-direction="down"] { color: var(--amber); }
+.growth-star { color: var(--amber); font-size: .7em; vertical-align: .08em; }
+.growth-live { display: inline-flex; align-items: center; gap: 7px; color: var(--mint); font-size: .8rem; line-height: 1.4; padding: 6px 0; }
+.growth-live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px var(--mint-glow); animation: growth-pulse 2s ease-in-out infinite; }
+@keyframes growth-pulse { 50% { box-shadow: 0 0 0 7px transparent; } }
+.growth-state { margin: 12px 0; color: var(--amber); font-size: .83rem; overflow-wrap: anywhere; }
+.growth-source { line-height: 1.65; overflow-wrap: anywhere; }
+.growth-version { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; border-top: 1px solid var(--line); margin-top: 20px; padding-top: 18px; }
+.growth-version > div { display: grid; gap: 4px; min-width: 0; flex: 1 1 190px; font-size: .86rem; overflow-wrap: anywhere; }
+.growth-version > div > span { font-size: .8rem; }
+.growth-version [data-version-status="store_behind"] { color: var(--amber); }
+.growth-version [data-version-status="up_to_date"] { color: var(--mint); }
+.growth-review-list { display: grid; gap: 14px; }
+.growth-review { min-width: 0; padding: 18px; background: var(--sunken); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); box-shadow: var(--neu-sunken); scroll-margin-top: 24px; }
+.growth-review[data-new="true"] { border-color: var(--line-active); }
+.growth-review:focus { outline: 2px solid var(--amber); outline-offset: 3px; }
+.growth-review-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; }
+.growth-review-heading h3 { flex: 1 1 180px; min-width: 0; margin-bottom: 0; font-size: .92rem; overflow-wrap: anywhere; }
+.growth-review-rating { color: var(--amber); white-space: nowrap; font-size: .86rem; }
+.growth-review-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 7px; font-size: .75rem; overflow-wrap: anywhere; }
+.growth-review-body { max-width: 78ch; margin: 14px 0 0; font-size: .9rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.growth-review > .button { margin-top: 14px; }
+
+@media (max-width: 600px) {
+  .growth-overview { gap: 16px; }
+  .growth-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .growth-metric:first-child { grid-column: 1 / -1; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+  .growth-metric:nth-child(2) { border-left: 0; padding-left: 0; }
+  .growth-metric:nth-child(3) { padding-left: 12px; }
+  .growth-value { font-size: 1.85rem; }
+  .growth-label { font-size: .8rem; margin-bottom: 7px; }
+  .growth-note, .growth-trend { font-size: .75rem; }
+  .growth-version { gap: 12px; }
+  .growth-version > .button { flex: 1 1 100%; }
+  .growth-review { padding: 15px 13px; }
+  .growth-review-heading h3 { flex-basis: 150px; }
+  .growth-review-body { font-size: .86rem; }
+}
+
+@media (prefers-reduced-motion: reduce) { .growth-live::before { animation: none; } }
+@media (forced-colors: active) { .growth-review { border-color: ButtonText; } .growth-live::before { background: Highlight; box-shadow: none; } }

@@ -36,7 +36,7 @@ export async function startPreviewServer() {
     ASSETS: { async fetch(request) {
       const pathname = new URL(request.url).pathname;
       const name = pathname === '/' ? 'index.html' : pathname.slice(1);
-      if (!/^(?:index\.html|(?:app|lib|push|sw)\.js|app\.css|manifest\.json|icons\/[a-z0-9-]+\.(?:png|svg))$/.test(name)) return new Response('Not found', { status: 404 });
+      if (!/^(?:index\.html|(?:app|lib|push|growth|sw)\.js|app\.css|manifest\.json|icons\/[a-z0-9-]+\.(?:png|svg))$/.test(name)) return new Response('Not found', { status: 404 });
       try {
         let content = await readFile(new URL(`../../public/${name}`, import.meta.url));
         if (name === 'index.html') content = Buffer.from(content.toString().replace('<body>', '<body><aside style="padding:8px 20px;background:#efb768;color:#10111a;text-align:center;font:600 12px system-ui">Local preview · synthetic verification data</aside>'));
@@ -97,7 +97,14 @@ export async function startPreviewServer() {
       const body = Buffer.concat(chunks);
       const url = `http://127.0.0.1:${server.address().port}${incoming.url}`;
       const request = new Request(url, { method: incoming.method, headers, ...(body.length ? { body } : {}) });
-      const response = await worker.fetch(request, env, { waitUntil(promise) { pending.add(promise); promise.finally(() => pending.delete(promise)); }, passThroughOnException() {}, props: {} });
+      const path = new URL(url).pathname;
+      // Browser fixtures never call Google Analytics or the public store. The
+      // real Worker still verifies Access for the page and every other route.
+      let response;
+      if (authenticated && request.method === 'GET' && path === '/api/admin/analytics') response = Response.json({ property_id: '547084285', source: 'ga4_store_listing', state: 'not_configured', fetched_at: null, online_30m: null, weekly_active: null, previous_weekly_active: null, weekly_change_percent: null, history_total_users: null, history_start_date: null, time_zone: null, quality: { subject_to_thresholding: false, sampled: false, data_loss: false }, message: null });
+      else if (authenticated && request.method === 'GET' && path === '/api/admin/store') response = Response.json({ state: 'ready', snapshot: { extension_id: 'chfghiknjhpcncpcjopglefnckckdlpj', store_url: 'https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj', version: '3.2.1', users: 4321, rating_average: 4.5, rating_count: 12, written_review_count: 0, latest_release_version: '3.2.1', latest_release_url: 'https://github.com/thomasthanos/nexusmods-bypass/releases/tag/v3.2.1', version_status: 'up_to_date', fetched_at: now, reviews_complete: true }, reviews: [], new_review_count: 0, last_checked_at: now, sync_interval_seconds: 900, stale: false, message: null });
+      else if (authenticated && request.method === 'POST' && path === '/api/admin/store/reviews/ack') response = Response.json({ ok: true });
+      else response = await worker.fetch(request, env, { waitUntil(promise) { pending.add(promise); promise.finally(() => pending.delete(promise)); }, passThroughOnException() {}, props: {} });
       outgoing.writeHead(response.status, Object.fromEntries(response.headers));
       outgoing.end(Buffer.from(await response.arrayBuffer()));
     } catch { outgoing.writeHead(500, { 'content-type': 'text/plain' }); outgoing.end('Preview error'); }

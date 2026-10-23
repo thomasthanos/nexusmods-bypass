@@ -23,7 +23,7 @@ export async function readPublicAssets(directory = join(root, 'public')) {
 
 export function portableModules(workerSource, assets) {
   return {
-    'index.js': `import worker from './worker.js';\nimport { createAssets } from './assets.js';\nconst assets = createAssets();\nexport default { fetch(request, env, context) {\n  return worker.fetch(request, { ...env, ASSETS: assets }, context);\n} };\n`,
+    'index.js': `import worker from './worker.js';\nimport { createAssets } from './assets.js';\nconst assets = createAssets();\nexport default { fetch(request, env, context) {\n  return worker.fetch(request, { ...env, ASSETS: assets }, context);\n}, scheduled(event, env, context) {\n  return worker.scheduled(event, env, context);\n} };\n`,
     'worker.js': workerSource.replace(/\n\/\/# sourceMappingURL=.*$/m, ''),
     'assets.js': `const files = ${JSON.stringify(assets)};\nexport function createAssets() {\n  return { async fetch(input, init) {\n    const request = input instanceof Request ? input : new Request(input, init);\n    if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });\n    const path = new URL(request.url).pathname;\n    const file = files[path === '/' ? '/index.html' : path] || (request.headers.get('accept')?.includes('text/html') ? files['/index.html'] : null);\n    if (!file) return new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });\n    const bytes = Uint8Array.from(atob(file.base64), (character) => character.charCodeAt(0));\n    return new Response(request.method === 'HEAD' ? null : bytes, { headers: { 'Content-Type': file.type, 'Content-Length': String(bytes.length), 'Cache-Control': 'no-store' } });\n  } };\n}\n`
   };

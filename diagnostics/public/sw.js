@@ -3,6 +3,7 @@
 
 const ROOT = `${self.location.origin}/`;
 const ISSUE_TRIGGERS = new Set(['NEW_CRITICAL', 'REGRESSION', 'SPIKE_DETECTED', 'UPSTREAM_CHANGE']);
+const REVIEW_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 
 function notificationUrl(data) {
   if (!data || typeof data !== 'object' || typeof data.url !== 'string' || data.url.length > 2048) return ROOT;
@@ -10,6 +11,9 @@ function notificationUrl(data) {
     const url = new URL(data.url);
     if (url.origin !== self.location.origin || url.username || url.password || url.hash || url.pathname !== '/') return ROOT;
     if (data.trigger === 'TEST' && data.issue_id === null && data.fingerprint === null && !url.search) return ROOT;
+    if (data.trigger === 'NEW_REVIEW' && data.issue_id === null && data.fingerprint === null
+      && typeof data.review_id === 'string' && REVIEW_ID.test(data.review_id)
+      && url.search === `?review=${data.review_id}`) return url.href;
     if (!ISSUE_TRIGGERS.has(data.trigger) || !Number.isSafeInteger(data.issue_id) || data.issue_id < 1
       || !/^[a-f0-9]{64}$/.test(data.fingerprint) || url.search !== `?issue=${data.issue_id}`) return ROOT;
     return url.href;
@@ -30,11 +34,13 @@ function notificationPayload(event) {
     const url = notificationUrl(input.data);
     const isTest = input.data?.trigger === 'TEST' && input.data?.issue_id === null && input.data?.fingerprint === null
       && input.data?.url === ROOT && input.tag === 'diagnostics-test';
-    if ((!isTest && url === ROOT) || (!isTest && input.tag !== input.data.fingerprint)) return fallback;
+    const isReview = input.data?.trigger === 'NEW_REVIEW' && url !== ROOT && input.tag === `store-review:${input.data.review_id}`;
+    if ((!isTest && url === ROOT) || (!isTest && !isReview && input.tag !== input.data.fingerprint)) return fallback;
     const title = text(input.title, 80); const body = text(input.body, 240);
     if (!title || !body) return fallback;
-    return { title, body, tag: isTest ? 'diagnostics-test' : input.data.fingerprint,
-      data: { url, issue_id: input.data.issue_id, fingerprint: input.data.fingerprint, trigger: input.data.trigger },
+    return { title, body, tag: isTest ? 'diagnostics-test' : isReview ? input.tag : input.data.fingerprint,
+      data: { url, issue_id: input.data.issue_id, fingerprint: input.data.fingerprint, trigger: input.data.trigger,
+        ...(isReview ? { review_id: input.data.review_id } : {}) },
       badge: typeof input.badge_count === 'number' && Number.isFinite(input.badge_count) ? Math.min(9999, Math.max(0, Math.floor(input.badge_count))) : null };
   } catch { return fallback; }
 }
@@ -45,7 +51,7 @@ self.addEventListener('push', (event) => {
     await self.registration.showNotification(payload.title, {
       body: payload.body, tag: payload.tag, data: payload.data,
       icon: '/icons/icon-192.png', badge: '/icons/badge-96.png',
-      actions: [{ action: 'open', title: 'Open issue' }, { action: 'close', title: 'Close' }]
+      actions: [{ action: 'open', title: payload.data.trigger === 'NEW_REVIEW' ? 'Open review' : 'Open dashboard' }, { action: 'close', title: 'Close' }]
     });
     try {
       if (payload.badge === 0) await self.navigator.clearAppBadge?.();

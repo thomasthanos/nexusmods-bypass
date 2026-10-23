@@ -50,6 +50,36 @@ test('overview uses weighted server totals, live-window alerts and null-safe rel
   assert.doesNotMatch(document.querySelector('[data-comparison-result]').textContent, /NaN|Infinity/);
 });
 
+test('listing sources load alongside pending diagnostics and survive a diagnostics failure', async (t) => {
+  const pending = Promise.withResolvers();
+  const { document, calls } = setup(t, (path) => {
+    if (path.startsWith('/overview')) return pending.promise;
+    if (path === '/analytics') return { state: 'not_configured', source: 'ga4_store_listing', fetched_at: null };
+    if (path === '/store') return { state: 'ready', snapshot: { users: 4321, rating_average: 4.5, rating_count: 12, written_review_count: 8, version: '3.3.1', latest_release_version: null, latest_release_url: null, version_status: 'unknown', fetched_at: now, reviews_complete: true }, reviews: [], new_review_count: 0, stale: false, last_checked_at: now, sync_interval_seconds: 900 };
+    return undefined;
+  });
+  await tick();
+  assert.ok(calls.some(({ path }) => path === '/analytics'));
+  assert.ok(calls.some(({ path }) => path === '/store'));
+  assert.match(document.querySelector('[data-growth-store]').textContent, /4,321/);
+  pending.reject(new Error('private diagnostic response')); await tick();
+  assert.match(document.querySelector('[data-growth-store]').textContent, /4,321/);
+  assert.match(document.querySelector('[data-overview-diagnostics]').textContent, /could not be loaded/);
+});
+
+test('navigation and session invalidation abort listing requests and ignore late responses', async (t) => {
+  const pending = Promise.withResolvers();
+  const { app, document, calls } = setup(t, (path) => path === '/analytics' ? pending.promise : undefined);
+  await tick(); const signal = calls.find(({ path }) => path === '/analytics')?.options.signal;
+  assert.ok(signal);
+  await app.navigate('issues'); assert.equal(signal.aborted, true);
+  pending.resolve({ state: 'ready', online_30m: 999999 }); await tick();
+  assert.equal(document.querySelector('[data-growth-analytics]'), null);
+  await app.navigate('overview'); app.invalidateSession();
+  assert.equal(document.querySelector('[data-growth-store]'), null);
+  assert.match(document.querySelector('#app-message').textContent, /Sign in to continue/);
+});
+
 test('an empty dashboard explains report opt-in without inventing attempt success rates', async (t) => {
   const { app, document } = setup(t, (path) => path.startsWith('/overview') ? { ...overview, reports: { total: 0, distinct_installs: 0 }, releases: { attempts_count: 0, success_count: 0, fallback_triggered_count: 0, success_rate_percent: null, fallback_rate_percent: null } } : undefined);
   await tick();

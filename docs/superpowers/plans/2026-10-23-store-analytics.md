@@ -1,0 +1,35 @@
+# Store analytics implementation plan
+
+> **For agentic workers:** Use scoped parallel implementation with independent review before completion.
+
+**Goal:** Add truthful GA4 listing activity, Chrome Web Store metrics and new-review notifications to the existing private mobile Overview.
+
+**Architecture:** Fixed-source adapters normalize Google/Store responses. Protected routes serve short-lived private D1 snapshots; a scheduled Worker stores reviews and dispatches durable per-device push work. A separate UI module mounts alongside existing diagnostics and cleans up requests/polling on navigation.
+
+**Tech stack:** Existing Hono/Workers, D1/SQLite, WebCrypto, buildless JavaScript, Node tests and Playwright.
+
+**Spec:** `docs/superpowers/specs/2026-10-23-store-analytics-design.md`.
+
+## Constraints
+
+- Main branch; preserve current UI, Access, report consent and VAPID keys.
+- Only fixed property/repository/extension IDs; no new extension tracking.
+- Credentials stay in Worker secrets; missing credentials are a visible setup state.
+- Store users are not cumulative installs; listing activity is not extension online users.
+
+## Review focus
+
+- Distinct user metrics must not be summed across dates or confused with installs.
+- First sync, concurrent cron runs and edited reviews must not send historical duplicates.
+- Failed source fetches and stale auth must not erase valid data or another source's UI.
+- Native notification links must reject foreign/malformed destinations.
+- Deployment must apply additive schema changes before activating scheduled work.
+
+## Tasks
+
+- [ ] Add fixed, bounded Store/review/latest-release adapter with offline parser tests.
+- [ ] Add OAuth GA4 adapter and named-range/quality/partial-response tests.
+- [ ] Add additive D1 schema, protected snapshot/ack routes, baseline/dedupe/lease tests and scheduled review delivery.
+- [ ] Add Overview cards/reviews/polling and mobile/auth/hostile-text tests.
+- [ ] Configure dedicated Google OAuth read access through the owner's Edge session when permitted; otherwise document the exact remaining account step.
+- [ ] Review, run the required checks, apply schema, deploy, push main and verify CI.
