@@ -229,6 +229,7 @@
     $('rpGithub').classList.add('rp-primary');
     $('rpAuto').disabled = true;
     $('rpAutoDetails').disabled = true;
+    $('rpPrivateDiagnostics').disabled = true;
     status(failureText('not_configured'));
   }
 
@@ -236,27 +237,36 @@
     const stored = await chrome.storage.local.get(NXTK.SETTINGS_KEY);
     $('rpAuto').checked = NXTK.RELAY_CONFIGURED && !!stored?.[NXTK.SETTINGS_KEY]?.AutoErrorReports;
     $('rpAutoDetails').checked = $('rpAuto').checked && stored?.[NXTK.SETTINGS_KEY]?.AutoReportDiagnostics === true;
+    $('rpPrivateDiagnostics').checked = $('rpAuto').checked && stored?.[NXTK.SETTINGS_KEY]?.PrivateDiagnostics === true;
     const refresh = () => {
       $('rpAuto').disabled = !NXTK.RELAY_CONFIGURED;
       $('rpAutoDetails').disabled = !NXTK.RELAY_CONFIGURED || !$('rpAuto').checked;
+      $('rpPrivateDiagnostics').disabled = !NXTK.RELAY_CONFIGURED || !$('rpAuto').checked;
     };
     refresh();
-    for (const [id, key] of [['rpAuto', 'AutoErrorReports'], ['rpAutoDetails', 'AutoReportDiagnostics']]) {
+    for (const [id, key] of [['rpAuto', 'AutoErrorReports'], ['rpAutoDetails', 'AutoReportDiagnostics'], ['rpPrivateDiagnostics', 'PrivateDiagnostics']]) {
       $(id).addEventListener('change', async (event) => {
         const enabled = event.target.checked;
         const previousDetails = $('rpAutoDetails').checked;
+        const previousPrivate = $('rpPrivateDiagnostics').checked;
         $('rpAuto').disabled = $('rpAutoDetails').disabled = true;
+        $('rpPrivateDiagnostics').disabled = true;
         const patch = { [key]: enabled };
         if (key === 'AutoErrorReports' && !enabled) {
           patch.AutoReportDiagnostics = false;
+          patch.PrivateDiagnostics = false;
           $('rpAutoDetails').checked = false;
+          $('rpPrivateDiagnostics').checked = false;
         }
         try {
           const reply = await chrome.runtime.sendMessage({ type: 'SETTINGS_PATCH', payload: { patch } });
           if (!reply?.ok) throw new Error('settings-write-failed');
         } catch (_) {
           event.target.checked = !enabled;
-          if (key === 'AutoErrorReports') $('rpAutoDetails').checked = previousDetails;
+          if (key === 'AutoErrorReports') {
+            $('rpAutoDetails').checked = previousDetails;
+            $('rpPrivateDiagnostics').checked = previousPrivate;
+          }
           status(T('rpSettingFailed', 'The setting could not be saved. Try again.'), 'error');
         } finally {
           refresh();

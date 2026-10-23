@@ -117,12 +117,19 @@ async function run() {
     assert.match(f.w.document.getElementById('rpErrorCode').textContent, /E-[a-z0-9]{7}/);
     const auto = f.w.document.getElementById('rpAuto');
     const details = f.w.document.getElementById('rpAutoDetails');
+    const privateReports = f.w.document.getElementById('rpPrivateDiagnostics');
+    assert.equal(privateReports.checked, false, 'private dashboard needs its own explicit consent');
+    assert.equal(privateReports.disabled, true);
     assert.ok(details, 'extended diagnostics have a separate explicit choice');
     assert.equal(details.checked, false);
     assert.equal(details.disabled, true, 'extended reporting cannot be enabled without basic consent');
     auto.click(); await tick();
     assert.equal(details.disabled, false);
     assert.equal(details.checked, false, 'enabling basic reports does not consent to extra data');
+    assert.equal(privateReports.checked, false, 'enabling basic reports never enables a dashboard installation identity');
+    assert.equal(privateReports.disabled, false);
+    privateReports.click(); await tick();
+    assert.equal(f.store.nxtk_settings.PrivateDiagnostics, true);
     details.click(); await tick();
     assert.equal(f.store.nxtk_settings.AutoReportDiagnostics, true);
     auto.click(); await tick();
@@ -130,6 +137,9 @@ async function run() {
     assert.equal(f.store.nxtk_settings.AutoReportDiagnostics, false);
     assert.equal(details.checked, false);
     assert.equal(details.disabled, true);
+    assert.equal(f.store.nxtk_settings.PrivateDiagnostics, false);
+    assert.equal(privateReports.checked, false);
+    assert.equal(privateReports.disabled, true);
     f.close();
   }
   console.log('Report consent/UI tests passed: one-time invitation, explicit opt-in, keyboard/accessibility, Greek copy and selected-error details.');

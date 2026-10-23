@@ -10,7 +10,7 @@ const overview = { window: { from: '2026-09-23', to: '2026-10-22' }, issues: { t
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 function deferred() { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; }
 
-function setup(t, handler, url = 'https://diagnostics.test/') {
+function setup(t, handler, url = 'https://diagnostics.test/', options = {}) {
   const dom = new JSDOM('<button id="refresh-button">Refresh</button><span id="connection-status"></span><div id="app-message" hidden></div><main id="main-content"><section id="view-overview"></section><section id="view-issues" hidden></section><section id="view-settings" hidden></section></main><button data-view="overview"></button><button data-view="issues"></button><button data-view="settings"></button><dialog id="issue-dialog"><button id="close-issue">Close</button><div id="issue-detail"></div></dialog><div id="toast" hidden></div>', { url });
   const dialog = dom.window.document.getElementById('issue-dialog');
   dialog.showModal = () => { dialog.open = true; };
@@ -28,7 +28,7 @@ function setup(t, handler, url = 'https://diagnostics.test/') {
     throw new Error(`Unexpected request: ${path}`);
   };
   let disposed = 0;
-  const app = createDashboard({ document: dom.window.document, window: dom.window, request, mountPush: (container) => { container.textContent = 'Push controls'; return { dispose: () => { disposed++; } }; } });
+  const app = createDashboard({ document: dom.window.document, window: dom.window, request, mountPush: options.mountPush ?? ((container) => { container.textContent = 'Push controls'; return { dispose: () => { disposed++; } }; }) });
   t.after(() => { app.destroy(); dom.window.close(); });
   return { app, dom, document: dom.window.document, calls, disposed: () => disposed };
 }
@@ -46,6 +46,19 @@ test('overview uses weighted server totals, live-window alerts and null-safe rel
   assert.ok(calls.some(({ path }) => path.startsWith('/releases/compare?') && path.includes('before=3.1.0')));
   assert.match(document.querySelector('[data-comparison-result]').textContent, /No attempts|No telemetry/i);
   assert.doesNotMatch(document.querySelector('[data-comparison-result]').textContent, /NaN|Infinity/);
+});
+
+test('an empty dashboard explains report opt-in without inventing attempt success rates', async (t) => {
+  const { app, document } = setup(t, (path) => path.startsWith('/overview') ? { ...overview, reports: { total: 0, distinct_installs: 0 }, releases: { attempts_count: 0, success_count: 0, fallback_triggered_count: 0, success_rate_percent: null, fallback_rate_percent: null } } : undefined);
+  await tick();
+  const text = document.querySelector('#view-overview').textContent;
+  assert.match(text, /Settings → Diagnostics/);
+  assert.match(text, /Private diagnostics dashboard/);
+  assert.match(text, /manual reports are not imported/);
+  assert.match(text, /do not provide success or fallback rates/);
+  assert.doesNotMatch(document.querySelector('.metric-grid').textContent, /0\.0%/);
+  await app.navigate('settings');
+  assert.match(document.querySelector('#view-settings').textContent, /New automatic reports appear here after opt-in/);
 });
 
 test('issue filters send every dimension together and reset pagination', async (t) => {
@@ -168,6 +181,69 @@ test('an API authentication failure clears diagnostics and rejects late view res
   assert.match(document.querySelector('#app-message').textContent, /Sign in again/);
 });
 
+test('an abandoned view cannot lock a newer view with a late authentication failure', async (t) => {
+  const slow = Promise.withResolvers();
+  const { app, document } = setup(t, (path) => path.startsWith('/overview') ? slow.promise : undefined);
+  await app.navigate('issues');
+  slow.reject(Object.assign(new Error('expired old request'), { status: 401 })); await tick();
+  assert.ok(document.querySelector('[data-form="issues"]'));
+  assert.equal(document.querySelector('#app-message').hidden, true);
+  assert.equal(document.querySelector('#connection-status').textContent, 'Connected');
+});
+
+test('disposed push controls cannot clear logs when their old request rejects after navigation', async (t) => {
+  const slow = Promise.withResolvers();
+  let pushRequest;
+  const { app, document } = setup(t, (path) => path === '/push/config' ? slow.promise : undefined, undefined, {
+    mountPush(_container, { request }) {
+      const controller = new AbortController();
+      pushRequest = request('/push/config', { signal: controller.signal }).catch((error) => error);
+      return { dispose() { controller.abort(); } };
+    }
+  });
+  await app.navigate('settings'); await app.navigate('issues');
+  slow.reject(Object.assign(new Error('expired old push request'), { status: 403 }));
+  assert.equal((await pushRequest).name, 'AbortError');
+  assert.ok(document.querySelector('[data-form="issues"]'));
+  assert.equal(document.querySelector('#app-message').hidden, true);
+});
+
+test('a renewed Access session unlocks logs only after a fresh protected health response', async (t) => {
+  const health = Promise.withResolvers();
+  const { app, document } = setup(t, (path) => path === '/health' ? health.promise : undefined);
+  await app.navigate('issues'); app.invalidateSession();
+  [...document.querySelectorAll('#app-message button')].find((button) => button.textContent === 'Check session').click();
+  await tick();
+  assert.equal(document.querySelector('#view-issues').textContent, '');
+  assert.equal(document.querySelector('[data-view="issues"]').disabled, true);
+  health.resolve({ ok: true }); await tick();
+  assert.ok(document.querySelector('[data-form="issues"]'));
+  assert.equal(document.querySelector('#app-message').hidden, true);
+  assert.equal(document.querySelector('[data-view="issues"]').disabled, false);
+});
+
+test('session checks keep private views locked when Access still rejects the app', async (t) => {
+  const { app, document } = setup(t, (path) => path === '/health' ? Promise.reject(Object.assign(new Error('unauthorized'), { status: 401 })) : undefined);
+  await app.navigate('issues'); app.invalidateSession();
+  document.querySelector('#app-message button').click(); await tick();
+  assert.equal(document.querySelector('#view-issues').textContent, '');
+  assert.equal(document.querySelector('#app-message').hidden, false);
+  assert.equal(document.querySelector('[data-view="issues"]').disabled, true);
+});
+
+test('returning to the foreground refreshes the current mobile logs view', async (t) => {
+  const { app, document, dom, calls } = setup(t);
+  await app.navigate('issues');
+  const count = calls.filter(({ path }) => path.startsWith('/issues?')).length;
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+  document.dispatchEvent(new dom.window.Event('visibilitychange'));
+  assert.equal(calls.filter(({ path }) => path.startsWith('/issues?')).length, count);
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+  document.dispatchEvent(new dom.window.Event('visibilitychange')); await tick();
+  assert.equal(calls.filter(({ path }) => path.startsWith('/issues?')).length, count + 1);
+  assert.ok(document.querySelector('[data-form="issues"]'));
+});
+
 test('invalid release and category filters stay editable without a doomed API request', async (t) => {
   const { app, document, calls } = setup(t); await app.navigate('issues');
   const form = document.querySelector('[data-form="issues"]'); const initial = calls.length;
@@ -184,13 +260,13 @@ test('back navigation opens the requested issue and clears evidence when leaving
   assert.equal(document.querySelector('#issue-dialog').open, false); assert.equal(document.querySelector('#issue-detail').textContent, '');
 });
 
-test('offline errors are visible and retry after connectivity returns is successful', async (t) => {
+test('offline errors recover automatically after connectivity returns', async (t) => {
   let fail = true;
   const { app, document, dom } = setup(t, (path) => path.startsWith('/issues?') && fail ? Promise.reject(new TypeError('network')) : undefined);
   Object.defineProperty(dom.window.navigator, 'onLine', { value: false, configurable: true });
   await app.navigate('issues'); assert.match(document.querySelector('#view-issues').textContent, /offline/i);
   fail = false; Object.defineProperty(dom.window.navigator, 'onLine', { value: true, configurable: true }); dom.window.dispatchEvent(new dom.window.Event('online'));
-  [...document.querySelectorAll('#view-issues button')].find((element) => element.textContent === 'Retry').click(); await tick();
+  await tick();
   assert.ok(document.querySelector('[data-form="issues"]')); assert.equal(document.querySelector('#connection-status').textContent, 'Connected');
 });
 

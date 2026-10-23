@@ -14,6 +14,8 @@
   });
 
   const SETTINGS_UI = [
+    { key: 'AutoErrorReports', label: () => NXTK.t('rpAuto', null, 'Send technical error reports automatically'), type: 'bool', desc: () => NXTK.t('rpAutoDesc', null, 'Off by default. Sends only technical errors, extension and browser versions, action and page type. Repeated errors are grouped; up to ten reports a day. No page content, history or settings. Failed sends retry automatically.') },
+    { key: 'PrivateDiagnostics', label: () => NXTK.t('setPrivateDiagnosticsLabel', null, 'Private diagnostics dashboard'), type: 'bool', desc: () => NXTK.t('setPrivateDiagnosticsDesc', null, 'Separate opt-in, off by default. Requires automatic error reports. Stores sampled technical errors, extension/browser versions, OS and a random installation hash in the developer\'s private dashboard, with Discord/push alerts. Extra debug lines require the separate extra diagnostics choice. No download-success telemetry. Turning this off deletes unsent dashboard reports.') },
     { key: 'AutoStartDownload', label: () => NXTK.t('setAutoStartDownloadLabel', null, 'Start downloads automatically'), type: 'bool', desc: () => NXTK.t('setAutoStartDownloadDesc', null, 'On a Nexus file page, start the selected file without another click. This does not download every file on a mod page.') },
     { key: 'AutoCloseTab', label: () => NXTK.t('setAutoCloseTabLabel', null, 'Close the extra Nexus tab'), type: 'bool', desc: () => NXTK.t('setAutoCloseTabDesc', null, 'Close the temporary Nexus tab after an automatically started file is sent to Vortex. The file does not need to finish downloading first. Turn off to keep that tab open.') },
     { key: 'SkipRequirements', label: () => NXTK.t('setSkipRequirementsLabel', null, 'Skip requirement screens'), type: 'bool', desc: () => NXTK.t('setSkipRequirementsDesc', null, 'Skip Nexus windows that list other mods this file needs and continue to the download. You may still need to install those requirements yourself; they are not downloaded automatically.') },
@@ -81,9 +83,12 @@
   const SETTING_GROUPS = [
     { name: 'downloads', titleKey: 'setSectionFlow', title: 'Downloads', keys: ['AutoStartDownload', 'AutoCloseTab', 'SkipRequirements', 'HandleArchivedFiles', 'DownloadFolder', 'WriteMo2Meta'] },
     { name: 'collections', titleKey: 'setSectionPacing', title: 'Collections', keys: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'] },
-    { name: 'appearance', titleKey: 'setSectionLanguage', title: 'Appearance & language', keys: ['HidePremiumUpsells', 'ExpandRequirements', 'ShowAlertsOnError', 'ForceEnglish'] }
+    { name: 'appearance', titleKey: 'setSectionLanguage', title: 'Appearance & language', keys: ['HidePremiumUpsells', 'ExpandRequirements', 'ShowAlertsOnError', 'ForceEnglish'] },
+    { name: 'diagnostics', titleKey: 'setSectionDiagnostics', title: 'Diagnostics', keys: ['AutoErrorReports', 'PrivateDiagnostics'] }
   ];
   const SHORT_COPY = {
+    "AutoErrorReports": ["setShortAutoErrorReports", "Off until you choose. Send sampled technical errors."],
+    "PrivateDiagnostics": ["setShortPrivateDiagnostics", "Also store future technical errors in the private dashboard."],
     "AutoStartDownload": [
       "setShortAutoStartDownload",
       "Start when you open a file page."
@@ -307,6 +312,7 @@
         if (el.value !== shown) el.value = shown;
       }
       const save = queueSetting(key, value);
+      syncDiagnosticsControls();
       if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
       syncPresetState();
 
@@ -344,7 +350,8 @@
     // Presets and individual edits share one queue, in click order. Revision checks
     // prevent an older failed write from rolling back a newer visible choice.
     function queueSetting(key, value) {
-      return queueSettings({ [key]: value });
+      return queueSettings({ [key]: value, ...(key === 'AutoErrorReports' && !value
+        ? { PrivateDiagnostics: false, AutoReportDiagnostics: false } : {}) });
     }
 
     // One write for every setting in the patch (a preset), queued behind earlier writes. A setting the
@@ -375,6 +382,7 @@
           if (rolledBack) {
             if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);
             syncImportControls();
+            syncDiagnosticsControls();
             syncPresetState();
           }
           showSaveFailure();
@@ -400,6 +408,15 @@
         if (button) button.hidden = !cfg.WabbajackImport;
       }
     }
+
+    function syncDiagnosticsControls() {
+      const control = modal.querySelector('[data-setting="PrivateDiagnostics"]');
+      if (control) {
+        control.disabled = !NXTK.RELAY_CONFIGURED || !cfg.AutoErrorReports;
+        control.checked = !!cfg.AutoErrorReports && !!cfg.PrivateDiagnostics;
+      }
+    }
+    syncDiagnosticsControls();
 
     // Quick setup follows every change live: the matching preset lights up, a mix says "Custom".
     function syncPresetState() {

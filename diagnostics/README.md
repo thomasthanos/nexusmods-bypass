@@ -2,7 +2,7 @@
 
 This independent package contains the complete private diagnostics system: configuration, schema, privacy and delivery services, Hono API, and the buildless mobile PWA dashboard. The existing extension and deployed `../relay/` keep their current contracts.
 
-The Worker API and Phase 4 PWA are deployed at [diagnostics.thomast.uk](https://diagnostics.thomast.uk). Cloudflare Access requires the configured owner's email and independent MFA. The existing extension still sends reports to the legacy relay; connecting its new diagnostics and heartbeat contracts is a separate integration, so this dashboard initially has no extension data.
+The Worker API and mobile PWA are deployed at [diagnostics.thomast.uk](https://diagnostics.thomast.uk). Cloudflare Access requires the configured owner's email and independent MFA. The extension's separate **Private diagnostics dashboard** opt-in connects future automatic error reports through the existing relay. Existing reporting choices do not enable this integration, and historical Discord reports are not imported. Heartbeat/download-attempt telemetry remains a separate, unimplemented client integration.
 
 ## Live deployment
 
@@ -18,6 +18,17 @@ The team App Launcher is enabled with the same owner-only identity policy so MFA
 To redeploy this existing Worker, run `npm run check` and then `npm run deploy` from this directory. Wrangler preserves existing encrypted secrets; do not generate replacement VAPID keys during routine deployments. Provisioning a different account or database requires updating the real IDs, custom domain, Access policy and secret bindings together.
 
 The initial schema was applied through the authenticated Cloudflare D1 query API using the complete canonical `schema.sql`; the current CLI OAuth session could not use D1's file-import endpoint. All 33 application schema objects were independently compared with the source: nine tables, sixteen indexes and eight triggers. Public production smoke checks confirmed Access challenges on private assets/admin paths and path variants, valid extension CORS preflights, and rejection of invalid payloads and origins. No synthetic production report or external notification was sent.
+
+## Receiving extension reports
+
+1. Deploy the current diagnostics Worker while preserving its existing D1 database, Access configuration and encrypted secrets.
+2. Deploy `../relay/` with its fixed `DIAGNOSTICS` service binding pointing to `nexusmods-diagnostics`. The exact public relay paths `/v1/diagnostics` and `/v1/heartbeat` forward only to `/api/ingest` and `/api/heartbeat`; they are not a general proxy to protected admin APIs.
+3. Install the refreshed extension ZIP. In **Settings → Diagnostics**, enable **Automatic error reports** and then **Private diagnostics dashboard** (`PrivateDiagnostics`). The same choice is available on the report page. It is off by default and requires the basic reporting choice.
+4. New eligible faults populate **Issues** and the retained-report counts after delivery. Existing manual reports and users who keep the new setting off continue to use the legacy reporting path. One opted-in automatic incident uses one destination, avoiding duplicate legacy Discord delivery.
+
+The client creates a random local installation seed only after consent and sends its SHA-256 hash with browser/OS information and redacted technical errors. Extra debug lines still require the separate extra-diagnostics choice. A saved UUID and immutable delivery body make retries idempotent. Disabling reporting clears pending reports; it does not remove already accepted server records. No new manifest host permission is needed: requests use the existing relay hostname from the extension's background context.
+
+**Errors are not attempt telemetry.** This extension integration does not send heartbeat deltas, successful-download counts or fallback counts. Overview leaves success/fallback rates unavailable until genuine attempt data exists. Empty report lists remain possible until users install this client, explicitly enable the setting and encounter an eligible fault. The service does not import older Discord messages.
 
 ## Directory structure
 
@@ -185,11 +196,11 @@ Rate-limit buckets store HMAC subject hashes, scope, window, count, and expiry; 
 
 `examples/send-report.ts` contains complete `prepareExampleReport()` and `sendPreparedReport()` functions. The caller supplies its real relay origin, persisted random installation seed, release/browser/OS values, and current consent. Preparing generates one report identity and a SHA-256 installation hash; the returned immutable object is reused for retries. Sending checks current consent, omits credentials, rejects redirects, and applies a ten-second timeout. It holds no webhook, Access token, or VAPID private key.
 
-The example is TypeScript intended for the extension's build/background context and imports the shared Zod schema. It is not injected into the existing dependency-free extension in this phase. A later integration must add the actual relay origin to extension host permissions and map real events to the schema. Run network delivery from the extension context rather than the Nexus page's origin.
+The example remains a standalone TypeScript reference that imports the shared Zod schema. The shipped dependency-free integration is `DiagnosticsReporter` in `../src/auto-reports.js`; it maps real error events to the diagnostics contract and sends from the extension's background context to the existing relay. It does not inject Zod into Nexus pages or add a host permission.
 
 ## Phase boundary and operational limits
 
-All four phases are implemented and the diagnostics Worker, D1, custom domain and owner-only Access policy are deployed as described above. Existing extension preferences and the legacy relay were not changed. Delivery tests use generated local keys and mocked HTTP boundaries; live Discord and device-push delivery are not implied by those tests. The tracked `.assetsignore` excludes hidden files from the published asset directory.
+All four service phases are implemented and the diagnostics Worker, D1, custom domain and owner-only Access policy are deployed as described above. The 3.3.1 refresh adds the separate client error-report opt-in and a fixed relay service bridge; existing users' reporting choices are preserved. Heartbeat telemetry still needs a separately consented client that measures real attempts. Delivery tests use generated local keys and mocked HTTP boundaries; live Discord and device-push delivery are not implied by those tests. The tracked `.assetsignore` excludes hidden files from the published asset directory.
 
 The requested sub-50 ms ingest response is a performance target to measure after the complete D1 path exists, not a guarantee Phase 1 can establish. `waitUntil()` moves delivery out of the response path but is not a durable delivery queue; later delivery code must describe and handle its failure semantics.
 
@@ -292,7 +303,7 @@ Lifecycle saves send only changed fields together with `expected: {status,fixed_
 
 “Copy AI Debug Context” creates a complete Markdown prompt with original grouping data, current and report-time classifications, affected browsers/releases, selected environment, exact breadcrumbs, DOM/API state and stack. Subscription credentials and anonymous installation hashes are excluded. Diagnostic content is labelled untrusted and fenced safely even if it contains Markdown fences. Clipboard success appears inside the modal; browsers that deny clipboard access get a selectable complete-text fallback.
 
-Navigation, filter changes, detail requests, report history and comparisons use aborts and generation checks so late results cannot overwrite the current view. HTTP 401/403, HTML login responses and manual redirects invalidate the session and clear private view/detail data. The API client does not follow Access redirects or read bearer cookies. Reopen the root page to sign in again. Offline/network errors offer retry without pretending that an empty result is live data.
+Navigation, filter changes, detail requests, report history and comparisons use aborts and generation checks so late results cannot overwrite the current view or invalidate a newer session. A current request's HTTP 401/403, HTML login response or manual redirect invalidates the session and clears private view/detail data; responses from cancelled requests are discarded first. Returning to the visible app, restoring its page or coming back online refreshes the current view. **Check session** restores a locked view only after a fresh authenticated health check; **Sign in again** preserves an issue deep link. The API client does not follow Access redirects or read bearer cookies. Offline/network errors offer retry without pretending that an empty result is live data.
 
 ### Install and enable notifications on iPhone
 

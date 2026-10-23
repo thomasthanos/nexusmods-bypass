@@ -27,6 +27,11 @@ const HOUR_MS = 60 * 60 * 1000;
 // The extension stops waiting for the relay after 15 s (automatic) or 20 s (manual), so Discord
 // retries have to fit well inside that.
 export const DELIVERY_OPTIONS = Object.freeze({ maxAttempts: 3, budgetMs: 9000, timeoutMs: 5000 });
+export const DIAGNOSTICS_TIMEOUT_MS = 10000;
+const DIAGNOSTICS_ROUTES = Object.freeze({ '/v1/diagnostics': '/api/ingest', '/v1/heartbeat': '/api/heartbeat' });
+const DIAGNOSTICS_ORIGIN = 'https://diagnostics.thomast.uk';
+const DIAGNOSTICS_RESPONSE_BYTES = 4096;
+const DIAGNOSTICS_EXTENSION_ORIGIN = /^(?:chrome-extension:\/\/[a-p]{32}|moz-extension:\/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
 const CORS = {
   'access-control-allow-methods': 'GET, POST, OPTIONS',
@@ -429,20 +434,25 @@ async function sendEmail(env, p, id, log) {
 
 // The body is read in chunks and abandoned once it passes the limit, so a client that sends no
 // Content-Length cannot make the Worker buffer an arbitrarily large upload. Null means too large.
-async function readBodyCapped(request, maxBytes) {
+async function readBodyCapped(request, maxBytes, fatal = false) {
   if (!request.body) return '';
   const reader = request.body.getReader();
   const chunks = [];
   let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > maxBytes) {
-      await reader.cancel().catch(() => undefined);
-      return null;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) {
+        // Cancellation is advisory; an uncooperative producer must not hold the rejection open.
+        void reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } finally {
+    reader.releaseLock();
   }
   const bytes = new Uint8Array(size);
   let offset = 0;
@@ -450,11 +460,94 @@ async function readBodyCapped(request, maxBytes) {
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return new TextDecoder().decode(bytes);
+  return new TextDecoder('utf-8', { fatal }).decode(bytes);
+}
+
+function connectingIp(value) {
+  if (!value || value.length > 45) return null;
+  const ipv4 = (ip) => ip.split('.').length === 4 && ip.split('.').every((part) => /^(?:0|[1-9]\d{0,2})$/.test(part) && Number(part) <= 255);
+  if (ipv4(value)) return value;
+  if (!value.includes(':') || !/^[\da-fA-F:.]+$/.test(value)) return null;
+  if (value.includes('.') && !ipv4(value.slice(value.lastIndexOf(':') + 1))) return null;
+  try { return new URL(`https://[${value}]/`).hostname.slice(1, -1); } catch { return null; }
+}
+
+function bridgeRetryAfter(value) {
+  const seconds = /^\d+$/.test(value || '') ? Number(value) : (Date.parse(value || '') - Date.now()) / 1000;
+  return String(Number.isFinite(seconds) ? Math.min(86400, Math.max(1, Math.ceil(seconds))) : 60);
+}
+
+// Only these two public ingestion contracts cross the service binding. Access tokens, cookies,
+// admin routes, upstream response bodies and arbitrary destination URLs never cross this bridge.
+async function bridgeDiagnostics(request, env, path, headers) {
+  const origin = request.headers.get('origin') || '';
+  const safeHeaders = { ...headers, 'cache-control': 'no-store' };
+  if (!DIAGNOSTICS_EXTENSION_ORIGIN.test(origin) || headers['access-control-allow-origin'] !== origin) {
+    delete safeHeaders['access-control-allow-origin'];
+    return json({ error: 'origin forbidden' }, 403, safeHeaders);
+  }
+  if (request.method === 'OPTIONS') {
+    if (request.headers.get('access-control-request-method') !== 'POST'
+      || request.headers.get('access-control-request-headers')?.trim().toLowerCase() !== 'content-type') {
+      return json({ error: 'preflight forbidden' }, 403, safeHeaders);
+    }
+    return new Response(null, { status: 204, headers: { ...safeHeaders, 'access-control-allow-methods': 'POST, OPTIONS' } });
+  }
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405, { ...safeHeaders, allow: 'POST, OPTIONS' });
+  if (!/^application\/json(?:\s*;\s*charset\s*=\s*(?:utf-8|"utf-8"))?\s*$/i.test(request.headers.get('content-type') || '')
+    || request.headers.has('content-encoding')) return json({ error: 'expected json' }, 415, safeHeaders);
+  if (Number(request.headers.get('content-length')) > MAX_BODY_BYTES) return json({ error: 'too large' }, 413, safeHeaders);
+  const ip = connectingIp(request.headers.get('cf-connecting-ip'));
+  if (!ip) return json({ error: 'client address unavailable' }, 403, safeHeaders);
+  let text;
+  let payload;
+  try {
+    text = await readBodyCapped(request, MAX_BODY_BYTES, true);
+    if (text === null) return json({ error: 'too large' }, 413, safeHeaders);
+    payload = JSON.parse(text);
+  } catch { return json({ error: 'invalid json' }, 400, safeHeaders); }
+  if (typeof env.DIAGNOSTICS?.fetch !== 'function') {
+    return json({ error: 'diagnostics unavailable' }, 503, { ...safeHeaders, 'retry-after': '60' });
+  }
+  const controller = new globalThis.AbortController();
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => { controller.abort(); reject(new Error('Diagnostics timeout')); }, DIAGNOSTICS_TIMEOUT_MS);
+  });
+  const forward = async () => {
+    const response = await env.DIAGNOSTICS.fetch(new Request(`${DIAGNOSTICS_ORIGIN}${path}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', origin, 'cf-connecting-ip': ip },
+      body: text, redirect: 'manual', signal: controller.signal
+    }));
+    if ([200, 202].includes(response.status)) {
+      if (!/^application\/json\b/i.test(response.headers.get('content-type') || '')) throw new Error('Invalid diagnostics response');
+      const raw = await readBodyCapped(response, DIAGNOSTICS_RESPONSE_BYTES, true);
+      const result = raw === null ? null : JSON.parse(raw);
+      const key = path === '/api/ingest' ? 'report_id' : 'heartbeat_id';
+      if (result?.ok !== true || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(result[key] || '')
+        || typeof payload?.[key] !== 'string' || result[key].toLowerCase() !== payload[key].toLowerCase()
+        || (result.duplicate !== undefined && typeof result.duplicate !== 'boolean')) throw new Error('Invalid diagnostics response');
+      return json({ ok: true, [key]: result[key], duplicate: result.duplicate === true }, response.status, safeHeaders);
+    }
+    void response.body?.cancel().catch(() => undefined);
+    if (response.status === 429) return json({ error: 'rate limited' }, 429,
+      { ...safeHeaders, 'retry-after': bridgeRetryAfter(response.headers.get('retry-after')) });
+    if ([400, 401, 403, 409, 413, 415, 422].includes(response.status)) {
+      return json({ error: 'diagnostics request rejected' }, response.status, safeHeaders);
+    }
+    return json({ error: 'diagnostics unavailable' }, 503, { ...safeHeaders, 'retry-after': '60' });
+  };
+  try { return await Promise.race([forward(), timeout]); }
+  catch { return json({ error: 'diagnostics unavailable' }, 503, { ...safeHeaders, 'retry-after': '60' }); }
+  finally { clearTimeout(timer); }
 }
 
 async function handleRequest(request, env, ctx, headers, log) {
   const url = new URL(request.url);
+  if (Object.hasOwn(DIAGNOSTICS_ROUTES, url.pathname)) {
+    if (url.search) return json({ error: 'not found' }, 404, headers);
+    return bridgeDiagnostics(request, env, DIAGNOSTICS_ROUTES[url.pathname], headers);
+  }
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
   // Health check the extension makes before sending: reachable, and whether a destination is set.
   if (url.pathname === '/v1/health' && (request.method === 'GET' || request.method === 'HEAD')) {

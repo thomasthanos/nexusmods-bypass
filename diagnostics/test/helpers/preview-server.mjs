@@ -69,9 +69,15 @@ export async function startPreviewServer() {
     await acceptHeartbeat(db, heartbeatSchema.parse({ schema_version: 1, consent: 'telemetry-v1', heartbeat_id: crypto.randomUUID(), install_id: install(1), metric_date: metricDate, version, browser: 'firefox', destination: 'browser', attempts_count, success_count, fallback_triggered_count }), now);
   }
   let authenticated = true;
+  let accessRedirect = false;
   const pending = new Set();
   const server = createServer(async (incoming, outgoing) => {
     try {
+      if (accessRedirect && new URL(incoming.url, 'http://preview.invalid').pathname.startsWith('/api/admin/')) {
+        outgoing.writeHead(302, { location: '/cdn-cgi/access/login', 'cache-control': 'no-store' });
+        outgoing.end();
+        return;
+      }
       const headers = new Headers();
       for (const [name, value] of Object.entries(incoming.headers)) if (value !== undefined) headers.set(name, Array.isArray(value) ? value.join(', ') : value);
       if (authenticated) headers.set('Cf-Access-Jwt-Assertion', token);
@@ -88,6 +94,7 @@ export async function startPreviewServer() {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   return { origin: `http://127.0.0.1:${server.address().port}`, ids, db,
     setAuthenticated(value) { authenticated = value; },
+    setAccessRedirect(value) { accessRedirect = value; },
     async close() {
       server.closeAllConnections();
       await new Promise((resolve) => server.close(resolve));

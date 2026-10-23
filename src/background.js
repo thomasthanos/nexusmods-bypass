@@ -131,9 +131,13 @@ function errorEntrySignature(entry) {
 const autoReports = new globalThis.NXTKAutoReports.Reporter({
   kit: NXTK, read: storageGetLocal, write: storageSetLocal, api: chrome
 });
+const privateDiagnostics = new globalThis.NXTKAutoReports.DiagnosticsReporter({
+  kit: NXTK, read: storageGetLocal, write: storageSetLocal, api: chrome
+});
 
-function maybeAutoReport(entry) {
-  return autoReports.enqueue(entry);
+async function maybeAutoReport(entry) {
+  const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+  return settings?.PrivateDiagnostics === true ? privateDiagnostics.enqueue(entry) : autoReports.enqueue(entry);
 }
 
 const AUTO_REPORT_PROMPT_KEY = 'nxtk_auto_report_prompt_v1';
@@ -266,7 +270,16 @@ const STORAGE_HANDLERS = {
       if (next.AutoErrorReports !== true || (enablingBasicReports && normalized.AutoReportDiagnostics !== true)) {
         next.AutoReportDiagnostics = false;
       }
+      // The installation hash/OS fields need a new explicit consent, never inferred from old flags.
+      if (next.AutoErrorReports !== true || (enablingBasicReports && normalized.PrivateDiagnostics !== true)) {
+        next.PrivateDiagnostics = false;
+      }
       await storageSetLocal(NXTK.SETTINGS_KEY, next);
+      if (!next.AutoErrorReports || (base.AutoReportDiagnostics && !next.AutoReportDiagnostics)) {
+        await Promise.all([autoReports.stop(), privateDiagnostics.stop()]);
+      } else if (base.PrivateDiagnostics !== next.PrivateDiagnostics) {
+        await (next.PrivateDiagnostics ? autoReports.stop() : privateDiagnostics.stop());
+      }
       if (normalized.AutoErrorReports === true) {
         await enqueueStorageTask(AUTO_REPORT_PROMPT_KEY, () => storageSetLocal(AUTO_REPORT_PROMPT_KEY, { pending: false, shown: true }));
       }
@@ -2745,7 +2758,10 @@ if (chrome.storage?.onChanged) {
       const { oldValue, newValue } = changes[NXTK.SETTINGS_KEY];
       if (!newValue?.AutoErrorReports || (oldValue?.AutoReportDiagnostics && !newValue?.AutoReportDiagnostics)) {
         autoReports.stop().catch(() => undefined);
+        privateDiagnostics.stop().catch(() => undefined);
       }
+      if (oldValue?.PrivateDiagnostics && !newValue?.PrivateDiagnostics) privateDiagnostics.stop().catch(() => undefined);
+      if (!oldValue?.PrivateDiagnostics && newValue?.PrivateDiagnostics) autoReports.stop().catch(() => undefined);
     }
   });
 }
@@ -2755,6 +2771,10 @@ if (chrome.alarms?.onAlarm) {
     const name = String(alarm?.name || '');
     if (name === globalThis.NXTKAutoReports.ALARM) {
       autoReports.flush().catch(() => undefined);
+      return;
+    }
+    if (name === globalThis.NXTKAutoReports.DIAGNOSTICS_ALARM) {
+      privateDiagnostics.flush().catch(() => undefined);
       return;
     }
     if (name === DOWNLOAD_UI_ALARM) {
@@ -2929,6 +2949,7 @@ function pruneAfterBoot(context) {
 }
 
 autoReports.flush().catch(() => undefined);
+privateDiagnostics.flush().catch(() => undefined);
 if (typeof globalThis.addEventListener === 'function') {
   globalThis.addEventListener('unhandledrejection', (event) => recordBackgroundError('Unhandled background promise', event.reason));
   globalThis.addEventListener('error', (event) => recordBackgroundError('Uncaught background exception', event.error || event.message));

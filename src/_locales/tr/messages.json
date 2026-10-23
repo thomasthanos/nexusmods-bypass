@@ -2235,5 +2235,20 @@
   },
   "errorAddDetails": {
     "message": "Add details"
+  },
+  "setSectionDiagnostics": {
+    "message": "Diagnostics"
+  },
+  "setPrivateDiagnosticsLabel": {
+    "message": "Private diagnostics dashboard"
+  },
+  "setPrivateDiagnosticsDesc": {
+    "message": "Separate opt-in, off by default. Requires automatic error reports. Stores sampled technical errors, extension/browser versions, OS and a random installation hash in the developer's private dashboard, with Discord/push alerts. Extra debug lines require the separate extra diagnostics choice. No download-success telemetry. Turning this off deletes unsent dashboard reports."
+  },
+  "setShortPrivateDiagnostics": {
+    "message": "Also store future technical errors in the private dashboard."
+  },
+  "setShortAutoErrorReports": {
+    "message": "Off until you choose. Send sampled technical errors."
   }
 }

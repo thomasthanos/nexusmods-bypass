@@ -2,12 +2,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function fixture() {
+function fixture({ privateReports = false } = {}) {
   const context = vm.createContext({ URL, Date, console, setTimeout, clearTimeout, AbortController, structuredClone,
+    crypto: require('node:crypto').webcrypto, TextEncoder,
     navigator: { userAgent: 'Mozilla/5.0 Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0' } });
   for (const name of ['shared.js', 'auto-reports.js']) vm.runInContext(fs.readFileSync(`src/${name}`, 'utf8'), context);
   const kit = context.NXTK;
-  const { Reporter, KEY, WINDOW, NETWORK_WINDOW } = context.NXTKAutoReports;
+  const { Reporter, DiagnosticsReporter, KEY: LEGACY_KEY, DIAGNOSTICS_KEY, WINDOW, NETWORK_WINDOW } = context.NXTKAutoReports;
+  const SelectedReporter = privateReports ? DiagnosticsReporter : Reporter;
+  const KEY = privateReports ? DIAGNOSTICS_KEY : LEGACY_KEY;
   const store = { [kit.SETTINGS_KEY]: { AutoErrorReports: false } };
   let now = Date.UTC(2026, 9, 14, 12);
   let delivery = async () => ({ ok: true, status: 200, json: async () => ({ ok: true }) });
@@ -22,17 +25,64 @@ function fixture() {
     },
     fetchImpl: async (url, init) => { sent.push({ url, payload: JSON.parse(init.body), init }); return delivery(url, init); }
   };
-  let reporter = new Reporter(deps);
+  let reporter = new SelectedReporter(deps);
   return {
     kit, KEY, WINDOW, NETWORK_WINDOW, store, sent, alarms, get reporter() { return reporter; },
     enable: () => { store[kit.SETTINGS_KEY].AutoErrorReports = true; },
+    enablePrivate: () => { store[kit.SETTINGS_KEY].AutoErrorReports = true; store[kit.SETTINGS_KEY].PrivateDiagnostics = true; },
     disable: () => { store[kit.SETTINGS_KEY].AutoErrorReports = false; },
-    advance: (ms) => { now += ms; }, delivery: (fn) => { delivery = fn; }, restart: () => { reporter = new Reporter(deps); },
+    advance: (ms) => { now += ms; }, delivery: (fn) => { delivery = fn; }, restart: () => { reporter = new SelectedReporter(deps); },
     entry: (overrides = {}) => kit.buildErrorEntry({ code: 'nexus_api_changed', context: 'Reading collection response', ...overrides })
   };
 }
 
 async function run() {
+  {
+    const f = fixture({ privateReports: true });
+    f.enable();
+    assert.equal(await f.reporter.enqueue(f.entry()), false, 'legacy basic consent never creates private diagnostics');
+    f.store[f.kit.SETTINGS_KEY].AutoReportDiagnostics = true;
+    assert.equal(await f.reporter.enqueue(f.entry()), false, 'legacy extended consent is not diagnostics-v1 consent');
+    assert.equal(f.sent.length, 0);
+    f.enablePrivate();
+    f.delivery(async () => { throw new TypeError('connection lost after server acceptance'); });
+    await f.reporter.enqueue(f.entry({ code: 'nexus_api_changed', technicalMessage: 'jane@example.com token=SECRET https://example.com/?key=PRIVATE' }));
+    await f.reporter.flush();
+    assert.equal(f.sent.length, 1);
+    const body = f.sent[0].payload;
+    assert.equal(f.sent[0].url, f.kit.RELAY_ORIGIN + '/v1/diagnostics');
+    assert.equal(f.sent[0].init.credentials, 'omit');
+    assert.equal(f.sent[0].init.redirect, 'error');
+    assert.equal(body.consent, 'diagnostics-v1');
+    assert.equal(body.browser, 'edge');
+    assert.equal(body.browser_version, '155');
+    assert.equal(body.error_category, 'API_SCHEMA_MISMATCH');
+    assert.match(body.report_id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    assert.match(body.install_id, /^[0-9a-f]{64}$/);
+    assert.doesNotMatch(JSON.stringify(body), /jane|SECRET|PRIVATE/);
+    f.restart(); f.advance(60000);
+    f.delivery(async (_url, init) => ({ ok: true, json: async () => ({ ok: true, report_id: JSON.parse(init.body).report_id, duplicate: true }) }));
+    await f.reporter.flush();
+    assert.deepEqual(f.sent[1].payload, body, 'restarted retries preserve exact UUID and sanitized body');
+    assert.equal(f.store[f.KEY].pending.length, 0);
+    await f.reporter.enqueue(f.entry({ code: 'background_error', technicalMessage: 'new incident' }));
+    await f.reporter.flush();
+    assert.equal(f.sent[2].payload.install_id, body.install_id, 'installation identity survives distinct reports');
+    assert.notEqual(f.sent[2].payload.report_id, body.report_id, 'distinct reports have distinct UUIDs');
+    assert.equal(f.store[f.KEY].pending.length, 0, 'each distinct report requires its own acknowledgement');
+  }
+  {
+    const f = fixture(); f.enablePrivate();
+    assert.equal(await f.reporter.enqueue(f.entry()), false, 'private reporting never duplicates a legacy Discord delivery');
+    const d = fixture({ privateReports: true }); d.enablePrivate();
+    d.delivery(async () => { throw new TypeError('offline'); });
+    await d.reporter.enqueue(d.entry()); await d.reporter.flush();
+    assert.equal(d.store[d.KEY].pending.length, 1);
+    d.store[d.kit.SETTINGS_KEY].PrivateDiagnostics = false;
+    d.advance(60000); await d.reporter.flush();
+    assert.equal(d.store[d.KEY].pending.length, 0, 'revocation removes private queued payloads before retry');
+    assert.equal(d.sent.length, 1, 'revoked consent never falls back to another destination');
+  }
   {
     const f = fixture(); f.enable();
     for (const context of 'ABCDEFGHIJ') { await f.reporter.enqueue(f.entry({ context })); await f.reporter.flush(); }

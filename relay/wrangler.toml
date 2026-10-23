@@ -16,6 +16,12 @@ RELAY_EXTENSION_VERSION = "3.3.1"
 binding = "RATE_LIMIT"
 id = "05224173d3444f47a4130c0061ed3b09"
 
+# The extension posts explicit opt-in diagnostics through this existing relay origin.
+# Only the fixed public ingest and heartbeat routes are forwarded; admin APIs stay private.
+[[services]]
+binding = "DIAGNOSTICS"
+service = "nexusmods-diagnostics"
+
 # Secrets (never put them in this file):
 #   npx wrangler secret put DISCORD_WEBHOOK_URL
 #   npx wrangler secret put RESEND_API_KEY        (optional, e-mail)

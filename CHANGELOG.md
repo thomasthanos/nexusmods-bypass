@@ -34,12 +34,14 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## 3.3.1 — 2026-10-23
 
-- **Private diagnostics deployed:** the independent maintainer service now runs on Cloudflare with a custom HTTPS domain, an EU D1 database and owner-only Access login with MFA. Deployment configuration and mobile PWA installation guidance are documented in the <a href="https://github.com/thomasthanos/nexusmods-bypass/blob/main/diagnostics/README.md"><kbd>diagnostics README</kbd></a>. The extension still uses the legacy reporting relay; the new diagnostics and heartbeat integration is not part of this release.
+- **Mobile diagnostics UI:** bounded date/select fields, clearer filter grids, full-width actions and safe-area-aware bottom navigation improve the dashboard on small screens. Returning to the app refreshes the current view; cancelled requests cannot invalidate a newer session, and an authenticated session check provides recovery without bypassing Access.
+- **Private diagnostics integration:** a separate **Private diagnostics dashboard** opt-in (`PrivateDiagnostics`, off by default and requiring automatic reports) sends future redacted faults through the existing relay to the private service. A random installation seed's SHA-256 hash and browser/OS information support grouping. Extra debug lines still require extra diagnostics. Existing reporting users keep their current choice; no heartbeat/attempt telemetry or historical Discord import is enabled.
+- **Private diagnostics deployed:** the independent maintainer service runs on Cloudflare with a custom HTTPS domain, an EU D1 database and owner-only Access login with MFA. Deployment configuration and mobile PWA installation guidance are documented in the <a href="https://github.com/thomasthanos/nexusmods-bypass/blob/main/diagnostics/README.md"><kbd>diagnostics README</kbd></a>.
 - **Discussions:** Ideas and Q&A forms have clearer prompts, topic choices and submission checklists; General Discussion and Show and Tell have dedicated forms.
 - **Documentation and repository:** refreshed contribution and security guidance, compact documentation links, navigable release history, responsive badges and SVG assets, and a new project social preview.
 - **Development dependencies:** upgraded `web-ext` and updated its dependency tree, including `adm-zip`, `tmp` and `shell-quote`; the older transitive `uuid` dependency is removed.
-- **Relay source baseline:** 3.3.1. The existing relay Worker is not redeployed by this release and keeps its deployed configuration until a separate deployment.
-- **Packages:** Chrome/Edge and Firefox use 3.3.1. Download behavior, extension permissions and opt-in reporting are unchanged; no new automatic or heartbeat telemetry is enabled.
+- **Relay bridge:** exact diagnostics and heartbeat paths use a fixed `DIAGNOSTICS` Worker service binding; the legacy reporting endpoint stays available. Both Workers must be updated separately from GitHub package publication. The relay baseline is 3.3.1.
+- **Same-version refresh:** deliberate publication replaces both validated 3.3.1 ZIPs, notes and source tag in the existing release without posting its Discord announcement again. Existing installations need the refreshed ZIP. Download behavior and manifest permissions are unchanged.
 
 <a id="release-3-3-0"></a>
 

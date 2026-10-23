@@ -55,6 +55,7 @@ const CHECKS = [
   'page-check-test.cjs',
   'dom-fixtures-test.cjs',
   'relay-test.mjs',
+  'relay-diagnostics-test.mjs',
   'discord-dispatch-test.mjs',
   'discord-notification-test.mjs',
   'manifest-diff-test.mjs',

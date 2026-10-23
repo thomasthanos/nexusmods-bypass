@@ -251,6 +251,7 @@
     DebugLogs: false,
     AutoErrorReports: false,
     AutoReportDiagnostics: false,
+    PrivateDiagnostics: false,
     DownloadFolder: 'NexusMods',
     CloseTabDelay: 3000,
     RequestTimeout: 30000,

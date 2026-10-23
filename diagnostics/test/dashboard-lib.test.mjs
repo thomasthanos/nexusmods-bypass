@@ -46,6 +46,30 @@ test('Access HTML, HTTP authentication failures and redirects clear the session 
   assert.equal(expired, 5);
 });
 
+test('an aborted mobile request cannot expire the current session when an old challenge arrives late', async () => {
+  for (const response of [Response.json({}, { status: 401 }), new Response('<h1>Access</h1>', { headers: { 'content-type': 'text/html' } }), { type: 'opaqueredirect', status: 0 }]) {
+    const controller = new AbortController();
+    const pending = Promise.withResolvers();
+    let expired = 0;
+    const request = createApiClient({ origin: ORIGIN, onUnauthorized: () => expired++, fetchImpl: () => pending.promise });
+    const result = request('/overview', { signal: controller.signal });
+    controller.abort(); pending.resolve(response);
+    await assert.rejects(result, (error) => error.name === 'AbortError');
+    assert.equal(expired, 0);
+  }
+});
+
+test('a request timeout cannot expire the session when an Access response arrives after cancellation', async () => {
+  const pending = Promise.withResolvers();
+  let expired = 0;
+  const request = createApiClient({ origin: ORIGIN, timeoutMs: 5, onUnauthorized: () => expired++, fetchImpl: () => pending.promise });
+  const result = request('/overview');
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  pending.resolve(Response.json({}, { status: 401 }));
+  await assert.rejects(result, (error) => error.status === 0 && /timed out/.test(error.message));
+  assert.equal(expired, 0);
+});
+
 test('API errors preserve bounded retry timing and hide backend bodies', async () => {
   const request = createApiClient({ origin: ORIGIN, fetchImpl: async () => Response.json({ error: 'private SQL or token' }, { status: 429, headers: { 'retry-after': '61' } }) });
   await assert.rejects(request('/push/test', { method: 'POST', body: {} }), (error) => error.status === 429 && error.retryAfter === 61 && !error.message.includes('private'));

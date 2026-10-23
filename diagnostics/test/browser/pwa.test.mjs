@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { mkdir } from 'node:fs/promises';
-import { chromium, expect } from '@playwright/test';
+import { chromium, webkit, expect } from '@playwright/test';
 import { startPreviewServer } from '../helpers/preview-server.mjs';
 
 let preview;
 let browser;
-const screenshots = new URL('../../.wrangler/browser-qa/', import.meta.url);
+const engineName = process.env.NXTK_DIAGNOSTICS_BROWSER ?? 'chromium';
+assert.ok(['chromium', 'webkit'].includes(engineName), 'Choose a supported diagnostics browser');
+const screenshots = new URL(`../../.wrangler/browser-qa/${engineName}/`, import.meta.url);
 before(async () => {
   preview = await startPreviewServer();
-  browser = await chromium.launch({ headless: true });
+  browser = await ({ chromium, webkit })[engineName].launch({ headless: true });
   await mkdir(screenshots, { recursive: true });
 });
 after(async () => { await browser?.close(); await preview?.close(); });
@@ -32,6 +34,30 @@ async function noOverflow(page) {
 async function openOverview(page) {
   await page.goto(preview.origin);
   await expect(page.locator('#view-overview h1')).toHaveText('Overview');
+}
+
+for (const width of [320, 375, 390, 430]) {
+  test(`phone filters and navigation fit ${width}px screens with readable controls`, { timeout: 30_000 }, async (t) => {
+    const { page } = await session(t, width);
+    await openOverview(page);
+    for (const view of ['overview', 'issues', 'settings']) {
+      if (view !== 'overview') {
+        await page.locator(`[data-view="${view}"]`).click();
+        await expect(page.locator(`#view-${view} h1`)).toHaveText(view === 'issues' ? 'Issues' : 'Settings');
+      }
+      if (view === 'issues') await page.locator('[data-form="issues"] summary').click();
+      await noOverflow(page);
+      const clipped = await page.locator(`#view-${view} input, #view-${view} select`).evaluateAll((controls) => controls.filter((control) => {
+        const bounds = control.getBoundingClientRect();
+        if (!bounds.width || !bounds.height || control.type === 'checkbox') return false;
+        return bounds.right > innerWidth + 1 || bounds.left < -1 || Number.parseFloat(getComputedStyle(control).fontSize) < 16;
+      }).map((control) => control.name));
+      assert.deepEqual(clipped, [], `${view} controls must fit and stay readable at ${width}px`);
+      const navigationHeights = await page.locator('[data-view]').evaluateAll((controls) => controls.map((control) => control.getBoundingClientRect().height));
+      assert.equal(navigationHeights.length, 3);
+      assert.ok(navigationHeights.every((height) => height >= 44), 'Mobile navigation keeps usable touch targets');
+    }
+  });
 }
 
 test('390px overview and release comparison use the real protected Worker API with CDN unavailable', async (t) => {
@@ -106,13 +132,45 @@ test('real browser manual Access redirect clears private detail and stops the se
   const { page } = await session(t);
   await page.goto(`${preview.origin}/?issue=${preview.ids.handoff}`);
   await expect(page.locator('#issue-title')).toHaveText(`Issue #${preview.ids.handoff}`);
-  await page.route('**/api/admin/overview?**', (route) => route.fulfill({ status: 302, headers: { location: '/cdn-cgi/access/login' } }));
+  preview.setAccessRedirect(true);
+  t.after(() => preview.setAccessRedirect(false));
   await page.getByRole('button', { name: 'Close issue details' }).click();
   await page.getByRole('button', { name: 'Refresh diagnostics' }).click();
   await expect(page.getByRole('link', { name: 'Sign in again', exact: true })).toBeVisible();
   await expect(page.locator('#issue-detail')).toBeEmpty();
   await expect(page.locator('#view-overview')).toBeEmpty();
   assert.equal(await page.locator('#refresh-button').isDisabled(), true);
+});
+
+test('mobile session recovery reloads real logs after Access is renewed', async (t) => {
+  const { page, errors } = await session(t);
+  await openOverview(page);
+  preview.setAuthenticated(false);
+  t.after(() => preview.setAuthenticated(true));
+  await page.locator('[data-view="settings"]').click();
+  await expect(page.getByRole('link', { name: 'Sign in again', exact: true })).toBeVisible();
+  await expect(page.locator('#view-settings')).toBeEmpty();
+  preview.setAuthenticated(true);
+  await page.getByRole('button', { name: 'Check session', exact: true }).click();
+  await expect(page.locator('#view-settings h1')).toHaveText('Settings');
+  await expect(page.locator('#app-message')).toBeHidden();
+  await page.locator('[data-view="issues"]').click();
+  await expect(page.locator('#view-issues .issue-list .issue-row').first()).toBeVisible();
+  await noOverflow(page);
+  assert.deepEqual(errors, []);
+});
+
+test('restoring a mobile page refreshes its current reports from the Worker', async (t) => {
+  const { page, errors } = await session(t);
+  await openOverview(page);
+  await page.locator('[data-view="issues"]').click();
+  await expect(page.locator('#view-issues h1')).toHaveText('Issues');
+  const loaded = page.waitForResponse((response) => response.url().includes('/api/admin/issues?') && response.status() === 200);
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+  await loaded;
+  await expect(page.locator('#view-issues .issue-list .issue-row').first()).toBeVisible();
+  assert.equal(await page.locator('[data-view="issues"]').getAttribute('aria-current'), 'page');
+  assert.deepEqual(errors, []);
 });
 
 test('stale mobile sheet preserves a new regression and shows copy feedback inside the native modal', async (t) => {

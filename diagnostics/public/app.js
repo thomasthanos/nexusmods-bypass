@@ -9,6 +9,7 @@ const VIEWS = ['overview', 'issues', 'settings'];
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const issueIdentifier = (value) => /^[1-9][0-9]{0,15}$/.test(String(value)) && Number.isSafeInteger(Number(value)) ? Number(value) : null;
 const humanize = (value) => String(value ?? 'unknown').replaceAll('_', ' ');
+const REPORT_SETUP = 'In the updated extension, open Settings → Diagnostics and enable “Send technical error reports automatically” and “Private diagnostics dashboard”. New automatic reports appear here after opt-in. Earlier Discord messages and manual reports are not imported.';
 
 /** The dashboard keeps private diagnostics in memory and renders data only as text. */
 export function createDashboard({ document: doc = globalThis.document, window: win = globalThis.window, request: suppliedRequest, mountPush = mountPushManager } = {}) {
@@ -33,6 +34,10 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   let historyData = null;
   let pushManager = null;
   let toastTimer;
+  let recoveryController = null;
+  let recoveryPending = null;
+  let wasBackgrounded = false;
+  let lastResumeAt = 0;
   let compareVersions = { before: '', after: '' };
   const api = suppliedRequest ?? createApiClient({ onUnauthorized: invalidateSession });
 
@@ -58,7 +63,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const input = node(choices ? 'select' : 'input', choices ? 'select' : 'input');
     input.name = name;
     if (choices) {
-      const all = node('option', '', `All ${label.toLowerCase()}`); all.value = ''; input.append(all);
+      const all = node('option', '', 'All'); all.value = ''; input.append(all);
       for (const choice of choices) { const option = node('option', '', humanize(choice)); option.value = choice; input.append(option); }
     } else { input.type = name === 'from' || name === 'to' ? 'date' : 'text'; input.autocomplete = 'off'; }
     input.value = value ?? '';
@@ -92,8 +97,15 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     abortSlot(name);
     if (invalidated || destroyed) throw new DOMException('Session unavailable', 'AbortError');
     const controller = new AbortController(); slots.set(name, controller);
-    try { return await api(path, { ...options, signal: controller.signal }); }
-    catch (error) { if (error?.status === 401 || error?.status === 403) invalidateSession(); throw error; }
+    try {
+      const result = await api(path, { ...options, signal: controller.signal });
+      if (controller.signal.aborted) throw new DOMException('Request cancelled', 'AbortError');
+      return result;
+    }
+    catch (error) {
+      if (controller.signal.aborted) throw new DOMException('Request cancelled', 'AbortError');
+      if (error?.status === 401 || error?.status === 403) invalidateSession(); throw error;
+    }
     finally { if (slots.get(name) === controller) slots.delete(name); }
   }
   function notify(message, kind = 'info') {
@@ -138,8 +150,9 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     if (elements['issue-dialog'].open) elements['issue-dialog'].close();
     elements.toast.hidden = true; elements.toast.textContent = ''; win.clearTimeout(toastTimer);
     const message = elements['app-message']; message.hidden = false;
-    const link = node('a', 'button button-primary', 'Sign in again'); link.href = '/';
-    message.replaceChildren(node('h2', '', 'Your Access session needs attention'), node('p', '', 'Private diagnostics have been cleared. Sign in again to continue.'), link);
+    const link = node('a', 'button button-primary', 'Sign in again'); link.href = `${win.location.pathname}${win.location.search}`;
+    const actions = node('div', 'button-row'); actions.append(link, button('Check session', () => { void recoverSession(); }, 'button button-quiet'));
+    message.replaceChildren(node('h2', '', 'Sign in to continue'), node('p', '', 'Your private logs are protected. Sign in again, or check your session if you already signed in.'), actions);
     for (const control of doc.querySelectorAll('[data-view], #refresh-button')) control.disabled = true;
     updateConnection();
   }
@@ -188,7 +201,10 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       const grid = node('div', 'metric-grid');
       grid.append(metric('Real success rate', formatPercent(metrics.success_rate_percent), `${formatNumber(metrics.success_count)} / ${formatNumber(metrics.attempts_count)} attempts`), metric('Fallback usage', formatPercent(metrics.fallback_rate_percent), `${formatNumber(metrics.fallback_triggered_count)} attempts used fallback`), metric('Issues in window', formatNumber(summary.issues?.total), `${formatNumber(summary.issues?.regressed_count)} regressed · ${formatNumber(summary.issues?.new_count)} new`), metric('Retained reports', formatNumber(summary.reports?.total), `${formatNumber(summary.reports?.distinct_installs)} anonymous installs`));
       target.append(grid);
-      if (metrics.attempts_count === 0) target.append(node('p', 'inline-message', 'No telemetry attempts in this window. Rates are unavailable until opt-in installations send heartbeats.'));
+      if (metrics.attempts_count === 0) target.append(node('p', 'inline-message', 'No download-attempt telemetry was received in this window. Error reports can populate Issues, but do not provide success or fallback rates.'));
+      if (summary.reports?.total === 0) {
+        const setup = section('How reports arrive'); setup.append(node('p', 'muted', REPORT_SETUP)); target.append(setup);
+      }
       target.append(node('p', 'muted', 'Rates are weighted by attempts. Successes and fallback usage can overlap; error reports alone do not measure download success.'));
       const alerts = section('Live detection window', `The most recent ${Number.isFinite(summary.alerts?.window_seconds) ? formatNumber(summary.alerts.window_seconds / 60) : '—'} minutes; independent of the UTC date filter.`);
       const spikes = summary.alerts?.spikes;
@@ -291,12 +307,15 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         const result = await api(path, options);
         if (invalidated || destroyed) throw new DOMException('Session unavailable', 'AbortError');
         return result;
-      } catch (error) { if (error?.status === 401 || error?.status === 403) invalidateSession(); throw error; }
+      } catch (error) {
+        if (options?.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
+        if (error?.status === 401 || error?.status === 403) invalidateSession(); throw error;
+      }
     }, notify }); }
     catch { mount.replaceChildren(node('p', 'error-state', 'Push controls could not be initialized. Refresh to retry.')); }
     const rules = section('Muted issues', 'Issues active in the last 30 UTC days. Open an issue to change its mute or lifecycle rule. Ignored issues also suppress push alerts.');
     const list = node('div', 'issue-list'); loading(list, 'Loading mute rules…'); rules.append(list); target.append(rules);
-    const privacy = section('Private by design'); privacy.append(node('p', 'muted', 'Cloudflare Access protects this dashboard and its API. Reports stay in memory while this page is open. Private responses are not cached for offline access. Sign in again when your Access session expires.')); target.append(privacy);
+    const privacy = section('Private by design'); privacy.append(node('p', 'muted', REPORT_SETUP), node('p', 'muted', 'Cloudflare Access protects this dashboard and its API. Reports stay in memory while this page is open. Private responses are not cached for offline access. Sign in again when your Access session expires.')); target.append(privacy);
     try {
       const data = await request('view:muted', `/issues${queryString({ ...dateRange(30), muted: 'true', page: mutedPage, limit: 10 })}`);
       if (!isCurrent(generation)) return;
@@ -479,6 +498,46 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const id = detail?.issue.id ?? issueIdentifier(new URL(win.location.href).searchParams.get('issue'));
     if (elements['issue-dialog'].open && id !== null) void openIssue(id, { replace: true });
   }
+  async function recoverSession() {
+    if (destroyed || recoveryPending || win.navigator.onLine === false) return recoveryPending;
+    if (!invalidated) { refresh(); return; }
+    // The Home Screen app can be resumed after Access was renewed in a browser.
+    // Only a fresh, authenticated server response may unlock private views.
+    const controller = new AbortController(); recoveryController = controller;
+    const check = elements['app-message'].querySelector('button');
+    if (check) { check.disabled = true; check.textContent = 'Checking…'; }
+    recoveryPending = (async () => {
+      try {
+        const result = await api('/health', { signal: controller.signal });
+        if (destroyed || controller.signal.aborted || result?.ok !== true) return;
+        invalidated = false;
+        elements['app-message'].replaceChildren(); elements['app-message'].hidden = true;
+        for (const control of doc.querySelectorAll('[data-view], #refresh-button')) control.disabled = false;
+        updateConnection(); refresh();
+        const id = issueIdentifier(new URL(win.location.href).searchParams.get('issue'));
+        if (id !== null && !elements['issue-dialog'].open) void openIssue(id, { replace: true });
+      } catch (error) {
+        if (!destroyed && !controller.signal.aborted && ![401, 403].includes(error?.status)) {
+          let feedback = elements['app-message'].querySelector('[data-session-feedback]');
+          if (!feedback) { feedback = node('p', 'muted'); feedback.dataset.sessionFeedback = ''; feedback.setAttribute('role', 'status'); elements['app-message'].append(feedback); }
+          feedback.textContent = 'Could not check your session. Reconnect and try again.';
+        }
+      } finally {
+        if (recoveryController === controller) recoveryController = null;
+        recoveryPending = null;
+        if (check?.isConnected) { check.disabled = false; check.textContent = 'Check session'; }
+      }
+    })();
+    return recoveryPending;
+  }
+  function resume() {
+    if (destroyed || doc.visibilityState === 'hidden' || win.navigator.onLine === false || Date.now() - lastResumeAt < 1000) return;
+    lastResumeAt = Date.now(); void recoverSession();
+  }
+  function onVisibilityChange() {
+    if (doc.visibilityState === 'hidden') { wasBackgrounded = true; return; }
+    if (wasBackgrounded) { wasBackgrounded = false; resume(); }
+  }
   function onPopState() {
     const id = issueIdentifier(new URL(win.location.href).searchParams.get('issue'));
     if (id !== null) void openIssue(id, { updateUrl: false });
@@ -489,11 +548,14 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   listen(elements['close-issue'], 'click', () => { clearIssue(); if (elements['issue-dialog'].open) elements['issue-dialog'].close(); });
   listen(elements['issue-dialog'], 'close', () => { clearIssue(); });
   listen(elements['issue-dialog'], 'cancel', () => { clearIssue(); });
-  listen(win, 'popstate', onPopState); listen(win, 'online', updateConnection); listen(win, 'offline', updateConnection);
+  listen(win, 'popstate', onPopState);
+  listen(win, 'online', () => { updateConnection(); resume(); }); listen(win, 'offline', updateConnection);
+  listen(doc, 'visibilitychange', onVisibilityChange);
+  listen(win, 'pageshow', (event) => { if (event.persisted) resume(); });
   updateConnection(); void navigate('overview');
   const initial = issueIdentifier(new URL(win.location.href).searchParams.get('issue'));
   if (initial !== null) void openIssue(initial, { replace: true });
-  return { navigate, openIssue, invalidateSession, destroy() { if (destroyed) return; destroyed = true; viewGeneration++; detailGeneration++; abortAll(); pushManager?.dispose(); pushManager = null; detail = null; selectedReport = null; historyData = null; win.clearTimeout(toastTimer); for (const remove of listeners) remove(); for (const view of VIEWS) elements[`view-${view}`].replaceChildren(); elements['issue-detail'].replaceChildren(); } };
+  return { navigate, openIssue, invalidateSession, destroy() { if (destroyed) return; destroyed = true; recoveryController?.abort(); viewGeneration++; detailGeneration++; abortAll(); pushManager?.dispose(); pushManager = null; detail = null; selectedReport = null; historyData = null; win.clearTimeout(toastTimer); for (const remove of listeners) remove(); for (const view of VIEWS) elements[`view-${view}`].replaceChildren(); elements['issue-detail'].replaceChildren(); } };
 }
 
 if (typeof document !== 'undefined' && typeof window !== 'undefined' && document.getElementById('main-content')) createDashboard();

@@ -85,10 +85,11 @@ jobs:
           TITLE: ${{ steps.version.outputs.title }}
         run: |
           notes="internal/docs/releases/${VERSION}.md"
+          published_before=false
           if gh release view "$VERSION" --json isDraft --jq '.isDraft' > /tmp/release-is-draft; then
             if [ "$(cat /tmp/release-is-draft)" = "false" ]; then
-              echo "Release ${VERSION} is already published; leaving it unchanged."
-              exit 0
+              published_before=true
+              echo "Refreshing the validated packages and notes of release ${VERSION}."
             fi
           else
             gh release create "$VERSION" --draft --target "$GITHUB_SHA" \
@@ -97,11 +98,25 @@ jobs:
           gh release upload "$VERSION" \
             "dist/nexus.mods.bypass-${VERSION}.zip" \
             "dist/nexus.mods.bypass-${VERSION}-firefox.zip" --clobber
-          gh release edit "$VERSION" --draft=false --latest
-          echo "published=true" >> "$GITHUB_OUTPUT"
+          # A deliberate same-version refresh keeps the release ID and URL, but its source tag
+          # must identify the commit that passed the gates and produced these two packages.
+          if gh api "repos/${GH_REPO}/git/ref/tags/${VERSION}" > /tmp/release-tag-ref; then
+            gh api --method PATCH "repos/${GH_REPO}/git/refs/tags/${VERSION}" \
+              -f sha="$GITHUB_SHA" -F force=true > /dev/null
+          else
+            gh api --method POST "repos/${GH_REPO}/git/refs" \
+              -f ref="refs/tags/${VERSION}" -f sha="$GITHUB_SHA" > /dev/null
+          fi
+          gh release edit "$VERSION" --target "$GITHUB_SHA" --title "$TITLE" \
+            --notes-file "$notes" --draft=false --latest
+          if [ "$published_before" = "false" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "refreshed=true" >> "$GITHUB_OUTPUT"
+          fi
       # A release published with the workflow's token starts no other workflow, so discord-notify.yml
       # never hears of it (no notice went out for 3.1.6 or 3.1.7). Only a release published just now is
-      # announced; a re-run that finds it already published says nothing.
+      # announced; a same-version package refresh does not announce the release again.
       - name: Announce the release on Discord
         if: steps.publish.outputs.published == 'true'
         env:

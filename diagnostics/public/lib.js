@@ -43,6 +43,9 @@ export function createApiClient({ onUnauthorized, origin = globalThis.location?.
       if (body !== undefined) headers['Content-Type'] = 'application/json';
       const response = await fetchImpl(url.href, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         credentials: 'same-origin', mode: 'same-origin', cache: 'no-store', redirect: 'manual', signal: controller.signal });
+      // A suspended mobile page or a replaced view can cancel while a response
+      // is already arriving. A stale Access challenge must not lock the new view.
+      if (controller.signal.aborted) { void response.body?.cancel().catch(() => {}); throw controller.signal.reason; }
       if (response.redirected || response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)
         || response.status === 401 || response.status === 403) throw unauthorized();
       if (!response.ok) {
@@ -72,6 +75,7 @@ export function createApiClient({ onUnauthorized, origin = globalThis.location?.
       const bytes = new Uint8Array(size);
       let offset = 0;
       for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+      if (controller.signal.aborted) throw controller.signal.reason;
       try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
       catch { throw new ApiError('The server returned an invalid response. Refresh and try again.', 502); }
     } catch (error) {
