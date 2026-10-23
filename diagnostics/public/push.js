@@ -50,7 +50,8 @@ export function mountPushManager(container, { request, notify = () => {} }) {
     if (disposed) return; message = value; messageKind = kind; render(); if (announce) notify(value, kind);
   }
   function errorMessage(error) {
-    if (error?.status === 401 || error?.status === 403) return 'Your Access session expired or access was denied. Reload and sign in, then retry. The browser subscription is preserved.';
+    if (error?.status === 401) return 'Your Access session could not be verified. Reload and sign in, then retry. The browser subscription is preserved.';
+    if (error?.status === 403) return 'The request was blocked. Your session may still be valid. Retry or check the site’s security rules. The browser subscription is preserved.';
     if (error?.status === 429) return `Please wait ${Math.max(1, Math.ceil(Number(error.retryAfter) || 60))} seconds before retrying the test.`;
     if (nav.onLine === false) return 'You are offline. Reconnect and retry; the browser subscription is preserved.';
     if (error?.name === 'NotAllowedError') return 'Notification permission was not granted. Check this app’s notification settings before trying again.';

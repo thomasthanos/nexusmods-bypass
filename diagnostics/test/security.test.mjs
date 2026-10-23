@@ -196,6 +196,7 @@ test('admin push-test rate is one per minute per verified identity with no raw i
 });
 
 test('Access requires a genuine RSA signature and exact issuer/audience in the assertion header', async (t) => {
+  t.mock.method(console, 'error', () => {});
   const fixture = await createAccessFixture(t);
   const app = appWith(requireAccess);
   const env = bindings(undefined, { CF_ACCESS_TEAM_DOMAIN: fixture.teamDomain, CF_ACCESS_AUD: fixture.audience });
@@ -213,6 +214,85 @@ test('Access requires a genuine RSA signature and exact issuer/audience in the a
   for (const overrides of [{ CF_ACCESS_TEAM_DOMAIN: 'https://fixture.cloudflareaccess.com/path' }, { CF_ACCESS_TEAM_DOMAIN: 'fixture.evil.example' }, { CF_ACCESS_AUD: '' }]) {
     assert.equal((await app.fetch(request('/', { headers: { 'Cf-Access-Jwt-Assertion': good } }), { ...env, ...overrides })).status, 503);
   }
+});
+
+test('Access rejection logs contain only fixed reasons, target classes and a validated request UUID', async (t) => {
+  const fixture = await createAccessFixture(t);
+  const logs = [];
+  t.mock.method(console, 'error', (...values) => logs.push(values));
+  const requestId = '16b46e4c-a6c3-41ca-97d0-849c7b4f4639';
+  const app = appWith((c, next) => { c.set('requestId', requestId); return next(); }, requireAccess);
+  const env = bindings(undefined, { CF_ACCESS_TEAM_DOMAIN: fixture.teamDomain, CF_ACCESS_AUD: fixture.audience });
+  const good = await fixture.token({ email: 'private-identity-marker@example.com' });
+  const pieces = good.split('.');
+  pieces[1] = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(pieces[1], 'base64url')), sub: 'private-subject-marker' })).toString('base64url');
+  const cases = [
+    [null, 'missing_assertion'],
+    ['private-malformed-credential-marker', 'malformed_assertion'],
+    ['a'.repeat(8193), 'malformed_assertion'],
+    [await fixture.token({ iss: 'https://private-issuer-marker.cloudflareaccess.com' }), 'issuer_mismatch'],
+    [await fixture.token({ aud: ['private-audience-marker'] }), 'audience_mismatch'],
+    [await fixture.token({ iat: null }), 'invalid_claims'],
+    [await fixture.token({ exp: 1 }), 'expired_or_not_yet_valid'],
+    [await fixture.token({ nbf: Math.floor(Date.now() / 1000) + 120 }), 'expired_or_not_yet_valid'],
+    [pieces.join('.'), 'invalid_signature']
+  ];
+  for (const [token, reason] of cases) {
+    const response = await app.fetch(request('/api/admin/issues?private-query-marker=private-value-marker', {
+      headers: { 'User-Agent': 'private-agent-marker', ...(token ? { 'Cf-Access-Jwt-Assertion': token } : {}) }
+    }), env);
+    assert.equal(response.status, 401, reason);
+    assert.deepEqual(await response.json(), { error: 'Unauthorized' });
+    assert.equal(logs.at(-1).length, 1);
+    assert.deepEqual(JSON.parse(logs.at(-1)[0]), {
+      event: 'diagnostics_access_rejected', reason, target: 'admin_api', request_id: requestId
+    });
+    assert.equal(response.headers.get('X-Diagnostics-Auth'), reason);
+    assert.equal(response.headers.get('X-Request-ID'), requestId);
+  }
+  const configured = await app.fetch(request('/index.html'), { ...env, CF_ACCESS_TEAM_DOMAIN: 'private-invalid-configuration-marker' });
+  assert.equal(configured.status, 503);
+  assert.deepEqual(await configured.json(), { error: 'Service unavailable' });
+  assert.equal(configured.headers.get('X-Diagnostics-Auth'), 'configuration_invalid');
+  assert.equal(configured.headers.get('X-Request-ID'), requestId);
+  assert.deepEqual(JSON.parse(logs.at(-1)[0]), {
+    event: 'diagnostics_access_rejected', reason: 'configuration_invalid', target: 'private_asset', request_id: requestId
+  });
+  const previousLength = logs.length;
+  const accepted = await app.fetch(request('/api/admin/health', { headers: { 'Cf-Access-Jwt-Assertion': good } }), env);
+  assert.equal(accepted.status, 200);
+  assert.equal(accepted.headers.get('X-Diagnostics-Auth'), null);
+  assert.equal(accepted.headers.get('X-Request-ID'), null);
+  assert.equal(logs.length, previousLength, 'Successful verification must not emit a rejection event');
+  for (const values of logs) {
+    assert.ok(Buffer.byteLength(values[0]) < 220);
+    assert.doesNotMatch(values[0], /private-|https?:|@|fixture|Bearer/);
+    for (const [token] of cases) if (token) assert.ok(!values[0].includes(token));
+  }
+});
+
+test('Access verifier failures omit provider errors and untrusted request identifiers', async (t) => {
+  const fixture = await createAccessFixture(t);
+  const logs = [];
+  t.mock.method(console, 'error', (...values) => logs.push(values));
+  // A distinct trusted configuration ensures this test exercises a fresh JWKS
+  // request rather than a previously cached verifier's imported signing key.
+  const teamDomain = `unavailable-${crypto.randomUUID()}.cloudflareaccess.com`;
+  const token = await fixture.token({ iss: `https://${teamDomain}` });
+  t.mock.method(globalThis, 'fetch', async () => { throw Error('private-provider-response-marker token=private-provider-token'); });
+  const app = appWith((c, next) => { c.set('requestId', 'private-request-id-marker'); return next(); }, requireAccess);
+  const response = await app.fetch(request('/api/admin/push/config', { headers: { 'Cf-Access-Jwt-Assertion': token } }),
+    bindings(undefined, { CF_ACCESS_TEAM_DOMAIN: teamDomain }));
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: 'Service unavailable' });
+  assert.equal(response.headers.get('X-Diagnostics-Auth'), 'verifier_unavailable');
+  assert.equal(response.headers.get('X-Request-ID'), null);
+  assert.deepEqual(logs, [[JSON.stringify({ event: 'diagnostics_access_rejected', reason: 'verifier_unavailable', target: 'admin_api' })]]);
+  const missing = await app.fetch(request('/api/administrator/private-path-marker'), bindings());
+  assert.equal(missing.status, 401);
+  assert.deepEqual(JSON.parse(logs.at(-1)[0]), {
+    event: 'diagnostics_access_rejected', reason: 'missing_assertion', target: 'private_asset'
+  });
 });
 
 test('configuration parses bounded integer settings and refuses invalid deployment values', () => {

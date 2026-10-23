@@ -25,9 +25,13 @@ jobs:
       - run: npm ci
       - name: Binding types, TypeScript and diagnostics regressions
         run: npm run check
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - name: Mobile PWA browser tests
         run: npm run test:browser
+      - name: WebKit protected mutation origin regression
+        run: node --test test/browser/origin.test.mjs
+        env:
+          NXTK_DIAGNOSTICS_BROWSER: webkit
       - name: Worker bundle without deployment
         run: npx wrangler deploy --dry-run --outdir .wrangler/release-dry-run
       - name: Portable authenticated dashboard bundle

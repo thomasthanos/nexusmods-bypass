@@ -181,6 +181,46 @@ test('an API authentication failure clears diagnostics and rejects late view res
   assert.match(document.querySelector('#app-message').textContent, /Sign in again/);
 });
 
+test('a blocked API request shows a retryable error without signing out or clearing an open report', async (t) => {
+  const { app, document } = setup(t, (path) => path.startsWith('/issues?') ? Promise.reject(Object.assign(new Error('private WAF details'), { status: 403 })) : undefined);
+  await tick(); await app.openIssue(1);
+  await app.navigate('issues');
+  assert.match(document.querySelector('#view-issues').textContent, /The request was blocked/);
+  assert.match(document.querySelector('#issue-detail').textContent, /Issue #1/);
+  assert.equal(document.querySelector('#app-message').hidden, true);
+  assert.equal(document.querySelector('#connection-status').textContent, 'Connected');
+  assert.equal(document.querySelector('[data-view="settings"]').disabled, false);
+  assert.doesNotMatch(document.body.textContent, /private WAF details/);
+});
+
+test('blocked push requests keep the settings and reports available', async (t) => {
+  let pushRequest;
+  const { app, document } = setup(t, (path) => path === '/push/test' ? Promise.reject(Object.assign(new Error('blocked'), { status: 403 })) : undefined, undefined, {
+    mountPush(_container, { request }) {
+      pushRequest = request('/push/test', { method: 'POST', body: {} }).catch((error) => error);
+      return { dispose() {} };
+    }
+  });
+  await app.navigate('settings');
+  assert.equal((await pushRequest).status, 403);
+  assert.match(document.querySelector('#view-settings').textContent, /Settings/);
+  assert.equal(document.querySelector('#app-message').hidden, true);
+  await app.navigate('issues');
+  assert.ok(document.querySelector('[data-form="issues"]'));
+});
+
+test('a real sign-in rejection displays bounded diagnostic metadata while clearing private views', async (t) => {
+  const { app, document } = setup(t, (path) => path.startsWith('/issues?') ? Promise.reject(Object.assign(new Error('private provider body'), { status: 401,
+    authInfo: { source: 'http_401', status: 401, endpoint: '/api/admin/issues', reason: 'audience_mismatch', requestId: 'c1298c81-1234-4abc-8def-0123456789ab' } })) : undefined);
+  await app.navigate('issues');
+  assert.equal(document.querySelector('#view-issues').textContent, '');
+  const feedback = document.querySelector('[data-auth-diagnostics]').textContent;
+  assert.match(feedback, /different application/);
+  assert.match(feedback, /HTTP 401.*\/api\/admin\/issues/);
+  assert.match(feedback, /Request c1298c81-1234-4abc-8def-0123456789ab/);
+  assert.doesNotMatch(document.body.textContent, /private provider body/);
+});
+
 test('an abandoned view cannot lock a newer view with a late authentication failure', async (t) => {
   const slow = Promise.withResolvers();
   const { app, document } = setup(t, (path) => path.startsWith('/overview') ? slow.promise : undefined);

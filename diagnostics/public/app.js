@@ -104,7 +104,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     }
     catch (error) {
       if (controller.signal.aborted) throw new DOMException('Request cancelled', 'AbortError');
-      if (error?.status === 401 || error?.status === 403) invalidateSession(); throw error;
+      if (error?.status === 401) invalidateSession(error.authInfo); throw error;
     }
     finally { if (slots.get(name) === controller) slots.delete(name); }
   }
@@ -126,6 +126,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     if (error?.status === 429) return `Too many requests. Retry${Number.isFinite(error.retryAfter) ? ` in ${Math.ceil(error.retryAfter)} seconds` : ' shortly'}.`;
     if (error?.status === 404) return 'This issue is unavailable or has been removed.';
     if (error?.status === 409) return 'The issue changed while saving. Refresh its details and retry.';
+    if (error?.status === 403) return 'The request was blocked. Your session may still be valid. Retry or check the site’s security rules.';
     if (error?.status === 400) return 'These filters or values are invalid. Check the dates, release versions and GitHub issue URL.';
     return 'Diagnostics could not be loaded. Check your connection and retry.';
   }
@@ -141,7 +142,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     status.textContent = invalidated ? 'Sign in required' : win.navigator.onLine === false ? 'Offline' : 'Connected';
     status.dataset.state = invalidated ? 'error' : win.navigator.onLine === false ? 'offline' : 'online';
   }
-  function invalidateSession() {
+  function invalidateSession(info) {
     if (invalidated || destroyed) return;
     invalidated = true; viewGeneration++; detailGeneration++; abortAll();
     pushManager?.dispose(); pushManager = null; detail = null; selectedReport = null; historyData = null;
@@ -153,6 +154,24 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const link = node('a', 'button button-primary', 'Sign in again'); link.href = `${win.location.pathname}${win.location.search}`;
     const actions = node('div', 'button-row'); actions.append(link, button('Check session', () => { void recoverSession(); }, 'button button-quiet'));
     message.replaceChildren(node('h2', '', 'Sign in to continue'), node('p', '', 'Your private logs are protected. Sign in again, or check your session if you already signed in.'), actions);
+    // Only fixed rejection codes and request metadata are shown. Never display
+    // provider HTML, token claims, response bodies, or URL search parameters.
+    const reasonLabels = { missing_assertion: 'Cloudflare did not forward a sign-in token.', malformed_assertion: 'The sign-in token was malformed.',
+      issuer_mismatch: 'The sign-in token belongs to a different Access team.', audience_mismatch: 'The sign-in token belongs to a different application.',
+      invalid_claims: 'The sign-in token contains invalid claims.', expired_or_not_yet_valid: 'The sign-in token is outside its valid time window.',
+      invalid_signature: 'The sign-in token signature could not be verified.', verifier_unavailable: 'The sign-in verifier is temporarily unavailable.',
+      configuration_invalid: 'The dashboard’s Access configuration needs attention.' };
+    const sourceLabels = { redirect: 'Cloudflare requested a sign-in redirect.', html: 'Cloudflare returned a sign-in page.', http_401: 'The server could not verify this session.' };
+    const explanation = Object.hasOwn(reasonLabels, info?.reason) ? reasonLabels[info.reason] : Object.hasOwn(sourceLabels, info?.source) ? sourceLabels[info.source] : null;
+    if (explanation) {
+      const feedback = node('div', 'muted'); feedback.dataset.authDiagnostics = ''; feedback.append(node('p', '', explanation));
+      const parts = [];
+      if (Number.isInteger(info?.status) && info.status >= 0 && info.status <= 599) parts.push(`HTTP ${info.status}`);
+      if (typeof info?.endpoint === 'string' && /^\/api\/admin\/[a-z0-9/_-]{1,128}$/i.test(info.endpoint)) parts.push(info.endpoint);
+      if (parts.length) feedback.append(node('p', '', parts.join(' · ')));
+      if (typeof info?.requestId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(info.requestId)) feedback.append(node('p', '', `Request ${info.requestId}`));
+      message.append(feedback);
+    }
     for (const control of doc.querySelectorAll('[data-view], #refresh-button')) control.disabled = true;
     updateConnection();
   }
@@ -309,7 +328,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         return result;
       } catch (error) {
         if (options?.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
-        if (error?.status === 401 || error?.status === 403) invalidateSession(); throw error;
+        if (error?.status === 401) invalidateSession(error.authInfo); throw error;
       }
     }, notify }); }
     catch { mount.replaceChildren(node('p', 'error-state', 'Push controls could not be initialized. Refresh to retry.')); }
@@ -517,10 +536,10 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         const id = issueIdentifier(new URL(win.location.href).searchParams.get('issue'));
         if (id !== null && !elements['issue-dialog'].open) void openIssue(id, { replace: true });
       } catch (error) {
-        if (!destroyed && !controller.signal.aborted && ![401, 403].includes(error?.status)) {
+        if (!destroyed && !controller.signal.aborted && error?.status !== 401) {
           let feedback = elements['app-message'].querySelector('[data-session-feedback]');
           if (!feedback) { feedback = node('p', 'muted'); feedback.dataset.sessionFeedback = ''; feedback.setAttribute('role', 'status'); elements['app-message'].append(feedback); }
-          feedback.textContent = 'Could not check your session. Reconnect and try again.';
+          feedback.textContent = error?.status === 403 ? 'The session check was blocked. Your session may still be valid. Retry or check the site’s security rules.' : 'Could not check your session. Reconnect and try again.';
         }
       } finally {
         if (recoveryController === controller) recoveryController = null;

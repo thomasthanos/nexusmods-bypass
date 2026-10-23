@@ -19,9 +19,10 @@ test('API client uses same-origin credentials, no-store and rejects redirects wh
   assert.equal(sent.init.credentials, 'same-origin');
   assert.equal(sent.init.cache, 'no-store');
   assert.equal(sent.init.redirect, 'manual');
-  assert.equal(sent.init.mode, 'same-origin');
+  assert.equal(sent.init.mode, 'cors');
   assert.equal(sent.init.body, '{"muted":true}');
   assert.equal(new Headers(sent.init.headers).get('content-type'), 'application/json');
+  assert.equal(new Headers(sent.init.headers).get('x-requested-with'), 'XMLHttpRequest');
 });
 
 test('API paths cannot escape the admin prefix or send bodies to foreign URLs', async () => {
@@ -38,12 +39,37 @@ test('Access HTML, HTTP authentication failures and redirects clear the session 
   for (const response of [new Response('<h1>private access challenge</h1>', { headers: { 'content-type': 'text/html' } }),
     Response.redirect('https://fixture.cloudflareaccess.com/cdn-cgi/access/login', 302),
     { type: 'opaqueredirect', status: 0, redirected: false },
-    Response.json({ error: 'private internal value' }, { status: 401 }),
-    Response.json({ error: 'private internal value' }, { status: 403 })]) {
+    Response.json({ error: 'private internal value' }, { status: 401 })]) {
     const request = createApiClient({ origin: ORIGIN, onUnauthorized: () => expired++, fetchImpl: async () => response });
     await assert.rejects(request('/overview'), (error) => error.status === 401 && !error.message.includes('private'));
   }
-  assert.equal(expired, 5);
+  assert.equal(expired, 4);
+});
+
+test('a blocked mutation preserves the authenticated session and hides provider details', async () => {
+  let expired = 0;
+  const request = createApiClient({ origin: ORIGIN, onUnauthorized: () => expired++, fetchImpl: async () =>
+    new Response('<h1>private WAF or origin rejection</h1>', { status: 403, headers: { 'content-type': 'text/html' } }) });
+  await assert.rejects(request('/push/test', { method: 'POST', body: {} }), (error) =>
+    error.status === 403 && /request was blocked/i.test(error.message) && !error.message.includes('private'));
+  assert.equal(expired, 0);
+});
+
+test('authentication diagnostics expose only fixed reasons and query-free request metadata', async () => {
+  let info;
+  const requestId = 'c1298c81-1234-4abc-8def-0123456789ab';
+  const request = createApiClient({ origin: ORIGIN, onUnauthorized: (value) => { info = value; }, fetchImpl: async () =>
+    Response.json({ error: 'private token claims' }, { status: 401, headers: { 'X-Diagnostics-Auth': 'audience_mismatch', 'X-Request-ID': requestId } }) });
+  await assert.rejects(request('/issues?q=private-filter'), (error) => {
+    assert.deepEqual(error.authInfo, { source: 'http_401', status: 401, endpoint: '/api/admin/issues', reason: 'audience_mismatch', requestId });
+    return error.status === 401;
+  });
+  assert.equal(Object.isFrozen(info), true);
+  assert.doesNotMatch(JSON.stringify(info), /private/);
+  const hostile = createApiClient({ origin: ORIGIN, onUnauthorized: (value) => { info = value; }, fetchImpl: async () =>
+    Response.json({}, { status: 401, headers: { 'X-Diagnostics-Auth': 'private-provider-details', 'X-Request-ID': 'private-provider-details' } }) });
+  await assert.rejects(hostile('/health'));
+  assert.deepEqual(info, { source: 'http_401', status: 401, endpoint: '/api/admin/health' });
 });
 
 test('an aborted mobile request cannot expire the current session when an old challenge arrives late', async () => {

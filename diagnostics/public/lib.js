@@ -1,6 +1,7 @@
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 const percentFormat = new Intl.NumberFormat('en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const AUTH_REASONS = new Set(['missing_assertion', 'malformed_assertion', 'issuer_mismatch', 'audience_mismatch', 'invalid_claims', 'expired_or_not_yet_valid', 'invalid_signature', 'verifier_unavailable', 'configuration_invalid']);
 
 export class ApiError extends Error {
   constructor(message, status = 0, retryAfter = null) {
@@ -34,30 +35,41 @@ export function createApiClient({ onUnauthorized, origin = globalThis.location?.
     signal?.addEventListener('abort', abort, { once: true });
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; controller.abort(new DOMException('Request timed out', 'TimeoutError')); }, timeoutMs);
-    function unauthorized() {
-      onUnauthorized?.();
-      return new ApiError('Your session has expired. Open diagnostics again to sign in.', 401);
+    function unauthorized(response, source) {
+      const reason = response.headers?.get('X-Diagnostics-Auth');
+      const requestId = response.headers?.get('X-Request-ID');
+      const info = Object.freeze({ source, status: response.status, endpoint: url.pathname,
+        ...(AUTH_REASONS.has(reason) ? { reason } : {}),
+        ...(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId ?? '') ? { requestId } : {}) });
+      const error = new ApiError('Your sign-in could not be verified. Open diagnostics again to sign in.', 401);
+      error.authInfo = info;
+      onUnauthorized?.(info);
+      return error;
     }
     try {
-      const headers = { Accept: 'application/json' };
+      // Access returns an HTTP 401 for expired AJAX sessions instead of sending
+      // fetch through its cross-origin interactive login flow.
+      const headers = { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
       if (body !== undefined) headers['Content-Type'] = 'application/json';
       const response = await fetchImpl(url.href, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        credentials: 'same-origin', mode: 'same-origin', cache: 'no-store', redirect: 'manual', signal: controller.signal });
+        // CORS mode preserves a usable Origin on mutations under no-referrer.
+        // The URL above is still restricted to this exact origin/admin prefix.
+        credentials: 'same-origin', mode: 'cors', cache: 'no-store', redirect: 'manual', signal: controller.signal });
       // A suspended mobile page or a replaced view can cancel while a response
       // is already arriving. A stale Access challenge must not lock the new view.
       if (controller.signal.aborted) { void response.body?.cancel().catch(() => {}); throw controller.signal.reason; }
-      if (response.redirected || response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)
-        || response.status === 401 || response.status === 403) throw unauthorized();
+      if (response.redirected || response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) throw unauthorized(response, 'redirect');
+      if (response.status === 401) throw unauthorized(response, 'http_401');
       if (!response.ok) {
         void response.body?.cancel().catch(() => {});
-        const messages = { 400: 'Check the entered values and try again.', 404: 'This item is no longer available.',
+        const messages = { 400: 'Check the entered values and try again.', 403: 'The request was blocked. Your session may still be valid. Retry or check the site’s security rules.', 404: 'This item is no longer available.',
           409: 'This item changed. Refresh it before trying again.', 413: 'This request is too large.',
           429: 'Too many requests. Wait before trying again.', 503: 'Diagnostics is temporarily unavailable. Try again.' };
         throw new ApiError(messages[response.status] ?? 'The request failed. Try again.', response.status, retrySeconds(response.headers.get('retry-after')));
       }
       if (response.status === 204 || method === 'HEAD') return null;
       const type = response.headers.get('content-type') ?? '';
-      if (/^text\/html\b/i.test(type)) { void response.body?.cancel().catch(() => {}); throw unauthorized(); }
+      if (/^text\/html\b/i.test(type)) { void response.body?.cancel().catch(() => {}); throw unauthorized(response, 'html'); }
       if (!/^application\/json(?:\s*;|$)/i.test(type)) { void response.body?.cancel().catch(() => {}); throw new ApiError('The server returned an invalid response. Refresh and try again.', 502); }
       const reader = response.body?.getReader();
       if (!reader) throw new ApiError('The server returned an empty response. Refresh and try again.', 502);

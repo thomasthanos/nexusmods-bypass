@@ -82,6 +82,19 @@ test('failed server disable preserves the browser subscription and recoverable s
   assert.equal(ui.button('sync').disabled, false);
 });
 
+test('a blocked push mutation preserves the browser registration without claiming the session expired', async (t) => {
+  let unsubscribed = false; const local = subscription(); local.unsubscribe = async () => { unsubscribed = true; return true; };
+  const ui = await setup(t, { permission: 'granted', local, requestOverride(path, options) {
+    if (options.method === 'DELETE') throw Object.assign(Error('private rejection details'), { status: 403 });
+  } });
+  ui.button('disable').click(); await tick(); await tick();
+  assert.equal(unsubscribed, false);
+  assert.match(ui.container.textContent, /request was blocked.*session may still be valid/i);
+  assert.match(ui.container.textContent, /browser subscription is preserved/i);
+  assert.doesNotMatch(ui.container.textContent, /session expired|sign in|private rejection/i);
+  assert.equal(ui.button('sync').disabled, false);
+});
+
 test('VAPID changes show an explicit replacement action and do not silently unsubscribe', async (t) => {
   const oldKey = Buffer.concat([Buffer.from([4]), Buffer.alloc(64, 2)]).toString('base64url'); let removed = false;
   const local = subscription(oldKey); local.unsubscribe = async () => { removed = true; return true; };

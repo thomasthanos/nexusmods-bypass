@@ -186,10 +186,30 @@ function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function tokenClaimsValid(token: string, issuer: string, audience: string): boolean {
-  if (token.length > MAX_ACCESS_TOKEN_BYTES) return false;
+type ClaimsFailure = 'malformed_assertion' | 'issuer_mismatch' | 'audience_mismatch'
+  | 'invalid_claims' | 'expired_or_not_yet_valid';
+type AccessFailure = ClaimsFailure | 'missing_assertion' | 'invalid_signature'
+  | 'verifier_unavailable' | 'configuration_invalid';
+
+/** Fixed categories only: assertions, identities and provider errors never enter logs. */
+function accessRejected(c: Context<AppEnv>, reason: AccessFailure, status: 401 | 503 = 401) {
+  const requestId = c.get('requestId');
+  const validRequestId = typeof requestId === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId);
+  c.header('X-Diagnostics-Auth', reason);
+  if (validRequestId) c.header('X-Request-ID', requestId);
+  console.error(JSON.stringify({
+    event: 'diagnostics_access_rejected', reason,
+    target: c.req.path === '/api/admin' || c.req.path.startsWith('/api/admin/') ? 'admin_api' : 'private_asset',
+    ...(validRequestId ? { request_id: requestId } : {})
+  }));
+  return status === 503 ? unavailable(c) : unauthorized(c);
+}
+
+function tokenClaimsFailure(token: string, issuer: string, audience: string): ClaimsFailure | null {
+  if (token.length > MAX_ACCESS_TOKEN_BYTES) return 'malformed_assertion';
   const parts = token.split('.');
-  if (parts.length !== 3 || parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part))) return false;
+  if (parts.length !== 3 || parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part))) return 'malformed_assertion';
   function decode(part: string): unknown {
     const encoded = part.replace(/-/g, '+').replace(/_/g, '/');
     const bytes = Uint8Array.from(atob(encoded + '='.repeat((4 - encoded.length % 4) % 4)), (char) => char.charCodeAt(0));
@@ -200,25 +220,28 @@ function tokenClaimsValid(token: string, issuer: string, audience: string): bool
     const claims = decode(parts[1]!);
     if (!object(header) || header.alg !== 'RS256' || Object.hasOwn(header, 'crit')
         || (header.typ !== undefined && header.typ !== 'JWT') || typeof header.kid !== 'string'
-        || !/^[A-Za-z0-9_-]{1,256}$/.test(header.kid) || !object(claims) || claims.iss !== issuer) return false;
+        || !/^[A-Za-z0-9_-]{1,256}$/.test(header.kid) || !object(claims)) return 'malformed_assertion';
+    if (claims.iss !== issuer) return 'issuer_mismatch';
     const aud = claims.aud;
     if (!(typeof aud === 'string' ? aud === audience : Array.isArray(aud) && aud.length > 0
-      && aud.length <= 32 && aud.every((entry) => typeof entry === 'string' && entry.length > 0) && aud.includes(audience))) return false;
+      && aud.length <= 32 && aud.every((entry) => typeof entry === 'string' && entry.length > 0) && aud.includes(audience))) return 'audience_mismatch';
     const { exp, nbf, iat } = claims;
     if (typeof exp !== 'number' || typeof nbf !== 'number' || typeof iat !== 'number'
-        || ![exp, nbf, iat].every((value) => Number.isSafeInteger(value) && value >= 0 && value <= MAX_TIME / 1000)) return false;
+        || ![exp, nbf, iat].every((value) => Number.isSafeInteger(value) && value >= 0 && value <= MAX_TIME / 1000)) return 'invalid_claims';
     const now = Math.floor(Date.now() / 1000);
-    return exp > now && nbf <= now && iat <= now && exp > nbf && exp > iat;
-  } catch { return false; }
+    return exp > now && nbf <= now && iat <= now && exp > nbf && exp > iat ? null : 'expired_or_not_yet_valid';
+  } catch { return 'malformed_assertion'; }
 }
 
 export const requireAccess: MiddlewareHandler<AppEnv> = async (c, next) => {
   const teamDomain = c.env.CF_ACCESS_TEAM_DOMAIN;
   const audience = c.env.CF_ACCESS_AUD;
   if (typeof teamDomain !== 'string' || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.cloudflareaccess\.com$/.test(teamDomain)
-      || typeof audience !== 'string' || audience.length === 0 || audience.length > 256 || !/^[\x21-\x7e]+$/.test(audience)) return unavailable(c);
+      || typeof audience !== 'string' || audience.length === 0 || audience.length > 256 || !/^[\x21-\x7e]+$/.test(audience)) return accessRejected(c, 'configuration_invalid', 503);
   const token = c.req.header('Cf-Access-Jwt-Assertion')?.trim();
-  if (!token || !tokenClaimsValid(token, `https://${teamDomain}`, audience)) return unauthorized(c);
+  if (!token) return accessRejected(c, 'missing_assertion');
+  const claimsFailure = tokenClaimsFailure(token, `https://${teamDomain}`, audience);
+  if (claimsFailure) return accessRejected(c, claimsFailure);
   const cacheKey = JSON.stringify([teamDomain, audience]);
   let verifier = accessVerifiers.get(cacheKey);
   if (!verifier) {
@@ -231,7 +254,7 @@ export const requireAccess: MiddlewareHandler<AppEnv> = async (c, next) => {
   let verified = false;
   try {
     await verifier(c, async () => { verified = true; });
-  } catch { return unavailable(c); }
-  if (!verified) return unauthorized(c);
+  } catch { return accessRejected(c, 'verifier_unavailable', 503); }
+  if (!verified) return accessRejected(c, 'invalid_signature');
   await next();
 };
