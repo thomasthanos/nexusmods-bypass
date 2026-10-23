@@ -8,7 +8,7 @@ export type DeliveryResult = {
   retryable: boolean;
   expired: boolean;
   retry_after_ms: number | null;
-  reason: 'delivered' | 'http_error' | 'network_error' | 'invalid_config' | 'invalid_subscription' | 'payload_too_large';
+  reason: 'delivered' | 'already_posted' | 'http_error' | 'network_error' | 'invalid_config' | 'invalid_subscription' | 'payload_too_large';
 };
 
 export type PushTarget = {

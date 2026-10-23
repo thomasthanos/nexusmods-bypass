@@ -2,6 +2,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { compare } from 'compare-versions';
 import type { ErrorReport, Heartbeat } from '../schemas/ingest.ts';
 import { fingerprintReport } from '../utils/fingerprint.ts';
+import { countedInstall } from '../utils/installs.ts';
 import { sanitizeReport } from '../utils/sanitize.ts';
 import { classifyReport, evaluateRules, UPSTREAM_BREAKING_CHANGE_ACTION } from './ruleEngine.ts';
 import type { RuleEvaluation } from './ruleEngine.ts';
@@ -106,7 +107,7 @@ async function refreshIssueClassification(
       SELECT source.category, source.fault_origin, source.suggested_action,
         CASE WHEN source.category IN ('DOM_SELECTOR_MISSING', 'API_SCHEMA_MISMATCH')
           AND (
-            SELECT COUNT(DISTINCT recent.install_id) FROM reports AS recent
+            SELECT COUNT(DISTINCT ${countedInstall('recent.install_id')}) FROM reports AS recent
             WHERE recent.issue_id = issues.id
               AND recent.created_at >= max(0, issues.last_seen_at - ?)
               AND recent.created_at <= issues.last_seen_at

@@ -115,6 +115,7 @@ test('desktop filters, hostile diagnostic text, deep links and settings work wit
   await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
   await expect(page.locator('[data-diagnostic-issues] .issue-list .issue-row')).toHaveCount(1);
   await expect(page.locator('[data-diagnostic-issues] .issue-list')).toContainText('HANDOFF_FAILURE');
+  await expect(page.locator('[data-diagnostic-issues] .issue-count span').filter({ hasText: 'Discord' })).toHaveText('2 via Discord');
   await page.screenshot({ path: new URL('issues-desktop.png', screenshots).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
   await page.goto(`${preview.origin}/?issue=${preview.ids.network}`);
   await expect(page.locator('#issue-detail')).toContainText('<img src=x');
@@ -122,6 +123,10 @@ test('desktop filters, hostile diagnostic text, deep links and settings work wit
   assert.equal(await page.evaluate(() => window.__diagnosticsXss), undefined);
   await page.goto(`${preview.origin}/?issue=${preview.ids.handoff}`);
   await expect(page.locator('#issue-title')).toHaveText(`Issue #${preview.ids.handoff}`);
+  // The newest report is a relay copy: its source is named and its OS is not guessed.
+  await expect(page.locator('#issue-detail')).toContainText('and 2 reports via Discord without an installation ID');
+  await expect(page.locator('#issue-detail')).toContainText('Automatic report via the Discord relay');
+  await expect(page.locator('#issue-detail')).toContainText('OS not reported');
   await page.getByRole('button', { name: 'Close issue details' }).click();
   await page.locator('[data-view="settings"]').click();
   await expect(page.locator('#view-settings h1')).toHaveText('Settings');
@@ -263,6 +268,11 @@ test('320px overview and issue detail remain usable with reduced motion', async 
   await expect(page.getByRole('dialog')).toBeVisible();
   assert.equal(await page.locator('#issue-dialog').evaluate((element) => element.scrollWidth <= element.clientWidth), true);
   await expect(page.getByRole('button', { name: 'Close issue details' })).toBeVisible();
+  // A relay copy as the newest report: its source, OS and installation lines fit as well.
+  await page.goto(`${preview.origin}/?issue=${preview.ids.handoff}`);
+  await expect(page.locator('#issue-detail')).toContainText('and 2 reports via Discord without an installation ID');
+  await expect(page.locator('#issue-detail')).toContainText('OS not reported');
+  assert.equal(await page.locator('#issue-dialog').evaluate((element) => element.scrollWidth <= element.clientWidth), true);
 });
 
 test('pinned Tailwind CDN can load under production CSP without breaking the dashboard', async (t) => {

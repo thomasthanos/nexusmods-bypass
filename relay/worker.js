@@ -29,6 +29,7 @@ const HOUR_MS = 60 * 60 * 1000;
 export const DELIVERY_OPTIONS = Object.freeze({ maxAttempts: 3, budgetMs: 9000, timeoutMs: 5000 });
 export const DIAGNOSTICS_TIMEOUT_MS = 10000;
 const DIAGNOSTICS_ROUTES = Object.freeze({ '/v1/diagnostics': '/api/ingest', '/v1/heartbeat': '/api/heartbeat' });
+const DASHBOARD_COPY_PATH = '/api/ingest/automatic';
 const DIAGNOSTICS_ORIGIN = 'https://diagnostics.thomast.uk';
 const DIAGNOSTICS_RESPONSE_BYTES = 4096;
 const DIAGNOSTICS_EXTENSION_ORIGIN = /^(?:chrome-extension:\/\/[a-p]{32}|moz-extension:\/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
@@ -542,6 +543,69 @@ async function bridgeDiagnostics(request, env, path, headers) {
   finally { clearTimeout(timer); }
 }
 
+// ---- Copy for the private dashboard ------------------------------------------------------------
+
+// The dashboard's fields for an automatic report, as the extension's own private-dashboard reporter
+// writes them (src/auto-reports.js), so a fault groups into the same issue from either path. Without
+// that separate consent there is no installation identifier and no OS. The id is derived from the
+// content, so a client retrying the same report reaches the same dashboard report.
+export async function dashboardReport(p, receivedAt = Date.now()) {
+  const error = p.error;
+  const text = (value, max) => String(value ?? '').replaceAll('\u0000', '').slice(0, max);
+  const identifier = (value, fallback) => {
+    const clean = String(value || '').replace(/[^A-Za-z0-9_.:-]/g, '_').slice(0, 80);
+    return /^[A-Za-z]/.test(clean) ? clean : fallback;
+  };
+  const flow = `${error.action || ''} ${error.context || ''}`;
+  const category = error.code === 'nexus_page_changed' ? 'DOM_SELECTOR_MISSING'
+    : error.code === 'nexus_api_changed' ? 'API_SCHEMA_MISMATCH' : identifier(error.code, 'UNKNOWN_ERROR');
+  const name = String(p.browser || '');
+  const logs = (p.diagnostics?.consent === 'extended-v1' ? p.diagnostics.logs : [])
+    .filter((line) => Number.isFinite(Date.parse(line.at))).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const observed = Number.isFinite(Date.parse(p.firstAt)) ? Date.parse(p.firstAt) : receivedAt;
+  const start = logs.length ? Date.parse(logs[0].at) : observed;
+  const report = {
+    schema_version: 1, consent: 'automatic-v1', occurred_at: new Date(observed).toISOString(), version: p.version,
+    browser: /^Opera\b/i.test(name) ? 'opera' : /^Edge\b/i.test(name) ? 'edge' : /^Firefox\b/i.test(name) ? 'firefox'
+      : /^Brave\b/i.test(name) ? 'brave' : /^Chrome\b/i.test(name) ? 'chrome' : /^Safari\b/i.test(name) ? 'safari' : 'other',
+    browser_version: (name.match(/\b\d+(?:\.\d+)*\b/)?.[0] || 'unknown').slice(0, 40),
+    download_mode: /automatic|collection run|queued/i.test(flow) ? 'auto' : 'manual',
+    destination: /vortex|nxm:/i.test(flow) ? 'vortex' : 'browser',
+    severity: p.severity === 'critical' ? 'fatal' : 'error',
+    error_category: category, error_code: identifier(error.causeCode || error.code, 'REQUEST_FAILED'), failure_stage: category,
+    error_name: 'ExtensionError',
+    error_message: text(error.message || error.context || error.code, 2048) || 'Extension error',
+    ...(error.frame ? { stack_trace: `ext://${error.frame}` } : {}),
+    ...(Number.isInteger(error.status) && error.status >= 100 && error.status <= 599 ? { http_status: error.status } : {}),
+    breadcrumbs: logs.map((line) => ({
+      timestamp_offset_ms: Math.max(0, Math.min(86400000, Date.parse(line.at) - start)),
+      stage: 'extension', action: 'debug_log', status: line.level === 'error' ? 'error' : line.level === 'warn' ? 'warn' : 'ok',
+      metadata: { detail: text(line.text, 400) }
+    })),
+    context: {}
+  };
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(report))));
+  digest[6] = (digest[6] & 0x0f) | 0x40;
+  digest[8] = (digest[8] & 0x3f) | 0x80;
+  const hex = Array.from(digest.slice(0, 16), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return { ...report, report_id: `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` };
+}
+
+// Runs beside the request through waitUntil: the dashboard copy never delays or fails a report.
+async function copyToDashboard(env, payload, origin, ip, log) {
+  try {
+    const response = await env.DIAGNOSTICS.fetch(new Request(`${DIAGNOSTICS_ORIGIN}${DASHBOARD_COPY_PATH}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', origin, 'cf-connecting-ip': ip },
+      body: JSON.stringify(await dashboardReport(payload)), redirect: 'manual',
+      ...(typeof globalThis.AbortSignal?.timeout === 'function' ? { signal: globalThis.AbortSignal.timeout(DIAGNOSTICS_TIMEOUT_MS) } : {})
+    }));
+    void response.body?.cancel().catch(() => undefined);
+    if (![200, 202].includes(response.status)) log('dashboard_copy_failed', { code: payload.error?.code, version: payload.version, status: response.status });
+  } catch (cause) {
+    log('dashboard_copy_failed', { code: payload.error?.code, version: payload.version, cause });
+  }
+}
+
 async function handleRequest(request, env, ctx, headers, log) {
   const url = new URL(request.url);
   if (Object.hasOwn(DIAGNOSTICS_ROUTES, url.pathname)) {
@@ -575,6 +639,16 @@ async function handleRequest(request, env, ctx, headers, log) {
   if (!await allow(env, `${payload.kind}:${ip}`, now, log, LIMIT_PER_HOUR)
     || !await allow(env, 'all', now, log, GLOBAL_LIMIT_PER_HOUR)) {
     return json({ error: 'rate limited' }, 429, { ...headers, 'retry-after': String(secondsUntilNextHour(now)) });
+  }
+
+  // Automatic reports from extension pages also go to the private dashboard, ahead of the Discord
+  // duplicate check: the dashboard counts every report, Discord gets one message per fault and window.
+  const origin = request.headers.get('origin') || '';
+  const clientIp = connectingIp(request.headers.get('cf-connecting-ip'));
+  if (payload.kind === 'auto' && DIAGNOSTICS_EXTENSION_ORIGIN.test(origin) && headers['access-control-allow-origin'] === origin
+    && clientIp && typeof env.DIAGNOSTICS?.fetch === 'function') {
+    const copy = copyToDashboard(env, payload, origin, clientIp, log);
+    if (ctx?.waitUntil) ctx.waitUntil(copy);
   }
 
   if (!env.DISCORD_WEBHOOK_URL) return json({ error: 'relay not configured' }, 503, headers);

@@ -1,6 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { compare } from 'compare-versions';
-import { versionSchema } from '../schemas/ingest.ts';
+import { RELAYED_INSTALL_ID, versionSchema } from '../schemas/ingest.ts';
+import { countedInstall } from '../utils/installs.ts';
 import type { ErrorReport } from '../schemas/ingest.ts';
 import { sanitizeReport, sanitizeText } from '../utils/sanitize.ts';
 import { sendDiscordReport, sendWebPush } from './delivery.ts';
@@ -234,7 +235,7 @@ function pushPayload(trigger: NotificationTrigger, issue: IssueState, input: Not
 
 async function issuePush(db: D1Database, issue: IssueState, input: NotificationInput,
   config: NotificationConfiguration, resolved: ReturnType<typeof settings>, now: number): Promise<PushSummary> {
-  const counts = await db.prepare(`SELECT COUNT(*) AS report_count,COUNT(DISTINCT install_id) AS distinct_installs
+  const counts = await db.prepare(`SELECT COUNT(*) AS report_count,COUNT(DISTINCT ${countedInstall('install_id')}) AS distinct_installs
     FROM reports WHERE issue_id=? AND created_at>=? AND created_at<=?`
   ).bind(issue.id, Math.max(0, now - resolved.windowMs), now).first<WindowCounts>();
   const trigger = chooseTrigger(issue, input, counts ?? { report_count: 0, distinct_installs: 0 }, resolved);
@@ -274,8 +275,10 @@ export async function sendIssueNotifications(db: D1Database, input: Notification
   const pushNow = timestamp(Math.max(now, issue.last_seen_at));
   // Discord is independent of push mute/cooldown and receives every newly
   // accepted report. The ingestion transaction must not schedule report retries.
+  // Relayed reports reach Discord through the relay, which suppresses its own duplicates.
+  const posted: DeliveryResult = { ok: true, status: null, retryable: false, expired: false, retry_after_ms: null, reason: 'already_posted' };
   const [discord, push] = await Promise.allSettled([
-    sendDiscordReport(config.discordWebhookUrl, report, {
+    report.install_id === RELAYED_INSTALL_ID ? Promise.resolve(posted) : sendDiscordReport(config.discordWebhookUrl, report, {
       issueId: issue.id, fingerprint: issue.fingerprint, dashboardOrigin: resolved.origin,
       category: input.rule.category, faultOrigin: input.rule.fault_origin, suggestedAction: input.rule.suggested_action
     }, { timeoutMs: resolved.requestTimeoutMs, now }),

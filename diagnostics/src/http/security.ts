@@ -8,7 +8,7 @@ const MAX_BODY_BYTES = 65_536;
 const MAX_ACCESS_TOKEN_BYTES = 8192;
 const MAX_TIME = 253_402_300_799_999;
 const encoder = new TextEncoder();
-const publicPaths = new Set(['/api/ingest', '/api/heartbeat']);
+const publicPaths = new Set(['/api/ingest', '/api/ingest/automatic', '/api/heartbeat']);
 const extensionOrigin = /^(?:chrome-extension:\/\/[a-p]{32}|moz-extension:\/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
 function unavailable(c: Context<AppEnv>) { return c.json({ error: 'Service unavailable' }, 503); }

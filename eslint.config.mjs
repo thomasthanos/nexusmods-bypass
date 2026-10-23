@@ -4,7 +4,8 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['dist/**', 'node_modules/**', 'internal/**', 'test-results/**'] },
+  // .wrangler holds Wrangler's local bundles, as in .gitignore.
+  { ignores: ['dist/**', 'node_modules/**', 'internal/**', 'test-results/**', '**/.wrangler/**'] },
   {
     files: ['src/**/*.js'],
     languageOptions: {

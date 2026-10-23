@@ -232,6 +232,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const metadata = node('span', 'issue-row-meta');
     metadata.append(node('span', '', `#${value.id} · ${value.error_code ?? 'Unknown error'}`), node('span', '', `${value.last_seen_version ?? 'Unknown version'} · ${relativeTime(value.last_seen_at)}`));
     const counts = node('span', 'issue-count'); counts.append(node('strong', '', formatNumber(value.total_occurrences)), node('span', 'muted', `reports · ${formatNumber(value.affected_installs_count)} installs`));
+    if (value.relayed_report_count > 0) counts.append(node('span', 'muted', `${formatNumber(value.relayed_report_count)} via Discord`));
     main.append(top, metadata); row.append(main, counts); return row;
   }
 
@@ -500,7 +501,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     target.replaceChildren();
     if (!report) { empty(target, 'Report bodies are no longer retained', 'Lifetime issue counts and grouping remain available. New reports will appear here.'); return; }
     const environment = section('Selected report', `${report.id} · received ${formatDate(report.created_at)}`);
-    environment.append(keyValues([['Version', report.version], ['Browser', `${report.browser ?? '—'} ${report.browser_version ?? ''}`.trim()], ['OS', `${report.os ?? '—'} ${report.os_version ?? ''}`.trim()], ['Destination / mode', `${report.destination ?? '—'} / ${report.download_mode ?? '—'}`], ['Severity', report.severity], ['Occurred', formatDate(report.occurred_at)], ['Failure stage', report.failure_stage], ['HTTP / Retry-After', `${report.http_status ?? '—'} / ${report.retry_after ?? '—'}`], ['Mod / collection', `${report.mod_id ?? '—'} / ${report.collection_id ?? '—'}`]]));
+    environment.append(keyValues([['Version', report.version], ['Source', report.source === 'relay' ? 'Automatic report via the Discord relay' : 'Private diagnostics'], ['Browser', `${report.browser ?? '—'} ${report.browser_version ?? ''}`.trim()], ['OS', report.source === 'relay' ? 'Not reported' : `${report.os ?? '—'} ${report.os_version ?? ''}`.trim()], ['Destination / mode', `${report.destination ?? '—'} / ${report.download_mode ?? '—'}`], ['Severity', report.severity], ['Occurred', formatDate(report.occurred_at)], ['Failure stage', report.failure_stage], ['HTTP / Retry-After', `${report.http_status ?? '—'} / ${report.retry_after ?? '—'}`], ['Mod / collection', `${report.mod_id ?? '—'} / ${report.collection_id ?? '—'}`]]));
     environment.append(evidence('Error message', report.error_message ?? 'No message retained.')); target.append(environment, classification('Rule Engine · this report at ingestion', report));
     const timeline = section('Execution timeline', 'Offsets and durations are reported by the extension. Bars share the same elapsed-time scale.');
     const breadcrumbs = Array.isArray(report.breadcrumbs) ? report.breadcrumbs : [];
@@ -564,7 +565,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     else {
       const list = node('div', 'issue-list');
       for (const report of historyData.items) {
-        const item = button(`${report.version} · ${report.browser} / ${report.os} · ${formatDate(report.created_at)}`, () => {
+        const item = button(`${report.version} · ${report.browser} / ${report.os ?? 'OS not reported'} · ${formatDate(report.created_at)}`, () => {
           if (!isDetailCurrent(generation)) return; selectedReport = report;
           renderReport(elements['issue-detail'].querySelector('[data-selected-report]'), selectedReport); renderHistory(target, generation);
           elements['issue-detail'].querySelector('[data-manual-copy-section]')?.remove();
@@ -610,7 +611,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const title = node('h2', '', `Issue #${value.id}`); title.id = 'issue-title'; target.append(title, node('p', 'muted', value.error_code ?? 'Unknown error'));
     const labels = node('div', 'toolbar'); labels.append(statusTag(value.status), tag(value.category), tag(value.fault_origin)); if (value.muted) labels.append(tag('muted')); target.append(labels);
     const summary = node('div', 'metric-grid');
-    summary.append(metric('Lifetime reports', formatNumber(value.total_occurrences)), metric('Affected installs', formatNumber(value.affected_installs_count)),
+    summary.append(metric('Lifetime reports', formatNumber(value.total_occurrences)), metric('Affected installs', formatNumber(value.affected_installs_count), value.relayed_report_count > 0 ? `and ${formatNumber(value.relayed_report_count)} reports via Discord without an installation ID` : undefined),
       metric('First seen', formatDate(value.first_seen_at), value.first_seen_version, 'metric-date'), metric('Last seen', formatDate(value.last_seen_at), value.last_seen_version, 'metric-date'));
     target.append(summary);
     const copy = button('Copy AI Debug Context', () => { void copyContext(generation, copy); }, 'button button-primary'); copy.dataset.action = 'copy-context'; target.append(copy);

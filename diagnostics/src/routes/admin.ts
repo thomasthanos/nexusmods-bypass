@@ -5,11 +5,12 @@ import type { Context } from 'hono';
 import type { AppEnv } from '../http/types.ts';
 import { boundedJson } from '../http/security.ts';
 import { ingestionOptions, integerSetting, notificationConfiguration } from '../http/config.ts';
-import { browserSchema, destinationSchema, metricDateSchema, osSchema, severitySchema, versionSchema } from '../schemas/ingest.ts';
+import { browserSchema, destinationSchema, metricDateSchema, osSchema, RELAYED_INSTALL_ID, severitySchema, versionSchema } from '../schemas/ingest.ts';
 import { validateSubscription } from '../services/delivery.ts';
 import { sendTestNotification } from '../services/notifications.ts';
 import { getGithubIssues } from '../services/github.ts';
 import { getGithubDiscussions } from '../services/github-discussions.ts';
+import { countedInstall, relayedReportCount } from '../utils/installs.ts';
 import { sanitizeText } from '../utils/sanitize.ts';
 
 type SqlValue = string | number | null;
@@ -80,10 +81,17 @@ const testPushSchema = z.strictObject({});
 function badRequest(c: Context<AppEnv>) { return c.json({ error: 'Invalid request' }, 400); }
 function notFound(c: Context<AppEnv>) { return c.json({ error: 'Not found' }, 404); }
 function conflict(c: Context<AppEnv>) { return c.json({ error: 'Resource changed; refresh and retry' }, 409); }
-function issueValue(row: IssueRow) { return { ...row, muted: row.muted === 1 }; }
+function issueValue(row: IssueRow) {
+  // Issue membership counts the placeholder of relayed reports once; it is not an installation.
+  const relayed = Number(row.relayed_report_count) || 0;
+  return { ...row, muted: row.muted === 1, relayed_report_count: relayed,
+    affected_installs_count: Math.max(0, Number(row.affected_installs_count) - (relayed > 0 ? 1 : 0)) };
+}
 function reportValue(row: ReportRow) {
   const { breadcrumbs_json, dom_state_json, context_json, ...rest } = row;
-  return { ...rest, breadcrumbs: JSON.parse(breadcrumbs_json) as unknown, dom_state: dom_state_json === null ? null : JSON.parse(dom_state_json) as unknown, context: JSON.parse(context_json) as unknown };
+  const relayed = rest.install_id === RELAYED_INSTALL_ID;
+  return { ...rest, ...(relayed ? { install_id: null, os: null } : {}), source: relayed ? 'relay' : 'extension',
+    breadcrumbs: JSON.parse(breadcrumbs_json) as unknown, dom_state: dom_state_json === null ? null : JSON.parse(dom_state_json) as unknown, context: JSON.parse(context_json) as unknown };
 }
 function identifier(value: string): number | null {
   if (!/^[1-9][0-9]{0,15}$/.test(value)) return null;
@@ -188,14 +196,14 @@ adminRoutes.get('/overview', async (c) => {
       COALESCE(SUM(status='fixed'),0) AS fixed_count,COALESCE(SUM(status='regressed'),0) AS regressed_count,
       COALESCE(SUM(status='ignored'),0) AS ignored_count,COALESCE(SUM(muted=1),0) AS muted_count
       FROM issues WHERE ${issueFilter}`).bind(...issueValues).first<Record<string, number>>(),
-    c.env.DB.prepare(`SELECT COUNT(*) AS total,COUNT(DISTINCT install_id) AS distinct_installs
+    c.env.DB.prepare(`SELECT COUNT(*) AS total,COUNT(DISTINCT ${countedInstall('install_id')}) AS distinct_installs
       FROM reports WHERE ${reportFilter}`).bind(...reportValues).first<Record<string, number>>(),
     aggregate(c.env.DB, releaseWhere(input, window)),
     c.env.DB.prepare(`SELECT i.id AS issue_id,i.category,i.status,COUNT(*) AS report_count,
-      COUNT(DISTINCT r.install_id) AS distinct_installs,MAX(r.created_at) AS last_seen_at
+      COUNT(DISTINCT ${countedInstall('r.install_id')}) AS distinct_installs,MAX(r.created_at) AS last_seen_at
       FROM reports r JOIN issues i ON i.id=r.issue_id
       WHERE ${liveConditions.join(' AND ')} GROUP BY i.id
-      HAVING COUNT(*)>=? AND COUNT(DISTINCT r.install_id)>=?
+      HAVING COUNT(*)>=? AND COUNT(DISTINCT ${countedInstall('r.install_id')})>=?
       ORDER BY MAX(r.created_at) DESC,i.id DESC LIMIT 5`)
       .bind(...liveValues, spikeThreshold, detection.distinctInstallThreshold).all()
   ]);
@@ -220,6 +228,7 @@ adminRoutes.get('/issues', async (c) => {
   for (const name of ['version', 'browser', 'os', 'destination', 'download_mode', 'severity'] as const) {
     if (input[name]) { reportConditions.push(`r.${name}=?`); reportValues.push(input[name]); hasReportDimension = true; }
   }
+  if (input.os) reportConditions.push(`r.install_id<>'${RELAYED_INSTALL_ID}'`);
   if (input.q) {
     const search = `%${input.q.replace(/[\\%_]/g, '\\$&')}%`;
     const issueSearch = `i.fingerprint LIKE ? ESCAPE '\\' OR i.category LIKE ? ESCAPE '\\'
@@ -242,7 +251,7 @@ adminRoutes.get('/issues', async (c) => {
   const where = conditions.join(' AND ');
   const [total, items] = await c.env.DB.batch([
     c.env.DB.prepare(`SELECT COUNT(*) AS total FROM issues i WHERE ${where}`).bind(...values),
-    c.env.DB.prepare(`SELECT i.* FROM issues i WHERE ${where} ORDER BY i.last_seen_at DESC,i.id DESC LIMIT ? OFFSET ?`)
+    c.env.DB.prepare(`SELECT i.*,${relayedReportCount('i')} FROM issues i WHERE ${where} ORDER BY i.last_seen_at DESC,i.id DESC LIMIT ? OFFSET ?`)
       .bind(...values, input.limit, (input.page - 1) * input.limit)
   ]);
   const count = total?.results[0] as { total: number } | undefined;
@@ -266,11 +275,11 @@ adminRoutes.get('/issues/:id', async (c) => {
   const id = identifier(c.req.param('id'));
   if (id === null || !query(c, z.strictObject({}))) return badRequest(c);
   const [issueResult, summaryResult, latestResult] = await c.env.DB.batch([
-    c.env.DB.prepare('SELECT * FROM issues WHERE id=?').bind(id),
-    c.env.DB.prepare(`SELECT COUNT(*) AS retained_report_count,COUNT(DISTINCT install_id) AS retained_distinct_installs,
+    c.env.DB.prepare(`SELECT *,${relayedReportCount('issues')} FROM issues WHERE id=?`).bind(id),
+    c.env.DB.prepare(`SELECT COUNT(*) AS retained_report_count,COUNT(DISTINCT ${countedInstall('install_id')}) AS retained_distinct_installs,
       json_group_array(DISTINCT browser) AS browsers_json,
       (SELECT json_group_array(version) FROM (SELECT DISTINCT version FROM reports WHERE issue_id=? ORDER BY version LIMIT 101)) AS versions_json,
-      json_group_array(DISTINCT os) AS operating_systems_json FROM reports WHERE issue_id=?`).bind(id, id),
+      json_group_array(DISTINCT os) FILTER (WHERE install_id<>'${RELAYED_INSTALL_ID}') AS operating_systems_json FROM reports WHERE issue_id=?`).bind(id, id),
     c.env.DB.prepare('SELECT * FROM reports WHERE issue_id=? ORDER BY created_at DESC,id DESC LIMIT 1').bind(id)
   ]);
   const issue = issueResult?.results[0] as IssueRow | undefined;
@@ -304,7 +313,7 @@ adminRoutes.patch('/issues/:id', boundedJson, zValidator('json', issuePatchSchem
   const muted = input.muted === undefined ? previous.muted : input.muted ? 1 : 0;
   if ((nextStatus === 'fixed' || nextStatus === 'regressed') && fixedVersion === null) return badRequest(c);
   const changed = await c.env.DB.prepare(`UPDATE issues SET status=?,fixed_in_version=?,github_issue_url=?,muted=?,updated_at=max(updated_at,?)
-    WHERE id=? AND status=? AND fixed_in_version IS ? AND github_issue_url IS ? AND muted=? AND updated_at=? RETURNING *`)
+    WHERE id=? AND status=? AND fixed_in_version IS ? AND github_issue_url IS ? AND muted=? AND updated_at=? RETURNING *,${relayedReportCount('issues')}`)
     .bind(nextStatus, fixedVersion, githubUrl, muted, c.get('serverNow'), id, previous.status, previous.fixed_in_version, previous.github_issue_url, previous.muted, previous.updated_at).first<IssueRow>();
   return changed ? c.json({ issue: issueValue(changed) }) : conflict(c);
 });

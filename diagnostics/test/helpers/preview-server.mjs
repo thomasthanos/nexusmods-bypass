@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import worker from '../../src/index.ts';
-import { errorReportSchema, heartbeatSchema } from '../../src/schemas/ingest.ts';
+import { errorReportSchema, heartbeatSchema, relayedReportSchema, storedRelayedReport } from '../../src/schemas/ingest.ts';
 import { acceptErrorReport, acceptHeartbeat } from '../../src/services/ingestion.ts';
 import { bindings } from './access.mjs';
 import { createTestDatabase } from './d1.mjs';
@@ -65,6 +65,13 @@ export async function startPreviewServer() {
   await seed('upstream', 13, {});
   await seed('handoff', 4, { destination: 'vortex', browser: 'chrome', error_category: 'HANDOFF_FAILURE', error_code: 'NXM_HANDOFF_TIMEOUT', failure_stage: 'VORTEX_NXM_HANDOFF_FAILED', error_message: 'Vortex protocol handler did not respond within 5000 ms' });
   db.sqlite.prepare("UPDATE issues SET status='regressed',fixed_in_version='3.2.0' WHERE id=?").run(ids.handoff);
+  // Two copies the relay made of the same fault from the Discord path: no installation or OS.
+  for (const index of [1, 2]) {
+    await acceptErrorReport(db, storedRelayedReport(relayedReportSchema.parse({ schema_version: 1, consent: 'automatic-v1', report_id: crypto.randomUUID(),
+      occurred_at: new Date(now - 20_000).toISOString(), version: '3.2.1', browser: 'opera', browser_version: '124', download_mode: 'auto',
+      destination: 'vortex', severity: 'error', error_category: 'HANDOFF_FAILURE', error_code: 'NXM_HANDOFF_TIMEOUT', failure_stage: 'VORTEX_NXM_HANDOFF_FAILED',
+      error_message: 'Vortex protocol handler did not respond within 5000 ms', stack_trace: 'findCollectionHost@moz-extension://fixture/content/collections.js:82:14' })), now - 5_000 + index);
+  }
   await seed('network', 2, { error_category: 'NETWORK', error_code: 'FETCH_FAILED', failure_stage: 'PRIMARY_API_REQUEST', error_message: 'Failed to fetch <img src=x onerror=window.__diagnosticsXss=true>', severity: 'warning', dom_state: undefined });
   await seed('fixed', 1, { error_category: 'EXTENSION_CONFLICT', error_code: 'DOWNLOAD_UI_HIJACKED', failure_stage: 'UI_BINDING', error_message: 'Another extension owns the download button' });
   db.sqlite.prepare("UPDATE issues SET status='fixed',fixed_in_version='3.2.1' WHERE id=?").run(ids.fixed);

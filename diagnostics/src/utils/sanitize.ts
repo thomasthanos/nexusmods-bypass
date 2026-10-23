@@ -1,4 +1,4 @@
-import { errorReportSchema, MAX_BODY_BYTES } from '../schemas/ingest.ts';
+import { MAX_BODY_BYTES, storedReportSchema } from '../schemas/ingest.ts';
 import type { ErrorReport } from '../schemas/ingest.ts';
 
 export const REDACTED = '[REDACTED]';
@@ -239,5 +239,5 @@ export function sanitizeReport(report: ErrorReport): ErrorReport {
     }
     while (bytes() > MAX_BODY_BYTES && sanitized.breadcrumbs.length > 0) sanitized.breadcrumbs.pop();
   }
-  return errorReportSchema.parse(sanitized);
+  return storedReportSchema.parse(sanitized);
 }

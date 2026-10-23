@@ -69,7 +69,7 @@ test('serializes concurrent first reports and replays without duplicate counts o
 test('concurrent distinct reports track counts without confusing issue creation with postinsert totals', async (t) => {
   const db = createTestDatabase(); t.after(() => db.close());
   const results = await Promise.all(Array.from({ length: 12 }, (_, index) => acceptErrorReport(db,
-    report({ report_id: uuid(index + 1), install_id: install(index % 4) }), NOW + index)));
+    report({ report_id: uuid(index + 1), install_id: install(index % 4 + 1) }), NOW + index)));
   assert.equal(results.filter((result) => result.isNewIssue).length, 1);
   assert.equal(results.filter((result) => result.accepted).length, 12);
   const issue = db.sqlite.prepare('SELECT * FROM issues').get();
@@ -248,7 +248,7 @@ test('an older same-millisecond rule evaluation cannot replace a newer canary re
           bind(...values) { return wrap(statement.bind(...values)); },
           async first(...args) {
             const result = await statement.first(...args);
-            if (sql.includes('COUNT(DISTINCT install_id)')) { ready(); await gate; }
+            if (sql.includes('COUNT(DISTINCT NULLIF(install_id,')) { ready(); await gate; }
             return result;
           },
         };
@@ -325,7 +325,7 @@ test('accepted reports survive postcommit classification faults with their base 
   const faultyDb = {
     ...db,
     prepare(sql) {
-      if (sql.includes('COUNT(DISTINCT install_id)')) throw new Error('injected postcommit classification failure');
+      if (sql.includes('COUNT(DISTINCT NULLIF(install_id,')) throw new Error('injected postcommit classification failure');
       return db.prepare(sql);
     },
   };

@@ -220,7 +220,7 @@ test('push bookkeeping failure does not reject or abandon the Discord delivery p
   const config = await configuration(db);
   const originalPrepare = db.prepare.bind(db);
   t.mock.method(db, 'prepare', (sql) => {
-    if (sql.includes('COUNT(DISTINCT install_id)')) throw new Error('D1 temporarily unavailable');
+    if (sql.includes('COUNT(DISTINCT NULLIF(install_id,')) throw new Error('D1 temporarily unavailable');
     return originalPrepare(sql);
   });
   let discordCompleted = false;

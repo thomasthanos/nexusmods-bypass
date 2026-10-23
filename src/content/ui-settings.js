@@ -88,7 +88,7 @@
   ];
   const SHORT_COPY = {
     "AutoErrorReports": ["setShortAutoErrorReports", "Off until you choose. Send sampled technical errors."],
-    "PrivateDiagnostics": ["setShortPrivateDiagnostics", "Also store future technical errors in the private dashboard."],
+    "PrivateDiagnostics": ["setShortPrivateDiagnostics", "Also send the OS and a random installation ID with technical errors."],
     "AutoStartDownload": [
       "setShortAutoStartDownload",
       "Start when you open a file page."

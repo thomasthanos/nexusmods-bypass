@@ -14,7 +14,14 @@ export const versionSchema = z.string().max(64).regex(semverPattern).refine((val
   return precedence.split(/[.-]/).every((part) => !/^\d+$/.test(part) || Number.isSafeInteger(Number(part)));
 }, 'Numeric version components must be safe integers');
 
-export const installIdSchema = z.string().regex(/^[0-9a-f]{64}$/);
+/**
+ * Automatic reports relayed from the extension's Discord path carry no installation identifier or OS:
+ * users agreed to those only with the private dashboard. They are stored under this fixed value, which
+ * no installation hash takes and which is never counted as an installation.
+ */
+export const RELAYED_INSTALL_ID = '0'.repeat(64);
+const storedInstallIdSchema = z.string().regex(/^[0-9a-f]{64}$/);
+export const installIdSchema = storedInstallIdSchema.refine((value) => value !== RELAYED_INSTALL_ID, 'Reserved installation identifier');
 export const browserSchema = z.enum(['chrome', 'edge', 'firefox', 'safari', 'opera', 'brave', 'other']);
 export const osSchema = z.enum(['windows', 'macos', 'linux', 'android', 'ios', 'chromeos', 'other']);
 export const destinationSchema = z.enum(['browser', 'vortex', 'mo2']);
@@ -117,19 +124,13 @@ function enforcePayloadBudget(value: unknown, ctx: z.RefinementCtx): void {
   }
 }
 
-export const errorReportSchema = z.strictObject({
-  schema_version: z.literal(1),
-  consent: z.literal('diagnostics-v1'),
+// Fields both report paths can provide. The extension's private-dashboard path adds the rest.
+const reportFields = {
   report_id: z.uuidv4().toLowerCase(),
-  install_id: installIdSchema,
   occurred_at: timestampSchema,
   version: versionSchema,
   browser: browserSchema,
   browser_version: shortVersion,
-  os: osSchema,
-  os_version: shortVersion.optional(),
-  mod_id: z.string().regex(/^[1-9]\d{0,15}$/).refine((value) => Number.isSafeInteger(Number(value)), 'Unsafe mod ID').optional(),
-  collection_id: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/).optional(),
   download_mode: z.enum(['manual', 'auto']),
   destination: destinationSchema,
   severity: severitySchema,
@@ -140,10 +141,40 @@ export const errorReportSchema = z.strictObject({
   error_message: z.string().min(1).max(2048).refine(hasNoNul, 'NUL characters are not allowed'),
   stack_trace: z.string().max(12_000).refine(hasNoNul, 'NUL characters are not allowed').optional(),
   http_status: z.number().int().min(100).max(599).optional(),
-  retry_after: z.string().min(1).max(128).refine(hasNoNul, 'NUL characters are not allowed').optional(),
   breadcrumbs: breadcrumbsSchema.default([]),
-  dom_state: domStateSchema.optional(),
   context: contextSchema.default({})
+};
+const extensionFields = {
+  os: osSchema,
+  os_version: shortVersion.optional(),
+  mod_id: z.string().regex(/^[1-9]\d{0,15}$/).refine((value) => Number.isSafeInteger(Number(value)), 'Unsafe mod ID').optional(),
+  collection_id: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/).optional(),
+  retry_after: z.string().min(1).max(128).refine(hasNoNul, 'NUL characters are not allowed').optional(),
+  dom_state: domStateSchema.optional()
+};
+
+export const errorReportSchema = z.strictObject({
+  schema_version: z.literal(1),
+  consent: z.literal('diagnostics-v1'),
+  install_id: installIdSchema,
+  ...reportFields,
+  ...extensionFields
+}).superRefine(enforcePayloadBudget);
+
+/** What the relay sends for an automatic report: no installation identifier, OS or page details. */
+export const relayedReportSchema = z.strictObject({
+  schema_version: z.literal(1),
+  consent: z.literal('automatic-v1'),
+  ...reportFields
+}).superRefine(enforcePayloadBudget);
+
+/** Every stored report, from either path; sanitization re-validates against this. */
+export const storedReportSchema = z.strictObject({
+  schema_version: z.literal(1),
+  consent: z.enum(['diagnostics-v1', 'automatic-v1']),
+  install_id: storedInstallIdSchema,
+  ...reportFields,
+  ...extensionFields
 }).superRefine(enforcePayloadBudget);
 
 const counterSchema = z.number().int().min(0).max(MAX_COUNTER);
@@ -170,7 +201,13 @@ export const heartbeatSchema = z.strictObject({
 });
 
 export type ErrorReportInput = z.input<typeof errorReportSchema>;
-export type ErrorReport = z.output<typeof errorReportSchema>;
+export type ErrorReport = z.output<typeof storedReportSchema>;
+export type RelayedReport = z.output<typeof relayedReportSchema>;
 export type HeartbeatInput = z.input<typeof heartbeatSchema>;
 export type Heartbeat = z.output<typeof heartbeatSchema>;
 export type Breadcrumb = z.output<typeof breadcrumbSchema>;
+
+/** A relayed report in stored form: the placeholder installation and an OS that was not reported. */
+export function storedRelayedReport(report: RelayedReport): ErrorReport {
+  return { ...report, install_id: RELAYED_INSTALL_ID, os: 'other' };
+}

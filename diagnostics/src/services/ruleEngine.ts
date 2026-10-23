@@ -1,5 +1,6 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { ErrorReport } from '../schemas/ingest.ts';
+import { countedInstall } from '../utils/installs.ts';
 
 export type FaultOrigin = 'client_env' | 'upstream_site' | 'rate_limit' | 'extension_bug' | 'unknown';
 
@@ -140,7 +141,7 @@ export async function evaluateRules(
   if (result.structural_category === null) return result;
 
   const count = await db.prepare(`
-    SELECT COUNT(DISTINCT install_id) AS distinct_installs
+    SELECT COUNT(DISTINCT ${countedInstall('install_id')}) AS distinct_installs
     FROM reports
     WHERE issue_id = ?1 AND created_at >= ?2 AND created_at <= ?3
   `).bind(issueId, Math.max(0, now - windowMs), now).first<{ distinct_installs: number }>();

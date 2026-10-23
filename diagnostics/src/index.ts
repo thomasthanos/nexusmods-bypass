@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { errorReportSchema, heartbeatSchema } from './schemas/ingest.ts';
+import { errorReportSchema, heartbeatSchema, relayedReportSchema, storedRelayedReport } from './schemas/ingest.ts';
+import type { ErrorReport } from './schemas/ingest.ts';
 import { acceptErrorReport, acceptHeartbeat, IngestionConflict } from './services/ingestion.ts';
 import { sendIssueNotifications } from './services/notifications.ts';
 import adminRoutes from './routes/admin.ts';
@@ -12,7 +14,7 @@ import {
 import type { AppEnv } from './http/types.ts';
 
 const app = new Hono<AppEnv>();
-const publicPaths = new Set(['/api/ingest', '/api/heartbeat']);
+const publicPaths = new Set(['/api/ingest', '/api/ingest/automatic', '/api/heartbeat']);
 
 // No untrusted payload, JWT, provider body, SQL error or request URL enters logs.
 function logFailure(event: string, requestId: string): void {
@@ -48,32 +50,41 @@ app.use('*', async (c, next) => {
   return requireSameOrigin(c, next);
 });
 
+async function ingestReport(c: Context<AppEnv>, report: ErrorReport): Promise<Response> {
+  // Validate settings before committing, so a bad numeric deployment setting
+  // cannot leave a stored report whose background dispatch was never scheduled.
+  const config = notificationConfiguration(c.env, new URL(c.req.url).origin);
+  const result = await acceptErrorReport(c.env.DB, report, c.get('serverNow'), ingestionOptions(c.env));
+  if (result.accepted) {
+    const requestId = c.get('requestId');
+    c.executionCtx.waitUntil(sendIssueNotifications(c.env.DB, {
+      issueId: result.issueId,
+      report: result.report,
+      rule: result.rule,
+      isNewIssue: result.isNewIssue,
+      ...(result.regressionEventId === undefined ? {} : { regressionEventId: result.regressionEventId }),
+      now: c.get('serverNow')
+    }, config).then((delivery) => {
+      if (!delivery.discord.ok) logFailure('diagnostics_discord_delivery_failed', requestId);
+      if (delivery.push.state === 'failed' || delivery.push.state === 'partial') {
+        logFailure('diagnostics_push_delivery_failed', requestId);
+      }
+    }).catch(() => logFailure('diagnostics_background_delivery_failed', requestId)));
+  }
+  return c.json({ ok: true, report_id: result.reportId, duplicate: !result.accepted }, result.accepted ? 202 : 200);
+}
+
 app.post('/api/ingest', limitPublicIp, boundedJson, limitPublicInstall,
   zValidator('json', errorReportSchema, (result, c) => {
     if (!result.success) return c.json({ error: 'Invalid report' }, 400);
-  }), async (c) => {
-    // Validate settings before committing, so a bad numeric deployment setting
-    // cannot leave a stored report whose background dispatch was never scheduled.
-    const config = notificationConfiguration(c.env, new URL(c.req.url).origin);
-    const result = await acceptErrorReport(c.env.DB, c.req.valid('json'), c.get('serverNow'), ingestionOptions(c.env));
-    if (result.accepted) {
-      const requestId = c.get('requestId');
-      c.executionCtx.waitUntil(sendIssueNotifications(c.env.DB, {
-        issueId: result.issueId,
-        report: result.report,
-        rule: result.rule,
-        isNewIssue: result.isNewIssue,
-        ...(result.regressionEventId === undefined ? {} : { regressionEventId: result.regressionEventId }),
-        now: c.get('serverNow')
-      }, config).then((delivery) => {
-        if (!delivery.discord.ok) logFailure('diagnostics_discord_delivery_failed', requestId);
-        if (delivery.push.state === 'failed' || delivery.push.state === 'partial') {
-          logFailure('diagnostics_push_delivery_failed', requestId);
-        }
-      }).catch(() => logFailure('diagnostics_background_delivery_failed', requestId)));
-    }
-    return c.json({ ok: true, report_id: result.reportId, duplicate: !result.accepted }, result.accepted ? 202 : 200);
-  });
+  }), (c) => ingestReport(c, c.req.valid('json')));
+
+// Automatic reports the relay copies from the extension's Discord path. They have no installation
+// identifier, so only the per-address limit applies; the relay already limits them per address and hour.
+app.post('/api/ingest/automatic', limitPublicIp, boundedJson,
+  zValidator('json', relayedReportSchema, (result, c) => {
+    if (!result.success) return c.json({ error: 'Invalid report' }, 400);
+  }), (c) => ingestReport(c, storedRelayedReport(c.req.valid('json'))));
 
 app.post('/api/heartbeat', limitPublicIp, boundedJson, limitPublicInstall,
   zValidator('json', heartbeatSchema, (result, c) => {

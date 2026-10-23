@@ -108,6 +108,20 @@ never account IDs or signed links. The relay validates the complete optional str
 Disabling either choice aborts delivery where possible and clears pending diagnostics. Existing rate
 limits, deduplication and notification cooldowns are unchanged.
 
+## Copy for the private dashboard
+
+Every automatic report from an extension page that passes validation and the rate limits is also sent,
+through the `DIAGNOSTICS` service binding, to the diagnostics service's `/api/ingest/automatic`. The
+copy goes ahead of the Discord duplicate check, so the dashboard counts repeats that Discord groups into
+one message. `dashboardReport()` writes the dashboard's own fields the way the extension's
+private-dashboard reporter does, so a fault groups into the same issue from either path, but without an
+installation identifier or OS, which only that separate consent covers. Its report id is derived from
+the content: a client's retry reaches the same dashboard report. The copy runs under `waitUntil` with a
+ten-second limit and never changes the response; a failure logs `dashboard_copy_failed` with the error
+code, version and status, never report text. Manual reports are not copied, and the dashboard does not
+post copies to Discord again. `tools/relay-dashboard-test.mjs` and the diagnostics package's
+`test/relay-contract.test.mjs` cover both sides.
+
 ## Delivery and failure handling
 
 Not yet deployed: run `npx wrangler deploy` from `relay/` to apply it. Wrangler bundles
