@@ -3,6 +3,13 @@ name: Release gate
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      worker:
+        description: Workers to deploy after the checks pass
+        type: choice
+        options: [both, diagnostics, relay]
+        default: both
 
 jobs:
   diagnostics:
@@ -50,3 +57,102 @@ jobs:
           name: layout-screenshots
           path: test-results/
           retention-days: 14
+
+  # A push to main deploys each Worker whose folder changed, once its own checks pass; a manual run
+  # deploys the chosen ones. Deployment needs the repository secret CLOUDFLARE_API_TOKEN. Without it
+  # these jobs only note that nothing was deployed. The token reaches the deploy step alone, never npm.
+  deploy-diagnostics:
+    needs: diagnostics
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    concurrency:
+      group: deploy-diagnostics
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: diagnostics
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide
+        id: plan
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          BEFORE: ${{ github.event.before }}
+          CHOSEN: ${{ inputs.worker }}
+        run: |
+          if [ -z "$TOKEN" ]; then echo "::notice::CLOUDFLARE_API_TOKEN is not set, so the diagnostics Worker was not deployed."; exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$CHOSEN" = relay ]; then exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null && git diff --quiet "$BEFORE" "$GITHUB_SHA" -- .; then
+            echo "::notice::diagnostics/ did not change in this push."; exit 0
+          fi
+          echo deploy=true >> "$GITHUB_OUTPUT"
+      - if: steps.plan.outputs.deploy == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: diagnostics/package-lock.json
+      - if: steps.plan.outputs.deploy == 'true'
+        run: npm ci
+      - name: Deploy the diagnostics Worker
+        if: steps.plan.outputs.deploy == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy
+
+  # The relay forwards to the diagnostics Worker, so it follows that deployment. It has no
+  # dependencies of its own and uses the Wrangler version pinned in diagnostics/.
+  deploy-relay:
+    needs: [gate, deploy-diagnostics]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    concurrency:
+      group: deploy-relay
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: diagnostics
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide
+        id: plan
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          BEFORE: ${{ github.event.before }}
+          CHOSEN: ${{ inputs.worker }}
+        run: |
+          if [ -z "$TOKEN" ]; then echo "::notice::CLOUDFLARE_API_TOKEN is not set, so the relay Worker was not deployed."; exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$CHOSEN" = diagnostics ]; then exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null && git diff --quiet "$BEFORE" "$GITHUB_SHA" -- ../relay; then
+            echo "::notice::relay/ did not change in this push."; exit 0
+          fi
+          echo deploy=true >> "$GITHUB_OUTPUT"
+      - if: steps.plan.outputs.deploy == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: diagnostics/package-lock.json
+      - if: steps.plan.outputs.deploy == 'true'
+        run: npm ci
+      - name: Deploy the relay Worker
+        if: steps.plan.outputs.deploy == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          # The relay's service binding requires the diagnostics Worker's account.
+          CLOUDFLARE_ACCOUNT_ID="$(sed -n 's/^account_id = "\([0-9a-f]*\)"$/\1/p' wrangler.toml)"
+          export CLOUDFLARE_ACCOUNT_ID
+          npx wrangler deploy --config ../relay/wrangler.toml

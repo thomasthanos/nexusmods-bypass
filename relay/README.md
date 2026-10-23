@@ -134,9 +134,10 @@ Not yet deployed: run `npx wrangler deploy` from `relay/` to apply it. Wrangler 
 - **Bounded input:** bodies without a `Content-Length` are read in chunks and refused past 64 KB.
 
 ## Deploy
-To update this deployment or deploy your own copy, use your machine. The relay is **not deployed by CI**:
-`wrangler` needs an interactive `wrangler login` (or a
-Cloudflare API token, which this repository deliberately does not hold). Deploy from your machine:
+Pushes to `main` that change `relay/` deploy this Worker automatically, after the Release gate's checks and
+the diagnostics deployment, once the repository has the `CLOUDFLARE_API_TOKEN` secret described in the
+[diagnostics README](../diagnostics/README.md). That job never changes secrets, KV or `wrangler.toml`.
+To deploy by hand or deploy your own copy, use your machine:
 ```sh
 cd relay
 npx wrangler login
