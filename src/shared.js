@@ -278,10 +278,18 @@
     DownloadFolder: Object.freeze({ maxLength: 100 })
   });
 
+  // Issue #34: "D:\mods" typed as the download folder became Downloads\D mods. A browser lets an
+  // extension save only inside its download location, so the setting names a folder there: a drive,
+  // a full or home path, or one through a variable such as %USERPROFILE% is not stored.
+  function isFullFolderPath(value) {
+    return /^\s*(?:[a-z]:|[\\/]|~[\\/]|%[^%\\/]+%)/i.test(String(value ?? ''));
+  }
+
   // The stored form of a setting, or undefined when the value cannot be stored at all.
   function normalizeSetting(key, value) {
     if (!Object.prototype.hasOwnProperty.call(DEFAULTS, key)) return undefined;
     if (typeof value !== typeof DEFAULTS[key]) return undefined;
+    if (key === 'DownloadFolder' && isFullFolderPath(value)) return undefined;
     const limits = SETTING_LIMITS[key];
     if (typeof value === 'number') {
       if (!Number.isFinite(value)) return undefined;
@@ -1537,6 +1545,7 @@
     ratingStarsMarkup,
     DEFAULTS,
     normalizeSetting,
+    isFullFolderPath,
     ARCHIVE_FILE_EXTENSIONS,
     DOWNLOAD_FILE_EXTENSIONS,
     downloadNameFromUrl,

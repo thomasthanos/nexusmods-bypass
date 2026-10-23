@@ -132,6 +132,12 @@ Rate limits pause the queue temporarily; it resumes automatically. Keep the coll
 Choose **Skip Downloaded** when the history dialog appears. Cleared history cannot identify files already on disk.
 </details>
 
+<details>
+<summary><b>Files are saved in the wrong folder</b></summary>
+
+**Browser download folder** in Page settings is a folder *inside* the browser's download location, such as `NexusMods`; a browser lets an extension save nowhere else, so a full path like `D:\mods` cannot go there. To save to `D:\mods`, choose it as the download location in the browser's own settings and leave **Browser download folder** empty. Vortex keeps its own download folder.
+</details>
+
 </blockquote>
 </details>
 

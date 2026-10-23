@@ -257,7 +257,10 @@
       let line = `${key}: ${sanitizeDiagnosticText(value, 120)}`;
       if (key === 'DownloadFolder') {
         const folder = String(value ?? '');
-        line = `${key}: ${folder ? `(set, ${folder.length} characters)` : '(empty — saves straight to Downloads)'}`;
+        const kind = !folder.trim() ? '(empty — the browser places each file)'
+          : NXTK.isFullFolderPath(folder) ? '(a full path, not used — the browser places each file)'
+            : `(set, ${folder.length} characters)`;
+        line = `${key}: ${kind}`;
       }
       if (key === 'NDC_downloadMethod') {
         line += value === 0 ? ' (Vortex)' : value === 1 ? ' (Browser)' : '';

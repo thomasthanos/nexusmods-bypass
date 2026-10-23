@@ -595,7 +595,15 @@
     "message": "浏览器下载文件夹"
   },
   "setDownloadFolderDesc": {
-    "message": "浏览器下载文件夹内的子文件夹名称。例如填入 NexusMods，会保存到下载/NexusMods。留空则直接保存到下载文件夹。不会更改 Vortex 的保存位置。"
+    "message": "浏览器下载位置中的一个文件夹，例如 NexusMods。留空则保存到浏览器保存其自身下载的位置。不能使用 D:\\mods 这样的完整路径：扩展程序只能保存到浏览器的下载位置中，因此请在浏览器设置中将 D:\\mods 设为下载位置。不会更改 Vortex 的保存位置。"
+  },
+  "setDownloadFolderFullPath": {
+    "message": "$1 是完整路径，扩展程序无法保存到该处。请在浏览器设置中将 $1 设为下载位置，并将此栏留空。",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "setRequestTimeoutLabel": {
     "message": "等待下载链接的时间"
@@ -2007,10 +2015,10 @@
     "message": "否,用浏览器保存文件"
   },
   "setupQFolder": {
-    "message": "下载文件夹(位于浏览器的下载文件夹内)"
+    "message": "浏览器下载位置中的文件夹"
   },
   "setupFolderHint": {
-    "message": "留空则直接保存到下载文件夹。"
+    "message": "留空则保存到浏览器保存其自身下载的位置。"
   },
   "setupQCloseTab": {
     "message": "文件发送到 Vortex 后关闭多余的 Nexus 标签页"
@@ -2089,7 +2097,7 @@
     "message": "使用英语，而非浏览器语言。"
   },
   "setShortDownloadFolder": {
-    "message": "仅限浏览器。留空则使用下载文件夹。"
+    "message": "仅限浏览器。留空则使用浏览器的下载文件夹。"
   },
   "setShortRequestTimeout": {
     "message": "等待链接，而非下载整个文件。"

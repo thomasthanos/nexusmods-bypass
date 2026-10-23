@@ -791,8 +791,17 @@
     "description": "Setting label."
   },
   "setDownloadFolderDesc": {
-    "message": "Name of a subfolder inside your browser's Downloads folder. For example, NexusMods saves to Downloads/NexusMods. Leave empty to use Downloads itself. This does not change where Vortex stores files.",
+    "message": "A folder inside your browser's download location, for example NexusMods. Leave it empty to save files where your browser saves its own downloads. A full path such as D:\\mods cannot be used: an extension can only save inside the browser's download location, so set D:\\mods as that location in your browser's settings. This does not change where Vortex stores files.",
     "description": "Setting description."
+  },
+  "setDownloadFolderFullPath": {
+    "message": "$1 is a full path, which an extension cannot save to. Choose $1 as the download location in your browser's settings and leave this field empty.",
+    "description": "Shown under the browser download folder setting while it holds a full path. $1 is that path.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "setRequestTimeoutLabel": {
     "message": "Wait for a download link",
@@ -2440,10 +2449,10 @@
     "message": "No, save files with my browser"
   },
   "setupQFolder": {
-    "message": "Download folder (inside your browser's Downloads)"
+    "message": "Folder inside your browser's download location"
   },
   "setupFolderHint": {
-    "message": "Leave empty to save straight into Downloads."
+    "message": "Leave empty to save where your browser saves its own downloads."
   },
   "setupQCloseTab": {
     "message": "Close the extra Nexus tab after a file is sent to Vortex"
@@ -2522,7 +2531,7 @@
     "message": "Use English instead of your browser language."
   },
   "setShortDownloadFolder": {
-    "message": "Browser only. Empty means the Downloads folder."
+    "message": "Browser only. Empty uses your browser's own download folder."
   },
   "setShortRequestTimeout": {
     "message": "Wait for a link, not for the entire file."

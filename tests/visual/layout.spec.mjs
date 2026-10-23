@@ -1576,8 +1576,19 @@ test('compact settings long labels and reset confirmation remain usable', async 
   const overflow = await modal.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollWidth - el.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   await page.screenshot({ path: path.join(shotDir, 'compact-settings-long-label.png') });
+  // Issue #34: a full path is not saved, and the field says why without widening the dialog.
+  const folderWarning = modal.locator('#nxtk-setting-DownloadFolder-warning');
+  await modal.locator('[data-key="DownloadFolder"] input').fill('D:\\mods\\Skyrim Special Edition\\Nexus downloads');
+  await modal.locator('[data-key="DownloadFolder"] input').press('Tab');
+  await expect(folderWarning).toBeVisible();
+  await expect(folderWarning).toContainText('is a full path');
+  await expect(modal.locator('[data-key="DownloadFolder"] input')).toHaveAttribute('aria-invalid', 'true');
+  expect(await modal.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  await folderWarning.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(shotDir, 'compact-settings-folder-full-path.png') });
   await modal.locator('[data-key="DownloadFolder"] input').fill('CompactUiTest');
   await modal.locator('[data-key="DownloadFolder"] input').press('Tab');
+  await expect(folderWarning).toBeHidden();
   await modal.locator('[data-reset]').click();
   const confirm = page.locator('#nxtk-confirm-modal');
   await expect(confirm).toBeVisible();
@@ -1598,6 +1609,12 @@ test('welcome page: setup saves choices and Test Vortex asks when it cannot tell
   await page.goto(`chrome-extension://${id}/onboarding/welcome.html`);
   await page.locator('input[name="method"][value="browser"]').check();
   await expect(page.locator('#setupTestVortex')).toBeHidden();
+  // Issue #34: a full path is no folder the extension can save in; the page says why instead of "Saved".
+  await page.locator('#setupFolder').fill('D:\\mods');
+  await page.locator('#setupSave').click();
+  await expect(page.locator('#setupStatus')).toContainText(/D:\\mods is a full path/);
+  await expect(page.locator('#setupFolder')).toBeFocused();
+  expect((await read('nxtk_settings'))?.DownloadFolder).not.toBe('D:\\mods');
   await page.locator('#setupFolder').fill('Mods');
   await page.locator('#setupSave').click();
   await expect(page.locator('#setupStatus')).toContainText(/Saved/);

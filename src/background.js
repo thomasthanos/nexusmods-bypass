@@ -405,15 +405,36 @@ function capFileName(name) {
 
 const MAX_DOWNLOAD_DIR_CHARS = 100;
 
+// The folder a file goes in inside the browser's download location, '' for none. A full path such as
+// "D:\mods" is none: it used to become a folder "D mods" there (issue #34).
+function downloadSubfolder(folder) {
+  if (NXTK.isFullFolderPath(folder)) return '';
+  return trimSegmentEnds(sanitizePathSegment(folder, { allowDots: false }).slice(0, MAX_DOWNLOAD_DIR_CHARS));
+}
+
 // Sanitize both user-controlled path segments before downloading.
 function buildDownloadPath(folder, rawName) {
   // Capping can cut a name or folder just before a space or a tilde, so the ends are tidied again.
   const name = trimSegmentEnds(capFileName(sanitizePathSegment(rawName))) || 'nexus-download';
-  const dir = trimSegmentEnds(sanitizePathSegment(folder, { allowDots: false }).slice(0, MAX_DOWNLOAD_DIR_CHARS));
+  const dir = downloadSubfolder(folder);
   return dir ? `${dir}/${name}` : name;
 }
 
 const DOWNLOAD_CONFLICT_ACTION = 'uniquify';
+
+// Issue #34: a file the extension names is always saved in the browser's download location. With "Ask
+// where to save each file" on, Chromium then opens that folder instead of the one picked last, so on
+// Opera files meant for D:\mods landed in C:\Users\…\Downloads. With no folder set and the name already
+// in the link, the browser places the file as it places its own downloads. The extension still names
+// it for a folder, for a link without a usable name, and for a Mod Organizer 2 .meta, which can only
+// be written beside a file in that location. saveAs: false is Chromium's default, so its own setting
+// still decides there; Firefox saves without asking, as before.
+function downloadRequest(url, folder, requestedName, { writeMo2Meta = false } = {}) {
+  const request = { url, conflictAction: DOWNLOAD_CONFLICT_ACTION, saveAs: false };
+  const browserPlaces = !writeMo2Meta && !downloadSubfolder(folder) && NXTK.downloadNameFromUrl(url) === requestedName;
+  if (!browserPlaces) request.filename = buildDownloadPath(folder, requestedName);
+  return request;
+}
 
 const DOWNLOAD_EXTENSIONS = new Set(NXTK.DOWNLOAD_FILE_EXTENSIONS);
 
@@ -528,22 +549,18 @@ const DOWNLOAD_HANDLERS = {
     const result = (async () => {
       const existing = findDuplicateDownload(await searchRecentDownloads(now), { url: verdict.url, filename: requestedName, now });
       if (existing) return { downloadId: existing.id, filename: existing.filename || filename, duplicate: true };
+      const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+      const request = downloadRequest(verdict.url, payload?.folder, requestedName, { writeMo2Meta: settings?.WriteMo2Meta === true });
       const downloadId = await new Promise((resolve, reject) => {
-        const options = {
-          url: verdict.url,
-          filename,
-          conflictAction: DOWNLOAD_CONFLICT_ACTION,
-          saveAs: false
-        };
-        chrome.downloads.download(options, (id) => {
+        chrome.downloads.download(request, (id) => {
           const error = getRuntimeError();
           if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
           resolve(id);
         });
       });
       // A .meta for Mod Organizer 2 is a convenience: if it cannot be set up, the download goes on.
-      await rememberSingleMo2Meta(downloadId, payload, sender, filename).catch((cause) => recordBackgroundError('MO2 meta', cause));
-      return { downloadId, filename };
+      await rememberSingleMo2Meta(downloadId, payload, sender, request.filename || '').catch((cause) => recordBackgroundError('MO2 meta', cause));
+      return { downloadId, filename: request.filename || requestedName };
     })();
     if (fileKey) {
       recentDownloadStarts.set(fileKey, { at: now, result });
@@ -1063,21 +1080,18 @@ async function startNdcDownload(job, item, url) {
     NXTK.downloadNameFromUrl(url) || fallbackName || 'nexus-download',
     extractDownloadExtension(url) || '.zip'
   );
-  const filename = buildDownloadPath(job.folder, requestedName);
+  const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+  const request = downloadRequest(url, job.folder, requestedName, { writeMo2Meta: settings?.WriteMo2Meta === true });
   const downloadId = await new Promise((resolve, reject) => {
-    chrome.downloads.download({
-      url,
-      filename,
-      conflictAction: DOWNLOAD_CONFLICT_ACTION,
-      saveAs: false
-    }, (id) => {
+    chrome.downloads.download(request, (id) => {
       const error = getRuntimeError();
       if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
       ndcDownloadJobs.set(id, job.id);
       resolve(id);
     });
   });
-  return { downloadId, filename };
+  // '' when the browser placed the file: where it went inside the download location is not known.
+  return { downloadId, filename: request.filename || '' };
 }
 
 async function finishNdcJob(job) {

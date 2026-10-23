@@ -560,7 +560,15 @@
     "message": "Tarayıcı indirme klasörü"
   },
   "setDownloadFolderDesc": {
-    "message": "Tarayıcının İndirilenler klasöründeki bir alt klasörün adı. Örneğin NexusMods, İndirilenler/NexusMods içine kaydeder. Doğrudan İndirilenler için boş bırak. Vortex'in dosyaları kaydettiği yeri değiştirmez."
+    "message": "Tarayıcının indirme konumundaki bir klasör, örneğin NexusMods. Dosyaları tarayıcının kendi indirmelerini kaydettiği yere kaydetmek için boş bırak. D:\\mods gibi tam bir yol kullanılamaz: bir uzantı yalnızca tarayıcının indirme konumuna kaydedebilir, bu yüzden D:\\mods'u tarayıcı ayarlarında bu konum olarak seç. Vortex'in dosyaları kaydettiği yeri değiştirmez."
+  },
+  "setDownloadFolderFullPath": {
+    "message": "$1 tam bir yol ve bir uzantı oraya kaydedemez. Tarayıcı ayarlarında $1 yolunu indirme konumu olarak seç ve bu alanı boş bırak.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "setRequestTimeoutLabel": {
     "message": "İndirme bağlantısını bekleme süresi"
@@ -2091,10 +2099,10 @@
     "message": "Hayır, dosyaları tarayıcımla kaydet"
   },
   "setupQFolder": {
-    "message": "İndirme klasörü (tarayıcının İndirilenler klasörü içinde)"
+    "message": "Tarayıcının indirme konumundaki klasör"
   },
   "setupFolderHint": {
-    "message": "Doğrudan İndirilenler'e kaydetmek için boş bırakın."
+    "message": "Tarayıcının kendi indirmelerini kaydettiği yere kaydetmek için boş bırakın."
   },
   "setupQCloseTab": {
     "message": "Bir dosya Vortex'e gönderildikten sonra fazla Nexus sekmesini kapat"
@@ -2173,7 +2181,7 @@
     "message": "Tarayıcı dili yerine İngilizce kullan."
   },
   "setShortDownloadFolder": {
-    "message": "Yalnızca tarayıcı. Boş alan İndirilenler klasörüdür."
+    "message": "Yalnızca tarayıcı. Boş alan tarayıcının indirme klasörüdür."
   },
   "setShortRequestTimeout": {
     "message": "Tüm dosya için değil, bağlantı için bekleme."

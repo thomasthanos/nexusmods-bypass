@@ -630,7 +630,15 @@
     "message": "Pasta de downloads do navegador"
   },
   "setDownloadFolderDesc": {
-    "message": "Nome de uma subpasta dentro de Downloads do navegador. Por exemplo, NexusMods salva em Downloads/NexusMods. Deixe vazio para usar Downloads diretamente. Não muda onde o Vortex salva arquivos."
+    "message": "Uma pasta dentro do local de download do navegador, por exemplo NexusMods. Deixe vazio para salvar os arquivos onde o navegador salva os próprios downloads. Um caminho completo como D:\\mods não pode ser usado: uma extensão só salva dentro do local de download do navegador, então escolha D:\\mods como esse local nas configurações do navegador. Não muda onde o Vortex salva arquivos."
+  },
+  "setDownloadFolderFullPath": {
+    "message": "$1 é um caminho completo, onde uma extensão não pode salvar. Escolha $1 como local de download nas configurações do navegador e deixe este campo vazio.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "setRequestTimeoutLabel": {
     "message": "Espera por um link de download"
@@ -2091,10 +2099,10 @@
     "message": "Não, salvar arquivos com o navegador"
   },
   "setupQFolder": {
-    "message": "Pasta de download (dentro dos Downloads do navegador)"
+    "message": "Pasta dentro do local de download do navegador"
   },
   "setupFolderHint": {
-    "message": "Deixe vazio para salvar direto em Downloads."
+    "message": "Deixe vazio para salvar onde o navegador salva os próprios downloads."
   },
   "setupQCloseTab": {
     "message": "Fechar a aba extra do Nexus depois de enviar um arquivo ao Vortex"
@@ -2173,7 +2181,7 @@
     "message": "Usar inglês em vez do idioma do navegador."
   },
   "setShortDownloadFolder": {
-    "message": "Só navegador. Vazio significa a pasta Downloads."
+    "message": "Só navegador. Vazio usa a pasta de downloads do navegador."
   },
   "setShortRequestTimeout": {
     "message": "Espera pelo link, não pelo arquivo inteiro."

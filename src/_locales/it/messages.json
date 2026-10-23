@@ -560,7 +560,15 @@
     "message": "Cartella di download del browser"
   },
   "setDownloadFolderDesc": {
-    "message": "Nome di una sottocartella dentro Download del browser. NexusMods salva per esempio in Download/NexusMods. Lascia vuoto per usare direttamente Download. Non cambia dove Vortex salva i file."
+    "message": "Una cartella dentro il percorso di download del browser, per esempio NexusMods. Lascia vuoto per salvare i file dove il browser salva i propri download. Un percorso completo come D:\\mods non si può usare: un'estensione può salvare solo dentro il percorso di download del browser, quindi imposta D:\\mods come percorso nelle impostazioni del browser. Non cambia dove Vortex salva i file."
+  },
+  "setDownloadFolderFullPath": {
+    "message": "$1 è un percorso completo, in cui un'estensione non può salvare. Imposta $1 come percorso di download nelle impostazioni del browser e lascia vuoto questo campo.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "setRequestTimeoutLabel": {
     "message": "Attesa del link di download"
@@ -2091,10 +2099,10 @@
     "message": "No, salva i file con il browser"
   },
   "setupQFolder": {
-    "message": "Cartella di download (dentro i Download del browser)"
+    "message": "Cartella dentro il percorso di download del browser"
   },
   "setupFolderHint": {
-    "message": "Lascia vuoto per salvare direttamente in Download."
+    "message": "Lascia vuoto per salvare dove il browser salva i propri download."
   },
   "setupQCloseTab": {
     "message": "Chiudi la scheda Nexus in più dopo l'invio di un file a Vortex"
@@ -2173,7 +2181,7 @@
     "message": "Usa l’inglese invece della lingua del browser."
   },
   "setShortDownloadFolder": {
-    "message": "Solo browser. Vuoto indica la cartella Download."
+    "message": "Solo browser. Vuoto usa la cartella di download del browser."
   },
   "setShortRequestTimeout": {
     "message": "Attesa del link, non dell’intero file."

@@ -1565,6 +1565,19 @@ a.nxtk-settings-report { text-decoration: none; }
 #nxtk-settings-modal input[data-setting="DownloadFolder"] {
   width: 100%; min-width: 0; max-width: 100%; text-align: left; padding: 7px 9px;
 }
+/* A value the field does not save (a full path as the download folder), and why. */
+#nxtk-settings-modal .nxtk-setting-warning {
+  margin: 8px 0 2px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--nxtk-danger);
+  border-radius: 0 6px 6px 0;
+  background: var(--nxtk-danger-soft);
+  color: var(--nxtk-text-bright);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+#nxtk-settings-modal .nxtk-setting-field input[aria-invalid="true"] { border-color: var(--nxtk-danger); }
 #nxtk-settings-modal .nxtk-preset-row {
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;

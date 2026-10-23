@@ -560,7 +560,15 @@
     "message": "Folder pobierania przeglądarki"
   },
   "setDownloadFolderDesc": {
-    "message": "Nazwa podfolderu w folderze Pobrane przeglądarki. Na przykład NexusMods zapisuje w Pobrane/NexusMods. Pozostaw puste, aby zapisywać bezpośrednio w Pobrane. Nie zmienia folderu plików Vortex."
+    "message": "Folder w lokalizacji pobierania przeglądarki, na przykład NexusMods. Pozostaw puste, aby zapisywać pliki tam, gdzie przeglądarka zapisuje własne pobrane pliki. Pełnej ścieżki, takiej jak D:\\mods, nie da się użyć: rozszerzenie może zapisywać tylko w lokalizacji pobierania przeglądarki, więc ustaw D:\\mods jako tę lokalizację w ustawieniach przeglądarki. Nie zmienia folderu plików Vortex."
+  },
+  "setDownloadFolderFullPath": {
+    "message": "$1 to pełna ścieżka, w której rozszerzenie nie może zapisywać. Ustaw $1 jako lokalizację pobierania w ustawieniach przeglądarki i zostaw to pole puste.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "setRequestTimeoutLabel": {
     "message": "Czas oczekiwania na link"
@@ -2259,10 +2267,10 @@
     "message": "Nie, zapisuj pliki przez przeglądarkę"
   },
   "setupQFolder": {
-    "message": "Folder pobierania (wewnątrz Pobranych przeglądarki)"
+    "message": "Folder w lokalizacji pobierania przeglądarki"
   },
   "setupFolderHint": {
-    "message": "Zostaw puste, aby zapisywać prosto do Pobranych."
+    "message": "Zostaw puste, aby zapisywać tam, gdzie przeglądarka zapisuje własne pobrane pliki."
   },
   "setupQCloseTab": {
     "message": "Zamknij dodatkową kartę Nexus po wysłaniu pliku do Vortex"
@@ -2341,7 +2349,7 @@
     "message": "Używaj angielskiego zamiast języka przeglądarki."
   },
   "setShortDownloadFolder": {
-    "message": "Tylko przeglądarka. Puste pole oznacza Pobrane."
+    "message": "Tylko przeglądarka. Puste pole oznacza folder pobierania przeglądarki."
   },
   "setShortRequestTimeout": {
     "message": "Oczekiwanie na link, nie na cały plik."

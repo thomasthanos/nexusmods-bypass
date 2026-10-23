@@ -86,6 +86,13 @@
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    // Issue #34: a full path such as D:\mods is not a folder the extension can save in; say so, not "Saved".
+    const folder = $('setupFolder').value.trim();
+    if (method() === 'browser' && NXTK.isFullFolderPath(folder)) {
+      setStatus(t('setDownloadFolderFullPath', `${folder} is a full path, which an extension cannot save to. Choose ${folder} as the download location in your browser's settings and leave this field empty.`, [folder]), 'warn');
+      $('setupFolder').focus();
+      return;
+    }
     const reply = await sendPatch(setupPatch());
     setStatus(reply.ok ? t('setupSaved', 'Saved. Open any Nexus Mods file page to try it.') : t('setupSaveFailed', 'Could not save. Try again from the settings button on a Nexus page.'), reply.ok ? 'ok' : 'warn');
   });

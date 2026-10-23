@@ -355,7 +355,14 @@ async function redactionTests() {
   const report = await NXTK.buildBugReport();
   assert.doesNotMatch(report, /SECRET/, 'signed URL secrets never reach the report');
   assert.doesNotMatch(report, /Real Name/, 'the download folder is described, not quoted');
-  assert.match(report, /DownloadFolder: \(set, \d+ characters\)/);
+  // Issue #34: a full path is no folder in the download location, and the report says it is not used.
+  assert.match(report, /DownloadFolder: \(a full path, not used — the browser places each file\)/);
+
+  const named = await loadShared({ settings: { DownloadFolder: 'Real Name Mods' } }).NXTK.buildBugReport();
+  assert.doesNotMatch(named, /Real Name/);
+  assert.match(named, /DownloadFolder: \(set, 14 characters\)/);
+  const empty = await loadShared({ settings: { DownloadFolder: '' } }).NXTK.buildBugReport();
+  assert.match(empty, /DownloadFolder: \(empty — the browser places each file\)/);
 }
 
 async function storeReviewTests() {

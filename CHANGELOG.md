@@ -23,6 +23,13 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases"><kbd> All releases ↗ </kbd></a>
 </p>
 
+<a id="unreleased"></a>
+
+## Unreleased
+
+- **Browser download folder (<a href="https://github.com/thomasthanos/nexusmods-bypass/issues/34"><kbd>#34</kbd></a>):** with the folder left empty, the browser places each file as it places its own downloads, so *Ask where to save each file* opens the folder chosen last. On Opera, files meant for `D:\mods` landed in `C:\Users\…\Downloads`: a file the extension names always goes to the browser's download location. A folder name, a link without a usable file name and *Write Mod Organizer 2 .meta files* still save there.
+- **A full path is not a folder name:** `D:\mods` typed as the folder became `Downloads\D mods`. It is no longer saved; the settings and the setup page say to choose it as the browser's download location instead, in all 13 languages.
+
 <a id="release-3-3-1"></a>
 
 ## 3.3.1 — 2026-10-23

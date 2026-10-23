@@ -560,7 +560,15 @@
     "message": "브라우저 다운로드 폴더"
   },
   "setDownloadFolderDesc": {
-    "message": "브라우저 다운로드 폴더 안에 만들 하위 폴더 이름입니다. 예를 들어 NexusMods를 입력하면 다운로드/NexusMods에 저장합니다. 비워 두면 다운로드 폴더에 바로 저장합니다. Vortex 저장 위치는 바꾸지 않습니다."
+    "message": "브라우저 다운로드 위치 안의 폴더 이름입니다(예: NexusMods). 비워 두면 브라우저가 자체 다운로드를 저장하는 곳에 파일을 저장합니다. D:\\mods 같은 전체 경로는 쓸 수 없습니다. 확장 프로그램은 브라우저 다운로드 위치 안에만 저장할 수 있으므로 D:\\mods는 브라우저 설정에서 다운로드 위치로 지정하세요. Vortex 저장 위치는 바꾸지 않습니다."
+  },
+  "setDownloadFolderFullPath": {
+    "message": "$1은(는) 전체 경로라서 확장 프로그램이 저장할 수 없습니다. 브라우저 설정에서 $1을(를) 다운로드 위치로 지정하고 이 칸은 비워 두세요.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "setRequestTimeoutLabel": {
     "message": "다운로드 링크 대기 시간"
@@ -2007,10 +2015,10 @@
     "message": "아니요, 브라우저로 파일 저장"
   },
   "setupQFolder": {
-    "message": "다운로드 폴더 (브라우저 다운로드 폴더 안)"
+    "message": "브라우저 다운로드 위치 안의 폴더"
   },
   "setupFolderHint": {
-    "message": "비워 두면 다운로드 폴더에 바로 저장합니다."
+    "message": "비워 두면 브라우저가 자체 다운로드를 저장하는 곳에 저장합니다."
   },
   "setupQCloseTab": {
     "message": "파일을 Vortex로 보낸 뒤 추가 Nexus 탭 닫기"
@@ -2089,7 +2097,7 @@
     "message": "브라우저 언어 대신 영어를 사용합니다."
   },
   "setShortDownloadFolder": {
-    "message": "브라우저 전용. 비우면 다운로드 폴더입니다."
+    "message": "브라우저 전용. 비우면 브라우저의 다운로드 폴더입니다."
   },
   "setShortRequestTimeout": {
     "message": "파일 전체가 아닌 링크를 기다리는 시간입니다."

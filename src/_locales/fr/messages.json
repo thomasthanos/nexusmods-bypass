@@ -630,7 +630,15 @@
     "message": "Dossier de téléchargement du navigateur"
   },
   "setDownloadFolderDesc": {
-    "message": "Nom d’un sous-dossier dans les Téléchargements du navigateur. NexusMods enregistre par exemple dans Téléchargements/NexusMods. Laisse vide pour utiliser directement Téléchargements. Le dossier de Vortex reste inchangé."
+    "message": "Un dossier dans l’emplacement de téléchargement du navigateur, par exemple NexusMods. Laisse vide pour enregistrer les fichiers là où le navigateur enregistre ses propres téléchargements. Un chemin complet comme D:\\mods n’est pas possible : une extension ne peut enregistrer que dans l’emplacement de téléchargement du navigateur, alors choisis D:\\mods comme emplacement dans les paramètres du navigateur. Le dossier de Vortex reste inchangé."
+  },
+  "setDownloadFolderFullPath": {
+    "message": "$1 est un chemin complet, où une extension ne peut pas enregistrer. Choisis $1 comme emplacement de téléchargement dans les paramètres du navigateur et laisse ce champ vide.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "setRequestTimeoutLabel": {
     "message": "Attente d’un lien de téléchargement"
@@ -2091,10 +2099,10 @@
     "message": "Non, enregistrer les fichiers avec mon navigateur"
   },
   "setupQFolder": {
-    "message": "Dossier de téléchargement (dans les Téléchargements du navigateur)"
+    "message": "Dossier dans l’emplacement de téléchargement du navigateur"
   },
   "setupFolderHint": {
-    "message": "Laissez vide pour enregistrer directement dans Téléchargements."
+    "message": "Laissez vide pour enregistrer là où le navigateur enregistre ses propres téléchargements."
   },
   "setupQCloseTab": {
     "message": "Fermer l'onglet Nexus en trop après l'envoi d'un fichier à Vortex"
@@ -2173,7 +2181,7 @@
     "message": "Utiliser l’anglais plutôt que la langue du navigateur."
   },
   "setShortDownloadFolder": {
-    "message": "Navigateur uniquement. Vide signifie Téléchargements."
+    "message": "Navigateur uniquement. Vide utilise le dossier de téléchargement du navigateur."
   },
   "setShortRequestTimeout": {
     "message": "Attendre le lien, pas le fichier entier."

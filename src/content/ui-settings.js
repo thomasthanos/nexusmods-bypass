@@ -41,7 +41,17 @@
       type: 'bool',
       desc: () => NXTK.t('setForceEnglishDesc', null, 'Use English for this extension instead of your browser\'s language. This does not change your browser or Nexus language. The extension name in the browser\'s extension list still follows the browser language.')
     },
-    { key: 'DownloadFolder', label: () => NXTK.t('setDownloadFolderLabel', null, 'Browser download folder'), type: 'text', maxLength: 100, desc: () => NXTK.t('setDownloadFolderDesc', null, 'Name of a subfolder inside your browser\'s Downloads folder. For example, NexusMods saves to Downloads/NexusMods. Leave empty to use Downloads itself. This does not change where Vortex stores files.') },
+    {
+      key: 'DownloadFolder',
+      label: () => NXTK.t('setDownloadFolderLabel', null, 'Browser download folder'),
+      type: 'text',
+      maxLength: 100,
+      desc: () => NXTK.t('setDownloadFolderDesc', null, 'A folder inside your browser\'s download location, for example NexusMods. Leave it empty to save files where your browser saves its own downloads. A full path such as D:\\mods cannot be used: an extension can only save inside the browser\'s download location, so set D:\\mods as that location in your browser\'s settings. This does not change where Vortex stores files.'),
+      // Issue #34: "D:\mods" here became Downloads\D mods. Such a value is not saved, and says why.
+      warn: (value) => (NXTK.isFullFolderPath(value)
+        ? NXTK.t('setDownloadFolderFullPath', [value.trim()], `${value.trim()} is a full path, which an extension cannot save to. Choose ${value.trim()} as the download location in your browser's settings and leave this field empty.`)
+        : '')
+    },
     { key: 'RequestTimeout', label: () => NXTK.t('setRequestTimeoutLabel', null, 'Wait for a download link'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, advanced: true, desc: () => NXTK.t('setRequestTimeoutDesc', null, 'Time allowed to get a download link from Nexus, not the time needed to download the whole file. Increase only if slow replies keep timing out.') },
     { key: 'CloseTabDelay', label: () => NXTK.t('setCloseTabDelayLabel', null, 'Close-tab delay'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, advanced: true, desc: () => NXTK.t('setCloseTabDelayDesc', null, 'For automatically started Vortex downloads only. Seconds to wait before closing the temporary Nexus tab after Vortex opens. Try a longer delay if Vortex misses links.') },
     {
@@ -140,7 +150,7 @@
     ],
     "DownloadFolder": [
       "setShortDownloadFolder",
-      "Browser only. Empty means the Downloads folder."
+      "Browser only. Empty uses your browser's own download folder."
     ],
     "RequestTimeout": [
       "setShortRequestTimeout",
@@ -184,6 +194,7 @@
       const copy = `<div class="nxtk-setting-copy"><div class="nxtk-setting-title-row"><label class="nxtk-setting-title" for="${inputId}">${escapeHtml(title)}</label><button type="button" class="nxtk-setting-help-toggle" data-setting-help="${s.key}" aria-expanded="false" aria-controls="${helpId}" aria-label="${escapeHtml(NXTK.t('setHelpFor', [title], 'More information: ' + title))}">${svgIcon('info')}</button></div><span class="nxtk-setting-desc" id="${summaryId}">${escapeHtml(summary)}</span></div>`;
       const help = `<p class="nxtk-setting-help" id="${helpId}" hidden>${escapeHtml(text(s.desc))}</p>`;
       let control = '';
+      let warning = '';
       if (s.type === 'bool') {
         control = `<span class="nxtk-toggle"><input id="${inputId}" type="checkbox" data-setting="${s.key}" aria-describedby="${summaryId}" ${cfg[s.key] ? 'checked' : ''}><span class="nxtk-toggle-track"></span></span>`;
       } else if (s.type === 'number' || s.type === 'decimal') {
@@ -196,10 +207,13 @@
         control = `<span class="nxtk-setting-field"><input id="${inputId}" type="number" data-setting="${s.key}" aria-describedby="${summaryId}"${decimal}${scaleAttr}${step} value="${escapeHtml(displayValue)}" min="${escapeHtml(min)}"><span class="nxtk-setting-unit">${escapeHtml(text(s.unit))}</span></span>`;
       } else if (s.type === 'text') {
         const maxLength = Number(s.maxLength) > 0 ? ` maxlength="${Number(s.maxLength)}"` : '';
-        control = `<span class="nxtk-setting-field"><input id="${inputId}" type="text" data-setting="${s.key}" aria-describedby="${summaryId}" value="${escapeHtml(cfg[s.key] ?? '')}"${maxLength} spellcheck="false"></span>`;
+        const warned = s.warn ? s.warn(String(cfg[s.key] ?? '')) : '';
+        const describedBy = s.warn ? `${summaryId} ${inputId}-warning` : summaryId;
+        control = `<span class="nxtk-setting-field"><input id="${inputId}" type="text" data-setting="${s.key}" aria-describedby="${describedBy}"${warned ? ' aria-invalid="true"' : ''} value="${escapeHtml(cfg[s.key] ?? '')}"${maxLength} spellcheck="false"></span>`;
+        if (s.warn) warning = `<p class="nxtk-setting-warning" id="${inputId}-warning" role="status"${warned ? '' : ' hidden'}>${escapeHtml(warned)}</p>`;
       }
       if (!control) return '';
-      return `<div class="nxtk-setting-row${s.type === 'bool' ? '' : ' nxtk-setting-row-field'}" data-key="${s.key}"><div class="nxtk-setting-label">${copy}${control}</div>${help}</div>`;
+      return `<div class="nxtk-setting-row${s.type === 'bool' ? '' : ' nxtk-setting-row-field'}" data-key="${s.key}"><div class="nxtk-setting-label">${copy}${control}</div>${warning}${help}</div>`;
     };
 
     const grouped = SETTING_GROUPS.map((group) => {
@@ -254,6 +268,18 @@
     `
     });
 
+    // A text field that says why a value is not saved (DownloadFolder: a full path), while it holds one.
+    function syncFieldWarning(input) {
+      const setting = SETTINGS_UI.find((s) => s.key === input.dataset.setting);
+      const note = setting?.warn ? modal.querySelector(`#${input.id}-warning`) : null;
+      if (!note) return;
+      const message = setting.warn(input.value);
+      if (note.textContent !== message) note.textContent = message;
+      note.hidden = !message;
+      if (message) input.setAttribute('aria-invalid', 'true');
+      else input.removeAttribute('aria-invalid');
+    }
+
     // `commit` marks a finished edit (a change, or the dialog closing). Only then is a value the
     // stored form had to bring into range written back into its field, so typing is never fought.
     function update(el, { commit = false } = {}) {
@@ -264,6 +290,7 @@
         value = el.checked;
       } else if (el.type === 'text') {
         value = el.value.trim();
+        syncFieldWarning(el);
       } else if (el.dataset.decimal) {
         value = parseFloat(el.value);
         if (!Number.isFinite(value) || value <= 0) return;
@@ -343,6 +370,7 @@
             if (input?.type === 'checkbox') input.checked = !!cfg[key];
             else if (input) input.value = typeof cfg[key] === 'number'
               ? String(cfg[key] / (Number(input.dataset.scale) || 1)) : cfg[key];
+            if (input?.type === 'text') syncFieldWarning(input);
           }
           if (rolledBack) {
             if (NexusExt.NNW) NexusExt.NNW.updateConfig(cfg);

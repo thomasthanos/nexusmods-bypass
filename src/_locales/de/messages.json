@@ -630,7 +630,15 @@
     "message": "Browser-Download-Ordner"
   },
   "setDownloadFolderDesc": {
-    "message": "Name eines Unterordners im Downloads-Ordner deines Browsers. NexusMods speichert beispielsweise in Downloads/NexusMods. Leer lassen, um direkt in Downloads zu speichern. Der Vortex-Speicherort bleibt unverändert."
+    "message": "Ein Ordner im Download-Speicherort deines Browsers, zum Beispiel NexusMods. Leer lassen, um Dateien dort zu speichern, wo dein Browser seine eigenen Downloads speichert. Ein vollständiger Pfad wie D:\\mods geht nicht: Eine Erweiterung kann nur im Download-Speicherort des Browsers speichern, also lege D:\\mods in den Browser-Einstellungen als diesen Speicherort fest. Der Vortex-Speicherort bleibt unverändert."
+  },
+  "setDownloadFolderFullPath": {
+    "message": "$1 ist ein vollständiger Pfad, in dem eine Erweiterung nicht speichern kann. Lege $1 in den Browser-Einstellungen als Download-Speicherort fest und lass dieses Feld leer.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "setRequestTimeoutLabel": {
     "message": "Auf einen Download-Link warten"
@@ -2091,10 +2099,10 @@
     "message": "Nein, Dateien mit dem Browser speichern"
   },
   "setupQFolder": {
-    "message": "Download-Ordner (innerhalb der Browser-Downloads)"
+    "message": "Ordner im Download-Speicherort des Browsers"
   },
   "setupFolderHint": {
-    "message": "Leer lassen, um direkt in Downloads zu speichern."
+    "message": "Leer lassen, um dort zu speichern, wo der Browser seine eigenen Downloads speichert."
   },
   "setupQCloseTab": {
     "message": "Den zusätzlichen Nexus-Tab schließen, nachdem eine Datei an Vortex gesendet wurde"
@@ -2173,7 +2181,7 @@
     "message": "Englisch statt der Browsersprache verwenden."
   },
   "setShortDownloadFolder": {
-    "message": "Nur Browser. Leer bedeutet den Downloads-Ordner."
+    "message": "Nur Browser. Leer bedeutet den Download-Ordner des Browsers."
   },
   "setShortRequestTimeout": {
     "message": "Wartezeit auf den Link, nicht auf die ganze Datei."

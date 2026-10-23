@@ -630,7 +630,15 @@
     "message": "Carpeta de descargas del navegador"
   },
   "setDownloadFolderDesc": {
-    "message": "Nombre de una subcarpeta dentro de Descargas del navegador. Por ejemplo, NexusMods guarda en Descargas/NexusMods. Déjalo vacío para guardar directamente en Descargas. No cambia dónde guarda los archivos Vortex."
+    "message": "Una carpeta dentro de la ubicación de descargas del navegador, por ejemplo NexusMods. Déjalo vacío para guardar los archivos donde el navegador guarda sus propias descargas. No se puede usar una ruta completa como D:\\mods: una extensión solo puede guardar dentro de la ubicación de descargas del navegador, así que elige D:\\mods como esa ubicación en la configuración del navegador. No cambia dónde guarda los archivos Vortex."
+  },
+  "setDownloadFolderFullPath": {
+    "message": "$1 es una ruta completa, donde una extensión no puede guardar. Elige $1 como ubicación de descargas en la configuración del navegador y deja este campo vacío.",
+    "placeholders": {
+      "path": {
+        "content": "$1"
+      }
+    }
   },
   "setRequestTimeoutLabel": {
     "message": "Espera por un enlace de descarga"
@@ -2091,10 +2099,10 @@
     "message": "No, guardar archivos con mi navegador"
   },
   "setupQFolder": {
-    "message": "Carpeta de descarga (dentro de Descargas del navegador)"
+    "message": "Carpeta dentro de la ubicación de descargas del navegador"
   },
   "setupFolderHint": {
-    "message": "Déjalo vacío para guardar directamente en Descargas."
+    "message": "Déjalo vacío para guardar donde el navegador guarda sus propias descargas."
   },
   "setupQCloseTab": {
     "message": "Cerrar la pestaña extra de Nexus tras enviar un archivo a Vortex"
@@ -2173,7 +2181,7 @@
     "message": "Usar inglés en vez del idioma del navegador."
   },
   "setShortDownloadFolder": {
-    "message": "Solo navegador. Vacío significa la carpeta Descargas."
+    "message": "Solo navegador. Vacío usa la carpeta de descargas del navegador."
   },
   "setShortRequestTimeout": {
     "message": "Espera por el enlace, no por el archivo completo."

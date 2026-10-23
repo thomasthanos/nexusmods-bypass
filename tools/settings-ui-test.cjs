@@ -218,6 +218,34 @@ async function settingsRegressionTests() {
     await tick();
     assert.equal(store.nxtk_settings.DownloadFolder, 'Mods & archives', 'closing flushes a pending folder edit');
 
+    // Issue #34: "D:\mods" as the folder became Downloads\D mods. A full path is not saved, and the field says why.
+    await w.NexusExt.UIKit.settings.open();
+    const folderInput = find('[data-setting="DownloadFolder"]');
+    const folderWarning = find('#nxtk-setting-DownloadFolder-warning');
+    assert.equal(folderWarning.hidden, true, 'no warning for a folder name');
+    assert.match(folderInput.getAttribute('aria-describedby'), /nxtk-setting-DownloadFolder-warning/);
+    change('DownloadFolder', 'D:\\mods');
+    await tick();
+    assert.equal(folderWarning.hidden, false, 'a full path says why it is not used');
+    assert.match(folderWarning.textContent, /D:\\mods is a full path/);
+    assert.equal(folderInput.getAttribute('aria-invalid'), 'true');
+    assert.equal(store.nxtk_settings.DownloadFolder, 'Mods & archives', 'and is not saved');
+    change('DownloadFolder', 'Mods');
+    await tick();
+    assert.equal(folderWarning.hidden, true);
+    assert.equal(folderInput.hasAttribute('aria-invalid'), false);
+    assert.equal(store.nxtk_settings.DownloadFolder, 'Mods');
+    find('.nxtk-modal-footer [data-close]').click();
+    await tick();
+    // One saved before this check still says so when the dialog opens.
+    store.nxtk_settings = { ...store.nxtk_settings, DownloadFolder: 'D:\\mods' };
+    await w.NexusExt.UIKit.settings.open();
+    assert.equal(find('#nxtk-setting-DownloadFolder-warning').hidden, false);
+    assert.equal(find('[data-setting="DownloadFolder"]').getAttribute('aria-invalid'), 'true');
+    find('.nxtk-modal-footer [data-close]').click();
+    await tick();
+    store.nxtk_settings = { ...store.nxtk_settings, DownloadFolder: 'Mods & archives' };
+
     await w.NexusExt.UIKit.settings.open();
     const sameModal = modal();
     find('#nxtk-advanced-toggle').click();

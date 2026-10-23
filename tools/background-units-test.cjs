@@ -297,8 +297,10 @@ assert.equal(retryAfterMilliseconds('0', 1), 30000, 'an explicit 0 still respect
 
 // Never 'overwrite': a collision must not destroy a file the user already had.
 assert.equal(DOWNLOAD_CONFLICT_ACTION, 'uniquify', 'a download never overwrites what is there');
-assert.equal((source.match(/conflictAction: DOWNLOAD_CONFLICT_ACTION,/g) || []).length, 2,
-  'and both download call sites use the one value');
+assert.equal((source.match(/conflictAction: DOWNLOAD_CONFLICT_ACTION,/g) || []).length, 1,
+  'one request builder holds the value');
+assert.equal((source.match(/chrome\.downloads\.download\(request,/g) || []).length, 2,
+  'and both download call sites use it');
 
 assert.equal(buildDownloadPath('NexusMods', 'A Mod.zip'), 'NexusMods/A Mod.zip');
 assert.equal(buildDownloadPath('   ', 'A Mod.zip'), 'A Mod.zip', 'a blank folder saves to Downloads');
@@ -3309,12 +3311,76 @@ async function singleDownloadGetsMo2Meta() {
   }
 }
 
+// Issue #34 (Opera): with no folder set, files went to C:\Users\…\Downloads while the browser's own
+// downloads went to D:\mods. A file the extension names is always put in the browser's download
+// location, so a file whose link carries its name is now left to the browser to place; and "D:\mods"
+// typed as the folder no longer becomes a folder "D mods" there.
+async function browserPlacesUnnamedDownloads() {
+  const N = context.NXTK;
+  const H = context.__DOWNLOAD_HANDLERS;
+  const savedDownloads = global.chrome.downloads;
+  const started = [];
+  global.chrome.downloads = {
+    ...(savedDownloads || {}),
+    download: (options, cb) => { started.push(options); cb(34000 + started.length); },
+    search: (_query, cb) => cb([])
+  };
+  const cdn = 'https://cf-files.nexus-cdn.com/1704/12604/SkyUI_5_2_SE-12604-5-2SE.7z?md5=a&expires=1';
+  const single = (folder, extra = {}) => {
+    context.__recentDownloadStarts.clear();
+    return H.DOWNLOAD_START({ url: cdn, folder, filename: 'SkyUI_5_2_SE-12604-5-2SE.7z', fileId: '35407', gameId: '1704', ...extra },
+      { url: 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', tab: { id: 3 } });
+  };
+  try {
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
+    const placed = await single('');
+    assert.deepEqual({ ...started.at(-1) }, { url: cdn, conflictAction: 'uniquify', saveAs: false },
+      'no folder: no name either, so the browser saves it where it saves its own downloads');
+    assert.equal(placed.filename, 'SkyUI_5_2_SE-12604-5-2SE.7z');
+    await single('NexusMods');
+    assert.equal(started.at(-1).filename, 'NexusMods/SkyUI_5_2_SE-12604-5-2SE.7z', 'a folder is still one inside the download location');
+    for (const typed of ['D:\\mods', 'd:/mods', 'C:', '\\\\server\\share\\mods', '/home/me/mods', '~/mods', '%USERPROFILE%\\mods']) {
+      await single(typed);
+      assert.equal(started.at(-1).filename, undefined, `${typed} is not a folder in the download location: the browser places the file`);
+    }
+    const unnamed = 'https://cf-files.nexus-cdn.com/1704/12604/download?md5=a';
+    await single('', { url: unnamed, filename: 'SkyUI-35407' });
+    assert.equal(started.at(-1).filename, 'SkyUI-35407.zip', 'a link without a usable name still gets one');
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
+    await single('');
+    assert.equal(started.at(-1).filename, 'SkyUI_5_2_SE-12604-5-2SE.7z', 'a Mod Organizer 2 .meta needs the file where it can be written beside it');
+    await context.forgetSingleMo2Meta(started.length + 34000);
+
+    // Collections follow the same rule.
+    const item = { fileId: '35407', name: 'Main', modName: 'SkyUI' };
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
+    const fromCollection = await context.startNdcDownload({ id: 'job-34', folder: '' }, item, cdn);
+    assert.equal(started.at(-1).filename, undefined);
+    assert.equal(started.at(-1).saveAs, false, 'never a save dialog per collection file in Firefox');
+    assert.equal(fromCollection.filename, '', 'where the browser put it is learnt from the finished download');
+    const inFolder = await context.startNdcDownload({ id: 'job-34', folder: 'Collection' }, item, cdn);
+    assert.equal(inFolder.filename, 'Collection/SkyUI_5_2_SE-12604-5-2SE.7z');
+
+    assert.equal(context.buildDownloadPath('D:\\mods', 'A Mod.zip'), 'A Mod.zip', 'a full path is no folder');
+    assert.equal(N.isFullFolderPath('~Mods'), false, 'a name that starts with a tilde is a folder name');
+    assert.equal(N.isFullFolderPath('NexusMods'), false);
+    assert.equal(N.normalizeSetting('DownloadFolder', 'D:\\mods'), undefined, 'a full path is not stored');
+    assert.equal(N.normalizeSetting('DownloadFolder', 'Mods'), 'Mods');
+    assert.equal(N.normalizeSetting('DownloadFolder', ''), '', 'empty is stored: the browser places each file');
+  } finally {
+    global.chrome.downloads = savedDownloads;
+    context.__recentDownloadStarts.clear();
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
+  }
+}
+
 jobStateBehaviour()
   .then(writeQueueRelease)
   .then(failedReadNeverOverwrites)
   .then(downloadNameFromLink)
   .then(mo2MetaBesideCollectionFile)
   .then(singleDownloadGetsMo2Meta)
+  .then(browserPlacesUnnamedDownloads)
   .then(missingQueueItemsBehaviour)
   .then(reconnectScopeBehaviour)
   .then(errorLogCollapsing)
