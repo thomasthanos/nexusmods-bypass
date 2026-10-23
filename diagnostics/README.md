@@ -275,6 +275,8 @@ Every other path, including unknown APIs and static assets, requires the signed 
 | Method and protected path | Contract |
 | --- | --- |
 | `GET /api/admin/overview` | Issue totals, aggregate release health and bounded live spike alerts |
+| `GET /api/admin/github-issues` | Open public repository issues, source freshness, cache state and bounded pagination notice |
+| `GET /api/admin/github-discussions` | Recent public Atom discussion metadata, source freshness and cache state |
 | `GET /api/admin/issues` | `{items,total,page,limit}`; filters `version`, `browser`, `os`, `destination`, `download_mode`, `status`, `fault_origin`, `category`, `severity`, `muted`, `q`, `from`, `to` |
 | `GET /api/admin/issues/:id` | `{issue,report_summary,latest_report}`; JSON diagnostic fields are parsed |
 | `GET /api/admin/issues/:id/reports` | Bounded report pagination |
@@ -345,11 +347,11 @@ The requested Tailwind browser CDN is pinned to `@tailwindcss/browser@4.3.3` wit
 Run the browser suite separately after installing its development browser:
 
 ```powershell
-npx playwright install chromium
+npx playwright install chromium webkit
 npm run test:browser
 ```
 
-It serves synthetic in-memory data through the actual Hono API, SQLite schema and cryptographically verified test Access JWTs. Chromium covers 320px/375px/390px/430px/1440px layouts, release comparisons, filters, lifecycle persistence and stale conflicts, hostile text, clipboard fallback, real manual Access redirects, native modal feedback, deep links, settings and CDN failure/loading. A focused WebKit regression (`NXTK_DIAGNOSTICS_BROWSER=webkit node --test test/browser/origin.test.mjs`) reproduces the former null-Origin rejection and verifies the corrected authenticated mutation against the unchanged origin guard. CI runs this regression separately from the Chromium suite. Screenshots are written to the ignored `.wrangler/browser-qa/` directory. This is browser verification, not a claim of physical iOS or live provider delivery.
+It serves synthetic in-memory data through the actual Hono API, SQLite schema and cryptographically verified test Access JWTs. CI runs the complete suite in both Chromium and WebKit, covering 320px/375px/390px/430px/1440px layouts, GitHub Issues and Discussions, UTC rollover, release comparisons, filters, lifecycle persistence and stale conflicts, hostile text, clipboard fallback, real manual Access redirects, native modal feedback, deep links, settings and CDN failure/loading. The WebKit origin regression reproduces the former null-Origin rejection and verifies the corrected authenticated mutation against the unchanged origin guard. Headless WebKit's native Push API freezes the browser on Windows and Linux, so its UI contexts block service workers; dedicated push-management and service-worker tests cover those lifecycles separately. Screenshots are written to the ignored `.wrangler/browser-qa/` directory. This is browser verification, not a claim of physical iOS or live provider delivery.
 
 For a temporary local preview with clearly labelled synthetic data, run:
 

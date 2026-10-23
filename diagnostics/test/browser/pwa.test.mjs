@@ -16,11 +16,11 @@ before(async () => {
 });
 after(async () => { await browser?.close(); await preview?.close(); });
 async function session(t, width = 390, blockCdn = true) {
-  // Windows headless WebKit exposes PushManager.getSubscription but its native
-  // implementation freezes the page. UI smoke tests disable that emulator
+  // Headless WebKit exposes PushManager.getSubscription but its native
+  // implementation freezes the page on both Windows and Linux CI. UI tests disable that emulator
   // capability; push lifecycle and service-worker behavior have dedicated tests.
   const context = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1,
-    ...(engineName === 'webkit' && process.platform === 'win32' ? { serviceWorkers: 'block' } : {}) });
+    ...(engineName === 'webkit' ? { serviceWorkers: 'block' } : {}) });
   t.after(() => context.close());
   const page = await context.newPage();
   if (blockCdn) await page.route('https://cdn.jsdelivr.net/**', (route) => route.abort());

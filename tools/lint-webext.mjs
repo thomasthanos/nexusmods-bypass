@@ -11,7 +11,7 @@ const version = JSON.parse(readFileSync(join(root, 'src/manifest.json'), 'utf8')
 const archive = join(root, 'dist', `nexus.mods.bypass-${version}-firefox.zip`);
 const sourceDir = mkdtempSync(join(tmpdir(), 'nxtk-firefox-lint-'));
 const require = createRequire(import.meta.url);
-const cli = join(dirname(require.resolve('web-ext')), 'bin/web-ext.js');
+const cli = require.resolve('addons-linter/bin/addons-linter');
 
 function run(command, args) {
   const result = spawnSync(command, args, { cwd: root, stdio: 'inherit' });
@@ -25,7 +25,10 @@ try {
   } else {
     run('unzip', ['-q', archive, '-d', sourceDir]);
   }
-  run(process.execPath, [cli, 'lint', '--source-dir', sourceDir]);
+  // Match web-ext lint's manifest checks, without its unused browser/Android runners.
+  // Scan every extracted package file; errors fail while warnings remain visible.
+  run(process.execPath, [cli, '--min-manifest-version', '2', '--max-manifest-version', '3',
+    '--enable-data-collection-permissions', sourceDir]);
 } finally {
   rmSync(sourceDir, { recursive: true, force: true });
 }

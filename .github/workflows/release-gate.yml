@@ -26,7 +26,7 @@ jobs:
           NXTK_REQUIRE_DOM: '1'
       # AMO's own linter on the Firefox package exactly as it would be uploaded. Errors fail the gate;
       # warnings (mostly innerHTML on escaped templates) are reported only.
-      - name: web-ext lint (Firefox package)
+      - name: Mozilla addons-linter (Firefox package)
         run: node tools/lint-webext.mjs
 
   visual:

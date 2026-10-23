@@ -17,10 +17,10 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.64.0",
+    "addons-linter": "10.14.0",
     "eslint": "^9.39.5",
     "globals": "^15.15.0",
     "graphql": "^16.14.2",
-    "jsdom": "^25.0.1",
-    "web-ext": "^10.8.0"
+    "jsdom": "^25.0.1"
   }
 }
