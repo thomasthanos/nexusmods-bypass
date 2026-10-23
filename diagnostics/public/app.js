@@ -86,11 +86,42 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   }
   function tag(text, kind = '') { return node('span', `tag ${kind ? `tag-${kind}` : ''}`.trim(), humanize(text)); }
   function statusTag(status) { return tag(status, status === 'regressed' ? 'danger' : status === 'fixed' ? 'success' : status === 'investigating' ? 'warning' : ''); }
-  function metric(label, value, note, className = '') {
-    const card = node('div', `metric-card ${className}`.trim()); card.append(node('div', 'metric-label', label), node('div', 'metric-value', value));
-    if (note) card.append(node('div', 'metric-note', note)); return card;
+  function metric(label, value, note, className = '', tone = '') {
+    const card = node('div', `metric-card ${className}`.trim());
+    const labelNode = node('div', 'metric-label', label);
+    const valueNode = node('div', 'metric-value', value);
+    if (tone) valueNode.dataset.tone = tone;
+    card.append(labelNode, valueNode);
+    if (note) card.append(node('div', 'metric-note', note));
+    return card;
   }
-  function empty(target, title, description) { const box = node('div', 'empty-state'); box.append(node('h3', '', title), node('p', 'muted', description)); target.append(box); }
+  function empty(target, title, description, kind = '') {
+    const kindClass = kind ? (kind.startsWith('empty-state-') ? kind : `empty-state-${kind}`) : '';
+    const box = node('div', `empty-state ${kindClass}`.trim());
+    if (kind === 'quiet' || kind === 'empty-state-quiet') {
+      const icon = node('div', 'empty-state-icon');
+      const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('width', '24');
+      svg.setAttribute('height', '24');
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('stroke-width', '1.8');
+      svg.setAttribute('stroke-linecap', 'round');
+      svg.setAttribute('stroke-linejoin', 'round');
+      svg.setAttribute('aria-hidden', 'true');
+      const p1 = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); p1.setAttribute('d', 'M13.73 21a2 2 0 0 1-3.46 0');
+      const p2 = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); p2.setAttribute('d', 'M18.63 13A17.89 17.89 0 0 1 18 8');
+      const p3 = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); p3.setAttribute('d', 'M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14');
+      const p4 = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); p4.setAttribute('d', 'M18 8a6 6 0 0 0-9.33-5');
+      const l = doc.createElementNS('http://www.w3.org/2000/svg', 'line'); l.setAttribute('x1', '1'); l.setAttribute('y1', '1'); l.setAttribute('x2', '23'); l.setAttribute('y2', '23');
+      svg.append(p1, p2, p3, p4, l);
+      icon.append(svg);
+      box.append(icon);
+    }
+    box.append(node('h3', '', title), node('p', 'muted', description));
+    target.append(box);
+  }
   function loading(target, message = 'Loading diagnostics…') { target.replaceChildren(node('div', 'loading-state', message)); target.setAttribute('aria-busy', 'true'); }
   function settled(target) { target.removeAttribute('aria-busy'); }
   function isCurrent(generation) { return !destroyed && !invalidated && generation === viewGeneration; }
@@ -217,19 +248,27 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       if (!isCurrent(generation)) return;
       target.replaceChildren(); settled(target);
       target.append(heading('Overview', 'Release health from opt-in session telemetry. Date filters use UTC.', 1));
-      const form = node('form', 'toolbar'); form.dataset.form = 'overview';
+      const form = node('form', 'toolbar overview-filters'); form.dataset.form = 'overview';
       form.append(field('From', 'from', filters.from), field('To', 'to', filters.to), field('Browser', 'browser', filters.browser, BROWSERS), field('Destination', 'destination', filters.destination, ['browser', 'vortex', 'mo2']));
       const apply = node('button', 'button button-primary', 'Apply'); apply.type = 'submit'; form.append(apply);
       form.addEventListener('submit', (event) => { event.preventDefault(); const next = filtersFrom(form, overviewFilters); if (!validDates(next.from, next.to)) return dateError(form); if (next.from !== overviewFilters.from || next.to !== overviewFilters.to) automaticOverviewDates = false; Object.assign(overviewFilters, next); releasePage = 1; void loadOverview(); }); target.append(form);
       const metrics = summary.releases ?? {};
       const grid = node('div', 'metric-grid');
-      grid.append(metric('Real success rate', formatPercent(metrics.success_rate_percent), `${formatNumber(metrics.success_count)} / ${formatNumber(metrics.attempts_count)} attempts`), metric('Fallback usage', formatPercent(metrics.fallback_rate_percent), `${formatNumber(metrics.fallback_triggered_count)} attempts used fallback`), metric('Issues in window', formatNumber(summary.issues?.total), `${formatNumber(summary.issues?.regressed_count)} regressed · ${formatNumber(summary.issues?.new_count)} new`), metric('Retained reports', formatNumber(summary.reports?.total), `${formatNumber(summary.reports?.distinct_installs)} anonymous installs`));
+      const successTone = metrics.success_rate_percent != null ? (metrics.success_rate_percent >= 90 ? 'success' : metrics.success_rate_percent >= 70 ? 'warning' : 'danger') : '';
+      const fallbackTone = metrics.fallback_rate_percent != null && metrics.fallback_rate_percent > 10 ? 'warning' : '';
+      const issueTone = (summary.issues?.regressed_count ?? 0) > 0 ? 'danger' : (summary.issues?.new_count ?? 0) > 0 ? 'warning' : '';
+      grid.append(
+        metric('Real success rate', formatPercent(metrics.success_rate_percent), `${formatNumber(metrics.success_count)} / ${formatNumber(metrics.attempts_count)} attempts`, '', successTone),
+        metric('Fallback usage', formatPercent(metrics.fallback_rate_percent), `${formatNumber(metrics.fallback_triggered_count)} attempts used fallback`, '', fallbackTone),
+        metric('Issues in window', formatNumber(summary.issues?.total), `${formatNumber(summary.issues?.regressed_count)} regressed · ${formatNumber(summary.issues?.new_count)} new`, '', issueTone),
+        metric('Retained reports', formatNumber(summary.reports?.total), `${formatNumber(summary.reports?.distinct_installs)} anonymous installs`)
+      );
       target.append(grid);
       if (metrics.attempts_count === 0) target.append(node('p', 'inline-message', 'No download-attempt telemetry was received in this window. Error reports can populate Issues, but do not provide success or fallback rates.'));
       if (summary.reports?.total === 0) {
         const setup = section('How reports arrive'); setup.append(node('p', 'muted', REPORT_SETUP)); target.append(setup);
       }
-      target.append(node('p', 'muted', 'Rates are weighted by attempts. Successes and fallback usage can overlap; error reports alone do not measure download success.'));
+      target.append(node('p', 'muted footnote-disclaimer', 'Rates are weighted by attempts. Successes and fallback usage can overlap; error reports alone do not measure download success.'));
       const alerts = section('Live detection window', `The most recent ${Number.isFinite(summary.alerts?.window_seconds) ? formatNumber(summary.alerts.window_seconds / 60) : '—'} minutes; independent of the UTC date filter.`);
       const spikes = summary.alerts?.spikes;
       if (Array.isArray(spikes) && spikes.length) for (const spike of spikes) {
@@ -237,7 +276,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         const main = node('span', 'issue-row-main');
         main.append(node('strong', 'issue-row-heading', `${spike.category} · #${spike.issue_id}`), node('span', 'issue-row-meta', `${formatNumber(spike.report_count)} reports across ${formatNumber(spike.distinct_installs)} installs · ${relativeTime(spike.last_seen_at)}`));
         alert.append(main, statusTag(spike.status)); alerts.append(alert);
-      } else empty(alerts, spikes ? 'No active report spikes' : 'Live detection is unavailable', spikes ? 'No issue currently meets the configured report and distinct-install thresholds.' : 'Refresh after the API becomes available.');
+      } else empty(alerts, spikes ? 'No active report spikes' : 'Live detection is unavailable', spikes ? 'No issue currently meets the configured report and distinct-install thresholds.' : 'Refresh after the API becomes available.', spikes ? 'healthy' : '');
       target.append(alerts);
       const health = section('Release health', 'Daily opt-in counters aggregated for the selected window.');
       if (!releases.items?.length) empty(health, 'No release telemetry', 'Try a wider date range or a different browser and destination.');
@@ -248,13 +287,16 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         for (const release of releases.items) { const row = node('tr'); for (const value of [release.version, formatNumber(release.attempts_count), formatPercent(release.success_rate_percent), formatPercent(release.fallback_rate_percent), formatNumber(release.heartbeat_count)]) row.append(node('td', '', value)); body.append(row); }
         table.append(body); scroll.append(table); health.append(scroll);
       }
-      pagination(health, releases, (page) => { releasePage = page; void loadOverview(); }); target.append(health);
+      if (releases.total > 0 && releases.items?.length) {
+        pagination(health, releases, (page) => { releasePage = page; void loadOverview(); });
+      }
+      target.append(health);
       renderComparison(target, releases.items ?? [], generation);
     } catch (error) { if (isCurrent(generation)) showError(target, error, () => { void loadOverview(); }); }
   }
   function renderComparison(target, releases, generation) {
     const wrapper = section('Before / after a release', 'Compare two releases using the same UTC dates, browser and destination above.');
-    const form = node('form', 'toolbar'); form.dataset.form = 'comparison';
+    const form = node('form', 'toolbar comparison-toolbar'); form.dataset.form = 'comparison';
     if (!compareVersions.after && releases[0]) compareVersions.after = releases[0].version;
     if (!compareVersions.before && releases[1]) compareVersions.before = releases[1].version;
     form.append(field('Before release', 'before', compareVersions.before), field('After release', 'after', compareVersions.after));
@@ -277,7 +319,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         }
         result.append(grid);
         const delta = (value) => typeof value === 'number' && Number.isFinite(value) ? `${value > 0 ? '+' : ''}${value.toFixed(1)} pp` : '—';
-        result.append(node('p', 'inline-message', `Change: ${delta(comparison.success_rate_delta_pp)} success · ${delta(comparison.fallback_rate_delta_pp)} fallback. Percentage points, after minus before.`));
+        result.append(node('p', 'inline-message comparison-delta', `Change: ${delta(comparison.success_rate_delta_pp)} success · ${delta(comparison.fallback_rate_delta_pp)} fallback. Percentage points, after minus before.`));
       } catch (error) { if (isCurrent(generation) && comparisonRequest === comparisonGeneration) showError(result, error, () => { form.requestSubmit(); }); }
       finally { if (isCurrent(generation) && comparisonRequest === comparisonGeneration) submit.disabled = false; }
     });
@@ -363,17 +405,20 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       const data = await request('view:issues', `/issues${queryString({ ...issueFilters, page: issuePage, limit: 20 })}`);
       if (!isCurrent(generation)) return;
       target.replaceChildren(); settled(target); target.append(heading('Extension diagnostics', 'Grouped opt-in error reports. Search failures, then inspect their evidence. Dates use UTC.'));
-      const form = node('form', 'panel'); form.dataset.form = 'issues';
-      const primary = node('div', 'toolbar'); primary.append(field('Search', 'q', issueFilters.q), field('Status', 'status', issueFilters.status, STATUSES), field('Version', 'version', issueFilters.version));
+      const form = node('form', 'panel issues-filter-panel'); form.dataset.form = 'issues';
+      const primary = node('div', 'toolbar issues-primary-toolbar'); primary.append(field('Search', 'q', issueFilters.q), field('Status', 'status', issueFilters.status, STATUSES), field('Version', 'version', issueFilters.version));
       primary.querySelector('[name="q"]').maxLength = 200; primary.querySelector('[name="version"]').maxLength = 64;
-      const apply = node('button', 'button button-primary', 'Apply filters'); apply.type = 'submit'; primary.append(apply); form.append(primary);
-      const disclosure = node('details', 'disclosure'); disclosure.open = Object.entries(issueFilters).some(([key, value]) => !['q', 'status', 'version', 'from', 'to'].includes(key) && value);
+      form.append(primary);
+      const disclosure = node('details', 'disclosure issues-disclosure'); disclosure.open = Object.entries(issueFilters).some(([key, value]) => !['q', 'status', 'version', 'from', 'to'].includes(key) && value);
       disclosure.append(node('summary', '', 'Environment, classification & dates'));
       const advanced = node('div', 'filter-grid');
       for (const [label, name, choices] of [['Browser', 'browser', BROWSERS], ['OS', 'os', SYSTEMS], ['Destination', 'destination', ['browser', 'vortex', 'mo2']], ['Mode', 'download_mode', ['manual', 'auto']], ['Fault origin', 'fault_origin', FAULTS], ['Severity', 'severity', ['debug', 'info', 'warning', 'error', 'fatal']], ['Muted', 'muted', ['true', 'false']]]) advanced.append(field(label, name, issueFilters[name], choices));
       advanced.append(field('Category', 'category', issueFilters.category), field('From', 'from', issueFilters.from), field('To', 'to', issueFilters.to)); advanced.querySelector('[name="category"]').maxLength = 80;
       disclosure.append(advanced); form.append(disclosure);
-      form.append(button('Reset filters', resetIssueFilters, 'button button-quiet button-small'));
+      const actions = node('div', 'filter-actions');
+      const apply = node('button', 'button button-primary', 'Apply filters'); apply.type = 'submit';
+      const reset = button('Reset filters', resetIssueFilters, 'button button-quiet button-small');
+      actions.append(apply, reset); form.append(actions);
       form.addEventListener('submit', (event) => {
         event.preventDefault(); const next = filtersFrom(form, issueFilters); if (!validDates(next.from, next.to)) return dateError(form);
         if ((next.version && !SEMVER.test(next.version)) || (next.category && !/^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/.test(next.category))) {
@@ -399,7 +444,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const generation = ++viewGeneration; abortAll('view:'); const target = elements['view-settings'];
     pushManager?.dispose(); pushManager = null; target.replaceChildren(); settled(target);
     target.append(heading('Settings', 'Manage this device’s notifications and quiet recurring issues.', 1));
-    const push = section('Push manager'); const mount = node('div'); push.append(mount); target.append(push);
+    const mount = node('div', 'settings-push-wrapper'); target.append(mount);
     try { pushManager = mountPush(mount, { request: async (path, options) => {
       try {
         if (invalidated || destroyed) throw new DOMException('Session unavailable', 'AbortError');
@@ -411,16 +456,32 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         if (error?.status === 401) invalidateSession(error.authInfo); throw error;
       }
     }, notify }); }
-    catch { mount.replaceChildren(node('p', 'error-state', 'Push controls could not be initialized. Refresh to retry.')); }
+    catch { mount.replaceChildren(section('Notifications', 'Push controls could not be initialized. Refresh to retry.')); }
     const rules = section('Muted issues', 'Issues active in the last 30 UTC days. Open an issue to change its mute or lifecycle rule. Ignored issues also suppress push alerts.');
+    rules.classList.add('muted-issues-section');
     const list = node('div', 'issue-list'); loading(list, 'Loading mute rules…'); rules.append(list); target.append(rules);
-    const privacy = section('Private by design'); privacy.append(node('p', 'muted', REPORT_SETUP), node('p', 'muted', 'Cloudflare Access protects this dashboard and its API. Reports stay in memory while this page is open. Private responses are not cached for offline access. Sign in again when your Access session expires.')); target.append(privacy);
+    const privacy = section('Private by design', 'Protected zero-knowledge telemetry and strict session access.');
+    privacy.classList.add('privacy-section');
+    const privacyGrid = node('div', 'privacy-grid');
+    const setupCard = node('div', 'privacy-card');
+    const setupHeader = node('div', 'privacy-card-header');
+    setupHeader.append(node('span', 'privacy-badge privacy-badge-info', 'Telemetry opt-in'), node('h4', 'privacy-card-title', 'How reports arrive'));
+    setupCard.append(setupHeader, node('p', 'privacy-card-copy', REPORT_SETUP));
+    const securityCard = node('div', 'privacy-card');
+    const securityHeader = node('div', 'privacy-card-header');
+    securityHeader.append(node('span', 'privacy-badge privacy-badge-secure', 'Encrypted session'), node('h4', 'privacy-card-title', 'Cloudflare Access & Security'));
+    securityCard.append(securityHeader, node('p', 'privacy-card-copy', 'Cloudflare Access protects this dashboard and its API. Reports stay in memory while this page is open. Private responses are not cached for offline access. Sign in again when your Access session expires.'));
+    privacyGrid.append(setupCard, securityCard);
+    privacy.append(privacyGrid);
+    target.append(privacy);
     try {
       const data = await request('view:muted', `/issues${queryString({ ...dateRange(30), muted: 'true', page: mutedPage, limit: 10 })}`);
       if (!isCurrent(generation)) return;
       settled(list); list.replaceChildren();
-      if (data.items?.length) for (const value of data.items) list.append(issueRow(value)); else empty(list, 'No muted issues in this window', 'Mute an issue from its detail sheet to quiet its notifications.');
-      pagination(rules, data, (page) => { mutedPage = page; void loadSettings(); });
+      if (data.items?.length) for (const value of data.items) list.append(issueRow(value)); else empty(list, 'No muted issues in this window', 'Mute an issue from its detail sheet to quiet its notifications.', 'quiet');
+      if (data.total > 0 && data.items?.length) {
+        pagination(rules, data, (page) => { mutedPage = page; void loadSettings(); });
+      }
     } catch (error) { if (isCurrent(generation)) showError(list, error, () => { void loadSettings(); }); }
   }
 
