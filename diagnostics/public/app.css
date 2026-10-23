@@ -98,6 +98,8 @@ hr { margin: 1.5rem 0; border: 0; border-top: 1px solid var(--line-soft); }
 .panel { min-width: 0; padding: 24px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius); }
 .panel-heading { margin-bottom: 20px; }
 .panel-heading > div > p { margin: 6px 0 0; color: var(--secondary); font-size: .84rem; }
+/* GitHub source cards: the link to GitHub sits in the heading row, the freshness note stays small. */
+.source-note { margin: 14px 0 0; font-size: .78rem; }
 .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius); overflow: hidden; }
 .metric-card { min-width: 0; padding: 23px 24px; border-right: 1px solid var(--line); }
 .metric-card:last-child { border-right: 0; }

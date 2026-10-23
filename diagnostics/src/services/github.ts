@@ -1,3 +1,5 @@
+import { feedCache } from './feed-cache.ts';
+
 export type GithubIssue = {
   number: number;
   title: string;
@@ -23,6 +25,7 @@ type Dependencies = {
   cache?: Pick<Cache, 'match' | 'put'> | null;
   now?: () => number;
   timeoutMs?: number;
+  token?: unknown;
 };
 
 const REPOSITORY_URL = 'https://github.com/thomasthanos/nexusmods-bypass/issues';
@@ -118,7 +121,17 @@ async function cachedFeed(cache: Dependencies['cache'], now: number): Promise<Gi
   } catch { return null; }
 }
 
-async function fetchFeed(fetcher: typeof fetch, now: number, timeoutMs: number): Promise<GithubIssuesFeed> {
+/**
+ * Optional `GITHUB_TOKEN` secret. Unauthenticated API reads are limited per address, and a Worker's
+ * outbound address is shared with other Cloudflare traffic, so they can run out without any use
+ * here. A read-only token has its own limit. It is sent to the fixed API host only, never cached.
+ */
+function authorization(token: unknown): Record<string, string> {
+  const value = typeof token === 'string' ? token.trim() : '';
+  return /^[A-Za-z0-9_]{20,255}$/.test(value) ? { Authorization: `Bearer ${value}` } : {};
+}
+
+async function fetchFeed(fetcher: typeof fetch, now: number, timeoutMs: number, token: unknown): Promise<GithubIssuesFeed> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_resolve, reject) => {
@@ -131,12 +144,22 @@ async function fetchFeed(fetcher: typeof fetch, now: number, timeoutMs: number):
     return await Promise.race([deadline, (async () => {
       const items = new Map<number, GithubIssue>();
       let truncated = false;
+      let credentials = authorization(token);
       for (let page = 1; page <= MAX_PAGES; page++) {
         const url = `${API_URL}?state=open&sort=updated&direction=desc&per_page=${PAGE_SIZE}&page=${page}`;
-        const response = await fetcher(url, {
-          method: 'GET', redirect: 'error', signal: controller.signal,
-          headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'nexusmods-bypass-diagnostics' }
+        // Workers implement only 'follow' and 'manual': 'error' throws a TypeError before any request
+        // is sent, so the deployed feed never reached GitHub. A manual 3xx is not ok, never followed.
+        const read = () => fetcher(url, {
+          method: 'GET', redirect: 'manual', signal: controller.signal,
+          headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'nexusmods-bypass-diagnostics', ...credentials }
         });
+        let response = await read();
+        if (response.status === 401 && credentials.Authorization) {
+          // An expired or revoked token must not hide the list: GitHub still answers anonymously.
+          void response.body?.cancel().catch(() => {});
+          credentials = {};
+          response = await read();
+        }
         if (!response.ok) {
           // Provider error bodies may contain internal details. Do not read them.
           void response.body?.cancel().catch(() => {});
@@ -159,20 +182,15 @@ async function fetchFeed(fetcher: typeof fetch, now: number, timeoutMs: number):
   } finally { clearTimeout(timer); }
 }
 
-async function edgeCache(): Promise<Dependencies['cache']> {
-  try { return typeof caches === 'undefined' ? undefined : await caches.open('nexusmods-github-public-v1'); }
-  catch { return undefined; }
-}
-
 /** Optional Cache API use keeps local Node tests and cache failures functional. */
 export async function getGithubIssues(dependencies: Dependencies = {}): Promise<GithubIssuesFeed> {
   const now = (dependencies.now ?? Date.now)();
-  const cache = dependencies.cache === undefined ? await edgeCache() : dependencies.cache;
+  const cache = dependencies.cache === undefined ? await feedCache('nexusmods-github-public-v1') : dependencies.cache;
   const cached = await cachedFeed(cache, now);
   if (cached && now - Date.parse(cached.fetched_at) <= FRESH_MS) return cached;
   try {
     const timeout = Math.max(1, Math.min(TIMEOUT_MS, dependencies.timeoutMs ?? TIMEOUT_MS));
-    const feed = await fetchFeed(dependencies.fetch ?? fetch, now, timeout);
+    const feed = await fetchFeed(dependencies.fetch ?? fetch, now, timeout, dependencies.token);
     if (cache) {
       try { await cache.put(CACHE_KEY, Response.json(feed, { headers: { 'Cache-Control': `public, max-age=${RETAIN_MS / 1000}` } })); }
       catch { /* A public feed remains usable when edge caching is unavailable. */ }

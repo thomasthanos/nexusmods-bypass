@@ -50,7 +50,7 @@ test('fixed public Atom source yields only normalized recent discussion metadata
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], ATOM_URL);
   assert.equal(calls[0][1].method, 'GET');
-  assert.equal(calls[0][1].redirect, 'error');
+  assert.equal(calls[0][1].redirect, 'manual', 'Workers throw for redirect "error"; a manual 3xx is not ok');
   assert.equal(new Headers(calls[0][1].headers).has('authorization'), false);
   assert.match(new Headers(calls[0][1].headers).get('accept'), /application\/atom\+xml/);
   assert.deepEqual(value, { items: [{ number: 35, title: 'Help & feedback', url: `${REPOSITORY}/35`, updated_at: '2026-10-23T10:30:00.000Z' }],
@@ -152,4 +152,36 @@ test('protected route reports only stable 503 on upstream failure', async (t) =>
   const response = await worker.fetch(new Request('https://diagnostics.test/api/admin/github-discussions', { headers: await access.headers() }), bindings(db));
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { error: 'GitHub discussions unavailable' });
+});
+
+// GitHub's own feed: namespaced media thumbnails, authors, offset timestamps and every discussion body
+// as escaped HTML. About twenty bodies used to exceed the parser's 10,000-expansion limit.
+const githubEntry = (number) => `<entry><id>tag:github.com,2008:Discussion/${9000 + number}</id>
+  <link type="text/html" rel="alternate" href="${REPOSITORY}/${number}"/><title>Idea ${number}: dark mode &amp; settings</title>
+  <published>2026-10-22T10:00:00+00:00</published><updated>2026-10-23T${String(number % 24).padStart(2, '0')}:00:00+00:00</updated>
+  <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/1?s=30&amp;v=4"/>
+  <author><name>someone</name><uri>https://github.com/someone</uri></author>
+  <content type="html">${'&lt;p&gt;A &quot;quoted&quot; idea &amp;amp; details&lt;/p&gt;'.repeat(80)}</content></entry>`;
+const githubFeed = (count) => `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="${ATOM_NS}" xmlns:media="http://search.yahoo.com/mrss/" xml:lang="en-US">
+  <id>tag:github.com,2008:/thomasthanos/nexusmods-bypass/discussions</id>
+  <link type="text/html" rel="alternate" href="${REPOSITORY}"/><link type="application/atom+xml" rel="self" href="${ATOM_URL}"/>
+  <title>Recent discussions in thomasthanos/nexusmods-bypass</title><updated>2026-10-23T10:03:10-07:00</updated>
+  ${Array.from({ length: count }, (_, index) => githubEntry(index + 1)).join('\n')}
+</feed>`;
+
+test('GitHub-shaped feeds parse at every size the body limit allows, and an empty feed is no error', async () => {
+  const { getGithubDiscussions } = await service();
+  const workersFetch = (body) => async (_url, init = {}) => {
+    if (!['follow', 'manual', undefined].includes(init.redirect)) throw new TypeError(`Invalid redirect value: ${init.redirect}`);
+    return xmlResponse(body);
+  };
+  const empty = await getGithubDiscussions({ now: () => NOW, cache: null, fetch: workersFetch(githubFeed(0)) });
+  assert.deepEqual(empty.items, [], 'a repository without discussions yet has an empty, available feed');
+  assert.equal(empty.stale, false);
+  for (const count of [1, 25, 100]) {
+    const value = await getGithubDiscussions({ now: () => NOW, cache: null, fetch: workersFetch(githubFeed(count)) });
+    assert.equal(value.items.length, count, `${count} discussions`);
+    assert.ok(value.items.every((item) => item.url === `${REPOSITORY}/${item.number}` && item.title.startsWith(`Idea ${item.number}: dark mode & settings`)));
+  }
 });

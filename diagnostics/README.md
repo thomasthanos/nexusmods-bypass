@@ -41,9 +41,9 @@ The client creates a random local installation seed only after consent and sends
 
 **Errors are not attempt telemetry.** This extension integration does not send heartbeat deltas, successful-download counts or fallback counts. Overview leaves success/fallback rates unavailable until genuine attempt data exists. Empty report lists remain possible until users install this client, explicitly enable the setting and encounter an eligible fault. The service does not import older Discord messages.
 
-**GitHub issues are a separate source.** The protected `/api/admin/github-issues` endpoint reads only open issues from the fixed public `thomasthanos/nexusmods-bypass` repository. Pull requests are excluded. The dashboard shows GitHub titles, labels and links without converting them into diagnostic reports or changing occurrence/install counts. This needs no GitHub token and never writes to GitHub. The Worker caches only normalized public issue metadata for five minutes and can show a clearly marked cached list during a temporary GitHub outage; private dashboard responses remain `no-store`. Refresh updates all sources. When the app resumes on a later UTC day, untouched default date ranges advance; deliberately selected historical ranges stay fixed.
+**GitHub issues are a separate source.** The protected `/api/admin/github-issues` endpoint reads only open issues from the fixed public `thomasthanos/nexusmods-bypass` repository. Pull requests are excluded. The dashboard shows GitHub titles, labels and links without converting them into diagnostic reports or changing occurrence/install counts. It works without a GitHub token and never writes to GitHub. Unauthenticated reads count against GitHub's hourly limit for the outbound address, which a Worker shares with other Cloudflare traffic; the optional `GITHUB_TOKEN` secret below gives the dashboard a limit of its own. The Worker caches only normalized public issue metadata for five minutes and can show a clearly marked cached list during a temporary GitHub outage. The Cache API stores nothing for a Worker behind Access, so the last list is also kept in the Worker isolate's memory. Private dashboard responses remain `no-store`. Both GitHub requests use the `manual` redirect mode: the Workers runtime rejects `error` before sending, which made every request of the first deployment fail while the Node tests passed. `test/workers-runtime.test.mjs` therefore runs both feeds in workerd itself. Refresh updates all sources. When the app resumes on a later UTC day, untouched default date ranges advance; deliberately selected historical ranges stay fixed.
 
-**Discussions are another independent source.** The protected `/api/admin/github-discussions` endpoint reads this repository's public Atom feed and exposes only recent discussion titles, canonical links, numbers and update times. The feed is a recent list, not an exhaustive archive or an open/answered-status query. It uses the same public-cache freshness and stale-fallback policy, with a separate cache. No GitHub token, author profiles, post bodies or external images reach the dashboard. XML document types and entity declarations are rejected before parsing, links stay within the fixed repository, and UI content renders as text. A failure in any source leaves the other sources usable.
+**Discussions are another independent source.** The protected `/api/admin/github-discussions` endpoint reads this repository's public Atom feed and exposes only recent discussion titles, canonical links, numbers and update times. The feed is a recent list, not an exhaustive archive or an open/answered-status query. It uses the same public-cache freshness and stale-fallback policy, with a separate cache. No GitHub token, author profiles, post bodies or external images reach the dashboard. XML document types and entity declarations are rejected before parsing, so only predefined, HTML and numeric references are expanded, up to the 2 MiB body limit. GitHub sends every discussion body as escaped HTML, and the former 10,000-expansion cap rejected a feed of about twenty discussions. Links stay within the fixed repository, and UI content renders as text. A failure in any source leaves the other sources usable.
 
 ## Directory structure
 
@@ -154,6 +154,7 @@ The following runtime environment names are declared in `[secrets].required`; th
 | `CF_ACCESS_TEAM_DOMAIN` | Your actual team hostname ending in `.cloudflareaccess.com`; Phase 3 extracts the team name expected by the middleware |
 | `CF_ACCESS_AUD` | The audience tag for the private Access application |
 | `RATE_LIMIT_HASH_SECRET` | A separately generated random secret for HMAC hashing IP rate-limit subjects |
+| `GITHUB_TOKEN` | Optional. A read-only token for the public issue list, sent only to `api.github.com`: a fine-grained token with public repository read access and no permissions is enough. Without it, or once it expires or is revoked, GitHub issues still load anonymously, within the shared unauthenticated limit |
 
 For local development, put the real values in an ignored `.dev.vars` file beside `wrangler.toml`. The deployed Worker already has these secrets. When deliberately replacing a binding, Wrangler's interactive commands are:
 
@@ -165,6 +166,7 @@ npx wrangler secret put DISCORD_WEBHOOK_URL
 npx wrangler secret put CF_ACCESS_TEAM_DOMAIN
 npx wrangler secret put CF_ACCESS_AUD
 npx wrangler secret put RATE_LIMIT_HASH_SECRET
+npx wrangler secret put GITHUB_TOKEN   # optional
 ```
 
 The initial deployment uploaded all seven bindings together using Wrangler's `--secrets-file` option and an ignored local JSON file. `secret put` can create/deploy a Worker version, so use the dashboard or the appropriate version workflow when coordinating an existing deployment. Never paste secret values into shell command arguments or commit `.dev.vars` or a secrets file.
@@ -306,7 +308,7 @@ npx wrangler deploy --dry-run --outdir .wrangler/phase3-dry-run
 npm run db:init:local
 ```
 
-`npm run typecheck` first regenerates the binding types. A dry run bundles the Worker but does not verify your real Access policy, secrets, Discord delivery or device push display.
+`npm run typecheck` first regenerates the binding types. `npm test` also starts workerd, the Workers runtime that Wrangler installs, for the checks that Node cannot make. A dry run bundles the Worker but does not verify your real Access policy, secrets, Discord delivery or device push display.
 
 For local ingest, run `npx wrangler dev --local-protocol https` with the real ignored development bindings. Notification links require HTTPS, including in local requests. Local admin access still requires a valid Access assertion; the Worker has no development authentication bypass.
 

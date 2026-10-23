@@ -60,7 +60,7 @@ test('feed uses a fixed unauthenticated read URL, excludes pull requests, and re
   assert.equal(`${parsed.origin}${parsed.pathname}`, API);
   assert.deepEqual(Object.fromEntries(parsed.searchParams), { state: 'open', sort: 'updated', direction: 'desc', per_page: '100', page: '1' });
   assert.equal(init.method, 'GET');
-  assert.equal(init.redirect, 'error');
+  assert.equal(init.redirect, 'manual', 'Workers throw for redirect "error"; a manual 3xx is not ok');
   assert.equal(new Headers(init.headers).has('authorization'), false);
   assert.equal(new Headers(init.headers).get('accept'), 'application/vnd.github+json');
   assert.deepEqual(result, { items: [{ number: 34, title: 'Download fails on iPhone', url: `${REPOSITORY}/34`, state: 'open',
@@ -173,4 +173,108 @@ test('protected route maps upstream failure to safe 503 without touching diagnos
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { error: 'GitHub issues unavailable' });
   assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM issues').get().n, 0);
+});
+
+// The deployed feed never reached GitHub: the Workers runtime implements only redirect 'follow' and
+// 'manual' and throws a TypeError for 'error' before sending. Node accepts 'error', so the feed tests
+// passed while every live request failed. This fetch keeps the Workers contract.
+const workersFetch = (respond) => async (input, init = {}) => {
+  if (!['follow', 'manual', undefined].includes(init.redirect)) throw new TypeError(`Invalid redirect value: ${init.redirect}`);
+  return respond(input, init);
+};
+
+test('the open issue reaches the dashboard under the Workers fetch contract, and a redirect is never followed', async () => {
+  const { getGithubIssues } = await service();
+  const value = await getGithubIssues({ now: () => NOW, cache: null, fetch: workersFetch(async () => Response.json([issue()])) });
+  assert.deepEqual(value.items.map((item) => item.number), [34]);
+  for (const status of [301, 302, 307, 308]) {
+    await assert.rejects(getGithubIssues({ now: () => NOW, cache: null,
+      fetch: workersFetch(async () => new Response('', { status, headers: { location: 'https://evil.test/' } })) }), { message: 'GitHub issues unavailable' });
+  }
+});
+
+test('an optional GITHUB_TOKEN secret authenticates the fixed API read and never reaches the response', async (t) => {
+  const { getGithubIssues } = await service();
+  const seen = [];
+  const fetch = async (_input, init) => { seen.push(new Headers(init.headers).get('authorization')); return Response.json([issue()]); };
+  const token = 'github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz';
+  await getGithubIssues({ now: () => NOW, cache: null, fetch, token });
+  assert.equal(seen.at(-1), `Bearer ${token}`);
+  await getGithubIssues({ now: () => NOW, cache: null, fetch, token: ` ${token}\n` });
+  assert.equal(seen.at(-1), `Bearer ${token}`, 'a secret saved with a trailing newline still works');
+  for (const invalid of [undefined, '', 'short', 'has space 0123456789abcdef', 'line\nbreak0123456789abcdef', 42]) {
+    await getGithubIssues({ now: () => NOW, cache: null, fetch, token: invalid });
+    assert.equal(seen.at(-1), null, `${JSON.stringify(invalid)} is not sent`);
+  }
+  const db = createTestDatabase(); t.after(() => db.close());
+  const access = await createAccessFixture(t);
+  const accessFetch = globalThis.fetch;
+  t.mock.method(globalThis, 'fetch', async (input, init) => {
+    if (!String(input instanceof Request ? input.url : input).startsWith(API)) return accessFetch(input, init);
+    seen.push(new Headers(init.headers).get('authorization'));
+    return Response.json([issue()]);
+  });
+  const secret = 'ghp_0123456789abcdefghijklmnopqrstuvwxyzAB';
+  const response = await worker.fetch(new Request('https://diagnostics.test/api/admin/github-issues', { headers: await access.headers() }),
+    bindings(db, { GITHUB_TOKEN: secret }));
+  assert.equal(response.status, 200);
+  assert.equal(seen.at(-1), `Bearer ${secret}`, 'the Worker secret is used');
+  assert.doesNotMatch(await response.text(), new RegExp(secret));
+});
+
+test('an expired or revoked GITHUB_TOKEN falls back to anonymous reads instead of hiding the list', async () => {
+  const { getGithubIssues } = await service();
+  const token = 'github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz';
+  const seen = [];
+  const fetch = async (input, init) => {
+    const credential = new Headers(init.headers).get('authorization');
+    seen.push(credential);
+    if (credential) return new Response('{"message":"Bad credentials"}', { status: 401 });
+    return String(input).endsWith('&page=1')
+      ? Response.json([issue()], { headers: { link: `<${API}?page=2>; rel="next"` } })
+      : Response.json([issue(35)]);
+  };
+  const value = await getGithubIssues({ now: () => NOW, cache: null, fetch, token });
+  assert.deepEqual(value.items.map((item) => item.number).sort(), [34, 35]);
+  assert.deepEqual(seen, [`Bearer ${token}`, null, null], 'one refused attempt, then every page anonymously');
+  const limited = async (_input, init) => { seen.push(new Headers(init.headers).get('authorization')); return new Response('', { status: 403 }); };
+  seen.length = 0;
+  await assert.rejects(getGithubIssues({ now: () => NOW, cache: null, fetch: limited, token }), { message: 'GitHub issues unavailable' });
+  assert.deepEqual(seen, [`Bearer ${token}`], 'a rate limit is not retried without the token');
+});
+
+test('Worker sources pass fetch no option that the Workers runtime rejects', async () => {
+  const { readdir, readFile } = await import('node:fs/promises');
+  const files = (await readdir(new URL('../src/', import.meta.url), { recursive: true })).filter((name) => name.endsWith('.ts'));
+  assert.ok(files.length > 5);
+  for (const name of files) {
+    const source = await readFile(new URL(`../src/${name}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /redirect:\s*['"]error['"]/, `${name}: Workers throw a TypeError for redirect "error"`);
+    assert.doesNotMatch(source, /\bintegrity:\s*['"][^'"]/, `${name}: Workers throw a TypeError for subrequest integrity`);
+  }
+});
+
+test('behind Access, where the Cache API keeps nothing, the isolate still reuses a fresh feed and serves a marked stale one', async (t) => {
+  const { getGithubIssues } = await service();
+  const { forgetFeeds } = await import('../src/services/feed-cache.ts');
+  const saved = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+  t.after(() => { forgetFeeds(); if (saved) Object.defineProperty(globalThis, 'caches', saved); else delete globalThis.caches; });
+  // Workers fronted by Cloudflare Access: a named cache opens but stores and returns nothing, or does not open.
+  for (const open of [async () => ({ match: async () => undefined, put: async () => {} }), async () => { throw new TypeError('Cache API unavailable'); }]) {
+    Object.defineProperty(globalThis, 'caches', { configurable: true, value: { open } });
+    forgetFeeds();
+    let calls = 0;
+    const live = async () => { calls++; return Response.json([issue()]); };
+    const first = await getGithubIssues({ now: () => NOW, fetch: live });
+    const again = await getGithubIssues({ now: () => NOW + 60_000, fetch: live });
+    assert.equal(calls, 1, 'a refresh within five minutes does not ask GitHub again');
+    assert.deepEqual(again, first);
+    const down = async () => { calls++; return new Response('provider-private-token', { status: 403 }); };
+    const stale = await getGithubIssues({ now: () => NOW + 10 * 60_000, fetch: down });
+    assert.equal(calls, 2);
+    assert.equal(stale.stale, true, 'a GitHub refusal shows the last list, marked');
+    assert.deepEqual(stale.items.map((item) => item.number), [34]);
+    await assert.rejects(getGithubIssues({ now: () => NOW + 86_400_001, fetch: down }), { message: 'GitHub issues unavailable' },
+      'a day later the copy is too old to show');
+  }
 });

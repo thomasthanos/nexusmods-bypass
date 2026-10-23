@@ -148,7 +148,9 @@ export const adminRoutes = new Hono<AppEnv>();
 
 adminRoutes.get('/github-issues', async (c) => {
   if (!query(c, z.strictObject({}))) return badRequest(c);
-  try { return c.json(await getGithubIssues({ now: () => c.get('serverNow') })); }
+  // GITHUB_TOKEN is an optional secret, so the generated bindings type does not declare it.
+  const token = (c.env as { GITHUB_TOKEN?: unknown }).GITHUB_TOKEN;
+  try { return c.json(await getGithubIssues({ now: () => c.get('serverNow'), token })); }
   catch { return c.json({ error: 'GitHub issues unavailable' }, 503); }
 });
 

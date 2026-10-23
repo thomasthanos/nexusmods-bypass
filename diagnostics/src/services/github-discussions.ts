@@ -1,4 +1,5 @@
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
+import { feedCache } from './feed-cache.ts';
 
 export type GithubDiscussion = { number: number; title: string; url: string; updated_at: string };
 export type GithubDiscussionsFeed = {
@@ -62,8 +63,12 @@ export function parseDiscussionAtom(xml: string): GithubDiscussion[] {
       // This option also enables XML numeric character references in v5.11.
       // It decodes characters only; titles are always returned as plain text.
       htmlEntities: true, maxNestedTags: 20, strictReservedNames: true,
+      // Declarations are rejected above, so only predefined, HTML and numeric references remain: each
+      // takes at least four input bytes and yields one or two characters, and cannot amplify. GitHub
+      // sends every discussion body as escaped HTML; at 10,000 expansions about twenty discussions
+      // took the whole feed down.
       processEntities: { enabled: true, maxEntitySize: 1024, maxExpansionDepth: 2,
-        maxTotalExpansions: 10_000, maxExpandedLength: MAX_BODY_BYTES, maxEntityCount: 16 },
+        maxTotalExpansions: MAX_BODY_BYTES, maxExpandedLength: MAX_BODY_BYTES, maxEntityCount: 16 },
       onDangerousProperty() { throw unavailable(); }
     });
     const parsed: unknown = parser.parse(xml);
@@ -149,7 +154,8 @@ async function fetchFeed(fetcher: typeof fetch, now: number, timeoutMs: number):
   });
   try {
     return await Promise.race([deadline, (async () => {
-      const response = await fetcher(ATOM_URL, { method: 'GET', redirect: 'error', signal: controller.signal,
+      // Workers throw a TypeError for redirect 'error' before sending; a manual 3xx is never followed.
+      const response = await fetcher(ATOM_URL, { method: 'GET', redirect: 'manual', signal: controller.signal,
         headers: { Accept: 'application/atom+xml', 'User-Agent': 'nexusmods-bypass-diagnostics' } });
       if (!response.ok || !/^(?:application\/atom\+xml|application\/xml|text\/xml)(?:\s*;|$)/i.test(response.headers.get('content-type') ?? '')) {
         void response.body?.cancel().catch(() => {});
@@ -161,15 +167,10 @@ async function fetchFeed(fetcher: typeof fetch, now: number, timeoutMs: number):
   } finally { clearTimeout(timer); }
 }
 
-async function edgeCache(): Promise<Dependencies['cache']> {
-  try { return typeof caches === 'undefined' ? undefined : await caches.open('nexusmods-github-discussions-public-v1'); }
-  catch { return undefined; }
-}
-
 /** Only normalized public metadata is cached; protected responses remain no-store. */
 export async function getGithubDiscussions(dependencies: Dependencies = {}): Promise<GithubDiscussionsFeed> {
   const now = (dependencies.now ?? Date.now)();
-  const cache = dependencies.cache === undefined ? await edgeCache() : dependencies.cache;
+  const cache = dependencies.cache === undefined ? await feedCache('nexusmods-github-discussions-public-v1') : dependencies.cache;
   const cached = await cachedFeed(cache, now);
   if (cached && now - Date.parse(cached.fetched_at) <= FRESH_MS) return cached;
   try {

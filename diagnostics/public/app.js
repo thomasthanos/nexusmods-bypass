@@ -308,8 +308,8 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         }
         target.append(list);
       }
-      if (data.truncated) target.append(node('p', 'muted', 'More open issues are available in the complete GitHub list.'));
-      target.append(node('p', 'muted', `GitHub last checked ${formatDate(data.fetched_at)}.`));
+      if (data.truncated) target.append(node('p', 'muted source-note', 'More open issues are available in the complete GitHub list.'));
+      target.append(node('p', 'muted source-note', `GitHub last checked ${formatDate(data.fetched_at)}.`));
     } catch (error) {
       if (!isCurrent(generation) || error?.name === 'AbortError') return;
       settled(target); target.replaceChildren(node('p', 'inline-message', 'GitHub issues are temporarily unavailable. Use Refresh to retry, or open the repository on GitHub.'));
@@ -335,7 +335,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       }
       if (list.childElementCount) target.append(list);
       else empty(target, 'No recent GitHub discussions', 'The public feed has no recent discussions. Open GitHub to browse the complete discussion list.');
-      target.append(node('p', 'muted', `Recent discussion feed last checked ${formatDate(data.fetched_at)}.`));
+      target.append(node('p', 'muted source-note', `Recent discussion feed last checked ${formatDate(data.fetched_at)}.`));
     } catch (error) {
       if (!isCurrent(generation) || error?.name === 'AbortError') return;
       settled(target); target.replaceChildren(node('p', 'inline-message', 'GitHub discussions are temporarily unavailable. Use Refresh to retry, or open discussions on GitHub.'));
@@ -351,10 +351,10 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const generation = ++viewGeneration; abortAll('view:'); const view = elements['view-issues']; view.replaceChildren(); settled(view);
     view.append(heading('Issues', 'Public GitHub issues, recent discussions and automatic extension diagnostics.', 1));
     const github = section('Open GitHub issues', 'Public reports from thomasthanos/nexusmods-bypass. Diagnostic date, status and environment filters apply below.'); github.dataset.githubIssues = '';
-    const repository = node('a', 'button button-quiet button-small', 'Open GitHub issues ↗'); repository.href = GITHUB_ISSUES_URL; repository.target = '_blank'; repository.rel = 'noopener noreferrer'; github.append(repository);
+    const repository = node('a', 'button button-quiet button-small', 'Open GitHub issues ↗'); repository.href = GITHUB_ISSUES_URL; repository.target = '_blank'; repository.rel = 'noopener noreferrer'; github.firstElementChild.append(repository);
     const githubContent = node('div'); github.append(githubContent); view.append(github);
     const discussions = section('Recent GitHub discussions', 'Recent entries from the public repository feed. Diagnostic filters apply to extension reports below.'); discussions.dataset.githubDiscussions = '';
-    const discussionRepository = node('a', 'button button-quiet button-small', 'Open GitHub discussions ↗'); discussionRepository.href = GITHUB_DISCUSSIONS_URL; discussionRepository.target = '_blank'; discussionRepository.rel = 'noopener noreferrer'; discussions.append(discussionRepository);
+    const discussionRepository = node('a', 'button button-quiet button-small', 'Open GitHub discussions ↗'); discussionRepository.href = GITHUB_DISCUSSIONS_URL; discussionRepository.target = '_blank'; discussionRepository.rel = 'noopener noreferrer'; discussions.firstElementChild.append(discussionRepository);
     const discussionsContent = node('div'); discussions.append(discussionsContent); view.append(discussions);
     const target = node('section', 'stack'); target.dataset.diagnosticIssues = ''; target.setAttribute('aria-label', 'Automatic extension diagnostics'); view.append(target);
     const githubPending = Promise.all([loadGithubIssues(githubContent, generation), loadGithubDiscussions(discussionsContent, generation)]);
