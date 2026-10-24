@@ -2017,63 +2017,65 @@ td:first-child { color: var(--text); font-weight: 550; }
   vertical-align: middle;
 }
 
-/* Overview: Listing Visitors 3 Columns */
+/* Overview: Listing Visitors 3 Sub-Cards */
 [data-growth-analytics] .growth-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  margin: 16px 0 14px;
-  background: transparent;
-  border: 0;
+  gap: 8px;
+  margin: 14px 0 12px;
 }
 [data-growth-analytics] .growth-metric {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  padding: 2px clamp(6px, 1.5vw, 12px) 2px clamp(16px, 4.5vw, 28px) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  justify-content: flex-start !important;
+  background: #121315;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 [data-growth-analytics] .growth-metric-content {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  justify-content: flex-start !important;
-  text-align: left !important;
-  width: 100% !important;
-}
-[data-growth-analytics] .growth-metric:last-child {
-  border-right: none !important;
-}
-[data-growth-analytics] .growth-value {
-  order: 1 !important;
-  font-size: 1.45rem !important;
-  font-weight: 700 !important;
-  color: #fff !important;
-  display: flex !important;
-  align-items: baseline !important;
-  gap: 6px !important;
-  margin-bottom: 3px !important;
-  letter-spacing: -0.02em !important;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  min-width: 0;
 }
 [data-growth-analytics] .growth-label {
-  order: 2 !important;
-  font-size: .74rem !important;
-  color: #bbbcc5 !important;
-  margin: 0 !important;
-  font-weight: 450 !important;
+  order: 1;
+  font-size: .7rem;
+  color: #bbbcc5;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+  font-weight: 450;
+}
+[data-growth-analytics] .growth-label svg {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  color: var(--secondary);
+  flex-shrink: 0;
+}
+[data-growth-analytics] .growth-value {
+  order: 2;
+  font-size: clamp(1.35rem, 4.5vw, 1.85rem);
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.15;
+  margin-bottom: 2px;
+  letter-spacing: -0.02em;
 }
 [data-growth-analytics] .growth-note,
 [data-growth-analytics] .growth-trend {
-  order: 3 !important;
-  font-size: .68rem !important;
-  color: #a2a3ad !important;
-  margin-top: 3px !important;
-  line-height: 1.3 !important;
-  text-align: left !important;
+  order: 3;
+  font-size: .68rem;
+  color: #8e9aaf;
+  line-height: 1.3;
+  margin-top: 4px;
+  text-align: left;
 }
 
 /* Overview: Chrome Web Store 3 Sub-Cards */
@@ -2585,12 +2587,8 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
 .growth-label { display: flex; align-items: center; gap: 6px; }
 .growth-label .ui-icon { width: 16px; height: 16px; }
 [data-growth-analytics] .growth-metric[data-metric="online"] { order: 1; }
-[data-growth-analytics] .growth-metric[data-metric="history"] { order: 2; border-right: 1px solid rgba(255, 255, 255, 0.08) !important; }
-[data-growth-analytics] .growth-metric[data-metric="weekly"] { order: 3; border-right: none !important; }
-[data-growth-analytics] .growth-label svg { display: none !important; }
-[data-growth-analytics] .growth-value { order: 1 !important; font-size: clamp(1.45rem, 3vw, 1.95rem) !important; line-height: 1.2; margin-bottom: 2px !important; }
-[data-growth-analytics] .growth-label { order: 2 !important; color: #8e9aaf !important; font-size: .75rem !important; margin-top: 4px !important; margin-bottom: 0 !important; }
-[data-growth-analytics] .growth-trend { order: 3 !important; color: #8e9aaf !important; line-height: 1.3 !important; font-size: .72rem !important; margin-top: 2px !important; }
+[data-growth-analytics] .growth-metric[data-metric="history"] { order: 2; }
+[data-growth-analytics] .growth-metric[data-metric="weekly"] { order: 3; }
 [data-growth-analytics] .growth-note { display: none !important; }
 [data-growth-analytics] .growth-trend[data-direction="up"] { color: var(--mint) !important; }
 [data-growth-analytics] .growth-trend[data-direction="down"] { color: var(--amber) !important; }
@@ -2654,7 +2652,8 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
   .growth-panel .panel-heading > div { flex-basis: 120px; }
   .growth-panel .panel-heading > .button { margin-left: auto; }
   .growth-panel .panel-heading > div > p { font-size: .76rem; }
-  [data-growth-store] .growth-metric { padding: 10px 8px; border-radius: 15px; }
+  [data-growth-store] .growth-metric,
+  [data-growth-analytics] .growth-metric { padding: 10px 8px; border-radius: 15px; }
   [data-growth-store] .growth-label { font-size: .74rem; gap: 4px; }
   [data-growth-store] .growth-value { font-size: clamp(1.35rem, 6vw, 1.8rem); }
   [data-growth-analytics] .growth-value { font-size: clamp(1.35rem, 6vw, 1.8rem) !important; }
