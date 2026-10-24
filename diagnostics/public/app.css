@@ -2634,26 +2634,75 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
   .growth-version-action { margin-left: auto; }
   .growth-details > summary { font-size: .78rem; }
   .detail-heading { display: grid; }
-  .app-nav { width: auto; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(120deg, #ffffff08, transparent 65%), #141517ed; border-color: #ffffff38; border-radius: 28px; box-shadow: 0 8px 28px #0008, inset 0 1px 0 #ffffff10; }
-  .nav-button { color: var(--secondary); border-radius: 22px; min-height: 56px; font-size: .75rem; }
-  .nav-button[aria-current="page"] { color: #fff2dc; background: linear-gradient(135deg, #c89d5959, #29251f 70%, #191a1b); border-color: #f3c77a80; box-shadow: inset 0 1px 3px #ffe2a678, 0 0 14px #f3c77a20; }
+  .app-nav {
+    position: fixed;
+    z-index: 100;
+    left: max(16px, env(safe-area-inset-left));
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    margin: 0 auto;
+    width: calc(100% - 32px);
+    max-width: 400px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+    background: rgba(18, 20, 24, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 36px;
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  .nav-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 52px;
+    padding: 6px 12px;
+    border-radius: 28px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #8e9aaf;
+    font-size: .74rem;
+    font-weight: 550;
+    transition: all 0.15s ease;
+  }
+  .nav-button[aria-current="page"] {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.05) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 2px 8px rgba(0, 0, 0, 0.3);
+    color: #ffffff;
+  }
+  .nav-button[aria-current="page"] svg {
+    color: #ffffff;
+    stroke: #ffffff;
+  }
+  .nav-button svg {
+    width: 20px;
+    height: 20px;
+  }
 }
 
-/* The phone dock owns a row; only the content viewport scrolls. */
+/* Mobile floating island dock layout */
 @media (max-width: 600px) {
-  html { height: 100%; overflow: hidden; scroll-padding: 0; }
+  html { height: 100%; overflow: hidden; }
   body { height: 100dvh; min-height: 0; overflow: hidden; padding-bottom: 0; }
   .app-shell {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    display: flex;
+    flex-direction: column;
     height: 100dvh;
     min-height: 0;
     padding-top: max(12px, env(safe-area-inset-top));
-    padding-bottom: max(4px, env(safe-area-inset-bottom));
+    padding-bottom: 0;
+    padding-inline: max(14px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-right));
+    position: relative;
+    overflow: hidden;
   }
   .app-header {
-    grid-row: 1;
+    flex-shrink: 0;
     margin-bottom: 12px;
     background: linear-gradient(135deg, #ffffff0d, transparent 50%), #1a1b1e;
     backdrop-filter: none;
@@ -2661,24 +2710,15 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
     filter: none;
   }
   .main-content {
-    grid-row: 2;
+    flex: 1 1 0;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior-y: contain;
     scroll-padding-block: 12px;
-    padding: 2px 2px 16px;
+    scroll-padding-bottom: calc(115px + env(safe-area-inset-bottom));
+    padding: 2px 2px calc(115px + env(safe-area-inset-bottom));
     scrollbar-width: thin;
-  }
-  .app-nav {
-    grid-row: 3;
-    position: relative;
-    inset: auto;
-    width: 100%;
-    margin: 6px 0 0;
-    background: linear-gradient(120deg, #ffffff08, transparent 65%), #17181b;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
   .app-footer { display: none; }
 }

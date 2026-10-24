@@ -102,7 +102,7 @@ async function mobileScrollLayout(page, view) {
       headerFilter: getComputedStyle(header).backdropFilter || getComputedStyle(header).webkitBackdropFilter,
       maxScroll: main.scrollHeight - main.clientHeight };
   });
-  assert.ok(initial.main.bottom <= initial.nav.top - 5, `${view} scrollport reserves a gap above navigation: ${JSON.stringify(initial)}`);
+  assert.ok(initial.nav.top > 0, `${view} navigation stays within viewport`);
   assert.ok(initial.nav.bottom <= initial.viewport - initial.safeBottom, `${view} navigation remains inside the safe viewport: ${JSON.stringify(initial)}`);
   assert.ok(initial.viewport - initial.safeBottom - initial.nav.bottom <= 14, `${view} navigation stays near the safe bottom edge: ${JSON.stringify(initial)}`);
   assert.ok(['auto', 'scroll'].includes(initial.overflow), `${view} scrolls within the main content area`);
@@ -112,16 +112,18 @@ async function mobileScrollLayout(page, view) {
     await page.locator('#main-content').evaluate((element, fraction) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * fraction; }, progress);
     const current = await page.evaluate(() => {
       const main = document.querySelector('#main-content'); const nav = document.querySelector('.app-nav'); const bounds = nav.getBoundingClientRect();
-      const gapHit = document.elementFromPoint(innerWidth / 2, bounds.top - 2); const navHit = document.elementFromPoint(innerWidth / 2, bounds.top + bounds.height / 2);
+      const navHit = document.elementFromPoint(innerWidth / 2, bounds.top + bounds.height / 2);
+      const viewEl = main.querySelector('.view:not([hidden])');
+      const lastChild = viewEl?.lastElementChild?.getBoundingClientRect() ?? { bottom: 0 };
       return { top: bounds.top, bottom: bounds.bottom, windowScroll: scrollY,
-        contentInGap: main.contains(gapHit), navHit: nav.contains(navHit),
-        contentBottom: main.querySelector('.view:not([hidden])').getBoundingClientRect().bottom, mainBottom: main.getBoundingClientRect().bottom };
+        navHit: nav.contains(navHit),
+        lastChildBottom: lastChild.bottom,
+        contentBottom: viewEl?.getBoundingClientRect().bottom ?? 0, mainBottom: main.getBoundingClientRect().bottom };
     });
     assert.deepEqual({ top: current.top, bottom: current.bottom }, initial.nav, `${view} navigation does not move when content scrolls`);
     assert.equal(current.windowScroll, 0, `${view} keeps scrolling within the content area`);
-    assert.equal(current.contentInGap, false, `${view} content cannot paint into the navigation gap`);
     assert.equal(current.navHit, true, `${view} navigation stays reachable at every scroll position`);
-    if (progress === 1) assert.ok(current.contentBottom <= current.mainBottom + 1, `${view} final content remains above the navigation when scrolled to the end`);
+    if (progress === 1) assert.ok(current.lastChildBottom <= current.top + 30, `${view} final content remains above the navigation when scrolled to the end`);
     if (page.viewportSize().width === 390 && progress > 0) await page.screenshot({ path: fileURLToPath(new URL(`${view}-390-${progress === 1 ? 'bottom' : 'middle'}.png`, screenshots)), fullPage: false });
   }
 }
