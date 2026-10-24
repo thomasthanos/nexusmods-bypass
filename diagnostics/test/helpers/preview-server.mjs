@@ -9,6 +9,8 @@ import { acceptErrorReport, acceptHeartbeat } from '../../src/services/ingestion
 import { bindings } from './access.mjs';
 import { createTestDatabase } from './d1.mjs';
 
+const PREVIEW_BANNER_CSS = `.preview-banner{display:flex;align-items:center;justify-content:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 6px) 16px 6px;background:#18130d;color:#e9bf74;font:500 12px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-align:center}
+.preview-banner-dot{width:6px;height:6px;border-radius:50%;background:currentColor}.preview-banner span:last-child{color:#a1a1aa}`;
 const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
 const install = (number) => number.toString(16).padStart(64, '0');
 
@@ -36,10 +38,12 @@ export async function startPreviewServer(options = {}) {
     ASSETS: { async fetch(request) {
       const pathname = new URL(request.url).pathname;
       const name = pathname === '/' ? 'index.html' : pathname.slice(1);
-      if (!/^(?:index\.html|(?:app|lib|push|growth|sw|ui-icons)\.js|app\.css|manifest\.json|icons\/[a-z0-9-]+\.(?:png|svg))$/.test(name)) return new Response('Not found', { status: 404 });
+      // Served by the helper only (never shipped), so the strict style-src 'self' policy still applies.
+      if (name === 'preview-banner.css' && options.standalone) return new Response(PREVIEW_BANNER_CSS, { headers: { 'content-type': 'text/css', 'cache-control': 'no-store' } });
+      if (!/^(?:index\.html|(?:app|lib|push|growth|sw|ui|ui-icons)\.js|app\.css|manifest\.json|icons\/[a-z0-9-]+\.(?:png|svg))$/.test(name)) return new Response('Not found', { status: 404 });
       try {
         let content = await readFile(new URL(`../../public/${name}`, import.meta.url));
-        if (name === 'index.html' && options.standalone) content = Buffer.from(content.toString().replace('<body>', '<body><aside class="preview-banner" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 16px;background:rgba(24,19,13,0.88);border-bottom:1px solid rgba(245,158,11,0.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:#f59e0b;font:500 12px/1.4 -apple-system,BlinkMacSystemFont,\'SF Pro Text\',\'Segoe UI\',Roboto,sans-serif;letter-spacing:0.02em;text-align:center;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#f59e0b;box-shadow:0 0 8px rgba(245,158,11,0.7);flex-shrink:0;"></span><span style="font-weight:600;">Local preview</span><span style="opacity:0.35;">·</span><span style="color:#a1a1aa;font-weight:400;">synthetic verification data</span></aside>'));
+        if (name === 'index.html' && options.standalone) content = Buffer.from(content.toString().replace('</head>', '<link rel="stylesheet" href="/preview-banner.css"></head>').replace('<body>', '<body><aside class="preview-banner"><span class="preview-banner-dot"></span><strong>Local preview</strong><span>synthetic verification data</span></aside>'));
         const extension = name.split('.').at(-1);
         const type = { html: 'text/html', js: 'text/javascript', css: 'text/css', json: 'application/manifest+json', svg: 'image/svg+xml', png: 'image/png' }[extension];
         return new Response(content, { headers: { 'content-type': type, 'cache-control': 'no-store' } });

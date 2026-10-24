@@ -187,3 +187,23 @@ test('unknown device agents do not acquire a guessed browser or operating system
   assert.equal(ui.container.querySelector('.push-device-name').textContent, 'Unknown device');
   assert.equal(ui.container.querySelector('.push-device-agent').textContent, userAgent);
 });
+
+test('this-device controls and the all-devices test are separate groups', async (t) => {
+  const ui = await setup(t, { permission: 'granted', local: subscription() });
+  const local = ui.container.querySelector('[aria-labelledby="push-heading"], .push-panel');
+  const all = ui.container.querySelector('.push-all-devices');
+  assert.match(local.textContent, /this device/i);
+  assert.ok(all.contains(ui.button('test')), 'the test notification lives in the All devices group');
+  assert.equal(local.contains(ui.button('test')), false);
+  assert.ok(local.contains(ui.button('sync') ?? ui.button('enable')));
+});
+
+test('removing a server registration needs a second explicit tap', async (t) => {
+  const ui = await setup(t, { permission: 'granted', local: subscription() });
+  const remove = () => ui.container.querySelector('.push-device button.button-danger');
+  remove().click(); await tick();
+  assert.equal(ui.calls.some((call) => call.options.method === 'DELETE'), false);
+  assert.equal(remove().dataset.confirm, 'true'); assert.match(remove().getAttribute('aria-label'), /^Confirm removing registration 11/);
+  remove().click(); await tick(); await tick();
+  assert.ok(ui.calls.some((call) => call.options.method === 'DELETE' && call.path === '/push/subscriptions/11'));
+});

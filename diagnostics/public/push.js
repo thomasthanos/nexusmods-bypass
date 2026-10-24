@@ -1,5 +1,3 @@
-import { createIcon } from './ui-icons.js';
-
 /** Browser-only push management. Subscription credentials stay in the browser and protected API. */
 export function mountPushManager(container, { request, notify = () => {} }) {
   const doc = container.ownerDocument; const win = doc.defaultView; const nav = win.navigator;
@@ -15,29 +13,38 @@ export function mountPushManager(container, { request, notify = () => {} }) {
     const node = doc.createElement(tag); if (className) node.className = className;
     if (value !== undefined) node.textContent = value; return node;
   }
-  const panel = element('section', 'panel push-panel'); panel.setAttribute('aria-labelledby', 'push-heading');
-  const heading = element('h2', '', 'Notifications'); heading.id = 'push-heading';
-  const panelHeading = element('div', 'panel-heading'); const headingCopy = element('div', 'heading-copy'); headingCopy.append(heading); panelHeading.append(createIcon(doc, 'settings', { tile: true }), headingCopy);
-  const description = element('p', 'muted', 'Alerts for critical issues, regressions and spikes. Permission is requested only when you enable notifications.');
+  // Two iOS-style groups keep "this device" management apart from the all-devices test.
+  const panel = element('section', 'settings-group push-panel'); panel.setAttribute('aria-labelledby', 'push-heading');
+  const heading = element('h2', 'group-title', 'Notifications on this device'); heading.id = 'push-heading';
+  const group = element('div', 'group');
+  const description = element('p', 'group-footer', 'Alerts for critical issues, regressions and spikes. Permission is requested only when you enable notifications.');
   const guidance = element('p', 'alert push-guidance');
   const status = element('p', 'push-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-  const actions = element('div', 'button-row push-actions'); const deviceList = element('div', 'push-devices');
+  const actions = element('div', 'push-actions'); const deviceList = element('div', 'push-devices');
   const deviceControls = element('div', 'push-device-controls');
-  const localOptions = element('details', 'disclosure compact-disclosure push-local-options'); localOptions.append(element('summary', '', 'This device options'));
-  const localNote = element('p', 'muted', 'Turning off removes this device’s subscription and server registration.'); localOptions.append(localNote, deviceControls);
-  const maintenance = element('details', 'disclosure compact-disclosure push-maintenance');
-  const deviceHeading = element('summary', '', 'Registered devices');
-  const deviceNote = element('p', 'muted push-test-note', 'The test sends to all registered devices. Provider acceptance does not confirm display.');
-  maintenance.append(deviceHeading, element('p', 'muted', 'Removing a server registration stops its alerts. A browser subscription can be synced again.'), deviceList);
+  const localOptions = element('details', 'disclosure push-local-options'); localOptions.append(summaryFor('This device options'));
+  const localNote = element('p', 'muted disclosure-content', 'Turning off removes this device’s subscription and server registration.'); localOptions.append(localNote, deviceControls);
+  const allDevices = element('section', 'settings-group push-all-devices'); allDevices.setAttribute('aria-labelledby', 'push-all-heading');
+  const allHeading = element('h2', 'group-title', 'All devices'); allHeading.id = 'push-all-heading';
+  const allGroup = element('div', 'group');
+  const testActions = element('div', 'push-actions push-test-actions');
+  const maintenance = element('details', 'disclosure push-maintenance');
+  const deviceHeading = element('span', 'summary-text', 'Registered devices'); const maintenanceSummary = element('summary'); maintenanceSummary.append(deviceHeading);
+  const deviceNote = element('p', 'group-footer push-test-note', 'The test sends to all registered devices. Provider acceptance does not confirm display.');
+  maintenance.append(maintenanceSummary, element('p', 'muted disclosure-content', 'Removing a server registration stops its alerts. A browser subscription can be synced again.'), deviceList);
   const buttons = {};
-  function button(action, label, className = 'button button-quiet', target = actions) {
+  function summaryFor(label) { const summary = element('summary'); summary.append(element('span', 'summary-text', label)); return summary; }
+  function button(action, label, className = 'button', target = actions) {
     const node = element('button', className, label); node.type = 'button'; node.dataset.pushAction = action;
     buttons[action] = node; target.append(node); return node;
   }
   button('enable', 'Enable on this device', 'button button-primary'); button('sync', 'Sync this device', 'button');
   button('disable', 'Turn off this device', 'button button-danger', deviceControls); button('rotate', 'Replace subscription', 'button button-danger');
-  button('test', 'Test all devices', 'button'); button('refresh', 'Refresh status', 'button button-quiet');
-  panel.append(panelHeading, description, guidance, status, actions, deviceNote, localOptions, maintenance); container.replaceChildren(panel);
+  button('refresh', 'Refresh status', 'button button-quiet');
+  button('test', 'Test all devices', 'button', testActions);
+  group.append(status, guidance, actions, localOptions); panel.append(heading, group, description);
+  allGroup.append(testActions, maintenance); allDevices.append(allHeading, allGroup, deviceNote);
+  container.replaceChildren(panel, allDevices);
 
   function deviceName(userAgent) {
     const ua = typeof userAgent === 'string' ? userAgent : '';
@@ -82,7 +89,8 @@ export function mountPushManager(container, { request, notify = () => {} }) {
     else if (expired()) guidance.textContent = 'This browser subscription has expired. Replace it to restore notifications.';
     else { guidance.hidden = true; guidance.textContent = ''; }
     status.textContent = message || (!initialized ? 'Checking push configuration…' : local ? serverId ? 'This device is registered for notifications.' : 'A browser subscription exists. Sync this device to verify its server registration.' : 'Notifications are not enabled on this device.');
-    status.className = `push-status ${messageKind === 'error' ? 'text-danger' : local && serverId ? 'push-status-registered' : 'muted'}`;
+    status.className = 'push-status';
+    status.dataset.state = messageKind === 'error' ? 'error' : local && serverId ? 'registered' : local ? 'pending' : 'off';
     buttons.enable.hidden = !!local;
     buttons.enable.disabled = busy || !initialized || !supported || permission() === 'denied' || !!local;
     buttons.sync.hidden = !local; buttons.sync.disabled = busy || !initialized || !local || expired();
@@ -107,17 +115,25 @@ export function mountPushManager(container, { request, notify = () => {} }) {
       }
       const provider = ({ apple: 'Apple Push', fcm: 'Google Push', mozilla: 'Mozilla Push' })[device.provider] || device.provider || 'Web Push';
       const detail = element('small', 'muted push-device-meta', provider);
-      const metadata = element('details', 'push-device-metadata'); metadata.dataset.deviceId = String(device.id); metadata.open = expandedDevices.has(String(device.id));
-      metadata.append(element('summary', '', 'Device details'), element('p', 'muted push-device-agent', device.user_agent || 'No browser details supplied.'), element('small', 'muted', device.expiration_time ? `Expires ${new Date(device.expiration_time).toLocaleString()}` : 'No expiry supplied by the browser'));
-      const remove = element('button', 'button button-danger', 'Remove registration'); remove.type = 'button'; remove.disabled = busy;
+      const metadata = element('details', 'disclosure push-device-metadata'); metadata.dataset.deviceId = String(device.id); metadata.open = expandedDevices.has(String(device.id));
+      metadata.append(summaryFor('Device details'), element('p', 'muted push-device-agent', device.user_agent || 'No browser details supplied.'), element('small', 'muted', device.expiration_time ? `Expires ${new Date(device.expiration_time).toLocaleString()}` : 'No expiry supplied by the browser'));
+      const remove = element('button', 'button button-small button-danger', 'Remove'); remove.type = 'button'; remove.disabled = busy;
       remove.setAttribute('aria-label', `Remove registration ${device.id}: ${deviceName(device.user_agent)}`);
-      remove.addEventListener('click', () => perform(async () => {
+      // Removing a server registration stops that device's alerts, so it takes a second, explicit tap.
+      remove.addEventListener('click', () => {
+        if (remove.dataset.confirm !== 'true') {
+          remove.dataset.confirm = 'true'; remove.textContent = 'Confirm';
+          remove.setAttribute('aria-label', `Confirm removing registration ${device.id}: ${deviceName(device.user_agent)}`);
+          return;
+        }
+        void perform(async () => {
         await api(`/push/subscriptions/${device.id}`, { method: 'DELETE' });
         if (disposed) return;
         if (device.id === serverId) serverId = null;
         devices = devices.filter((item) => item.id !== device.id);
         setMessage('Server registration removed. A subscription on this browser can be synced again.', 'info', true);
-      }));
+        });
+      });
       details.append(label, detail, metadata); row.append(details, remove); deviceList.append(row);
     }
   }

@@ -18,56 +18,52 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json" crossorigin="use-credentials">
     <link rel="stylesheet" href="/app.css">
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js" integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
     <script type="module" src="/app.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to diagnostics</a>
     <div class="app-shell">
-      <header class="app-header flex items-center">
+      <header class="app-header">
         <a class="brand" href="/" aria-label="Diagnostics home">
-          <img class="brand-mark" src="/icons/icon.svg" width="44" height="44" alt="">
+          <img class="brand-mark" src="/icons/icon.svg" width="28" height="28" alt="">
           <span class="brand-copy"><strong>Diagnostics</strong><span>NexusMods Bypass</span></span>
         </a>
+        <nav class="app-nav" aria-label="Dashboard views">
+          <button class="nav-button" type="button" data-view="overview" aria-current="page" aria-controls="view-overview">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg><span>Overview</span>
+          </button>
+          <button class="nav-button" type="button" data-view="issues" aria-controls="view-issues">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v5m0 3h.01"/></svg><span>Issues</span>
+          </button>
+          <button class="nav-button" type="button" data-view="settings" aria-controls="view-settings">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 3-.8 2.6-2.6.5-1.8 3 1.7 2-.2 2.8-1.3 2 1.8 3 2.7-.1L12 21l2.5-2.2 2.7.1 1.8-3-1.3-2-.2-2.8 1.7-2-1.8-3-2.6-.5L14 3z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span>
+          </button>
+        </nav>
         <div class="header-actions">
-          <span id="connection-status" class="connection-status" role="status" aria-live="polite"><span class="status-dot" aria-hidden="true"></span>Connecting</span>
-          <button id="refresh-button" class="button button-quiet refresh-button" type="button" aria-label="Refresh diagnostics">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7.2A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 11.9-1.2"/></svg>
-            <span>Refresh</span>
+          <span id="connection-status" class="connection-status" role="status" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span class="status-text">Connecting</span></span>
+          <button id="refresh-button" class="icon-button refresh-button" type="button" aria-label="Refresh diagnostics">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7.2A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 11.9-1.2"/></svg>
           </button>
         </div>
       </header>
-
-      <nav class="app-nav" aria-label="Dashboard views">
-        <button class="nav-button" type="button" data-view="overview" aria-current="page" aria-controls="view-overview">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg><span>Overview</span>
-        </button>
-        <button class="nav-button" type="button" data-view="issues" aria-controls="view-issues">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v5m0 3h.01"/></svg><span>Issues</span>
-        </button>
-        <button class="nav-button" type="button" data-view="settings" aria-controls="view-settings">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 3-.8 2.6-2.6.5-1.8 3 1.7 2-.2 2.8-1.3 2 1.8 3 2.7-.1L12 21l2.5-2.2 2.7.1 1.8-3-1.3-2-.2-2.8 1.7-2-1.8-3-2.6-.5L14 3z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span>
-        </button>
-      </nav>
 
       <main id="main-content" class="main-content" tabindex="-1">
         <div id="app-message" class="app-message" role="alert" hidden></div>
         <noscript><div class="alert alert-warning"><strong>Enable JavaScript to open diagnostics.</strong><p>Then refresh this page. Private data requires verified access.</p></div></noscript>
         <section id="view-overview" class="view" aria-label="Overview and release health">
-          <div class="loading-state" role="status">Loading release health…</div>
+          <div class="loading-state" role="status"><span class="spinner" aria-hidden="true"></span>Loading release health…</div>
         </section>
         <section id="view-issues" class="view" aria-label="Issues" hidden>
-          <div class="loading-state" role="status">Loading issues…</div>
+          <div class="loading-state" role="status"><span class="spinner" aria-hidden="true"></span>Loading issues…</div>
         </section>
         <section id="view-settings" class="view" aria-label="Settings and notifications" hidden>
-          <div class="loading-state" role="status">Loading notification settings…</div>
+          <div class="loading-state" role="status"><span class="spinner" aria-hidden="true"></span>Loading notification settings…</div>
         </section>
       </main>
-      <footer class="app-footer"><span class="private-mark" aria-hidden="true">●</span> Private diagnostics <span class="footer-separator" aria-hidden="true">/</span> Opt-in telemetry</footer>
     </div>
 
     <dialog id="issue-dialog" class="issue-dialog" aria-labelledby="issue-title">
-      <button id="close-issue" class="button button-quiet dialog-close" type="button" aria-label="Close issue details">
+      <button id="close-issue" class="icon-button dialog-close" type="button" aria-label="Close issue details">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
       </button>
       <div id="issue-detail" class="issue-detail"></div>

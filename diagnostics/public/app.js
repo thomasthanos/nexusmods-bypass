@@ -1,7 +1,7 @@
 import { createApiClient, formatNumber, formatPercent, formatDate, relativeTime, buildDebugPrompt, safeGithubUrl, queryString, dateRange } from './lib.js';
 import { mountPushManager } from './push.js';
 import { mountGrowth } from './growth.js';
-import { createIcon } from './ui-icons.js';
+import { createUi } from './ui.js';
 
 const STATUSES = ['new', 'investigating', 'fixed', 'regressed', 'ignored'];
 const BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera', 'brave', 'other'];
@@ -20,6 +20,9 @@ const GITHUB_DISCUSSIONS_URL = 'https://github.com/thomasthanos/nexusmods-bypass
 export function createDashboard({ document: doc = globalThis.document, window: win = globalThis.window, request: suppliedRequest, mountPush = mountPushManager } = {}) {
   const elements = Object.fromEntries(['connection-status', 'refresh-button', 'app-message', 'issue-dialog', 'issue-detail', 'close-issue', 'toast', ...VIEWS.map((name) => `view-${name}`)].map((id) => [id, doc.getElementById(id)]));
   if (Object.values(elements).some((value) => !value)) throw new Error('The dashboard shell is incomplete.');
+  const ui = createUi(doc);
+  const { el: node, button } = ui;
+  const tag = (text, kind = '') => ui.tag(humanize(text), kind);
   const slots = new Map();
   const listeners = [];
   const disclosureState = new Map();
@@ -51,21 +54,9 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   let compareVersions = { before: '', after: '' };
   const api = suppliedRequest ?? createApiClient({ onUnauthorized: invalidateSession });
 
-  function node(tag, className = '', text) {
-    const element = doc.createElement(tag);
-    if (className) element.className = className;
-    if (text !== undefined) element.textContent = String(text);
-    return element;
-  }
   function listen(target, event, callback, options) {
     target.addEventListener(event, callback, options);
     listeners.push(() => target.removeEventListener(event, callback, options));
-  }
-  function button(label, action, className = 'button') {
-    const element = node('button', className, label);
-    element.type = 'button';
-    element.addEventListener('click', action);
-    return element;
   }
   function field(label, name, value = '', choices) {
     const wrapper = node('label', 'field');
@@ -80,22 +71,13 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     wrapper.append(input);
     return wrapper;
   }
-  function heading(title, description, level = 2, iconName = '') {
-    const wrapper = node('div', level === 1 ? 'page-header' : 'panel-heading');
-    if (iconName) wrapper.append(createIcon(doc, iconName, { tile: true }));
-    const text = node('div', 'heading-copy'); text.append(node(`h${level}`, '', title));
-    if (description) text.append(node('p', 'muted', description));
-    wrapper.append(text); return wrapper;
-  }
-  function section(title, description, iconName = '') {
-    const wrapper = node('section', 'panel detail-section');
-    wrapper.append(heading(title, description, 2, iconName)); return wrapper;
-  }
+  function pageHeader(title) { const wrapper = node('div', 'page-header'); wrapper.append(node('h1', '', title)); return wrapper; }
+  function section(title, description, iconName = '') { return ui.panel(title, { description, icon: iconName, className: 'detail-section' }); }
   function disclosure(title, key, className = '') {
-    const wrapper = node('details', `disclosure compact-disclosure ${className}`.trim());
+    const wrapper = node('details', `disclosure ${className}`.trim());
     wrapper.dataset.disclosureKey = key;
     wrapper.open = disclosureState.get(key) === true;
-    wrapper.append(node('summary', '', title));
+    const summary = node('summary'); summary.append(node('span', 'summary-text', title)); wrapper.append(summary);
     wrapper.addEventListener('toggle', () => { if (wrapper.isConnected) disclosureState.set(key, wrapper.open); });
     return wrapper;
   }
@@ -108,45 +90,12 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const more = disclosure(`Show ${formatNumber(rows.length - 3)} more`, key, 'feed-more');
     const rest = node('div', 'issue-list disclosure-content'); rest.append(...rows.slice(3)); more.append(rest); target.append(more);
   }
-  function tag(text, kind = '') { return node('span', `tag ${kind ? `tag-${kind}` : ''}`.trim(), humanize(text)); }
-  function statusTag(status) { return tag(status, status === 'regressed' ? 'danger' : status === 'fixed' ? 'success' : status === 'new' ? 'info' : status === 'investigating' ? 'warning' : ''); }
-  function metric(label, value, note, className = '', tone = '') {
-    const card = node('div', `metric-card ${className}`.trim());
-    const labelNode = node('div', 'metric-label', label);
-    const valueNode = node('div', 'metric-value', value);
-    if (tone) valueNode.dataset.tone = tone;
-    card.append(labelNode, valueNode);
-    if (note) card.append(node('div', 'metric-note', note));
-    return card;
-  }
-  function empty(target, title, description, kind = '') {
-    const kindClass = kind ? (kind.startsWith('empty-state-') ? kind : `empty-state-${kind}`) : '';
-    const box = node('div', `empty-state ${kindClass}`.trim());
-    if (kind === 'quiet' || kind === 'empty-state-quiet') {
-      const icon = node('div', 'empty-state-icon');
-      const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('viewBox', '0 0 24 24');
-      svg.setAttribute('width', '24');
-      svg.setAttribute('height', '24');
-      svg.setAttribute('fill', 'none');
-      svg.setAttribute('stroke', 'currentColor');
-      svg.setAttribute('stroke-width', '1.8');
-      svg.setAttribute('stroke-linecap', 'round');
-      svg.setAttribute('stroke-linejoin', 'round');
-      svg.setAttribute('aria-hidden', 'true');
-      const p1 = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); p1.setAttribute('d', 'M13.73 21a2 2 0 0 1-3.46 0');
-      const p2 = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); p2.setAttribute('d', 'M18.63 13A17.89 17.89 0 0 1 18 8');
-      const p3 = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); p3.setAttribute('d', 'M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14');
-      const p4 = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); p4.setAttribute('d', 'M18 8a6 6 0 0 0-9.33-5');
-      const l = doc.createElementNS('http://www.w3.org/2000/svg', 'line'); l.setAttribute('x1', '1'); l.setAttribute('y1', '1'); l.setAttribute('x2', '23'); l.setAttribute('y2', '23');
-      svg.append(p1, p2, p3, p4, l);
-      icon.append(svg);
-      box.append(icon);
-    }
-    box.append(node('h3', '', title), node('p', 'muted', description));
-    target.append(box);
-  }
-  function loading(target, message = 'Loading diagnostics…') { target.replaceChildren(node('div', 'loading-state', message)); target.setAttribute('aria-busy', 'true'); }
+  const STATUS_TONES = { regressed: 'danger', fixed: 'success', new: 'info', investigating: 'warning' };
+  function statusTag(status) { return tag(status, STATUS_TONES[status] ?? ''); }
+  function metric(label, value, note, tone = '') { return ui.stat({ label, value, note, tone }); }
+  function rateTone(value, good = 90, fair = 70) { return typeof value === 'number' && Number.isFinite(value) ? value >= good ? 'success' : value >= fair ? 'warning' : 'danger' : ''; }
+  function empty(target, title, description, kind = '') { target.append(ui.emptyState(title, description, kind)); }
+  function loading(target, message = 'Loading diagnostics…') { target.replaceChildren(ui.loadingState(message)); target.setAttribute('aria-busy', 'true'); }
   function settled(target) { target.removeAttribute('aria-busy'); }
   function isCurrent(generation) { return !destroyed && !invalidated && generation === viewGeneration; }
   function isDetailCurrent(generation) { return !destroyed && !invalidated && generation === detailGeneration && elements['issue-dialog'].open; }
@@ -193,16 +142,17 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     if (error?.name === 'AbortError' || invalidated || destroyed) return;
     settled(target); const box = node('div', 'error-state'); box.setAttribute('role', 'alert');
     box.append(node('p', '', errorMessage(error)));
-    if (retry) box.append(button('Retry', retry));
+    if (retry) box.append(button('Retry', retry, 'button button-small'));
     target.replaceChildren(box);
   }
+  function connectionState() { return invalidated ? ['error', 'Sign in required'] : win.navigator.onLine === false ? ['offline', 'Offline'] : ['online', 'Connected']; }
   function updateConnection() {
-    const status = elements['connection-status'];
-    const text = invalidated ? 'Sign in required' : win.navigator.onLine === false ? 'Offline' : 'Connected';
-    status.replaceChildren();
-    const dot = node('span', 'status-dot'); dot.setAttribute('aria-hidden', 'true');
-    status.append(dot, doc.createTextNode(text));
-    status.dataset.state = invalidated ? 'error' : win.navigator.onLine === false ? 'offline' : 'online';
+    const [state, text] = connectionState();
+    for (const status of [elements['connection-status'], ...doc.querySelectorAll('[data-connection-detail]')]) {
+      const dot = node('span', 'status-dot'); dot.setAttribute('aria-hidden', 'true');
+      status.replaceChildren(dot, node('span', 'status-text', text));
+      status.dataset.state = state;
+    }
   }
   function invalidateSession(info) {
     if (invalidated || destroyed) return;
@@ -246,24 +196,41 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   function dateError(form) { let message = form.querySelector('[data-validation]'); if (!message) { message = node('p', 'inline-message', 'Choose a valid UTC date range of at most 366 days.'); message.dataset.validation = ''; message.setAttribute('role', 'alert'); form.append(message); } }
   function pagination(target, value, onPage, history = false) {
     const page = Number(value.page) || 1; const limit = Number(value.limit) || 20; const total = Math.max(0, Number(value.total) || 0);
-    const pages = Math.max(1, Math.ceil(total / limit)); const wrapper = node('div', 'pagination');
+    const pages = Math.max(1, Math.ceil(total / limit));
+    // A single page needs no controls; the count stays visible as plain metadata.
+    if (pages <= 1 && page <= 1) { target.append(node('p', 'muted list-count', `${formatNumber(total)} ${history ? 'reports' : 'results'}`)); return; }
+    const wrapper = node('div', 'pagination');
     const previous = button('Previous', () => onPage(page - 1), 'button button-small'); previous.disabled = page <= 1;
     const next = button('Next', () => onPage(page + 1), 'button button-small'); next.disabled = page >= pages || page >= 10_000;
     if (history) { previous.dataset.historyPrevious = ''; next.dataset.historyNext = ''; }
     wrapper.append(previous, node('span', 'muted', `Page ${formatNumber(page)} of ${formatNumber(pages)} · ${formatNumber(total)} ${history ? 'reports' : 'results'}`), next); target.append(wrapper);
   }
-  function issueRow(value) {
-    const row = button('', () => { void openIssue(value.id); }, 'issue-row');
+  /** Shared list row: leading status dot, title line, metadata line, optional trailing figure and chevron. */
+  function listRow(element, { title, badges = [], meta = [], figure = null, tone = '' }) {
+    element.classList.add('issue-row');
+    if (tone) element.dataset.tone = tone;
+    const dot = node('span', 'row-dot'); dot.setAttribute('aria-hidden', 'true');
     const main = node('span', 'issue-main');
-    const top = node('span', 'issue-row-heading'); top.append(node('strong', '', categoryLabel(value.category ?? value.error_code ?? 'Unknown issue')), statusTag(value.status));
-    if (value.muted) top.append(tag('muted'));
-    const metadata = node('span', 'issue-row-meta');
-    metadata.append(node('span', '', `#${value.id} · ${value.error_code ?? 'Unknown error'}`), node('span', '', `${value.last_seen_version ?? 'Unknown version'} · ${relativeTime(value.last_seen_at)}`));
-    const counts = node('span', 'issue-count'); counts.append(node('strong', '', formatNumber(value.total_occurrences)), node('span', 'muted', `reports · ${formatNumber(value.affected_installs_count)} installs`));
-    if (value.relayed_report_count > 0) counts.append(node('span', 'muted', `${formatNumber(value.relayed_report_count)} via Discord`));
+    const top = node('span', 'issue-row-heading'); top.append(node('strong', 'issue-row-title', title), ...badges);
+    const metadata = node('span', 'issue-row-meta'); metadata.append(...meta.map((item) => typeof item === 'string' ? node('span', '', item) : item));
     main.append(top, metadata);
-    const chevron = node('span', 'issue-chevron', '›');
-    row.append(main, counts, chevron); return row;
+    const chevron = node('span', 'issue-chevron'); chevron.setAttribute('aria-hidden', 'true'); chevron.append(ui.icon('chevron'));
+    element.append(dot, main);
+    if (figure) element.append(figure);
+    element.append(chevron);
+    return element;
+  }
+  function issueRow(value) {
+    const badges = [statusTag(value.status)]; if (value.muted) badges.push(tag('muted'));
+    const counts = node('span', 'issue-count'); counts.append(node('strong', '', formatNumber(value.total_occurrences)), node('span', 'muted', 'reports'));
+    const meta = [`#${value.id} · ${value.error_code ?? 'Unknown error'}`, `${value.last_seen_version ?? 'Unknown version'} · ${relativeTime(value.last_seen_at)}`, `${formatNumber(value.affected_installs_count)} installs`];
+    if (value.relayed_report_count > 0) meta.push(`${formatNumber(value.relayed_report_count)} via Discord`);
+    return listRow(button('', () => { void openIssue(value.id); }, ''), { title: categoryLabel(value.category ?? value.error_code ?? 'Unknown issue'), badges, meta, figure: counts, tone: STATUS_TONES[value.status] ?? '' });
+  }
+  function filterSummary(filters) {
+    const range = `${filters.from} – ${filters.to}`;
+    const scope = [filters.browser ? humanize(filters.browser) : 'All browsers', filters.destination ? humanize(filters.destination) : 'all destinations'].join(' · ');
+    return `${range} · ${scope}`;
   }
 
   async function loadOverview() {
@@ -271,9 +238,9 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     if (automaticOverviewDates) Object.assign(overviewFilters, dateRange(30));
     const generation = ++viewGeneration; abortAll('view:');
     growthManager?.dispose(); growthManager = null;
-    const root = elements['view-overview']; root.replaceChildren(heading('Overview', 'Your audience, feedback and download health.', 1));
+    const root = elements['view-overview']; root.replaceChildren(pageHeader('Overview'));
     const growth = node('div'); growth.dataset.growth = '';
-    const target = node('div', 'stack'); target.dataset.overviewDiagnostics = ''; root.append(growth, target); loading(target);
+    const target = node('div', 'stack overview-health'); target.dataset.overviewDiagnostics = ''; root.append(growth, target); loading(target, 'Loading download health…');
     growthManager = mountGrowth(growth, { document: doc, window: win, notify, uiState: growthUiState,
       request: (path, options) => request(`view:growth:${path}:${options?.body?.ids?.join(',') ?? ''}`, path, options) });
     try {
@@ -284,68 +251,80 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       ]);
       if (!isCurrent(generation)) return;
       target.replaceChildren(); settled(target);
-      target.append(heading('Download health', 'Opt-in telemetry for the selected UTC dates.', 2, 'health'));
-      const filterDisclosure = disclosure('Filter download health', 'overview-filters', 'overview-filter-disclosure');
-      const form = node('form', 'toolbar overview-filters'); form.dataset.form = 'overview';
+      const spikes = summary.alerts?.spikes;
+      const minutes = Number.isFinite(summary.alerts?.window_seconds) ? formatNumber(summary.alerts.window_seconds / 60) : '—';
+      // Active spikes are the most urgent signal, so they lead; a healthy window is a single line.
+      if (Array.isArray(spikes) && spikes.length) {
+        const alerts = ui.panel('Live alerts', { icon: 'issues', description: `Last ${minutes} minutes, independent of date filters.`, className: 'alerts-panel' });
+        const list = node('div', 'issue-list');
+        for (const spike of spikes) {
+          list.append(listRow(button('', () => { void openIssue(spike.issue_id); }, ''), { title: `${categoryLabel(spike.category)} · #${spike.issue_id}`, badges: [statusTag(spike.status)], meta: [`${formatNumber(spike.report_count)} reports across ${formatNumber(spike.distinct_installs)} installs · ${relativeTime(spike.last_seen_at)}`], tone: 'danger' }));
+        }
+        alerts.append(list); target.append(alerts);
+      }
+      const health = ui.panel('Download health', { icon: 'health', className: 'health-panel' });
+      const filterDisclosure = disclosure(filterSummary(filters), 'overview-filters', 'filter-disclosure');
+      filterDisclosure.querySelector('summary').prepend(ui.icon('sliders'));
+      filterDisclosure.querySelector('summary').setAttribute('aria-label', `Filter download health: ${filterSummary(filters)}`);
+      const form = node('form', 'filter-form overview-filters'); form.dataset.form = 'overview';
       form.append(field('From', 'from', filters.from), field('To', 'to', filters.to), field('Browser', 'browser', filters.browser, BROWSERS), field('Destination', 'destination', filters.destination, ['browser', 'vortex', 'mo2']));
       const apply = node('button', 'button button-primary', 'Apply filters'); apply.type = 'submit'; form.append(apply);
       form.addEventListener('submit', (event) => { event.preventDefault(); const next = filtersFrom(form, overviewFilters); if (!validDates(next.from, next.to)) return dateError(form); if (next.from !== overviewFilters.from || next.to !== overviewFilters.to) automaticOverviewDates = false; Object.assign(overviewFilters, next); releasePage = 1; void loadOverview(); });
-      const activeFilters = node('p', 'muted filter-summary', `${filters.from} to ${filters.to}${filters.browser ? ` · ${humanize(filters.browser)}` : ''}${filters.destination ? ` · ${humanize(filters.destination)}` : ''}`);
-      filterDisclosure.append(form); target.append(activeFilters, filterDisclosure);
+      filterDisclosure.append(form); health.append(filterDisclosure);
       const metrics = summary.releases ?? {};
-      const grid = node('div', 'metric-grid');
-      const successTone = metrics.success_rate_percent != null ? (metrics.success_rate_percent >= 90 ? 'success' : metrics.success_rate_percent >= 70 ? 'warning' : 'danger') : '';
-      const fallbackTone = metrics.fallback_rate_percent != null && metrics.fallback_rate_percent > 10 ? 'warning' : '';
       const issueTone = (summary.issues?.regressed_count ?? 0) > 0 ? 'danger' : (summary.issues?.new_count ?? 0) > 0 ? 'warning' : '';
-      grid.append(
-        metric('Download success', formatPercent(metrics.success_rate_percent), `${formatNumber(metrics.success_count)} of ${formatNumber(metrics.attempts_count)} attempts`, '', successTone),
-        metric('Fallback used', formatPercent(metrics.fallback_rate_percent), `${formatNumber(metrics.fallback_triggered_count)} attempts`, '', fallbackTone),
-        metric('Issues', formatNumber(summary.issues?.total), `${formatNumber(summary.issues?.regressed_count)} regressed · ${formatNumber(summary.issues?.new_count)} new`, '', issueTone),
+      health.append(ui.stats([
+        metric('Download success', formatPercent(metrics.success_rate_percent), `${formatNumber(metrics.success_count)} of ${formatNumber(metrics.attempts_count)} attempts`, rateTone(metrics.success_rate_percent)),
+        metric('Fallback used', formatPercent(metrics.fallback_rate_percent), `${formatNumber(metrics.fallback_triggered_count)} attempts`, metrics.fallback_rate_percent != null && metrics.fallback_rate_percent > 10 ? 'warning' : ''),
+        metric('Issues', formatNumber(summary.issues?.total), `${formatNumber(summary.issues?.regressed_count)} regressed · ${formatNumber(summary.issues?.new_count)} new`, issueTone),
         metric('Error reports', formatNumber(summary.reports?.total), `${formatNumber(summary.reports?.distinct_installs)} anonymous installs`)
-      );
-      target.append(grid);
-      if (metrics.attempts_count === 0) target.append(node('p', 'inline-message', 'No download-attempt telemetry was received in this window. Error reports can populate Issues, but do not provide success or fallback rates.'));
-      if (summary.reports?.total === 0) {
-        const setup = section('How reports arrive'); setup.append(node('p', 'muted', REPORT_SETUP)); target.append(setup);
+      ], 'stats-4'));
+      if (metrics.attempts_count === 0) health.append(node('p', 'inline-message', 'No download-attempt telemetry was received in this window. Error reports can populate Issues, but do not provide success or fallback rates.'));
+      if (!Array.isArray(spikes) || !spikes.length) {
+        const line = spikes ? ui.statusLine(`No active spikes · last ${minutes} minutes`, 'success') : ui.statusLine('Live detection is unavailable. Refresh to try again.', 'warning');
+        line.dataset.liveAlerts = ''; health.append(line);
       }
-      const alerts = section('Live alerts', `Last ${Number.isFinite(summary.alerts?.window_seconds) ? formatNumber(summary.alerts.window_seconds / 60) : '—'} minutes, independent of date filters.`, 'issues');
-      const spikes = summary.alerts?.spikes;
-      if (Array.isArray(spikes) && spikes.length) for (const spike of spikes) {
-        const alert = button('', () => { void openIssue(spike.issue_id); }, 'issue-row');
-        const main = node('span', 'issue-row-main');
-        main.append(node('strong', 'issue-row-heading', `${categoryLabel(spike.category)} · #${spike.issue_id}`), node('span', 'issue-row-meta', `${formatNumber(spike.report_count)} reports across ${formatNumber(spike.distinct_installs)} installs · ${relativeTime(spike.last_seen_at)}`));
-        alert.append(main, statusTag(spike.status)); alerts.append(alert);
-      } else empty(alerts, spikes ? 'No active spikes' : 'Live detection is unavailable', spikes ? 'No unusual increase in error reports.' : 'Refresh to try again.', spikes ? 'healthy' : '');
-      target.append(alerts);
-      const health = section('By release', null, 'release');
-      if (!releases.items?.length) empty(health, 'No release telemetry', 'Try a wider date range or a different browser and destination.');
-      else {
-        const scroll = node('div', 'table-scroll'); const table = node('table', 'release-table'); const head = node('thead'); const header = node('tr');
-        for (const label of ['Release', 'Attempts', 'Success', 'Fallback', 'Heartbeats']) header.append(node('th', '', label)); head.append(header); table.append(head);
-        const body = node('tbody');
-        for (const release of releases.items) { const row = node('tr'); for (const value of [release.version, formatNumber(release.attempts_count), formatPercent(release.success_rate_percent), formatPercent(release.fallback_rate_percent), formatNumber(release.heartbeat_count)]) row.append(node('td', '', value)); body.append(row); }
-        table.append(body); scroll.append(table); health.append(scroll);
-      }
-      if (releases.total > 0 && releases.items?.length) {
-        pagination(health, releases, (page) => { releasePage = page; void loadOverview(); });
-      }
+      const explanation = disclosure('About these numbers', 'health-explanation', 'info-disclosure');
+      explanation.querySelector('summary').prepend(ui.icon('info'));
+      explanation.append(node('p', 'muted disclosure-content', 'Rates are weighted by attempts. Success and fallback can overlap. Error reports alone do not measure download success. Audience and store totals use separate time windows. Live alerts cover a short recent window and ignore the date filters.'));
+      if (summary.reports?.total === 0) explanation.append(node('p', 'muted disclosure-content', REPORT_SETUP));
+      health.append(explanation);
       target.append(health);
-      renderComparison(target, releases.items ?? [], generation);
-      const explanation = disclosure('About these numbers', 'health-explanation');
-      explanation.append(node('p', 'muted disclosure-content', 'Rates are weighted by attempts. Success and fallback can overlap. Error reports alone do not measure download success. Audience and store totals use separate time windows.'));
-      target.append(explanation);
+      const releasePanel = ui.panel('By release', { icon: 'release', className: 'release-panel' });
+      if (!releases.items?.length) empty(releasePanel, 'No release telemetry', 'Try a wider date range or a different browser and destination.');
+      else releasePanel.append(releaseList(releases.items));
+      if (releases.total > 0 && releases.items?.length) pagination(releasePanel, releases, (page) => { releasePage = page; void loadOverview(); });
+      renderComparison(releasePanel, releases.items ?? [], generation);
+      target.append(releasePanel);
     } catch (error) { if (isCurrent(generation)) showError(target, error, () => { void loadOverview(); }); }
   }
+  /**
+   * Releases render as a list rather than a five-column table so phones keep every value readable.
+   * Each row keeps its own labelled values; the first row's labels double as visible column headings.
+   */
+  function releaseList(items) {
+    const list = node('ol', 'release-list'); list.dataset.releaseList = ''; list.setAttribute('aria-label', 'Download health by release');
+    for (const release of items) {
+      const row = node('li', 'release-row');
+      const values = node('dl', 'release-stats');
+      for (const [label, value, tone] of [['Attempts', formatNumber(release.attempts_count)], ['Success', formatPercent(release.success_rate_percent), rateTone(release.success_rate_percent)], ['Fallback', formatPercent(release.fallback_rate_percent), release.fallback_rate_percent > 10 ? 'warning' : ''], ['Heartbeats', formatNumber(release.heartbeat_count)]]) {
+        const pair = node('div'); const dd = node('dd', '', value); if (tone) dd.dataset.tone = tone;
+        pair.append(node('dt', '', label), dd); values.append(pair);
+      }
+      row.append(node('strong', 'release-version', String(release.version ?? '—')), values); list.append(row);
+    }
+    return list;
+  }
   function renderComparison(target, releases, generation) {
-    const wrapper = disclosure('Compare releases', 'compare-releases');
-    wrapper.append(node('p', 'muted', 'Uses the download health filters above.'));
-    const form = node('form', 'toolbar comparison-toolbar'); form.dataset.form = 'comparison';
+    const wrapper = disclosure('Compare releases', 'compare-releases', 'compare-disclosure');
+    wrapper.querySelector('summary').prepend(ui.icon('sync'));
+    const form = node('form', 'filter-form comparison-toolbar'); form.dataset.form = 'comparison';
     if (!compareVersions.after && releases[0]) compareVersions.after = releases[0].version;
     if (!compareVersions.before && releases[1]) compareVersions.before = releases[1].version;
-    form.append(field('Before release', 'before', compareVersions.before), field('After release', 'after', compareVersions.after));
-    for (const input of form.querySelectorAll('input')) { input.required = true; input.maxLength = 64; input.placeholder = '3.2.0'; }
+    form.append(field('Before', 'before', compareVersions.before), field('After', 'after', compareVersions.after));
+    for (const input of form.querySelectorAll('input')) { input.required = true; input.maxLength = 64; input.placeholder = '3.2.0'; input.inputMode = 'decimal'; }
     const submit = node('button', 'button button-primary', 'Compare releases'); submit.type = 'submit'; form.append(submit);
-    const result = node('div'); result.dataset.comparisonResult = ''; result.setAttribute('aria-live', 'polite');
+    const result = node('div', 'comparison-result'); result.dataset.comparisonResult = ''; result.setAttribute('aria-live', 'polite');
     let comparisonGeneration = 0;
     form.addEventListener('submit', async (event) => {
       event.preventDefault(); compareVersions = { before: form.elements.namedItem('before').value.trim(), after: form.elements.namedItem('after').value.trim() };
@@ -355,79 +334,57 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       try {
         const comparison = await request('view:compare', `/releases/compare${queryString({ ...overviewFilters, ...compareVersions })}`);
         if (!isCurrent(generation) || comparisonRequest !== comparisonGeneration) return;
-        result.replaceChildren(); settled(result); const grid = node('div', 'comparison-grid');
-        for (const [label, release] of [['Before', comparison.before], ['After', comparison.after]]) {
-          const card = node('div', 'metric-card'); card.append(node('h3', '', `${label} · ${release.version}`), node('p', '', `${formatPercent(release.success_rate_percent)} success · ${formatPercent(release.fallback_rate_percent)} fallback`), node('p', 'muted', `${formatNumber(release.attempts_count)} attempts`));
-          if (!release.attempts_count) card.append(node('p', 'muted', 'No attempts recorded.')); grid.append(card);
-        }
-        result.append(grid);
+        result.replaceChildren(); settled(result);
+        const columns = [['Before', comparison.before], ['After', comparison.after]].map(([label, release]) => metric(`${label} · ${release.version}`, `${formatPercent(release.success_rate_percent)} success`,
+          release.attempts_count ? `${formatPercent(release.fallback_rate_percent)} fallback · ${formatNumber(release.attempts_count)} attempts` : 'No attempts recorded.'));
+        result.append(ui.stats(columns, 'comparison-grid'));
         const delta = (value) => typeof value === 'number' && Number.isFinite(value) ? `${value > 0 ? '+' : ''}${value.toFixed(1)} pp` : '—';
-        result.append(node('p', 'inline-message comparison-delta', `Change: ${delta(comparison.success_rate_delta_pp)} success · ${delta(comparison.fallback_rate_delta_pp)} fallback. Percentage points, after minus before.`));
+        result.append(node('p', 'muted comparison-delta', `Change: ${delta(comparison.success_rate_delta_pp)} success · ${delta(comparison.fallback_rate_delta_pp)} fallback. Percentage points, after minus before, using the download health filters.`));
       } catch (error) { if (isCurrent(generation) && comparisonRequest === comparisonGeneration) showError(result, error, () => { form.requestSubmit(); }); }
       finally { if (isCurrent(generation) && comparisonRequest === comparisonGeneration) submit.disabled = false; }
     });
     wrapper.append(form, result); target.append(wrapper);
   }
 
-  async function loadGithubIssues(target, generation) {
-    loading(target, 'Loading open GitHub issues…');
+  /** Public GitHub issues and discussions share one loader; only validation and row metadata differ. */
+  const FEEDS = {
+    issues: { slot: 'view:github', path: '/github-issues', loadingText: 'Loading open GitHub issues…', base: GITHUB_ISSUES_URL, key: 'github-issues',
+      staleText: 'GitHub is temporarily unavailable. Showing cached issues. Refresh to retry.', emptyText: ['No open GitHub issues', 'New public reports will appear here after the next refresh.'],
+      filteredText: ['No open GitHub issues', 'Open GitHub to check the latest public reports.'], errorText: 'GitHub issues are temporarily unavailable. Refresh or open GitHub.', checked: 'Checked',
+      valid: (item) => item.state === 'open' && safeGithubUrl(item.url) === `${GITHUB_ISSUES_URL}/${item.number}`,
+      meta: (item) => [`#${item.number} · Updated ${relativeTime(item.updated_at)}`, ...(Array.isArray(item.labels) ? item.labels.filter((label) => typeof label === 'string').map((label) => tag(label)) : []),
+        ...(Number.isSafeInteger(item.comments) && item.comments >= 0 ? [`${formatNumber(item.comments)} comments`] : [])] },
+    discussions: { slot: 'view:github-discussions', path: '/github-discussions', loadingText: 'Loading recent GitHub discussions…', base: GITHUB_DISCUSSIONS_URL, key: 'github-discussions',
+      staleText: 'GitHub discussions are temporarily unavailable. Showing the cached feed. Refresh to retry.', emptyText: ['No recent GitHub discussions', 'Open GitHub to browse discussions.'],
+      filteredText: ['No recent GitHub discussions', 'Open GitHub to browse discussions.'], errorText: 'GitHub discussions are temporarily unavailable. Refresh or open GitHub.', checked: 'Recent feed checked',
+      valid: (item) => item.url === `${GITHUB_DISCUSSIONS_URL}/${item.number}`,
+      meta: (item) => [`#${item.number} · Updated ${relativeTime(item.updated_at)}`] }
+  };
+  async function loadFeed(kind, target, generation) {
+    const feed = FEEDS[kind];
+    loading(target, feed.loadingText);
     try {
-      const data = await request('view:github', '/github-issues');
+      const data = await request(feed.slot, feed.path);
       if (!isCurrent(generation)) return;
       if (!Array.isArray(data?.items)) throw new Error('Invalid GitHub response');
       target.replaceChildren(); settled(target);
-      if (data.stale) target.append(node('p', 'inline-message', 'GitHub is temporarily unavailable. Showing cached issues. Refresh to retry.'));
-      if (!data.items.length) empty(target, 'No open GitHub issues', 'New public reports will appear here after the next refresh.');
+      if (data.stale) target.append(node('p', 'inline-message', feed.staleText));
+      if (!data.items.length && kind === 'issues') empty(target, ...feed.emptyText);
       else {
         const rows = [];
-        for (const issue of [...data.items].sort((a, b) => (Date.parse(b?.updated_at) || 0) - (Date.parse(a?.updated_at) || 0))) {
-          const url = safeGithubUrl(issue?.url);
-          if (!Number.isSafeInteger(issue?.number) || issue.number < 1 || issue.state !== 'open' || typeof issue.title !== 'string' || url !== `${GITHUB_ISSUES_URL}/${issue.number}`) continue;
-          const row = node('a', 'issue-row'); row.href = url; row.target = '_blank'; row.rel = 'noopener noreferrer';
-          const main = node('span', 'issue-main');
-          const title = node('span', 'issue-row-heading'); title.append(node('strong', '', issue.title));
-          const metadata = node('span', 'issue-row-meta'); metadata.append(node('span', '', `#${issue.number} · Updated ${relativeTime(issue.updated_at)}`));
-          if (Array.isArray(issue.labels)) for (const label of issue.labels) if (typeof label === 'string') metadata.append(tag(label));
-          if (Number.isSafeInteger(issue.comments) && issue.comments >= 0) metadata.append(node('span', '', `${formatNumber(issue.comments)} comments`));
-          main.append(title, metadata);
-          const chevron = node('span', 'issue-chevron', '›');
-          row.append(main, chevron); rows.push(row);
+        for (const item of [...data.items].sort((a, b) => (Date.parse(b?.updated_at) || 0) - (Date.parse(a?.updated_at) || 0))) {
+          if (!Number.isSafeInteger(item?.number) || item.number < 1 || typeof item.title !== 'string' || !feed.valid(item)) continue;
+          const row = node('a'); row.href = `${feed.base}/${item.number}`; row.target = '_blank'; row.rel = 'noopener noreferrer';
+          rows.push(listRow(row, { title: item.title, meta: feed.meta(item) }));
         }
-        if (rows.length) compactFeed(target, rows, 'github-issues');
-        else empty(target, 'No open GitHub issues', 'Open GitHub to check the latest public reports.');
+        if (rows.length) compactFeed(target, rows, feed.key);
+        else empty(target, ...feed.filteredText);
       }
-      if (data.truncated) target.append(node('p', 'muted source-note', 'More issues are available on GitHub.'));
-      target.append(node('p', 'muted source-note', `Checked ${formatDate(data.fetched_at)}.`));
+      if (kind === 'issues' && data.truncated) target.append(node('p', 'muted source-note', 'More issues are available on GitHub.'));
+      target.append(node('p', 'muted source-note', `${feed.checked} ${formatDate(data.fetched_at)}.`));
     } catch (error) {
       if (!isCurrent(generation) || error?.name === 'AbortError') return;
-      settled(target); target.replaceChildren(node('p', 'inline-message', 'GitHub issues are temporarily unavailable. Refresh or open GitHub.'));
-    }
-  }
-  async function loadGithubDiscussions(target, generation) {
-    loading(target, 'Loading recent GitHub discussions…');
-    try {
-      const data = await request('view:github-discussions', '/github-discussions');
-      if (!isCurrent(generation)) return;
-      if (!Array.isArray(data?.items)) throw new Error('Invalid GitHub response');
-      target.replaceChildren(); settled(target);
-      if (data.stale) target.append(node('p', 'inline-message', 'GitHub discussions are temporarily unavailable. Showing the cached feed. Refresh to retry.'));
-      const rows = [];
-      for (const discussion of [...data.items].sort((a, b) => (Date.parse(b?.updated_at) || 0) - (Date.parse(a?.updated_at) || 0))) {
-        if (!Number.isSafeInteger(discussion?.number) || discussion.number < 1 || typeof discussion.title !== 'string'
-          || discussion.url !== `${GITHUB_DISCUSSIONS_URL}/${discussion.number}`) continue;
-        const row = node('a', 'issue-row'); row.href = discussion.url; row.target = '_blank'; row.rel = 'noopener noreferrer';
-        const main = node('span', 'issue-main');
-        const title = node('span', 'issue-row-heading'); title.append(node('strong', '', discussion.title));
-        main.append(title, node('span', 'issue-row-meta', `#${discussion.number} · Updated ${relativeTime(discussion.updated_at)}`));
-        const chevron = node('span', 'issue-chevron', '›');
-        row.append(main, chevron); rows.push(row);
-      }
-      if (rows.length) compactFeed(target, rows, 'github-discussions');
-      else empty(target, 'No recent GitHub discussions', 'Open GitHub to browse discussions.');
-      target.append(node('p', 'muted source-note', `Recent feed checked ${formatDate(data.fetched_at)}.`));
-    } catch (error) {
-      if (!isCurrent(generation) || error?.name === 'AbortError') return;
-      settled(target); target.replaceChildren(node('p', 'inline-message', 'GitHub discussions are temporarily unavailable. Refresh or open GitHub.'));
+      settled(target); target.replaceChildren(node('p', 'inline-message', feed.errorText));
     }
   }
   function resetIssueFilters() {
@@ -435,72 +392,93 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     issueFilters = { ...Object.fromEntries(Object.keys(issueFilters).map((key) => [key, ''])), ...dateRange(30) };
     issuePage = 1; void loadIssues();
   }
+  function issueFilterForm() {
+    const form = node('form', 'issues-filter'); form.dataset.form = 'issues';
+    const searchField = field('Search', 'q', issueFilters.q); searchField.classList.add('search-field');
+    searchField.querySelector('.field-label').classList.add('sr-only'); searchField.prepend(ui.icon('search'));
+    const search = searchField.querySelector('input'); search.type = 'search'; search.maxLength = 200; search.placeholder = 'Search issues, errors or reports'; search.enterKeyHint = 'search';
+    const primary = node('div', 'issues-primary-toolbar');
+    const version = field('Version', 'version', issueFilters.version); version.querySelector('input').maxLength = 64; version.querySelector('input').placeholder = 'All'; version.querySelector('input').inputMode = 'decimal';
+    primary.append(field('Status', 'status', issueFilters.status, STATUSES), version);
+    form.append(searchField, primary);
+    const advancedCount = Object.entries(issueFilters).filter(([key, value]) => !['q', 'status', 'version', 'from', 'to'].includes(key) && value).length;
+    const moreFilters = disclosure(`More filters${advancedCount ? ` (${advancedCount})` : ''}`, 'issue-filters', 'issues-disclosure');
+    const summary = moreFilters.querySelector('summary'); summary.prepend(ui.icon('sliders'));
+    summary.append(node('span', 'summary-detail', `${issueFilters.from} – ${issueFilters.to}`));
+    moreFilters.open ||= advancedCount > 0;
+    const advanced = node('div', 'filter-form filter-grid');
+    for (const [label, name, choices] of [['Browser', 'browser', BROWSERS], ['OS', 'os', SYSTEMS], ['Destination', 'destination', ['browser', 'vortex', 'mo2']], ['Mode', 'download_mode', ['manual', 'auto']], ['Fault origin', 'fault_origin', FAULTS], ['Severity', 'severity', ['debug', 'info', 'warning', 'error', 'fatal']], ['Muted', 'muted', ['true', 'false']]]) advanced.append(field(label, name, issueFilters[name], choices));
+    advanced.append(field('Category', 'category', issueFilters.category), field('From', 'from', issueFilters.from), field('To', 'to', issueFilters.to)); advanced.querySelector('[name="category"]').maxLength = 80;
+    moreFilters.append(advanced); form.append(moreFilters);
+    const actions = node('div', 'filter-actions');
+    const reset = button('Reset', resetIssueFilters, 'button button-quiet');
+    reset.append(node('span', 'sr-only', ' filters'));
+    const apply = node('button', 'button button-primary', 'Apply filters'); apply.type = 'submit';
+    actions.append(reset, apply); form.append(actions);
+    form.addEventListener('submit', (event) => {
+      event.preventDefault(); const next = filtersFrom(form, issueFilters); if (!validDates(next.from, next.to)) return dateError(form);
+      if ((next.version && !SEMVER.test(next.version)) || (next.category && !/^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/.test(next.category))) {
+        form.querySelector('[data-validation]')?.remove(); const validation = node('p', 'inline-message', 'Enter a complete release version and a category identifier, such as DOM_SELECTOR_MISSING.'); validation.dataset.validation = ''; validation.setAttribute('role', 'alert'); form.append(validation); return;
+      }
+      if (next.from !== issueFilters.from || next.to !== issueFilters.to) automaticIssueDates = false;
+      issueFilters = next; issuePage = 1; void loadIssues();
+    });
+    return form;
+  }
   async function loadIssues() {
     rememberDisclosures();
     if (automaticIssueDates) Object.assign(issueFilters, dateRange(30));
     const generation = ++viewGeneration; abortAll('view:'); const view = elements['view-issues']; view.replaceChildren(); settled(view);
-    view.append(heading('Issues', 'Public feedback and private error reports.', 1));
+    view.append(pageHeader('Issues'));
+    // Private extension diagnostics lead; the public GitHub feeds follow as a separate group.
+    const target = node('section', 'stack diagnostic-issues'); target.dataset.diagnosticIssues = ''; target.setAttribute('aria-label', 'Automatic extension diagnostics');
     const community = node('div', 'community-grid');
-    const github = section('Open GitHub issues', null, 'github'); github.dataset.githubIssues = '';
-    const repository = node('a', 'button button-quiet button-small', 'All issues'); repository.href = GITHUB_ISSUES_URL; repository.target = '_blank'; repository.rel = 'noopener noreferrer'; repository.setAttribute('aria-label', 'Open all issues on GitHub'); repository.append(doc.createTextNode(' ↗')); github.firstElementChild.append(repository);
-    const githubContent = node('div'); github.append(githubContent); community.append(github);
-    const discussions = section('Recent GitHub discussions', null, 'chat'); discussions.dataset.githubDiscussions = '';
-    const discussionRepository = node('a', 'button button-quiet button-small', 'All discussions'); discussionRepository.href = GITHUB_DISCUSSIONS_URL; discussionRepository.target = '_blank'; discussionRepository.rel = 'noopener noreferrer'; discussionRepository.setAttribute('aria-label', 'Open all discussions on GitHub'); discussionRepository.append(doc.createTextNode(' ↗')); discussions.firstElementChild.append(discussionRepository);
-    const discussionsContent = node('div'); discussions.append(discussionsContent); community.append(discussions); view.append(community);
-    const target = node('section', 'stack'); target.dataset.diagnosticIssues = ''; target.setAttribute('aria-label', 'Automatic extension diagnostics'); view.append(target);
-    const githubPending = Promise.all([loadGithubIssues(githubContent, generation), loadGithubDiscussions(discussionsContent, generation)]);
+    const feedPanel = (kind, title, iconName, label, ariaLabel) => {
+      const panel = ui.panel(title, { icon: iconName, accessories: [ui.externalLink(label, FEEDS[kind].base, { ariaLabel })] });
+      panel.dataset[kind === 'issues' ? 'githubIssues' : 'githubDiscussions'] = '';
+      const content = node('div', 'feed-content'); panel.append(content); community.append(panel); return content;
+    };
+    const githubContent = feedPanel('issues', 'Open GitHub issues', 'github', 'All', 'Open all issues on GitHub');
+    const discussionsContent = feedPanel('discussions', 'Recent GitHub discussions', 'chat', 'All', 'Open all discussions on GitHub');
+    view.append(target, community);
+    const githubPending = Promise.all([loadFeed('issues', githubContent, generation), loadFeed('discussions', discussionsContent, generation)]);
     loading(target, 'Loading extension diagnostics…');
     try {
       const data = await request('view:issues', `/issues${queryString({ ...issueFilters, page: issuePage, limit: 20 })}`);
       if (!isCurrent(generation)) return;
-      target.replaceChildren(); settled(target); target.append(heading('Extension diagnostics', 'Opt-in error reports. Filters apply here only; dates use UTC.', 2, 'health'));
-      const form = node('form', 'panel issues-filter-panel'); form.dataset.form = 'issues';
-      const searchField = field('Search', 'q', issueFilters.q);
-      searchField.prepend(createIcon(doc, 'search'));
-      const primary = node('div', 'toolbar issues-primary-toolbar'); primary.append(searchField, field('Status', 'status', issueFilters.status, STATUSES), field('Version', 'version', issueFilters.version));
-      primary.querySelector('[name="q"]').maxLength = 200; primary.querySelector('[name="q"]').placeholder = 'Search issues, errors, or reports...'; primary.querySelector('[name="version"]').maxLength = 64; primary.querySelector('[name="version"]').placeholder = 'All';
-      form.append(primary);
-      const moreFilters = disclosure('More filters', 'issue-filters', 'issues-disclosure');
-      moreFilters.querySelector('summary')?.prepend(createIcon(doc, 'sliders'));
-      moreFilters.open ||= Object.entries(issueFilters).some(([key, value]) => !['q', 'status', 'version', 'from', 'to'].includes(key) && value);
-      const advanced = node('div', 'filter-grid');
-      for (const [label, name, choices] of [['Browser', 'browser', BROWSERS], ['OS', 'os', SYSTEMS], ['Destination', 'destination', ['browser', 'vortex', 'mo2']], ['Mode', 'download_mode', ['manual', 'auto']], ['Fault origin', 'fault_origin', FAULTS], ['Severity', 'severity', ['debug', 'info', 'warning', 'error', 'fatal']], ['Muted', 'muted', ['true', 'false']]]) advanced.append(field(label, name, issueFilters[name], choices));
-      advanced.append(field('Category', 'category', issueFilters.category), field('From', 'from', issueFilters.from), field('To', 'to', issueFilters.to)); advanced.querySelector('[name="category"]').maxLength = 80;
-      moreFilters.append(advanced); form.append(moreFilters);
-      const summary = node('p', 'muted filter-summary');
-      summary.append(createIcon(doc, 'calendar'), doc.createTextNode(`${issueFilters.from} – ${issueFilters.to}`));
-      form.append(summary);
-      const actions = node('div', 'filter-actions');
-      const apply = node('button', 'button button-primary', 'Apply filters'); apply.type = 'submit';
-      const reset = button('Reset', resetIssueFilters, 'button button-quiet button-small');
-      reset.append(node('span', 'sr-only', ' filters'));
-      actions.append(apply, reset); form.append(actions);
-      form.addEventListener('submit', (event) => {
-        event.preventDefault(); const next = filtersFrom(form, issueFilters); if (!validDates(next.from, next.to)) return dateError(form);
-        if ((next.version && !SEMVER.test(next.version)) || (next.category && !/^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/.test(next.category))) {
-          form.querySelector('[data-validation]')?.remove(); const validation = node('p', 'inline-message', 'Enter a complete release version and a category identifier, such as DOM_SELECTOR_MISSING.'); validation.dataset.validation = ''; validation.setAttribute('role', 'alert'); form.append(validation); return;
-        }
-        if (next.from !== issueFilters.from || next.to !== issueFilters.to) automaticIssueDates = false;
-        issueFilters = next; issuePage = 1; void loadIssues();
-      }); target.append(form);
-      const list = node('div', 'issue-list'); list.setAttribute('aria-label', 'Filtered issues');
+      target.replaceChildren(); settled(target);
+      target.append(ui.panelHeading('Extension diagnostics', { icon: 'health', description: 'Opt-in error reports. Filters apply here only; dates use UTC.' }), issueFilterForm());
+      const list = node('div', 'issue-list issue-card'); list.setAttribute('aria-label', 'Filtered issues');
       if (data.items?.length) for (const value of data.items) list.append(issueRow(value));
       else empty(list, 'No matching issues', 'Change the filters or expand the UTC date range.'); target.append(list);
       pagination(target, data, (page) => { issuePage = page; void loadIssues(); });
     } catch (error) {
       if (isCurrent(generation)) {
         showError(target, error, () => { void loadIssues(); });
-        if (!invalidated && error?.name !== 'AbortError') target.append(button('Reset filters', resetIssueFilters, 'button button-quiet'));
+        if (!invalidated && error?.name !== 'AbortError') target.firstElementChild?.append(button('Reset filters', resetIssueFilters, 'button button-small button-quiet'));
       }
     }
     await githubPending;
   }
 
+  /** iOS-style grouped settings: a group title, then one card of rows. */
+  function settingsGroup(title, { footer, className = '' } = {}) {
+    const group = node('section', `settings-group ${className}`.trim());
+    const heading = node('h2', 'group-title', title); group.append(heading);
+    const body = node('div', 'group'); group.append(body);
+    if (footer) group.append(node('p', 'group-footer', footer));
+    return { group, body };
+  }
+  function settingsRow(label, value) {
+    const row = node('div', 'settings-row'); row.append(node('span', 'row-label', label));
+    if (value !== undefined) row.append(typeof value === 'string' ? node('span', 'row-value', value) : value);
+    return row;
+  }
   async function loadSettings() {
     rememberDisclosures();
     const generation = ++viewGeneration; abortAll('view:'); const target = elements['view-settings'];
     pushManager?.dispose(); pushManager = null; target.replaceChildren(); settled(target);
-    target.append(heading('Settings', 'Notifications, muted issues and privacy.', 1));
+    target.append(pageHeader('Settings'));
     const mount = node('div', 'settings-push-wrapper'); target.append(mount);
     try { pushManager = mountPush(mount, { request: async (path, options) => {
       try {
@@ -513,25 +491,27 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         if (error?.status === 401) invalidateSession(error.authInfo); throw error;
       }
     }, notify }); }
-    catch { mount.replaceChildren(section('Notifications', 'Push controls could not be initialized. Refresh to retry.', 'settings')); }
-    const rules = section('Muted issues', 'Active in the last 30 UTC days. Open an issue to unmute it. Ignored issues also stay quiet.', 'issues');
-    rules.classList.add('muted-issues-section');
-    const list = node('div', 'issue-list'); loading(list, 'Loading mute rules…'); rules.append(list); target.append(rules);
-    const privacy = section('Reports & privacy', 'Reports require opt-in in the extension. Private data stays in memory and is unavailable offline.', 'shield');
-    privacy.classList.add('privacy-section');
+    catch { const { group, body } = settingsGroup('Notifications'); body.append(node('p', 'settings-note', 'Push controls could not be initialized. Refresh to retry.')); mount.replaceChildren(group); }
+    const muted = settingsGroup('Muted issues', { footer: 'Active in the last 30 UTC days. Open an issue to unmute it. Ignored issues also stay quiet.', className: 'muted-issues-section' });
+    const list = node('div', 'issue-list'); loading(list, 'Loading mute rules…'); muted.body.append(list); target.append(muted.group);
+    const privacy = settingsGroup('Reports & privacy', { footer: 'Reports require opt-in in the extension. Private data stays in memory and is unavailable offline.', className: 'privacy-section' });
     const setup = disclosure('Set up automatic reports', 'report-setup', 'settings-information');
     setup.append(node('p', 'muted disclosure-content', REPORT_SETUP));
     const security = disclosure('Session protection', 'session-protection', 'settings-information');
     security.append(node('p', 'muted disclosure-content', 'Cloudflare Access protects this dashboard and its API. Private responses are not cached. Sign in again when your session expires.'));
-    privacy.append(setup, security);
-    target.append(privacy);
+    privacy.body.append(settingsRow('Telemetry', 'Opt-in only'), setup, security);
+    target.append(privacy.group);
+    const connection = settingsGroup('Connection', { className: 'connection-section' });
+    const status = node('span', 'row-value connection-detail'); status.dataset.connectionDetail = ''; status.setAttribute('role', 'status');
+    connection.body.append(settingsRow('Status', status), settingsRow('Sign-in', 'Cloudflare Access'), settingsRow('Offline data', 'Not stored on this device'));
+    target.append(connection.group); updateConnection();
     try {
       const data = await request('view:muted', `/issues${queryString({ ...dateRange(30), muted: 'true', page: mutedPage, limit: 10 })}`);
       if (!isCurrent(generation)) return;
       settled(list); list.replaceChildren();
       if (data.items?.length) for (const value of data.items) list.append(issueRow(value)); else empty(list, 'No muted issues', 'Open an issue and turn on “Mute this issue” to quiet its alerts.', 'quiet');
       if (data.total > 0 && data.items?.length) {
-        pagination(rules, data, (page) => { mutedPage = page; void loadSettings(); });
+        pagination(muted.body, data, (page) => { mutedPage = page; void loadSettings(); });
       }
     } catch (error) { if (isCurrent(generation)) showError(list, error, () => { void loadSettings(); }); }
   }
@@ -544,8 +524,10 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const list = node('dl', 'metadata-grid');
     for (const [key, value] of pairs) { const entry = node('div'); entry.append(node('dt', 'muted', key), node('dd', '', value === null || value === undefined || value === '' ? '—' : value)); list.append(entry); } return list;
   }
-  function classification(title, value) {
-    const box = section(title); const labels = node('div', 'toolbar'); labels.append(tag(categoryLabel(value.category)), tag(value.fault_origin ?? 'unknown')); box.append(labels, node('p', '', value.suggested_action ?? 'No suggested action was recorded.')); return box;
+  function classification(title, value, { inline = false } = {}) {
+    const box = inline ? node('div', 'classification') : section(title);
+    const labels = node('div', 'tag-row'); labels.append(tag(categoryLabel(value.category)), tag(value.fault_origin ?? 'unknown'));
+    box.append(labels, node('p', 'suggested-action', value.suggested_action ?? 'No suggested action was recorded.')); return box;
   }
   function renderReport(target, report) {
     rememberDisclosures();
@@ -558,7 +540,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     metadata.append(keyValues([['Report ID', report.id], ['Source', report.source === 'relay' ? 'Automatic report via the Discord relay' : 'Private diagnostics'], ['Category', report.category], ['Failure stage', report.failure_stage], ['HTTP / Retry-After', `${report.http_status ?? '—'} / ${report.retry_after ?? '—'}`], ['Mod / collection', `${report.mod_id ?? '—'} / ${report.collection_id ?? '—'}`]]));
     environment.append(metadata); target.append(environment);
     const reportClassification = disclosure('Report classification', 'report-classification');
-    reportClassification.append(classification('Classified when received', report)); target.append(reportClassification);
+    reportClassification.append(node('p', 'muted disclosure-content', 'Classified when received.'), classification('Classified when received', report, { inline: true })); target.append(reportClassification);
     const timeline = disclosure('Execution timeline', 'execution-timeline');
     timeline.append(node('p', 'muted', 'Extension timings on a shared elapsed-time scale.'));
     const breadcrumbs = Array.isArray(report.breadcrumbs) ? report.breadcrumbs : [];
@@ -573,7 +555,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         row.append(node('div', 'timeline-time', `+${formatNumber(offset)} ms`));
         content.append(title, node('p', 'muted', `${duration === null ? 'Duration not recorded' : `${formatNumber(duration)} ms`}${crumb.http_status ? ` · HTTP ${crumb.http_status}` : ''}`));
         const track = node('div', 'timeline-track'); track.setAttribute('aria-hidden', 'true'); const bar = node('span', `timeline-bar timeline-bar-${crumb.status}`); bar.style.marginLeft = `${Math.min(100, offset * 100 / total)}%`; bar.style.width = `${Math.max(0.5, Math.min(100 - offset * 100 / total, (duration ?? 0) * 100 / total))}%`; track.append(bar); content.append(track);
-        if (crumb.metadata && Object.keys(crumb.metadata).length) { const metadata = node('details', 'disclosure compact-disclosure step-metadata'); metadata.append(node('summary', '', 'Step metadata'), evidence('Metadata', crumb.metadata)); content.append(metadata); } row.append(content); list.append(row);
+        if (crumb.metadata && Object.keys(crumb.metadata).length) { const metadata = node('details', 'disclosure step-metadata'); const stepSummary = node('summary'); stepSummary.append(node('span', 'summary-text', 'Step metadata')); metadata.append(stepSummary, evidence('Metadata', crumb.metadata)); content.append(metadata); } row.append(content); list.append(row);
       }
       timeline.append(list, node('p', 'muted', `Reported timeline: ${formatNumber(total)} ms.`));
     }
@@ -584,8 +566,8 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const stack = disclosure('Stack trace', 'stack-trace'); stack.append(evidence('Sanitized stack', report.stack_trace || 'No stack trace retained.')); target.append(stack);
   }
   function renderLifecycle(target, value, generation) {
-    target.replaceChildren(); target.append(heading('Manage issue', 'Fixed and regressed statuses need a release version. Muted and ignored issues suppress alerts.'));
-    const form = node('form', 'filter-grid lifecycle-form'); form.dataset.form = 'lifecycle';
+    target.replaceChildren(); target.append(ui.panelHeading('Manage issue', { icon: 'settings', description: 'Fixed and regressed statuses need a release version. Muted and ignored issues suppress alerts.' }));
+    const form = node('form', 'filter-form lifecycle-form'); form.dataset.form = 'lifecycle';
     const status = field('Status', 'status', value.status, STATUSES); status.querySelector('option[value=""]')?.remove();
     form.append(status, field('Fixed in version', 'fixed_in_version', value.fixed_in_version ?? ''), field('GitHub issue URL', 'github_issue_url', value.github_issue_url ?? ''));
     form.elements.namedItem('fixed_in_version').maxLength = 64; form.elements.namedItem('fixed_in_version').placeholder = '3.2.1'; form.elements.namedItem('github_issue_url').maxLength = 2048; form.elements.namedItem('github_issue_url').type = 'url'; form.elements.namedItem('github_issue_url').placeholder = 'https://github.com/owner/repo/issues/42';
@@ -615,10 +597,10 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       finally { if (isDetailCurrent(generation)) submit.disabled = false; }
     });
     target.append(form); const github = safeGithubUrl(value.github_issue_url);
-    if (github) { const link = node('a', 'button button-quiet', 'Open GitHub issue ↗'); link.href = github; link.target = '_blank'; link.rel = 'noopener noreferrer'; target.append(link); }
+    if (github) target.append(ui.externalLink('Open GitHub issue', github, { className: 'button button-small button-quiet' }));
   }
   function renderHistory(target, generation) {
-    target.replaceChildren(); target.append(node('p', 'muted', 'Select a report to view its evidence.'));
+    target.replaceChildren(); target.append(node('p', 'muted history-hint', 'Select a report to view its evidence.'));
     if (!historyData?.items?.length) empty(target, 'No retained report bodies', 'Issue counters survive report retention.');
     else {
       const list = node('div', 'issue-list');
@@ -627,7 +609,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
           if (!isDetailCurrent(generation)) return; selectedReport = report;
           renderReport(elements['issue-detail'].querySelector('[data-selected-report]'), selectedReport); renderHistory(target, generation);
           elements['issue-detail'].querySelector('[data-manual-copy-section]')?.remove();
-        }, 'issue-row'); item.dataset.reportId = report.id; item.setAttribute('aria-pressed', String(selectedReport?.id === report.id)); list.append(item);
+        }, 'history-row'); item.dataset.reportId = report.id; item.setAttribute('aria-pressed', String(selectedReport?.id === report.id)); list.append(item);
       }
       target.append(list);
     }
@@ -671,14 +653,16 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     rememberDisclosures();
     const target = elements['issue-detail']; target.replaceChildren(); settled(target); const value = detail.issue;
     const title = node('h2', '', `Issue #${value.id}`); title.id = 'issue-title';
-    const header = node('div', 'detail-heading'); const titleGroup = node('div'); titleGroup.append(title, node('p', 'muted', value.error_code ?? 'Unknown error'));
-    const copy = button('Copy debug context', () => { void copyContext(generation, copy); }, 'button button-quiet'); copy.dataset.action = 'copy-context';
-    const actions = node('div', 'detail-actions'); actions.append(copy); header.append(titleGroup, actions); target.append(header);
-    const labels = node('div', 'toolbar'); labels.append(statusTag(value.status), tag(categoryLabel(value.category)), tag(value.fault_origin)); if (value.muted) labels.append(tag('muted')); target.append(labels);
-    const summary = node('div', 'metric-grid detail-summary');
-    summary.append(metric('Lifetime reports', formatNumber(value.total_occurrences)), metric('Affected installs', formatNumber(value.affected_installs_count), value.relayed_report_count > 0 ? `and ${formatNumber(value.relayed_report_count)} reports via Discord without an installation ID` : undefined),
-      metric('First seen', formatDate(value.first_seen_at), value.first_seen_version, 'metric-date'), metric('Last seen', formatDate(value.last_seen_at), value.last_seen_version, 'metric-date'));
-    target.append(summary);
+    const header = node('div', 'detail-heading'); const titleGroup = node('div', 'detail-title'); titleGroup.append(title, node('p', 'muted detail-code', value.error_code ?? 'Unknown error'));
+    const copy = button('Copy debug context', () => { void copyContext(generation, copy); }, 'button button-small'); copy.dataset.action = 'copy-context';
+    header.append(titleGroup, copy); target.append(header);
+    const labels = node('div', 'tag-row'); labels.append(statusTag(value.status), tag(categoryLabel(value.category)), tag(value.fault_origin)); if (value.muted) labels.append(tag('muted')); target.append(labels);
+    target.append(ui.stats([
+      metric('Lifetime reports', formatNumber(value.total_occurrences)),
+      metric('Affected installs', formatNumber(value.affected_installs_count), value.relayed_report_count > 0 ? `and ${formatNumber(value.relayed_report_count)} reports via Discord without an installation ID` : undefined),
+      metric('First seen', formatDate(value.first_seen_at), value.first_seen_version),
+      metric('Last seen', formatDate(value.last_seen_at), value.last_seen_version)
+    ], 'stats-4 detail-summary'));
     const feedback = node('p', 'inline-message'); feedback.dataset.dialogStatus = ''; feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite'); feedback.hidden = true; target.append(feedback);
     target.append(classification('Suggested next step', value));
     const lifecycle = node('section', 'panel detail-section'); renderLifecycle(lifecycle, value, generation); target.append(lifecycle);
@@ -724,15 +708,18 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     resetViewScroll();
     if (view === 'overview') await loadOverview(); else if (view === 'issues') await loadIssues(); else await loadSettings();
   }
-  function refresh() {
+  async function refresh() {
     if (invalidated || destroyed) return;
-    void navigate(currentView);
+    const control = elements['refresh-button'];
+    control.classList.add('is-refreshing');
+    const pending = navigate(currentView);
     const id = detail?.issue.id ?? issueIdentifier(new URL(win.location.href).searchParams.get('issue'));
     if (elements['issue-dialog'].open && id !== null) void openIssue(id, { replace: true });
+    try { await pending; } finally { control.classList.remove('is-refreshing'); }
   }
   async function recoverSession() {
     if (destroyed || recoveryPending || win.navigator.onLine === false) return recoveryPending;
-    if (!invalidated) { refresh(); return; }
+    if (!invalidated) { void refresh(); return; }
     // The Home Screen app can be resumed after Access was renewed in a browser.
     // Only a fresh, authenticated server response may unlock private views.
     const controller = new AbortController(); recoveryController = controller;
@@ -745,7 +732,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         invalidated = false;
         elements['app-message'].replaceChildren(); elements['app-message'].hidden = true;
         for (const control of doc.querySelectorAll('[data-view], #refresh-button')) control.disabled = false;
-        updateConnection(); refresh();
+        updateConnection(); void refresh();
         const id = issueIdentifier(new URL(win.location.href).searchParams.get('issue'));
         if (id !== null && !elements['issue-dialog'].open) void openIssue(id, { replace: true });
       } catch (error) {
@@ -776,7 +763,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     else { clearIssue(false); if (elements['issue-dialog'].open) elements['issue-dialog'].close(); }
   }
   for (const control of doc.querySelectorAll('[data-view]')) listen(control, 'click', () => { void navigate(control.dataset.view); });
-  listen(elements['refresh-button'], 'click', refresh);
+  listen(elements['refresh-button'], 'click', () => { void refresh(); });
   listen(elements['close-issue'], 'click', () => { clearIssue(); if (elements['issue-dialog'].open) elements['issue-dialog'].close(); });
   listen(elements['issue-dialog'], 'close', () => { clearIssue(); });
   listen(elements['issue-dialog'], 'cancel', () => { clearIssue(); });
