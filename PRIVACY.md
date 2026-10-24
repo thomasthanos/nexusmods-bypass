@@ -12,7 +12,7 @@
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
 
-**Last updated:** 23 October 2026
+**Last updated:** 24 October 2026
 **Publisher:** Thomas Thanos
 
 NexusMods Bypass has no analytics SDK, advertising SDK, tracking pixel, account system, or background analytics. Optional technical error reporting is described below. The published extension source is not minified or obfuscated, so these claims can be audited.
@@ -66,6 +66,14 @@ The existing relay forwards these requests through a fixed Cloudflare Worker ser
 The relay also copies every automatic error report sent to its legacy endpoint into this dashboard, including repeats that Discord groups into one message. The copy keeps part of the automatic report: extension version, browser family and version, error code and HTTP status, redacted technical cause, packaged script position and first observation time, with download mode and destination taken from the recorded action, plus the extra debug lines only when **Extra automatic diagnostics** is enabled. It has no installation identifier and no operating system, so it never counts as an installation, and the dashboard does not post it to Discord a second time. Its identifier is derived from the report's content, so a retried report is stored once. Manual bug reports are not copied. The copies are stored, protected and retained like the reports above.
 
 This integration sends errors only. It does not enable heartbeat telemetry, count successful downloads, import old Discord reports, or turn an error count into a download-attempt count.
+
+## Store listing analytics in the private dashboard
+
+The maintainer's dashboard can connect to the existing Google Analytics property for the Chrome Web Store listing. This measures visits to the Store listing, not activity inside the installed extension. Connecting it adds no analytics code or tracking requests to the extension.
+
+The maintainer authorizes Google's `analytics.readonly` permission. The server reads aggregate realtime, weekly and historical user reports from the fixed listing property, and its creation date and reporting timezone where accessible. OAuth credentials are stored as encrypted Cloudflare Worker secrets; short-lived aggregate report snapshots are stored in the private EU D1 database. Credentials and access tokens are not sent to dashboard JavaScript. This information is used to display listing statistics, not for advertising, sale, or user profiling. The maintainer can revoke the connection through the Google account's third-party access controls.
+
+The dashboard also reads public Chrome Web Store user totals, rating totals, version information and written reviews, including the public reviewer name, rating, comment and dates. These public records are stored to identify new reviews and prevent repeated alerts. New reviews can appear in the private dashboard and be delivered to the maintainer's subscribed push devices. They are separate from technical error reports and are not extension usage telemetry. Saved review records currently remain until the maintainer removes them.
 
 ## Downloads permission
 

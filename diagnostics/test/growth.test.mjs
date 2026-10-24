@@ -102,6 +102,62 @@ test('old store snapshots are stale and reviews show the fetched time separately
   assert.equal(reviews.querySelector('[data-last-check] time').dateTime, '2026-10-23T12:00:00.000Z');
 });
 
+test('store freshness follows its fifteen-minute cadence instead of the realtime analytics window', async (t) => {
+  const value = store(); value.snapshot.fetched_at = now - 180000;
+  const { container } = setup(t, (path) => path === '/store' ? value : undefined); await tick();
+  assert.doesNotMatch(container.querySelector('[data-growth-store]').textContent, /Saved store data/);
+  assert.doesNotMatch(container.querySelector('[data-growth-reviews]').textContent, /Saved reviews/);
+  assert.match(container.querySelector('[data-growth-store] .growth-source').textContent, /Fetched/);
+});
+
+test('store age changes update status without replacing focused review controls while a refresh is pending', async (t) => {
+  const pending = Promise.withResolvers(); let storeCalls = 0;
+  const { container, intervals, advance } = setup(t, (path) => path === '/store' && ++storeCalls > 1 ? pending.promise : undefined); await tick();
+  const timer = [...intervals.values()][0];
+  const control = container.querySelector('[data-action="ack-review"]'); control.focus();
+  advance(1740000); timer.callback(); await tick();
+  assert.doesNotMatch(container.querySelector('[data-growth-store]').textContent, /Saved store data/);
+  assert.equal(container.ownerDocument.activeElement, control);
+  advance(120000); timer.callback(); await tick();
+  assert.match(container.querySelector('[data-growth-store]').textContent, /Saved store data/);
+  assert.match(container.querySelector('[data-growth-reviews]').textContent, /Saved reviews/);
+  assert.match(container.querySelector('[data-growth-store] .growth-source').textContent, /Saved data from/);
+  assert.equal(container.ownerDocument.activeElement, control);
+  timer.callback(); await tick();
+  assert.equal(container.querySelector('[data-action="ack-review"]'), control);
+});
+
+test('offline and foreground events recalculate store freshness without replacing review controls', async (t) => {
+  const pending = Promise.withResolvers(); let storeCalls = 0;
+  const { container, dom, advance } = setup(t, (path) => path === '/store' && ++storeCalls > 1 ? pending.promise : undefined); await tick();
+  const control = container.querySelector('[data-action="ack-review"]'); control.focus();
+  Object.defineProperty(dom.window.navigator, 'onLine', { configurable: true, value: false });
+  dom.window.dispatchEvent(new dom.window.Event('offline'));
+  assert.match(container.querySelector('[data-growth-store]').textContent, /Saved store data/);
+  assert.match(container.querySelector('[data-growth-reviews]').textContent, /Saved reviews/);
+  assert.equal(container.ownerDocument.activeElement, control);
+  Object.defineProperty(dom.window.navigator, 'onLine', { configurable: true, value: true });
+  dom.window.dispatchEvent(new dom.window.Event('online')); await tick();
+  assert.doesNotMatch(container.querySelector('[data-growth-store]').textContent, /Saved store data/);
+  assert.equal(container.ownerDocument.activeElement, control);
+  advance(1800001); dom.window.document.dispatchEvent(new dom.window.Event('visibilitychange')); await tick();
+  assert.match(container.querySelector('[data-growth-store]').textContent, /Saved store data/);
+  assert.equal(container.ownerDocument.activeElement, control);
+});
+
+test('store freshness rejects a future snapshot regardless of the cadence', async (t) => {
+  const value = store(); value.snapshot.fetched_at = now + 61000;
+  const { container } = setup(t, (path) => path === '/store' ? value : undefined); await tick();
+  assert.match(container.querySelector('[data-growth-store]').textContent, /Saved store data/);
+  assert.match(container.querySelector('[data-growth-reviews]').textContent, /Saved reviews/);
+});
+
+test('store freshness respects a server-stale response even when the snapshot was just fetched', async (t) => {
+  const { container } = setup(t, (path) => path === '/store' ? store({ stale: true }) : undefined); await tick();
+  assert.match(container.querySelector('[data-growth-store]').textContent, /Saved store data/);
+  assert.match(container.querySelector('[data-growth-reviews]').textContent, /Saved reviews/);
+});
+
 test('store polling refreshes every fifteen minutes while visible and resumes due work after backgrounding', async (t) => {
   const { dom, calls, intervals, advance, manager } = setup(t); await tick();
   const timer = [...intervals.values()][0];

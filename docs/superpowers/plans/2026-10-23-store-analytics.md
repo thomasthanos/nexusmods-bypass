@@ -27,9 +27,16 @@
 
 ## Tasks
 
-- [ ] Add fixed, bounded Store/review/latest-release adapter with offline parser tests.
-- [ ] Add OAuth GA4 adapter and named-range/quality/partial-response tests.
-- [ ] Add additive D1 schema, protected snapshot/ack routes, baseline/dedupe/lease tests and scheduled review delivery.
-- [ ] Add Overview cards/reviews/polling and mobile/auth/hostile-text tests.
+- [x] Add fixed, bounded Store/review/latest-release adapter with offline parser tests.
+- [x] Add OAuth GA4 adapter and named-range/quality/partial-response tests.
+- [x] Add additive D1 schema, protected snapshot/ack routes, baseline/dedupe/lease tests and scheduled review delivery.
+- [x] Add Overview cards/reviews/polling and mobile/auth/hostile-text tests.
 - [ ] Configure dedicated Google OAuth read access through the owner's Edge session when permitted; otherwise document the exact remaining account step.
 - [ ] Review, run the required checks, apply schema, deploy, push main and verify CI.
+
+## Verification on 24 October 2026
+
+- Diagnostics type generation, TypeScript and 369 tests pass. Chromium and WebKit each pass all 24 mobile browser tests.
+- Independent review fixes cover portable cron forwarding, partial Analytics messages, Store polling/freshness and the D1 bound-value budget.
+- The additive four-table/three-index migration was applied to production through the Cloudflare API and verified with an empty foreign-key check. Existing diagnostics records were preserved.
+- A dedicated Google project and Web OAuth client were created through the owner's Edge session with explicit approval. Final Google authorization and encrypted Worker-secret installation are still pending.

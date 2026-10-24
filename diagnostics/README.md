@@ -30,6 +30,16 @@ The three modules in `.wrangler/portable/` use `index.js` as their entrypoint. U
 
 The initial schema was applied through the authenticated Cloudflare D1 query API using the complete canonical `schema.sql`; the current CLI OAuth session could not use D1's file-import endpoint. All 33 application schema objects were independently compared with the source: nine tables, sixteen indexes and eight triggers. Public production smoke checks confirmed Access challenges on private assets/admin paths and path variants, valid extension CORS preflights, and rejection of invalid payloads and origins. No synthetic production report or external notification was sent.
 
+## Store audience and reviews
+
+Overview independently loads GA4 listing audience, Chrome Web Store metrics and diagnostic reports. Store users are the public user badge, not cumulative installs. Ratings and written reviews have separate counts. The live Store version is compared with the fixed repository's latest GitHub release. Store data is read from Google's public listing RPCs, which are undocumented and can change; parser failures preserve a clearly marked saved snapshot.
+
+The Worker checks the Store every 15 minutes. Its first complete review scan establishes history without sending old-review notifications. Later new review IDs create dashboard cards and durable per-device Web Push delivery records. Edits do not trigger another new-review alert, successful recipients are not retried, and new subscribers do not receive historical alerts. Transient failures use bounded backoff; stable notification tags reduce duplicate display if a provider accepts a message just before a database failure. The app refreshes the Store while visible and online. Reading a card does not acknowledge it; use **Mark as read**.
+
+GA4 property `547084285` measures Chrome Web Store listing activity. Realtime means active users during the last 30 minutes, weekly users cover the last seven completed days, and historical unique users are queried from property creation without adding daily user counts. Missing credentials, inaccessible history, and Google's report quality restrictions are visible. Follow [the dedicated OAuth setup instructions](docs/google-analytics-setup.md); credentials remain in the optional encrypted Worker secret `GA4_OAUTH_CREDENTIALS`, and only aggregate reports enter the short-lived D1 cache. No new extension telemetry is added.
+
+Apply `migrations/0001_store_analytics.sql` before deploying the monitoring Worker. The main-branch deployment workflow runs `wrangler d1 migrations apply DB --remote` before `wrangler deploy`; its token therefore also needs D1 write permission for this database. Both the native and portable entrypoints forward cron events. Preserve the existing Access and VAPID settings.
+
 ## Receiving extension reports
 
 1. Deploy the current diagnostics Worker while preserving its existing D1 database, Access configuration and encrypted secrets.

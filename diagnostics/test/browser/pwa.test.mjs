@@ -141,10 +141,21 @@ test('real browser manual Access redirect clears private detail and stops the se
   const { page } = await session(t);
   await page.goto(`${preview.origin}/?issue=${preview.ids.handoff}`);
   await expect(page.locator('#issue-title')).toHaveText(`Issue #${preview.ids.handoff}`);
+  // The overview loads its sources beside the issue deep link. Complete that
+  // initial load and close the sheet before expiring the next real API request.
+  await expect(page.locator('[data-growth-analytics]')).toContainText('not configured');
+  await expect(page.locator('[data-growth-store]')).toContainText('4,321');
+  await expect(page.locator('[data-overview-diagnostics]')).toContainText('98.2%');
+  await page.getByRole('button', { name: 'Close issue details' }).click();
+  await expect(page.locator('#issue-dialog')).not.toBeVisible();
+  // Chromium keeps manual redirect responses opaque, while WebKit exposes the
+  // 302 to Playwright. Observe the real request and the resulting auth state in
+  // both engines; the preview server sends its genuine Access redirect.
+  const refreshRequest = page.waitForRequest((request) => new URL(request.url()).pathname.startsWith('/api/admin/'));
   preview.setAccessRedirect(true);
   t.after(() => preview.setAccessRedirect(false));
-  await page.getByRole('button', { name: 'Close issue details' }).click();
   await page.getByRole('button', { name: 'Refresh diagnostics' }).click();
+  assert.equal((await refreshRequest).method(), 'GET');
   await expect(page.getByRole('link', { name: 'Sign in again', exact: true })).toBeVisible();
   await expect(page.locator('#issue-detail')).toBeEmpty();
   await expect(page.locator('#view-overview')).toBeEmpty();
