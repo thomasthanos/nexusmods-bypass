@@ -57,9 +57,9 @@
   --gutter-left: max(var(--pad), var(--safe-left));
   --gutter-right: max(var(--pad), var(--safe-right));
   --header-h: 52px;
-  --tabbar-h: 56px;
-  --tabbar-bottom: max(10px, var(--safe-bottom));
-  --tabbar-space: calc(var(--tabbar-h) + var(--tabbar-bottom) + 20px);
+  --tabbar-h: 49px;
+  --tabbar-space: calc(var(--tabbar-h) + var(--safe-bottom) + 16px);
+  --bar-bg: #121316;
   /* Motion */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --spring: cubic-bezier(0.32, 1.25, 0.5, 1);
@@ -104,12 +104,14 @@ summary::-webkit-details-marker { display: none; }
 .ui-icon { width: 18px; height: 18px; }
 
 .skip-link {
-  position: fixed; z-index: 60; top: calc(var(--safe-top) + 8px); left: var(--gutter-left);
+  /* Fully off-screen and clipped until keyboard focus: nothing renders behind the status bar. */
+  position: fixed; z-index: 60; top: 0; left: var(--gutter-left);
   padding: 10px 14px; border-radius: var(--radius-md);
   background: var(--gold); color: var(--gold-ink); font-weight: 600; text-decoration: none;
-  transform: translateY(-200%);
+  transform: translateY(calc(-100% - var(--safe-top) - 16px));
+  clip-path: inset(50%); opacity: 0; pointer-events: none;
 }
-.skip-link:focus { transform: none; }
+.skip-link:focus { top: calc(var(--safe-top) + 8px); transform: none; clip-path: none; opacity: 1; pointer-events: auto; }
 
 /* ---------- Shell: header ---------- */
 .app-shell { min-height: 100dvh; padding-bottom: var(--tabbar-space); }
@@ -118,8 +120,8 @@ summary::-webkit-details-marker { display: none; }
   display: flex; align-items: center; gap: 8px;
   min-height: calc(var(--header-h) + var(--safe-top));
   padding: var(--safe-top) var(--gutter-right) 0 var(--gutter-left);
-  /* Near-opaque instead of blurred: sharp text, cheap scrolling, status bar stays legible. */
-  background: rgba(13, 14, 16, 0.94);
+  /* Opaque, including the status-bar inset: in standalone mode nothing scrolls visibly behind the clock. */
+  background: var(--bg);
   border-bottom: 1px solid transparent;
 }
 @supports (animation-timeline: scroll()) {
@@ -151,33 +153,24 @@ summary::-webkit-details-marker { display: none; }
 .refresh-button.is-refreshing svg { animation: spin 0.8s linear infinite; }
 
 /* ---------- Shell: tab bar (phones, landscape phones, small tablets) ---------- */
+/* Docked to the bottom edge like the iOS tab bar: opaque, one hairline, home-indicator inset below. */
 .app-nav {
-  position: fixed; z-index: 30;
-  left: max(12px, var(--safe-left)); right: max(12px, var(--safe-right)); bottom: var(--tabbar-bottom);
-  max-width: 420px; height: var(--tabbar-h); margin-inline: auto; padding: 4px;
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-  border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 28px;
-  background: rgba(30, 31, 35, 0.86);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  backdrop-filter: blur(20px) saturate(160%);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  position: fixed; z-index: 30; left: 0; right: 0; bottom: 0;
+  height: calc(var(--tabbar-h) + var(--safe-bottom));
+  padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 150px)); justify-content: space-evenly;
+  border-top: 1px solid var(--separator);
+  background: var(--bar-bg);
 }
-/* Selection lens: one element that slides between tabs (transform only). */
-.app-nav::before {
-  content: ""; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3);
-  border-radius: 24px; background: rgba(255, 255, 255, 0.075);
-  transition: transform 320ms var(--spring);
-}
-.app-nav:has([data-view="issues"][aria-current="page"])::before { transform: translateX(100%); }
-.app-nav:has([data-view="settings"][aria-current="page"])::before { transform: translateX(200%); }
 .nav-button {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  min-width: 0; min-height: 44px; padding: 0; border: 0; border-radius: 24px; background: transparent;
+  min-width: 0; height: var(--tabbar-h); min-height: 44px; padding: 2px 0 0; border: 0; border-radius: 0; background: transparent;
   color: var(--text-3); font-size: 0.65625rem; font-weight: 600; letter-spacing: 0.01em;
   transition: color 200ms var(--ease), transform 120ms var(--ease);
 }
-.nav-button svg { width: 24px; height: 24px; }
-.nav-button:active { transform: scale(0.94); }
+.nav-button svg { width: 25px; height: 25px; }
+.nav-button:active svg { transform: scale(0.9); }
+.nav-button svg { transition: transform 120ms var(--ease); }
 .nav-button[aria-current="page"] { color: var(--gold); }
 .nav-button[aria-current="page"] svg { animation: tab-pop 320ms var(--spring); }
 .nav-button:disabled { opacity: 0.45; }
@@ -629,9 +622,8 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
 /* Landscape phones: a shorter, side-by-side tab bar keeps vertical room for content. */
 @media (orientation: landscape) and (max-height: 500px) {
   :root { --tabbar-h: 44px; --header-h: 44px; }
-  .app-nav { border-radius: 22px; }
-  .app-nav::before { border-radius: 18px; }
-  .nav-button { flex-direction: row; gap: 6px; min-height: 34px; font-size: var(--text-footnote); }
+  .app-nav { grid-template-columns: repeat(3, minmax(0, 180px)); justify-content: center; }
+  .nav-button { flex-direction: row; gap: 6px; padding: 0; font-size: var(--text-footnote); }
   .nav-button svg { width: 20px; height: 20px; }
   .issue-dialog { height: calc(100dvh - 8px); }
 }
@@ -650,13 +642,20 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
   .refresh-button { display: inline-flex; align-items: center; }
   .app-nav {
     position: relative; left: auto; right: auto; bottom: auto; width: 360px; height: 40px; margin: 0;
-    border-radius: 12px; padding: 3px; background: var(--fill); box-shadow: none;
-    -webkit-backdrop-filter: none; backdrop-filter: none; border: 0;
+    padding: 3px; grid-template-columns: repeat(3, minmax(0, 1fr)); justify-content: stretch;
+    border: 0; border-radius: 12px; background: var(--fill);
   }
-  .app-nav::before { top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3); border-radius: 9px; background: rgba(255, 255, 255, 0.12); }
-  .nav-button { flex-direction: row; gap: 6px; min-height: 34px; border-radius: 9px; font-size: var(--text-subhead); }
+  /* Segmented-control thumb that slides between segments (transform only). */
+  .app-nav::before {
+    content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3);
+    border-radius: 9px; background: rgba(255, 255, 255, 0.12); transition: transform 280ms var(--spring);
+  }
+  .app-nav:has([data-view="issues"][aria-current="page"])::before { transform: translateX(100%); }
+  .app-nav:has([data-view="settings"][aria-current="page"])::before { transform: translateX(200%); }
+  .nav-button { flex-direction: row; gap: 6px; height: auto; min-height: 34px; padding: 0; border-radius: 9px; font-size: var(--text-subhead); }
   .nav-button svg { width: 17px; height: 17px; }
   .nav-button[aria-current="page"] { color: var(--text); }
+  .nav-button[aria-current="page"] svg { animation: none; }
   .main-content { padding: 8px max(24px, var(--safe-right)) 0 max(24px, var(--safe-left)); }
   .page-header h1 { font-size: 2rem; }
   .overview-health { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
@@ -683,7 +682,7 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
 
 @media (prefers-reduced-motion: reduce) {
   /* Universal override is the one place !important is warranted: it must beat component rules. */
-  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition: none !important; }
   .growth-live::before, .spinner, .refresh-button.is-refreshing svg { animation: none; }
 }
 @media (forced-colors: active) {
