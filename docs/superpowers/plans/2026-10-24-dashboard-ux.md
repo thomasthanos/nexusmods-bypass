@@ -35,3 +35,11 @@ The supplied image is the visual reference for all screens. Metrics remain real 
 The physical iPhone received the notification test on 24 October, confirmed by the owner. The refreshed layouts passed Chromium and WebKit checks at 320, 390, 430 and 1280px; 387 diagnostics tests and 31 browser tests per engine passed. The follow-up viewport matrix reported no CSP violations. Independent review findings about hidden history errors and blocked decorative icons were fixed and rechecked.
 
 Deployed on 24 October as Worker version `6a5b15dc-af45-4060-b7d9-76dc4a964efe`. The protected production UI showed real GA4 and Store metrics, exactly three review cards and closed history. Settings retained the existing device registration, and unauthenticated page, script and admin endpoint checks still required Access. This is browser layout verification; the new visual design has not been separately confirmed on the physical phone.
+
+## Mobile dock follow-up
+
+The owner's iPhone screenshots showed content beneath the floating navigation and a blurred header. The old page-level padding did not reserve viewport space: the 320px regression reproduced content bottom 838px against dock top 764px, and the header used a 20px backdrop blur.
+
+The mobile shell now reserves explicit rows for the opaque header, a scrollable main viewport and the bottom navigation. Safe-area padding applies once, and the main viewport clips before the dock gap. Tab navigation resets the content scroll; opening and closing an issue preserves it. Session expiry scrolls the sign-in alert into view. The native dialog keeps its own scrolling.
+
+Validation passed 390 diagnostics tests and 31 browser tests per engine. The eight viewport cases verify the gap, start/middle/end scrolling, reachable final controls, stable dock position, clear header and modal focus/scroll restoration. Physical iPhone keyboard behavior is not established by desktop WebKit viewport tests.

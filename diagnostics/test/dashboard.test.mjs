@@ -12,6 +12,7 @@ function deferred() { let resolve; const promise = new Promise((done) => { resol
 
 function setup(t, handler, url = 'https://diagnostics.test/', options = {}) {
   const dom = new JSDOM('<button id="refresh-button">Refresh</button><span id="connection-status"></span><div id="app-message" hidden></div><main id="main-content"><section id="view-overview"></section><section id="view-issues" hidden></section><section id="view-settings" hidden></section></main><button data-view="overview"></button><button data-view="issues"></button><button data-view="settings"></button><dialog id="issue-dialog"><button id="close-issue">Close</button><div id="issue-detail"></div></dialog><div id="toast" hidden></div>', { url });
+  dom.window.scrollTo = () => {};
   const dialog = dom.window.document.getElementById('issue-dialog');
   dialog.showModal = () => { dialog.open = true; };
   dialog.close = () => { dialog.open = false; dialog.dispatchEvent(new dom.window.Event('close')); };
@@ -639,4 +640,46 @@ test('a report history authentication failure clears private views and closes th
   for (const id of ['view-overview', 'view-issues', 'view-settings', 'issue-detail']) assert.equal(document.getElementById(id).textContent, '');
   assert.equal(document.querySelector('#app-message').hidden, false);
   assert.doesNotMatch(document.body.textContent, /PRIVATE HISTORY AUTH DETAIL/);
+});
+
+test('view navigation and global refresh reset the main scrollport and window', async (t) => {
+  const { app, document, dom } = setup(t); await tick();
+  const main = document.getElementById('main-content'); const scrolls = [];
+  dom.window.scrollTo = (...args) => scrolls.push(args);
+  main.scrollTop = 420; main.scrollLeft = 12;
+  await app.navigate('issues');
+  assert.equal(main.scrollTop, 0); assert.equal(main.scrollLeft, 0);
+  assert.deepEqual(scrolls.at(-1), [0, 0]);
+  main.scrollTop = 380;
+  document.getElementById('refresh-button').click(); await tick();
+  assert.equal(main.scrollTop, 0); assert.equal(scrolls.length, 2);
+});
+
+test('issue pagination and opening or closing a sheet preserve the main scroll position', async (t) => {
+  const { app, document, dom } = setup(t, (path) => path.startsWith('/issues?') ? { items: [issue()], total: 40, page: Number(new URL(path, 'https://diagnostics.test').searchParams.get('page')), limit: 20 } : undefined);
+  await app.navigate('issues');
+  const main = document.getElementById('main-content'); const scrolls = [];
+  dom.window.scrollTo = (...args) => scrolls.push(args);
+  main.scrollTop = 420;
+  document.querySelector('[data-diagnostic-issues] .pagination button:last-child').click(); await tick();
+  assert.equal(main.scrollTop, 420); assert.equal(scrolls.length, 0);
+  await app.openIssue(1);
+  assert.equal(main.scrollTop, 420); assert.equal(scrolls.length, 0);
+  document.getElementById('close-issue').click();
+  assert.equal(main.scrollTop, 420); assert.equal(scrolls.length, 0);
+});
+
+test('session invalidation reveals the top-of-main sign-in alert without changing window or dialog scroll', async (t) => {
+  const { app, document, dom } = setup(t); await app.navigate('issues'); await app.openIssue(1);
+  const main = document.getElementById('main-content'); const message = document.getElementById('app-message');
+  main.prepend(message);
+  const dialog = document.getElementById('issue-dialog'); const scrolls = [];
+  dom.window.scrollTo = (...args) => scrolls.push(args);
+  main.scrollTop = 740; main.scrollLeft = 12; dialog.scrollTop = 80;
+  app.invalidateSession();
+  assert.equal(main.scrollTop, 0); assert.equal(main.scrollLeft, 12);
+  assert.equal(main.firstElementChild, message); assert.equal(message.hidden, false);
+  assert.match(message.textContent, /Sign in to continue/);
+  assert.equal(dialog.open, false); assert.equal(dialog.scrollTop, 80);
+  assert.equal(scrolls.length, 0);
 });

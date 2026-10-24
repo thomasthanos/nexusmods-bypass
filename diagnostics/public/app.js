@@ -236,6 +236,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     }
     for (const control of doc.querySelectorAll('[data-view], #refresh-button')) control.disabled = true;
     updateConnection();
+    const main = doc.getElementById('main-content'); if (main) main.scrollTop = 0;
   }
   function validDates(from, to) {
     const start = Date.parse(`${from}T00:00:00.000Z`); const end = Date.parse(`${to}T00:00:00.000Z`);
@@ -440,10 +441,10 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const generation = ++viewGeneration; abortAll('view:'); const view = elements['view-issues']; view.replaceChildren(); settled(view);
     view.append(heading('Issues', 'Public feedback and private error reports.', 1));
     const community = node('div', 'community-grid');
-    const github = section('Open GitHub issues', null, 'issues'); github.dataset.githubIssues = '';
+    const github = section('Open GitHub issues', null, 'github'); github.dataset.githubIssues = '';
     const repository = node('a', 'button button-quiet button-small', 'All issues'); repository.href = GITHUB_ISSUES_URL; repository.target = '_blank'; repository.rel = 'noopener noreferrer'; repository.setAttribute('aria-label', 'Open all issues on GitHub'); repository.append(doc.createTextNode(' ↗')); github.firstElementChild.append(repository);
     const githubContent = node('div'); github.append(githubContent); community.append(github);
-    const discussions = section('Recent GitHub discussions', null, 'reviews'); discussions.dataset.githubDiscussions = '';
+    const discussions = section('Recent GitHub discussions', null, 'chat'); discussions.dataset.githubDiscussions = '';
     const discussionRepository = node('a', 'button button-quiet button-small', 'All discussions'); discussionRepository.href = GITHUB_DISCUSSIONS_URL; discussionRepository.target = '_blank'; discussionRepository.rel = 'noopener noreferrer'; discussionRepository.setAttribute('aria-label', 'Open all discussions on GitHub'); discussionRepository.append(doc.createTextNode(' ↗')); discussions.firstElementChild.append(discussionRepository);
     const discussionsContent = node('div'); discussions.append(discussionsContent); community.append(discussions); view.append(community);
     const target = node('section', 'stack'); target.dataset.diagnosticIssues = ''; target.setAttribute('aria-label', 'Automatic extension diagnostics'); view.append(target);
@@ -457,7 +458,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       const searchField = field('Search', 'q', issueFilters.q);
       searchField.prepend(createIcon(doc, 'search'));
       const primary = node('div', 'toolbar issues-primary-toolbar'); primary.append(searchField, field('Status', 'status', issueFilters.status, STATUSES), field('Version', 'version', issueFilters.version));
-      primary.querySelector('[name="q"]').maxLength = 200; primary.querySelector('[name="q"]').placeholder = 'Search issues, errors, or reports...'; primary.querySelector('[name="version"]').maxLength = 64;
+      primary.querySelector('[name="q"]').maxLength = 200; primary.querySelector('[name="q"]').placeholder = 'Search issues, errors, or reports...'; primary.querySelector('[name="version"]').maxLength = 64; primary.querySelector('[name="version"]').placeholder = 'All';
       form.append(primary);
       const moreFilters = disclosure('More filters', 'issue-filters', 'issues-disclosure');
       moreFilters.querySelector('summary')?.prepend(createIcon(doc, 'sliders'));
@@ -710,11 +711,17 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     detailGeneration++; abortAll('detail:'); detail = null; selectedReport = null; historyData = null; elements['issue-detail'].replaceChildren();
     if (updateUrl && !invalidated && !destroyed) setIssueUrl(null, true);
   }
+  function resetViewScroll() {
+    const main = doc.getElementById('main-content');
+    if (main) { main.scrollTop = 0; main.scrollLeft = 0; }
+    win.scrollTo(0, 0);
+  }
   async function navigate(view) {
     if (!VIEWS.includes(view) || invalidated || destroyed) return;
     currentView = view; viewGeneration++; abortAll('view:'); pushManager?.dispose(); pushManager = null; growthManager?.dispose(); growthManager = null;
     for (const name of VIEWS) { const target = elements[`view-${name}`]; target.hidden = name !== view; if (name !== view) target.replaceChildren(); }
     for (const item of doc.querySelectorAll('[data-view]')) { const active = item.dataset.view === view; item.setAttribute('aria-current', active ? 'page' : 'false'); item.classList.toggle('is-active', active); }
+    resetViewScroll();
     if (view === 'overview') await loadOverview(); else if (view === 'issues') await loadIssues(); else await loadSettings();
   }
   function refresh() {

@@ -19,6 +19,7 @@ after(async () => { await browser?.close(); await preview?.close(); });
 
 async function session(t, width) {
   const context = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1,
+    isMobile: width < 600, hasTouch: width < 600,
     ...(engineName === 'webkit' ? { serviceWorkers: 'block' } : {}) });
   t.after(() => context.close());
   await context.addInitScript(() => {
@@ -78,13 +79,51 @@ async function exerciseDisclosures(page, scope) {
 }
 
 async function screenshot(page, name, modal = false) {
-  await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
+  await page.evaluate((isModal) => {
+    document.activeElement?.blur();
+    if (!isModal) { document.querySelector('#main-content').scrollTop = 0; window.scrollTo(0, 0); }
+  }, modal);
   if (modal) await page.locator('#issue-dialog').evaluate((element) => { element.scrollTop = 0; });
   await page.screenshot({ path: fileURLToPath(new URL(name, screenshots)), fullPage: !modal });
 }
 
 async function noPolicyViolations(page, view) {
   assert.deepEqual(await page.evaluate(() => window.diagnosticsCspViolations), [], `${view} must render under the production content security policy`);
+}
+
+async function mobileScrollLayout(page, view) {
+  const initial = await page.evaluate(() => {
+    const main = document.querySelector('#main-content'); const nav = document.querySelector('.app-nav');
+    const header = document.querySelector('.app-header'); const bounds = main.getBoundingClientRect(); const navigation = nav.getBoundingClientRect();
+    const safeArea = document.createElement('div'); safeArea.style.paddingBottom = 'env(safe-area-inset-bottom)'; document.body.append(safeArea);
+    const safeBottom = Number.parseFloat(getComputedStyle(safeArea).paddingBottom); safeArea.remove();
+    return { main: { top: bounds.top, bottom: bounds.bottom }, nav: { top: navigation.top, bottom: navigation.bottom },
+      viewport: visualViewport?.height ?? innerHeight, safeBottom, overflow: getComputedStyle(main).overflowY,
+      headerFilter: getComputedStyle(header).backdropFilter || getComputedStyle(header).webkitBackdropFilter,
+      maxScroll: main.scrollHeight - main.clientHeight };
+  });
+  assert.ok(initial.main.bottom <= initial.nav.top - 5, `${view} scrollport reserves a gap above navigation: ${JSON.stringify(initial)}`);
+  assert.ok(initial.nav.bottom <= initial.viewport - initial.safeBottom, `${view} navigation remains inside the safe viewport: ${JSON.stringify(initial)}`);
+  assert.ok(initial.viewport - initial.safeBottom - initial.nav.bottom <= 14, `${view} navigation stays near the safe bottom edge: ${JSON.stringify(initial)}`);
+  assert.ok(['auto', 'scroll'].includes(initial.overflow), `${view} scrolls within the main content area`);
+  assert.equal(initial.headerFilter, 'none', 'The mobile header stays sharp without backdrop blur');
+  assert.ok(initial.maxScroll > 0, `${view} fixture exercises a scrollable view`);
+  for (const progress of [0, 0.5, 1]) {
+    await page.locator('#main-content').evaluate((element, fraction) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * fraction; }, progress);
+    const current = await page.evaluate(() => {
+      const main = document.querySelector('#main-content'); const nav = document.querySelector('.app-nav'); const bounds = nav.getBoundingClientRect();
+      const gapHit = document.elementFromPoint(innerWidth / 2, bounds.top - 2); const navHit = document.elementFromPoint(innerWidth / 2, bounds.top + bounds.height / 2);
+      return { top: bounds.top, bottom: bounds.bottom, windowScroll: scrollY,
+        contentInGap: main.contains(gapHit), navHit: nav.contains(navHit),
+        contentBottom: main.querySelector('.view:not([hidden])').getBoundingClientRect().bottom, mainBottom: main.getBoundingClientRect().bottom };
+    });
+    assert.deepEqual({ top: current.top, bottom: current.bottom }, initial.nav, `${view} navigation does not move when content scrolls`);
+    assert.equal(current.windowScroll, 0, `${view} keeps scrolling within the content area`);
+    assert.equal(current.contentInGap, false, `${view} content cannot paint into the navigation gap`);
+    assert.equal(current.navHit, true, `${view} navigation stays reachable at every scroll position`);
+    if (progress === 1) assert.ok(current.contentBottom <= current.mainBottom + 1, `${view} final content remains above the navigation when scrolled to the end`);
+    if (page.viewportSize().width === 390 && progress > 0) await page.screenshot({ path: fileURLToPath(new URL(`${view}-390-${progress === 1 ? 'bottom' : 'middle'}.png`, screenshots)), fullPage: false });
+  }
 }
 
 for (const width of [320, 390, 430, 1280]) {
@@ -99,6 +138,10 @@ for (const width of [320, 390, 430, 1280]) {
       await expect(page.locator(`#view-${view} h1`)).toHaveText(view[0].toUpperCase() + view.slice(1));
       await expect(navigation).toHaveAttribute('aria-current', 'page');
       await expect(navigation).toBeFocused();
+      if (width < 600) {
+        assert.ok(await page.locator('#main-content').evaluate((element) => element.scrollTop <= 1), `${view} opens at the top of its content`);
+        await expect(page.locator(`#view-${view} h1`)).toBeInViewport();
+      }
       assert.equal(await page.locator('.view:visible').count(), 1, 'Only the selected view is shown');
       await expect(page.locator(`#view-${view} [aria-busy="true"]`)).toHaveCount(0);
       if (view === 'settings') await expect(page.locator('[data-push-action="refresh"]')).toBeEnabled();
@@ -108,10 +151,13 @@ for (const width of [320, 390, 430, 1280]) {
       await exerciseDisclosures(page, '#view-' + view);
       await fitsViewport(page, '#view-' + view, width < 600);
       await noPolicyViolations(page, view);
+      if (width < 600) await mobileScrollLayout(page, view);
     }
     await page.locator('[data-view="issues"]').press('Enter');
     const launcher = page.locator('[data-diagnostic-issues] .issue-row').filter({ hasText: 'COLLECTION_HOST_MISSING' });
-    await launcher.focus(); await launcher.press('Enter');
+    await launcher.scrollIntoViewIfNeeded(); await launcher.focus(); await expect(launcher).toBeInViewport();
+    const scrollBeforeIssue = await page.locator('#main-content').evaluate((element) => element.scrollTop);
+    await launcher.press('Enter');
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await expect(page.locator('#issue-detail')).not.toHaveAttribute('aria-busy', 'true');
@@ -133,6 +179,8 @@ for (const width of [320, 390, 430, 1280]) {
     await page.keyboard.press('Tab'); await expect(close).toBeFocused();
     await page.keyboard.press('Escape'); await expect(dialog).not.toBeVisible();
     await expect(launcher).toBeFocused();
+    await expect(launcher).toBeInViewport();
+    assert.equal(await page.locator('#main-content').evaluate((element) => element.scrollTop), scrollBeforeIssue, 'Closing issue details preserves the underlying reading position');
     assert.equal(new URL(page.url()).searchParams.has('issue'), false);
     assert.deepEqual(errors, []);
   });

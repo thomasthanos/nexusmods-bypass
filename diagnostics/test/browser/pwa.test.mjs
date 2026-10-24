@@ -75,7 +75,7 @@ test('390px overview and release comparison use the real protected Worker API wi
   await page.getByRole('button', { name: 'Compare releases', exact: true }).click();
   await expect(page.locator('[data-comparison-result]')).toContainText('+0.6 pp');
   await noOverflow(page);
-  await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
+  await page.evaluate(() => { document.activeElement?.blur(); document.querySelector('#main-content').scrollTop = 0; window.scrollTo(0, 0); });
   await page.screenshot({ path: new URL('overview-mobile.png', screenshots).pathname.replace(/^\/([A-Za-z]:)/, '$1') });
   assert.deepEqual(errors, []);
 });

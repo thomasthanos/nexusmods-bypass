@@ -163,6 +163,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     const limitations = [quality?.subject_to_thresholding && 'Google thresholding applies', quality?.sampled && 'Sampled data', quality?.data_loss && 'Google reports data loss'].filter(Boolean);
     if (limitations.length) analyticsPanel.append(element('p', 'growth-state', limitations.join(' · ')));
     const source = sourceDetails(analyticsPanel, 'analyticsDetailsOpen', 'Google Analytics (GA4) measures store listing visitors. Online covers the last 30 minutes. Weekly users cover the last 7 complete days.');
+    if (historyDate) source.append(element('p', 'muted', `Unique visitors since ${historyDate}.`));
     if (analytics?.state === 'not_configured') source.append(element('p', 'muted', 'Connect Google Analytics and grant access to the listing property.'));
     const zone = text(analytics?.time_zone, 80);
     fetched(source, `Google Analytics${zone ? ` · ${zone}` : ''}`, analytics?.fetched_at, ready && !isFresh(analytics));
@@ -207,7 +208,13 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     const versionRight = element('div', 'growth-version-action');
     versionRight.append(status);
     const release = releaseUrl(snapshot.latest_release_url);
-    if (release) versionRight.append(externalLink('Release', release));
+    if (release) {
+      const link = element('a', 'growth-version-chevron-link', '');
+      link.href = release; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      link.setAttribute('aria-label', `Open GitHub release ${snapshot.latest_release_version ?? ''}`);
+      link.append(createIcon(doc, 'chevron'));
+      versionRight.append(link);
+    }
     version.append(versionLeft, versionRight);
     storePanel.append(version);
     const storeStale = !isStoreFresh();
