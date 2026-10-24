@@ -2603,7 +2603,7 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
 }
 
 @media (max-width: 600px) {
-  html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  html { scroll-padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
   body {
     min-height: 100vh;
     min-height: 100dvh;
@@ -2616,7 +2616,7 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
     min-height: 100vh;
     min-height: 100dvh;
     padding-top: max(14px, env(safe-area-inset-top));
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    padding-bottom: calc(78px + env(safe-area-inset-bottom));
     padding-inline: max(14px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-right));
   }
   .app-header { padding: 12px; gap: 8px; min-height: 70px; border-radius: 22px; margin-bottom: 20px; backdrop-filter: none; -webkit-backdrop-filter: none; }
