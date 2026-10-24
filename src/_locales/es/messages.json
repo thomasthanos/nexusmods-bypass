@@ -640,6 +640,9 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "Con una carpeta aquí, Opera guarda los archivos dentro de la carpeta Descargas del sistema, no en la ubicación de descargas elegida en Opera. Deja este campo vacío para guardarlos donde Opera guarda sus propias descargas."
+  },
   "setRequestTimeoutLabel": {
     "message": "Espera por un enlace de descarga"
   },

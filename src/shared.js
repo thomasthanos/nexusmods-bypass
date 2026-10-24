@@ -252,7 +252,9 @@
     AutoErrorReports: false,
     AutoReportDiagnostics: false,
     PrivateDiagnostics: false,
-    DownloadFolder: 'NexusMods',
+    // Empty: the browser places each file as it places its own downloads. A named file always goes to
+    // the browser's download location, which on Opera is not the folder its own downloads use (#34).
+    DownloadFolder: '',
     CloseTabDelay: 3000,
     RequestTimeout: 30000,
     NDC_pauseBetweenDownload: 5,
@@ -891,6 +893,14 @@
     if (/\/collections(?:\/|$)/.test(path)) return 'collection';
     if (/\/mods(?:\/|$)/.test(path)) return 'mod';
     return path ? 'nexus' : 'extension';
+  }
+
+  // Opera (GX included) lists itself among its brands and keeps "OPR/" in its user agent. Opera saves a
+  // file an extension names in the system Downloads folder, not in its own download location (#34).
+  function isOperaBrowser(nav = globalThis.navigator) {
+    const brands = nav?.userAgentData?.brands;
+    if (Array.isArray(brands) && brands.some((entry) => /\bOpera\b/i.test(String(entry?.brand || '')))) return true;
+    return /\bOPR\//.test(String(nav?.userAgent || ''));
   }
 
   function reportBrowserName(value) {
@@ -1547,6 +1557,7 @@
     DEFAULTS,
     normalizeSetting,
     isFullFolderPath,
+    isOperaBrowser,
     ARCHIVE_FILE_EXTENSIONS,
     DOWNLOAD_FILE_EXTENSIONS,
     downloadNameFromUrl,

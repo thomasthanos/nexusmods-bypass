@@ -3332,6 +3332,10 @@ async function browserPlacesUnnamedDownloads() {
       { url: 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', tab: { id: 3 } });
   };
   try {
+    assert.equal(N.DEFAULTS.DownloadFolder, '', 'a new install leaves every file to the browser, as its own downloads');
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
+    await single(N.DEFAULTS.DownloadFolder);
+    assert.equal(started.at(-1).filename, undefined, 'the default settings name no file');
     await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
     const placed = await single('');
     assert.deepEqual({ ...started.at(-1) }, { url: cdn, conflictAction: 'uniquify', saveAs: false },
@@ -3374,8 +3378,33 @@ async function browserPlacesUnnamedDownloads() {
   }
 }
 
+// Issue #34: a full path saved by an older version reaches the collection queue as well. It must not
+// become a folder "D mods" there, as it no longer does for a single download.
+async function queueIgnoresFullPathFolders() {
+  const savedFetch = context.fetch;
+  context.fetch = async (url) => ({
+    ok: true, status: 200, url: String(url), text: async () => '<title>Just a moment...</title>', headers: { get: () => '' }
+  });
+  const cases = [['D:\\mods', ''], ['\\\\server\\share', ''], ['~/mods', ''], ['/home/me/mods', ''], ['%USERPROFILE%\\mods', ''],
+    ['Collection', 'Collection']];
+  try {
+    for (const [index, [typed, expected]] of cases.entries()) {
+      const item = { fileId: 3400 + index, historyId: `1704:${3400 + index}`, gameId: 1704, name: 'A mod',
+        pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/1', sizeKb: 10 };
+      const started = await NDC_QUEUE_HANDLERS.NDC_QUEUE_START({
+        gameId: 'g34', collectionId: `c34-${index}`, type: 'all', items: [item], folder: typed, requestTimeout: 30000
+      }, { tab: { id: 34 } });
+      const job = await readNdcJob(started.jobId);
+      assert.equal(job.folder, expected, `${typed} is ${expected ? 'a folder' : 'no folder'} for a collection queue`);
+    }
+  } finally {
+    context.fetch = savedFetch;
+  }
+}
+
 jobStateBehaviour()
   .then(writeQueueRelease)
+  .then(queueIgnoresFullPathFolders)
   .then(failedReadNeverOverwrites)
   .then(downloadNameFromLink)
   .then(mo2MetaBesideCollectionFile)

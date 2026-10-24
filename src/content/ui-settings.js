@@ -49,10 +49,18 @@
       type: 'text',
       maxLength: 100,
       desc: () => NXTK.t('setDownloadFolderDesc', null, 'A folder inside your browser\'s download location, for example NexusMods. Leave it empty to save files where your browser saves its own downloads. A full path such as D:\\mods cannot be used: an extension can only save inside the browser\'s download location, so set D:\\mods as that location in your browser\'s settings. This does not change where Vortex stores files.'),
-      // Issue #34: "D:\mods" here became Downloads\D mods. Such a value is not saved, and says why.
+      // Issue #34: "D:\mods" here became Downloads\D mods. Such a value is not saved as a folder, and says why.
       warn: (value) => (NXTK.isFullFolderPath(value)
         ? NXTK.t('setDownloadFolderFullPath', [value.trim()], `${value.trim()} is a full path, which an extension cannot save to. Choose ${value.trim()} as the download location in your browser's settings and leave this field empty.`)
-        : '')
+        : ''),
+      // A finished edit to such a path saves the field empty, as the warning asks: the browser then
+      // places each file, which is the only way it reaches a folder chosen in the browser's settings.
+      refusedValue: '',
+      // Opera saves a file the extension names in the system Downloads folder, whatever its own download
+      // location is, so a folder here sends files somewhere the user did not choose (#34).
+      note: NXTK.isOperaBrowser()
+        ? (value) => (value.trim() && !NXTK.isFullFolderPath(value) ? NXTK.t('setDownloadFolderOpera', null, 'Opera saves files in a folder set here inside your system Downloads folder, not in the download location chosen in Opera. Leave this field empty to save where Opera saves its own downloads.') : '')
+        : null
     },
     { key: 'RequestTimeout', label: () => NXTK.t('setRequestTimeoutLabel', null, 'Wait for a download link'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, advanced: true, desc: () => NXTK.t('setRequestTimeoutDesc', null, 'Time allowed to get a download link from Nexus, not the time needed to download the whole file. Increase only if slow replies keep timing out.') },
     { key: 'CloseTabDelay', label: () => NXTK.t('setCloseTabDelayLabel', null, 'Close-tab delay'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, advanced: true, desc: () => NXTK.t('setCloseTabDelayDesc', null, 'For automatically started Vortex downloads only. Seconds to wait before closing the temporary Nexus tab after Vortex opens. Try a longer delay if Vortex misses links.') },
@@ -213,9 +221,11 @@
       } else if (s.type === 'text') {
         const maxLength = Number(s.maxLength) > 0 ? ` maxlength="${Number(s.maxLength)}"` : '';
         const warned = s.warn ? s.warn(String(cfg[s.key] ?? '')) : '';
-        const describedBy = s.warn ? `${summaryId} ${inputId}-warning` : summaryId;
+        const noted = s.note ? s.note(String(cfg[s.key] ?? '')) : '';
+        const describedBy = [summaryId, s.warn && `${inputId}-warning`, s.note && `${inputId}-note`].filter(Boolean).join(' ');
         control = `<span class="nxtk-setting-field"><input id="${inputId}" type="text" data-setting="${s.key}" aria-describedby="${describedBy}"${warned ? ' aria-invalid="true"' : ''} value="${escapeHtml(cfg[s.key] ?? '')}"${maxLength} spellcheck="false"></span>`;
         if (s.warn) warning = `<p class="nxtk-setting-warning" id="${inputId}-warning" role="status"${warned ? '' : ' hidden'}>${escapeHtml(warned)}</p>`;
+        if (s.note) warning += `<p class="nxtk-setting-note" id="${inputId}-note" role="status"${noted ? '' : ' hidden'}>${escapeHtml(noted)}</p>`;
       }
       if (!control) return '';
       return `<div class="nxtk-setting-row${s.type === 'bool' ? '' : ' nxtk-setting-row-field'}" data-key="${s.key}"><div class="nxtk-setting-label">${copy}${control}</div>${warning}${help}</div>`;
@@ -273,14 +283,20 @@
     `
     });
 
-    // A text field that says why a value is not saved (DownloadFolder: a full path), while it holds one.
+    // A text field that says why a value is not saved (DownloadFolder: a full path), while it holds one,
+    // and any note about where its value leads (DownloadFolder on Opera).
     function syncFieldWarning(input) {
       const setting = SETTINGS_UI.find((s) => s.key === input.dataset.setting);
-      const note = setting?.warn ? modal.querySelector(`#${input.id}-warning`) : null;
-      if (!note) return;
+      const show = (element, message) => {
+        if (element.textContent !== message) element.textContent = message;
+        element.hidden = !message;
+      };
+      const note = setting?.note ? modal.querySelector(`#${input.id}-note`) : null;
+      if (note) show(note, setting.note(input.value));
+      const warning = setting?.warn ? modal.querySelector(`#${input.id}-warning`) : null;
+      if (!warning) return;
       const message = setting.warn(input.value);
-      if (note.textContent !== message) note.textContent = message;
-      note.hidden = !message;
+      show(warning, message);
       if (message) input.setAttribute('aria-invalid', 'true');
       else input.removeAttribute('aria-invalid');
     }
@@ -306,8 +322,15 @@
       const scale = Number(el.dataset.scale) || 1;
       if (typeof value === 'number') value *= scale;
       value = NXTK.normalizeSetting(key, value);
-      if (value === undefined) return;
-      if (commit && el.type !== 'checkbox') {
+      // A value that cannot be stored is never saved while it is typed. A finished edit saves the
+      // setting's fallback, if it has one; the field keeps what was typed, beside its warning.
+      const refused = value === undefined;
+      if (refused) {
+        if (!commit) return;
+        value = SETTINGS_UI.find((s) => s.key === key)?.refusedValue;
+        if (value === undefined) return;
+      }
+      if (commit && !refused && el.type !== 'checkbox') {
         const shown = typeof value === 'number' ? String(value / scale) : value;
         if (el.value !== shown) el.value = shown;
       }

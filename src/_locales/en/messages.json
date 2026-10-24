@@ -803,6 +803,10 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "Opera saves files in a folder set here inside your system Downloads folder, not in the download location chosen in Opera. Leave this field empty to save where Opera saves its own downloads.",
+    "description": "Shown under the browser download folder setting in Opera while it holds a folder name: Opera saves a file the extension names in the system Downloads folder."
+  },
   "setRequestTimeoutLabel": {
     "message": "Wait for a download link",
     "description": "Setting label."

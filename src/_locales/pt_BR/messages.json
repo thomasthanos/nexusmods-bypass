@@ -640,6 +640,9 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "Com uma pasta aqui, o Opera salva os arquivos dentro da pasta Downloads do sistema, não no local de download escolhido no Opera. Deixe este campo vazio para salvar onde o Opera salva os próprios downloads."
+  },
   "setRequestTimeoutLabel": {
     "message": "Espera por um link de download"
   },

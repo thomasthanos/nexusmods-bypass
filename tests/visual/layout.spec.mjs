@@ -1597,7 +1597,32 @@ test('compact settings long labels and reset confirmation remain usable', async 
   await modal.locator('[data-reset]').click();
   await Promise.all([page.waitForEvent('domcontentloaded'), page.locator('#nxtk-confirm-modal [data-close="confirm"]').click()]);
   await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
-  await expect(page.locator('#nxtk-settings-modal input[data-setting="DownloadFolder"]')).toHaveValue('NexusMods');
+  await expect(page.locator('#nxtk-settings-modal input[data-setting="DownloadFolder"]')).toHaveValue('');
+  await page.close();
+});
+
+test('welcome page: on Opera a folder says where its files go, on a phone-width page', async () => {
+  const { id } = await extensionPage();
+  const page = await context.newPage();
+  // Issue #34: Opera puts a file the extension names in the system Downloads folder.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'userAgent', {
+    get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 OPR/126.0.0.0'
+  }));
+  await page.setViewportSize({ width: 360, height: 760 });
+  await page.goto(`chrome-extension://${id}/onboarding/welcome.html`);
+  await page.locator('input[name="method"][value="browser"]').check();
+  const note = page.locator('#setupFolderOpera');
+  await page.locator('#setupFolder').fill('');
+  await expect(note).toBeHidden();
+  await page.locator('#setupFolder').fill('NexusMods');
+  await expect(note).toBeVisible();
+  await expect(note).toContainText('Opera');
+  await expect(page.locator('#setupFolder')).toHaveAttribute('aria-describedby', /setupFolderOpera/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await note.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(shotDir, 'welcome-opera-folder-note-360.png') });
+  await page.locator('#setupFolder').fill('D:\\mods');
+  await expect(note).toBeHidden();
   await page.close();
 });
 

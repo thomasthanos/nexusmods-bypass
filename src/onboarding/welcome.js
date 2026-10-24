@@ -57,6 +57,15 @@
     $('setupTestVortex').hidden = !vortex;
   };
 
+  // Issue #34: Opera saves a file the extension names in the system Downloads folder, not in its own
+  // download location, so a folder typed here gets a note saying where those files go.
+  const opera = NXTK.isOperaBrowser();
+  const syncFolderNote = () => {
+    const folder = $('setupFolder').value.trim();
+    $('setupFolderOpera').hidden = !(opera && folder && !NXTK.isFullFolderPath(folder));
+  };
+  $('setupFolder').addEventListener('input', syncFolderNote);
+
   // Prefill from what is stored, so reopening the page shows the current choices.
   try {
     chrome.storage.local.get(NXTK.SETTINGS_KEY, (result) => {
@@ -64,6 +73,7 @@
       form.querySelector(`input[name="method"][value="${cfg.NDC_downloadMethod === 1 ? 'browser' : 'vortex'}"]`).checked = true;
       $('setupFolder').value = cfg.DownloadFolder || '';
       $('setupCloseTab').checked = !!cfg.AutoCloseTab;
+      syncFolderNote();
       syncRows();
     });
   } catch (_) {

@@ -605,6 +605,9 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "在此设置文件夹后，Opera 会把文件保存到系统“下载”文件夹中，而不是 Opera 中选择的下载位置。将此栏留空即可保存到 Opera 自身下载所用的位置。"
+  },
   "setRequestTimeoutLabel": {
     "message": "等待下载链接的时间"
   },

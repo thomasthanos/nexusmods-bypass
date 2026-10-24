@@ -135,7 +135,9 @@ Choose **Skip Downloaded** when the history dialog appears. Cleared history cann
 <details>
 <summary><b>Files are saved in the wrong folder</b></summary>
 
-**Browser download folder** in Page settings is a folder *inside* the browser's download location, such as `NexusMods`; a browser lets an extension save nowhere else, so a full path like `D:\mods` cannot go there. To save to `D:\mods`, choose it as the download location in the browser's own settings and leave **Browser download folder** empty. Vortex keeps its own download folder.
+**Browser download folder** in Page settings is a folder *inside* the browser's download location, such as `NexusMods`; a browser lets an extension save nowhere else, so a full path like `D:\mods` cannot go there. To save to `D:\mods`, choose it as the download location in the browser's own settings and leave **Browser download folder** empty (the default since 3.3.2). Vortex keeps its own download folder.
+
+**Opera:** a file in a folder set here goes inside the system `Downloads` folder, not the location chosen in Opera's settings. Leave **Browser download folder** empty and Opera saves each file where it saves its own downloads.
 </details>
 
 </blockquote>

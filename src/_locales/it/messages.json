@@ -570,6 +570,9 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "Con una cartella qui, Opera salva i file nella cartella Download del sistema, non nel percorso di download scelto in Opera. Lascia vuoto questo campo per salvare dove Opera salva i propri download."
+  },
   "setRequestTimeoutLabel": {
     "message": "Attesa del link di download"
   },

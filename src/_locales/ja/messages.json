@@ -570,6 +570,9 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "ここでフォルダーを指定すると、Opera はファイルを Opera で選んだダウンロード保存先ではなく、システムのダウンロード フォルダー内に保存します。Opera 自身のダウンロードと同じ場所に保存するには、この欄を空欄にしてください。"
+  },
   "setRequestTimeoutLabel": {
     "message": "ダウンロードリンクの待ち時間"
   },

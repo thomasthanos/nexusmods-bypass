@@ -640,6 +640,9 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "Avec un dossier ici, Opera enregistre les fichiers dans le dossier Téléchargements du système, et non à l'emplacement de téléchargement choisi dans Opera. Laisse ce champ vide pour enregistrer là où Opera enregistre ses propres téléchargements."
+  },
   "setRequestTimeoutLabel": {
     "message": "Attente d’un lien de téléchargement"
   },

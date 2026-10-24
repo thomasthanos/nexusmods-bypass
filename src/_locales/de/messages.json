@@ -640,6 +640,9 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "Mit einem hier festgelegten Ordner speichert Opera Dateien im Downloads-Ordner des Systems, nicht im in Opera gewählten Download-Speicherort. Lass dieses Feld leer, um dort zu speichern, wo Opera seine eigenen Downloads speichert."
+  },
   "setRequestTimeoutLabel": {
     "message": "Auf einen Download-Link warten"
   },

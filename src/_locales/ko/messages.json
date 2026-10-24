@@ -570,6 +570,9 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "여기에 폴더를 지정하면 Opera는 Opera에서 선택한 다운로드 위치가 아니라 시스템 다운로드 폴더 안에 파일을 저장합니다. Opera가 자체 다운로드를 저장하는 곳에 저장하려면 이 칸을 비워 두세요."
+  },
   "setRequestTimeoutLabel": {
     "message": "다운로드 링크 대기 시간"
   },

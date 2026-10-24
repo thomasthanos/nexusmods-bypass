@@ -1578,6 +1578,18 @@ a.nxtk-settings-report { text-decoration: none; }
   overflow-wrap: anywhere;
 }
 #nxtk-settings-modal .nxtk-setting-field input[aria-invalid="true"] { border-color: var(--nxtk-danger); }
+/* Where a value leads in this browser (the download folder on Opera). */
+#nxtk-settings-modal .nxtk-setting-note {
+  margin: 8px 0 2px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--nxtk-info);
+  border-radius: 0 6px 6px 0;
+  background: var(--nxtk-info-soft);
+  color: var(--nxtk-text-bright);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 #nxtk-settings-modal .nxtk-preset-row {
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;

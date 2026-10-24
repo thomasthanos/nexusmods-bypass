@@ -7,11 +7,12 @@ const root = path.resolve(__dirname, '..');
 const en = JSON.parse(fs.readFileSync(path.join(root, 'src/_locales/en/messages.json'), 'utf8'));
 const tick = () => new Promise((resolve) => setTimeout(resolve, 15));
 
-function fixture(locale = 'en') {
+function fixture(locale = 'en', { userAgent = '' } = {}) {
   const dom = new JSDOM('<!doctype html><body><button id="opener">Settings</button></body>', {
     url: 'https://www.nexusmods.com/skyrimspecialedition/mods/1', runScripts: 'outside-only', pretendToBeVisual: true
   });
   const w = dom.window;
+  if (userAgent) Object.defineProperty(w.navigator, 'userAgent', { value: userAgent, configurable: true });
   const observers = [];
   const NativeObserver = w.MutationObserver;
   w.MutationObserver = class extends NativeObserver {
@@ -230,12 +231,21 @@ async function settingsRegressionTests() {
     assert.equal(folderWarning.hidden, false, 'a full path says why it is not used');
     assert.match(folderWarning.textContent, /D:\\mods is a full path/);
     assert.equal(folderInput.getAttribute('aria-invalid'), 'true');
-    assert.equal(store.nxtk_settings.DownloadFolder, 'Mods & archives', 'and is not saved');
+    assert.equal(store.nxtk_settings.DownloadFolder, '',
+      'a finished edit to a full path empties the folder: only the browser can save there, so it places the file');
     change('DownloadFolder', 'Mods');
     await tick();
     assert.equal(folderWarning.hidden, true);
     assert.equal(folderInput.hasAttribute('aria-invalid'), false);
     assert.equal(store.nxtk_settings.DownloadFolder, 'Mods');
+    // While a full path is still being typed nothing is stored, so "D" on the way to "D:mods" never is.
+    change('DownloadFolder', 'D:', 'input');
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    assert.equal(store.nxtk_settings.DownloadFolder, 'Mods', 'a full path being typed is not stored');
+    assert.equal(folderWarning.hidden, false);
+    change('DownloadFolder', 'Mods');
+    await tick();
+    assert.equal(find('#nxtk-setting-DownloadFolder-note'), null, 'no Opera note outside Opera');
     find('.nxtk-modal-footer [data-close]').click();
     await tick();
     // One saved before this check still says so when the dialog opens.
@@ -315,6 +325,30 @@ async function settingsRegressionTests() {
         await tick();
         localized.close();
       }
+    }
+    // Issue #34: Opera puts a file the extension names in the system Downloads folder, not in the
+    // location set in Opera, so a folder there sends files somewhere the user did not choose.
+    const opera = fixture('en', { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 OPR/126.0.0.0' });
+    try {
+      opera.store.nxtk_settings = { ...opera.w.NXTK.DEFAULTS, DownloadFolder: 'NexusMods' };
+      await opera.w.NexusExt.UIKit.settings.open();
+      const operaFind = (selector) => opera.modal().querySelector(selector);
+      const note = operaFind('#nxtk-setting-DownloadFolder-note');
+      assert.ok(note, 'Opera shows a note on the folder field');
+      assert.equal(note.hidden, false, 'while a folder is set');
+      assert.match(note.textContent, /Opera/);
+      assert.match(operaFind('[data-setting="DownloadFolder"]').getAttribute('aria-describedby'), /nxtk-setting-DownloadFolder-note/);
+      assert.equal(operaFind('[data-setting="DownloadFolder"]').hasAttribute('aria-invalid'), false, 'a note is no error');
+      const input = operaFind('[data-setting="DownloadFolder"]');
+      input.value = '';
+      input.dispatchEvent(new opera.w.Event('change', { bubbles: true }));
+      await tick();
+      assert.equal(note.hidden, true, 'and goes once the field is empty');
+      assert.equal(opera.store.nxtk_settings.DownloadFolder, '');
+    } finally {
+      opera.w.NexusExt.UIKit.closeModal('nxtk-settings-modal');
+      await tick();
+      opera.close();
     }
     console.log('Compact settings: grouping, help, labels, autosave, presets, language, Advanced, import and reset-cancel OK');
   } finally {

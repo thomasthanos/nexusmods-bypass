@@ -56,8 +56,9 @@
         </fieldset>
         <label class="setup-q setup-field" id="setupFolderRow">
           <span data-i18n="setupQFolder">Folder inside your browser's download location</span>
-          <input type="text" id="setupFolder" maxlength="100" spellcheck="false" placeholder="NexusMods">
-          <small data-i18n="setupFolderHint">Leave empty to save where your browser saves its own downloads.</small>
+          <input type="text" id="setupFolder" maxlength="100" spellcheck="false" placeholder="NexusMods" aria-describedby="setupFolderHint setupFolderOpera">
+          <small id="setupFolderHint" data-i18n="setupFolderHint">Leave empty to save where your browser saves its own downloads.</small>
+          <small class="setup-note" id="setupFolderOpera" role="status" hidden data-i18n="setDownloadFolderOpera">Opera saves files in a folder set here inside your system Downloads folder, not in the download location chosen in Opera. Leave this field empty to save where Opera saves its own downloads.</small>
         </label>
         <label class="setup-q setup-check" id="setupCloseRow">
           <input type="checkbox" id="setupCloseTab" checked>

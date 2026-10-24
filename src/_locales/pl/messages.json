@@ -570,6 +570,9 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "Z folderem ustawionym tutaj Opera zapisuje pliki w systemowym folderze Pobrane, a nie w lokalizacji pobierania wybranej w Operze. Zostaw to pole puste, aby zapisywać tam, gdzie Opera zapisuje własne pobrania."
+  },
   "setRequestTimeoutLabel": {
     "message": "Czas oczekiwania na link"
   },

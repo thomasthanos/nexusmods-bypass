@@ -570,6 +570,9 @@
       }
     }
   },
+  "setDownloadFolderOpera": {
+    "message": "Burada bir klasör belirtilirse Opera dosyaları Opera'da seçilen indirme konumuna değil, sistemin İndirilenler klasörüne kaydeder. Opera'nın kendi indirmelerini kaydettiği yere kaydetmek için bu alanı boş bırak."
+  },
   "setRequestTimeoutLabel": {
     "message": "İndirme bağlantısını bekleme süresi"
   },

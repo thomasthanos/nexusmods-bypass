@@ -2571,7 +2571,8 @@ const NDC_QUEUE_HANDLERS = {
       scopeKey,
       startId: startToken.id || null,
       label: String(payload?.label || '').replace(/\s+/g, ' ').trim().slice(0, 120),
-      folder: sanitizePathSegment(payload?.folder, { allowDots: false }),
+      // The same folder rule as a single download: a full path is none (issue #34).
+      folder: downloadSubfolder(payload?.folder),
       requestTimeout: NXTK.normalizeSetting('RequestTimeout', Number(payload?.requestTimeout) || NXTK.DEFAULTS.RequestTimeout),
       itemCount: items.length,
       index: 0,

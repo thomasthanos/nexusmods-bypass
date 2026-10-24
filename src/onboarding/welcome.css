@@ -612,6 +612,17 @@ img { max-width: 100%; height: auto; }
 }
 
 .setup-field small { font-size: calc(12px * var(--s)); color: var(--text-muted); opacity: 0.65; }
+.setup-field small.setup-note {
+  padding: calc(8px * var(--s)) calc(10px * var(--s));
+  border-left: 2px solid #5cbcff;
+  border-radius: 0 6px 6px 0;
+  background: rgba(92, 188, 255, 0.12);
+  color: var(--text-bright);
+  opacity: 1;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.setup-field small.setup-note[hidden] { display: none; }
 
 /* ── Buttons ──────────────────────────────────────────────────────── */
 
