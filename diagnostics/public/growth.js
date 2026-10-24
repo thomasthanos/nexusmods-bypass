@@ -1,5 +1,5 @@
 import { formatNumber } from './lib.js';
-import { createIcon } from './ui-icons.js';
+import { createUi } from './ui.js';
 
 const STORE_URL = 'https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj';
 const RELEASE_PREFIX = 'https://github.com/thomasthanos/nexusmods-bypass/releases/tag/';
@@ -18,76 +18,47 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   let reviewAckGeneration = 0;
   const controllers = new Map();
   const listeners = [];
+  const ui = createUi(doc);
+  const { el: element, icon } = ui;
   const analyticsPanel = element('section', 'panel growth-panel'); analyticsPanel.dataset.growthAnalytics = '';
   const storePanel = element('section', 'panel growth-panel'); storePanel.dataset.growthStore = '';
   const reviewsPanel = element('section', 'panel growth-panel'); reviewsPanel.dataset.growthReviews = '';
   container.classList.add('growth-overview'); container.replaceChildren(analyticsPanel, storePanel, reviewsPanel);
 
-  function element(tag, className = '', value) {
-    const node = doc.createElement(tag);
-    if (className) node.className = className;
-    if (value !== undefined) node.textContent = String(value);
-    return node;
-  }
   function button(label, action, actionName) {
-    const node = element('button', 'button button-small button-quiet', label); node.type = 'button';
+    const node = ui.button(label, action, 'button button-small button-quiet');
     if (actionName) node.dataset.action = actionName;
-    node.addEventListener('click', action); return node;
+    return node;
   }
   function listen(target, event, action) {
     target.addEventListener(event, action); listeners.push(() => target.removeEventListener(event, action));
   }
-  function heading(panel, title, description, iconName = { 'Listing visitors': 'audience', 'Chrome Web Store': 'store', Reviews: 'reviews' }[title]) {
+  const PANEL_ICONS = { 'Listing visitors': 'audience', 'Chrome Web Store': 'store', Reviews: 'reviews' };
+  function heading(panel, title, description, accessories = []) {
     rememberDisclosures(panel);
     panel.replaceChildren(); panel.removeAttribute('aria-busy');
-    const top = element('div', 'panel-heading');
-    if (iconName) {
-      const badge = createIcon(doc, iconName, { tile: true }); badge.classList.add('panel-icon-badge');
-      top.append(badge);
-    }
-    const copy = element('div');
-    copy.append(element('h2', '', title)); if (description) copy.append(element('p', 'muted', description));
-    top.append(copy); panel.append(top); return top;
+    const top = ui.panelHeading(title, { icon: PANEL_ICONS[title], description, accessories });
+    panel.append(top); return top;
   }
   function rememberDisclosures(panel) {
     for (const detail of panel.querySelectorAll('[data-growth-details]')) uiState[detail.dataset.growthDetails] = detail.open;
     const history = panel.querySelector('[data-review-history]');
     if (history) uiState.reviewHistoryOpen = reviewHistoryOpen = history.open;
   }
+  /** One compact footer disclosure per source replaces the former boxed “Source & timing” sections. */
   function sourceDetails(panel, key, explanation) {
     const details = element('details', 'growth-details'); details.dataset.growthDetails = key; details.open = uiState[key] === true;
     const body = element('div', 'growth-details-body');
     if (explanation) body.append(element('p', 'muted', explanation));
     const summary = element('summary');
     const summaryRow = element('span', 'growth-details-summary-content');
-    summaryRow.append(createIcon(doc, 'clock'), doc.createTextNode(' Source & timing'));
+    summaryRow.append(icon('info'), element('span', 'summary-text', 'Source & timing'));
     summary.append(summaryRow);
     details.append(summary, body);
     details.addEventListener('toggle', () => { if (!disposed) uiState[key] = details.open; });
     panel.append(details); return body;
   }
-  function metric(label, value, note, key) {
-    const card = element('div', 'growth-metric'); if (key) card.dataset.metric = key;
-    const content = element('div', 'growth-metric-content');
-    const labelNode = element('div', 'growth-label');
-    const icon = { online: 'clock', weekly: 'audience', history: 'users', users: 'users', rating: 'rating', reviews: 'reviews' }[key];
-    if (icon) labelNode.append(createIcon(doc, icon), doc.createTextNode(' '));
-    labelNode.append(doc.createTextNode(label));
-    content.append(labelNode, element('div', 'growth-value', value));
-    if (note) {
-      const noteEl = element('p', 'growth-note');
-      if (key === 'users' && note.includes('Public user badge')) {
-        const shieldBadge = element('span', 'badge-shield');
-        shieldBadge.append(createIcon(doc, 'shield'), doc.createTextNode(' Public user badge'));
-        noteEl.append(shieldBadge);
-      } else {
-        noteEl.textContent = note;
-      }
-      content.append(noteEl);
-    }
-    card.append(content);
-    return card;
-  }
+  function metric(label, value, note, key) { return ui.stat({ label, value, note, key }); }
   function fetched(panel, source, timestamp, stale = false) {
     const note = element('p', 'muted source-note growth-source');
     note.append(element('span', '', source));
@@ -99,7 +70,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   }
   function loading(panel, title, description) {
     heading(panel, title, description); panel.setAttribute('aria-busy', 'true');
-    panel.append(element('p', 'muted', 'Loading…'));
+    panel.append(ui.loadingState('Loading…'));
   }
   function isFresh(value) {
     return value?.state === 'ready' && value.stale !== true && typeof value.fetched_at === 'number'
@@ -120,8 +91,8 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     const previous = panel.querySelector('[data-store-freshness]');
     if (fresh) previous?.remove();
     else if (!previous) {
-      const warning = element('div', 'growth-state growth-freshness-banner');
-      warning.append(createIcon(doc, 'sync'), doc.createTextNode(reviews ? ' Saved reviews. Refresh for updates.' : ' Saved store data. Refresh for updates.'));
+      const warning = element('p', 'growth-state growth-freshness-banner');
+      warning.append(icon('sync'), doc.createTextNode(reviews ? 'Saved reviews. Refresh for updates.' : 'Saved store data. Refresh for updates.'));
       warning.dataset.storeFreshness = ''; panel.insertBefore(warning, source?.closest('.growth-details') ?? source);
     }
     const label = source?.querySelector('.growth-fetched-label');
@@ -134,31 +105,37 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     // Updating only the source status preserves focused review actions.
     applyStoreFreshness(storePanel); applyStoreFreshness(reviewsPanel, true);
   }
+  function isLive() { return isFresh(analytics) && availableToPoll() && Number.isSafeInteger(analytics.online_30m) && analytics.online_30m >= 0; }
+  /** Toggles only the Live badge; the metrics are re-rendered when new data arrives, not on every tick. */
+  function updateLive() {
+    const top = analyticsPanel.querySelector('.panel-heading');
+    const badge = analyticsPanel.querySelector('[data-live]');
+    if (!top) return;
+    if (isLive()) { if (!badge) top.append(liveBadge()); }
+    else badge?.remove();
+  }
+  function liveBadge() { const live = element('span', 'growth-live', 'Live'); live.dataset.live = 'true'; return live; }
   function renderAnalytics() {
     if (disposed) return;
-    const top = heading(analyticsPanel, 'Listing visitors', 'Chrome Web Store listing', 'audience');
-
+    heading(analyticsPanel, 'Listing visitors', 'Chrome Web Store listing', isLive() ? [liveBadge()] : []);
     const ready = analytics?.state === 'ready';
-    if (isFresh(analytics) && availableToPoll() && Number.isSafeInteger(analytics.online_30m) && analytics.online_30m >= 0) {
-      const live = element('span', 'growth-live', 'Live'); live.dataset.live = 'true'; top.append(live);
-    }
     if (!ready) {
       const configured = analytics?.state === 'not_configured';
-      analyticsPanel.append(element('p', 'growth-state', configured ? 'Analytics not configured.' : 'Analytics temporarily unavailable.'));
-      analyticsPanel.append(button('Retry analytics', () => { void loadAnalytics(); }));
+      const state = element('div', 'growth-state growth-state-action');
+      state.append(element('span', '', configured ? 'Analytics not configured.' : 'Analytics temporarily unavailable.'), button('Retry analytics', () => { void loadAnalytics(); }));
+      analyticsPanel.append(state);
     }
-    const grid = element('div', 'growth-metrics');
-    const trend = ready && Number.isFinite(analytics.weekly_change_percent) && analytics.previous_weekly_active > 0
-      ? `${analytics.weekly_change_percent > 0 ? '+' : ''}${analytics.weekly_change_percent.toFixed(1)}% vs prior week`
+    const hasTrend = ready && Number.isFinite(analytics.weekly_change_percent) && analytics.previous_weekly_active > 0;
+    const trend = hasTrend ? `${analytics.weekly_change_percent > 0 ? '+' : ''}${analytics.weekly_change_percent.toFixed(1)}% vs prior week`
       : ready && analytics.previous_weekly_active === 0 ? 'No previous-week baseline' : 'Previous-week comparison unavailable';
-    const online = metric('Online · 30 min', ready ? count(analytics.online_30m) : '—', '', 'online');
-    const weekly = metric('Last 7 days', ready ? count(analytics.weekly_active) : '—', '', 'weekly');
-    const change = element('p', 'growth-trend', trend);
-    if (ready && Number.isFinite(analytics.weekly_change_percent) && analytics.previous_weekly_active > 0) change.dataset.direction = analytics.weekly_change_percent > 0 ? 'up' : analytics.weekly_change_percent < 0 ? 'down' : 'flat';
-    (weekly.querySelector('.growth-metric-content') ?? weekly).append(change);
+    const change = element('p', 'stat-note growth-trend', trend);
+    if (hasTrend) change.dataset.direction = analytics.weekly_change_percent > 0 ? 'up' : analytics.weekly_change_percent < 0 ? 'down' : 'flat';
     const historyDate = /^\d{4}-\d{2}-\d{2}$/.test(analytics?.history_start_date ?? '') ? analytics.history_start_date : null;
-    grid.append(online, weekly, metric('Unique visitors', ready ? count(analytics.history_total_users) : '—', historyDate ? `Since ${historyDate}` : 'Start date unavailable', 'history'));
-    analyticsPanel.append(grid);
+    analyticsPanel.append(ui.stats([
+      metric('Online · 30 min', ready ? count(analytics.online_30m) : '—', '', 'online'),
+      metric('Last 7 days', ready ? count(analytics.weekly_active) : '—', change, 'weekly'),
+      metric('Unique visitors', ready ? count(analytics.history_total_users) : '—', historyDate ? `Since ${historyDate}` : 'Start date unavailable', 'history')
+    ], 'stats-3'));
     if (ready && !isFresh(analytics)) analyticsPanel.append(element('p', 'growth-state', 'Saved listing data. Refresh for updates.'));
     if (analytics?.message) analyticsPanel.append(element('p', 'growth-state', text(analytics.message, 500)));
     const quality = analytics?.quality;
@@ -170,55 +147,44 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     const zone = text(analytics?.time_zone, 80);
     fetched(source, `Google Analytics${zone ? ` · ${zone}` : ''}`, analytics?.fetched_at, ready && !isFresh(analytics));
   }
-  function externalLink(label, href) {
-    const link = element('a', 'button button-small button-quiet', label); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer';
-    link.append(doc.createTextNode(' '), createIcon(doc, 'external'));
-    return link;
-  }
   function releaseUrl(value) {
     if (typeof value !== 'string' || !value.startsWith(RELEASE_PREFIX)) return null;
     const tag = value.slice(RELEASE_PREFIX.length);
     return /^[0-9A-Za-z][0-9A-Za-z._+-]{0,127}$/.test(tag) ? value : null;
   }
+  const VERSION_LABELS = { up_to_date: 'Up to date', store_behind: 'Update pending', store_ahead: 'Store ahead', unknown: 'Comparison unavailable' };
+  /** Store vs. GitHub release as one list row: versions on the left, comparison and release link on the right. */
+  function versionRow(snapshot) {
+    const release = releaseUrl(snapshot.latest_release_url);
+    const row = element(release ? 'a' : 'div', 'growth-version');
+    if (release) { row.href = release; row.target = '_blank'; row.rel = 'noopener noreferrer'; row.setAttribute('aria-label', `Store ${text(snapshot.version, 64) || 'version unavailable'}, release ${text(snapshot.latest_release_version, 64) || 'unavailable'}: ${VERSION_LABELS[snapshot.version_status] ?? VERSION_LABELS.unknown}. Open GitHub release`); }
+    const info = element('span', 'growth-version-info');
+    const versions = element('span', 'growth-version-copy');
+    versions.append(element('strong', '', `Store ${text(snapshot.version, 64) || 'version unavailable'}`), element('span', 'muted', `Release ${text(snapshot.latest_release_version, 64) || 'unavailable'}`));
+    info.append(icon('chrome'), versions);
+    const status = element('span', 'tag tag-version');
+    if (snapshot.version_status === 'up_to_date') status.append(icon('check'));
+    status.append(doc.createTextNode(VERSION_LABELS[snapshot.version_status] ?? VERSION_LABELS.unknown));
+    status.dataset.versionStatus = snapshot.version_status;
+    row.append(info, status);
+    if (release) { const chevron = element('span', 'growth-version-chevron'); chevron.setAttribute('aria-hidden', 'true'); chevron.append(icon('chevron')); row.append(chevron); }
+    return row;
+  }
   function renderStore() {
     if (disposed) return;
     const snapshot = store?.snapshot;
-    const top = heading(storePanel, 'Chrome Web Store', null, 'store');
-    top.append(externalLink('View listing', STORE_URL));
+    heading(storePanel, 'Chrome Web Store', null, [ui.externalLink('View listing', STORE_URL)]);
     if (!snapshot) {
-      storePanel.append(element('p', 'growth-state', 'Store data is temporarily unavailable.'), button('Retry store', () => { void loadStore(); }));
+      const state = element('div', 'growth-state growth-state-action');
+      state.append(element('span', '', 'Store data is temporarily unavailable.'), button('Retry store', () => { void loadStore(); }));
+      storePanel.append(state);
       fetched(sourceDetails(storePanel, 'storeDetailsOpen'), 'Chrome Web Store', store?.last_checked_at); return;
     }
-    const grid = element('div', 'growth-metrics');
     const rating = typeof snapshot.rating_average === 'number' && Number.isFinite(snapshot.rating_average) && snapshot.rating_average >= 0 && snapshot.rating_average <= 5 ? snapshot.rating_average.toFixed(2) : '—';
     const ratingCard = metric('Rating', rating, `${count(snapshot.rating_count)} ratings`, 'rating');
-    const star = element('span', 'growth-star', '★'); star.setAttribute('aria-hidden', 'true'); ratingCard.querySelector('.growth-value').prepend(star, doc.createTextNode(' '));
-    grid.append(metric('Store users', count(snapshot.users), 'Public user badge', 'users'), ratingCard, metric('Written reviews', count(snapshot.written_review_count), '', 'reviews'));
-    storePanel.append(grid);
-    const version = element('div', 'growth-version');
-    const versionLeft = element('div', 'growth-version-info');
-    versionLeft.append(createIcon(doc, 'chrome'));
-    const versions = element('div');
-    versions.append(element('strong', '', `Store ${text(snapshot.version, 64) || 'version unavailable'}`));
-    versions.append(element('span', 'muted', `Release ${text(snapshot.latest_release_version, 64) || 'unavailable'}`));
-    versionLeft.append(versions);
-    const labels = { up_to_date: 'Up to date', store_behind: 'Update pending', store_ahead: 'Store ahead', unknown: 'Comparison unavailable' };
-    const status = element('span', 'tag tag-version', '');
-    if (snapshot.version_status === 'up_to_date') status.append(createIcon(doc, 'check'), doc.createTextNode(' '));
-    status.append(doc.createTextNode(labels[snapshot.version_status] ?? labels.unknown));
-    status.dataset.versionStatus = snapshot.version_status;
-    const versionRight = element('div', 'growth-version-action');
-    versionRight.append(status);
-    const release = releaseUrl(snapshot.latest_release_url);
-    if (release) {
-      const link = element('a', 'growth-version-chevron-link', '');
-      link.href = release; link.target = '_blank'; link.rel = 'noopener noreferrer';
-      link.setAttribute('aria-label', `Open GitHub release ${snapshot.latest_release_version ?? ''}`);
-      link.append(createIcon(doc, 'chevron'));
-      versionRight.append(link);
-    }
-    version.append(versionLeft, versionRight);
-    storePanel.append(version);
+    const star = element('span', 'growth-star', '★'); star.setAttribute('aria-hidden', 'true'); ratingCard.querySelector('.stat-value').prepend(star);
+    storePanel.append(ui.stats([metric('Store users', count(snapshot.users), 'Public user badge', 'users'), ratingCard, metric('Written reviews', count(snapshot.written_review_count), '', 'reviews')], 'stats-3'));
+    storePanel.append(versionRow(snapshot));
     const storeStale = !isStoreFresh();
     renderedStoreFresh = !storeStale;
     if (store?.message) storePanel.append(element('p', 'growth-state', text(store.message, 500)));
@@ -238,43 +204,48 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     if (scroll) card.scrollIntoView?.({ block: 'center', behavior: 'auto' });
     card.focus({ preventScroll: true }); return true;
   }
+  function reviewCard(review) {
+    const card = element('article', 'growth-review'); card.dataset.reviewId = review.id; card.dataset.new = String(review.is_new === true); card.tabIndex = -1;
+    const header = element('div', 'growth-review-heading'); const author = element('h3', '', text(review.author, 160) || 'Store reviewer');
+    const rating = Number.isInteger(review.rating) && review.rating >= 1 && review.rating <= 5 ? review.rating : null;
+    const stars = element('span', 'growth-review-rating', rating ? `${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}` : 'Rating unavailable');
+    if (rating) { stars.setAttribute('role', 'img'); stars.setAttribute('aria-label', `${rating} out of 5 stars`); }
+    header.append(author);
+    if (review.is_new === true) header.append(element('span', 'tag tag-warning', 'New'));
+    header.append(stars);
+    const metadata = element('div', 'growth-review-meta muted'); const created = reviewDate(review.created_at); if (created) metadata.append(created);
+    if (review.version) metadata.append(element('span', '', `v${text(review.version, 64)}`));
+    card.append(header, metadata);
+    const body = text(review.body, 10000) || 'No written text.';
+    if (body.length > 320) {
+      const content = element('details', 'growth-review-text'); const summary = element('summary');
+      const label = element('span', 'growth-review-expand', 'Read full review');
+      summary.append(element('span', 'growth-review-excerpt', `${body.slice(0, 240).trimEnd()}…`), label);
+      content.addEventListener('toggle', () => { label.textContent = content.open ? 'Show less' : 'Read full review'; });
+      content.append(summary, element('p', 'growth-review-body', body)); card.append(content);
+    } else card.append(element('p', 'growth-review-body', body));
+    if (review.is_new === true) card.append(button('Mark as read', (event) => { void acknowledge(review.id, event.currentTarget); }, 'ack-review'));
+    return card;
+  }
   function renderReviews() {
     if (disposed) return;
     const previousHistory = reviewsPanel.querySelector('[data-review-history]');
     if (previousHistory) reviewHistoryOpen = previousHistory.open;
-    const top = heading(reviewsPanel, 'Reviews', null, 'reviews');
     const reviews = Array.isArray(store?.reviews) ? store.reviews.filter((item, index, list) => typeof item?.id === 'string' && UUID.test(item.id) && list.findIndex((other) => typeof other?.id === 'string' && other.id.toLowerCase() === item.id.toLowerCase()) === index).slice(0, 100)
       .sort((a, b) => (Number.isFinite(b.created_at) ? b.created_at : 0) - (Number.isFinite(a.created_at) ? a.created_at : 0) || a.id.localeCompare(b.id)) : [];
     const newCount = Number.isSafeInteger(store?.new_review_count) && store.new_review_count > 0 ? store.new_review_count : 0;
-    if (newCount) top.append(element('span', 'tag tag-warning', `${count(newCount)} new`));
-    if (!reviews.length) reviewsPanel.append(element('p', 'muted', store?.snapshot ? 'No written reviews have been fetched yet.' : 'Reviews are temporarily unavailable.'));
+    heading(reviewsPanel, 'Reviews', null, newCount ? [element('span', 'tag tag-warning', `${count(newCount)} new`)] : []);
+    if (!reviews.length) reviewsPanel.append(ui.emptyState(store?.snapshot ? 'No written reviews yet' : 'Reviews unavailable', store?.snapshot ? 'No written reviews have been fetched yet.' : 'Reviews are temporarily unavailable.'));
     const list = element('div', 'growth-review-list'); list.dataset.reviewPreview = '';
     const olderList = element('div', 'growth-review-list');
     const latestIds = new Set(reviews.slice(0, 3).map((review) => review.id));
     let hiddenUnread = 0;
     for (const review of reviews) {
-      const card = element('article', 'growth-review'); card.dataset.reviewId = review.id; card.dataset.new = String(review.is_new === true); card.tabIndex = -1;
-      const header = element('div', 'growth-review-heading'); const author = element('h3', '', text(review.author, 160) || 'Store reviewer');
-      const rating = Number.isInteger(review.rating) && review.rating >= 1 && review.rating <= 5 ? review.rating : null;
-      header.append(author, element('span', 'growth-review-rating', rating ? `★ ${rating}/5` : 'Rating unavailable'));
-      if (review.is_new === true) header.append(element('span', 'tag tag-warning', 'New'));
-      const metadata = element('div', 'growth-review-meta muted'); const created = reviewDate(review.created_at); if (created) metadata.append(created);
-      if (review.version) metadata.append(element('span', '', `v${text(review.version, 64)}`));
-      card.append(header, metadata);
-      const body = text(review.body, 10000) || 'No written text.';
-      if (body.length > 320) {
-        const content = element('details', 'growth-review-text'); const summary = element('summary');
-        const label = element('span', 'growth-review-expand', 'Read full review');
-        summary.append(element('span', 'growth-review-excerpt', `${body.slice(0, 240).trimEnd()}…`), label);
-        content.addEventListener('toggle', () => { label.textContent = content.open ? 'Show less' : 'Read full review'; });
-        content.append(summary, element('p', 'growth-review-body', body)); card.append(content);
-      } else card.append(element('p', 'growth-review-body', body));
-      if (review.is_new === true) card.append(button('Mark as read', (event) => { void acknowledge(review.id, event.currentTarget); }, 'ack-review'));
       const latest = latestIds.has(review.id);
       if (!latest && review.is_new === true) hiddenUnread++;
-      (latest ? list : olderList).append(card);
+      (latest ? list : olderList).append(reviewCard(review));
     }
-    reviewsPanel.append(list);
+    if (reviews.length) reviewsPanel.append(list);
     if (olderList.children.length) {
       const history = element('details', 'growth-review-history'); history.dataset.reviewHistory = ''; history.open = reviewHistoryOpen;
       const label = `${count(olderList.children.length)} older ${olderList.children.length === 1 ? 'review' : 'reviews'}${hiddenUnread ? ` · ${count(hiddenUnread)} unread` : ''}`;
@@ -363,19 +334,20 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   loading(storePanel, 'Chrome Web Store');
   loading(reviewsPanel, 'Reviews');
   void loadAnalytics(); void loadStore();
+  // Each tick only toggles freshness badges; panels re-render when a request completes.
   const timer = win.setInterval(() => {
     updateStoreFreshness();
     if (!availableToPoll()) return;
-    renderAnalytics();
+    updateLive();
     if (!controllers.has('analytics')) void loadAnalytics();
     checkStorePoll();
   }, 60000);
   listen(doc, 'visibilitychange', () => {
     updateStoreFreshness();
-    if (analytics) renderAnalytics();
+    if (analytics) updateLive();
     checkStorePoll();
   });
-  listen(win, 'offline', () => { updateStoreFreshness(); if (analytics) renderAnalytics(); });
+  listen(win, 'offline', () => { updateStoreFreshness(); if (analytics) updateLive(); });
   listen(win, 'online', () => {
     updateStoreFreshness();
     if (availableToPoll()) {

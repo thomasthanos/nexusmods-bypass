@@ -89,7 +89,7 @@ test('an empty dashboard explains report opt-in without inventing attempt succes
   assert.match(text, /Private diagnostics dashboard/);
   assert.match(text, /manual reports are not imported/);
   assert.match(text, /do not provide success or fallback rates/);
-  assert.doesNotMatch(document.querySelector('.metric-grid').textContent, /0\.0%/);
+  assert.doesNotMatch(document.querySelector('.health-panel .stats').textContent, /0\.0%/);
   await app.navigate('settings');
   assert.match(document.querySelector('#view-settings').textContent, /New automatic reports appear here after opt-in/);
 });

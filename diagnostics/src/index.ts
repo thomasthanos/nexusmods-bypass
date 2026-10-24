@@ -38,7 +38,7 @@ app.use('*', async (c, next) => {
   if (c.req.path === '/api' || c.req.path.startsWith('/api/')) {
     c.header('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
   } else {
-    c.header('Content-Security-Policy', "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+    c.header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
     if (c.req.path === '/sw.js') c.header('Service-Worker-Allowed', '/');
   }
 });

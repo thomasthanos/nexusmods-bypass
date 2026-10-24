@@ -118,7 +118,7 @@ test('desktop filters, hostile diagnostic text, deep links and settings work wit
   await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
   await expect(page.locator('[data-diagnostic-issues] .issue-list .issue-row')).toHaveCount(1);
   await expect(page.locator('[data-diagnostic-issues] .issue-list')).toContainText('Download handoff');
-  await expect(page.locator('[data-diagnostic-issues] .issue-count span').filter({ hasText: 'Discord' })).toHaveText('2 via Discord');
+  await expect(page.locator('[data-diagnostic-issues] .issue-row-meta span').filter({ hasText: 'Discord' })).toHaveText('2 via Discord');
   await page.screenshot({ path: new URL('issues-desktop.png', screenshots).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
   await page.goto(`${preview.origin}/?issue=${preview.ids.network}`);
   await expect(page.locator('#issue-detail')).toContainText('<img src=x');
@@ -134,7 +134,7 @@ test('desktop filters, hostile diagnostic text, deep links and settings work wit
   await page.getByRole('button', { name: 'Close issue details' }).click();
   await page.locator('[data-view="settings"]').click();
   await expect(page.locator('#view-settings h1')).toHaveText('Settings');
-  await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Notifications on this device', exact: true })).toBeVisible();
   await expect(page.locator('[data-push-action="refresh"]')).toBeEnabled();
   await page.screenshot({ path: new URL('settings-desktop.png', screenshots).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
   await noOverflow(page);
@@ -290,13 +290,15 @@ test('320px overview and issue detail remain usable with reduced motion', async 
   assert.equal(await page.locator('#issue-dialog').evaluate((element) => element.scrollWidth <= element.clientWidth), true);
 });
 
-test('pinned Tailwind CDN can load under production CSP without breaking the dashboard', async (t) => {
+test('dashboard ships only first-party scripts and styles under the production CSP', async (t) => {
   const { page, errors } = await session(t, 1440, false);
-  const downloaded = page.waitForResponse((response) => response.url().includes('/@tailwindcss/browser@4.3.3/dist/index.global.js'));
+  const external = [];
+  page.on('request', (request) => { if (new URL(request.url()).origin !== preview.origin) external.push(request.url()); });
   await openOverview(page);
-  assert.equal((await downloaded).status(), 200);
-  await page.waitForFunction(() => [...document.querySelectorAll('style')].some((style) => style.textContent.includes('tailwindcss')));
   await expect(page.locator('#view-overview')).toContainText('98.2%');
+  assert.deepEqual(external, [], 'no CDN or third-party request is needed to render');
+  assert.equal(await page.locator('script[src^="http"], link[rel="stylesheet"][href^="http"]').count(), 0);
+  assert.equal(await page.locator('[style]').evaluateAll((nodes) => nodes.filter((node) => !node.classList.contains('timeline-bar')).length), 0, 'markup has no inline style attributes; dynamic sizes use CSSOM');
   await noOverflow(page);
   await page.screenshot({ path: new URL('overview-desktop.png', screenshots).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
   assert.deepEqual(errors, []);

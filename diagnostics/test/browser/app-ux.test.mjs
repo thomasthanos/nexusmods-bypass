@@ -192,3 +192,29 @@ for (const width of [320, 390, 430, 1280]) {
     assert.deepEqual(errors, []);
   });
 }
+
+for (const width of [320, 402]) test(`phone tab bar clears content and every release value stays visible at ${width}px`, async (t) => {
+  const { page, errors } = await session(t, width);
+  await page.goto(preview.origin);
+  const rows = page.locator('[data-release-list] .release-row');
+  await expect(rows).toHaveCount(3);
+  // Each release keeps its version plus attempts, success, fallback and heartbeats, unclipped.
+  const clipped = await rows.evaluateAll((items) => items.flatMap((row) => [row.querySelector('.release-version'), ...row.querySelectorAll('dd')].map((cell) => {
+    const rect = cell.getBoundingClientRect();
+    return { text: cell.textContent, ok: rect.width > 0 && cell.scrollWidth <= cell.clientWidth + 1 && rect.right <= innerWidth };
+  })));
+  assert.equal(clipped.length, 15);
+  assert.deepEqual(clipped.filter((cell) => !cell.ok), []);
+  const nav = page.locator('.app-nav');
+  const geometry = await nav.evaluate((element) => ({ position: getComputedStyle(element).position, bottom: element.getBoundingClientRect().bottom, height: element.getBoundingClientRect().height, viewport: innerHeight }));
+  assert.equal(geometry.position, 'fixed');
+  assert.ok(geometry.bottom <= geometry.viewport - 10 && geometry.height <= 60, JSON.stringify(geometry));
+  // At the end of the page the last card sits fully above the floating tab bar.
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  const overlap = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('#view-overview .panel')];
+    return cards.at(-1).getBoundingClientRect().bottom - document.querySelector('.app-nav').getBoundingClientRect().top;
+  });
+  assert.ok(overlap <= 0, `last card overlaps the tab bar by ${overlap}px`);
+  assert.deepEqual(errors, []);
+});

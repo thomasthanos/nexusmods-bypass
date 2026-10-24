@@ -55,7 +55,7 @@ test('listing metrics distinguish visitors, store users, ratings and written rev
   assert.doesNotMatch(container.textContent, /All installs|cumulative installs|runtime active/i);
 });
 
-test('growth headings and metric labels pair readable text with decorative line icons', async (t) => {
+test('growth headings pair readable text with decorative section icons and plain metric labels', async (t) => {
   const { container } = setup(t); await tick();
   for (const [panel, icon] of [['analytics', 'audience'], ['store', 'store'], ['reviews', 'reviews']]) {
     const heading = container.querySelector(`[data-growth-${panel}] .panel-heading`);
@@ -66,9 +66,10 @@ test('growth headings and metric labels pair readable text with decorative line 
     assert.equal(graphic.getAttribute('focusable'), 'false');
     assert.ok(heading.querySelector('h2').textContent.trim().length > 0);
   }
-  for (const [metric, icon] of [['online', 'clock'], ['weekly', 'audience'], ['history', 'users'], ['users', 'users'], ['rating', 'rating'], ['reviews', 'reviews']]) {
-    const label = container.querySelector(`[data-metric="${metric}"] .growth-label`);
-    assert.equal(label.querySelector('svg.ui-icon')?.dataset.icon, icon);
+  // Metric labels are plain readable text; the section icon carries the visual cue, so stats stay uncluttered.
+  for (const metric of ['online', 'weekly', 'history', 'users', 'rating', 'reviews']) {
+    const label = container.querySelector(`[data-metric="${metric}"] .stat-label`);
+    assert.equal(label.querySelector('svg'), null);
     assert.ok(label.textContent.trim().length > 0);
   }
   assert.equal(container.querySelector('svg script,svg foreignObject,svg image,svg use,svg [href]'), null);
@@ -79,10 +80,10 @@ test('aggregate listing data never invents chart samples or unsupported time-ran
   const panel = container.querySelector('[data-growth-analytics]');
   assert.equal(panel.querySelector('.visitor-chart,.visitor-segments'), null);
   assert.equal([...panel.querySelectorAll('button')].some((control) => /28 days/.test(control.textContent)), false);
-  assert.equal(panel.querySelector('[data-metric="online"] .growth-value').textContent, '12');
-  assert.equal(panel.querySelector('[data-metric="weekly"] .growth-value').textContent, '580');
-  assert.equal(panel.querySelector('[data-metric="history"] .growth-value').textContent, '21,000');
-  assert.match(panel.querySelector('[data-metric="online"] .growth-label').textContent, /30 min/);
+  assert.equal(panel.querySelector('[data-metric="online"] .stat-value').textContent, '12');
+  assert.equal(panel.querySelector('[data-metric="weekly"] .stat-value').textContent, '580');
+  assert.equal(panel.querySelector('[data-metric="history"] .stat-value').textContent, '21,000');
+  assert.match(panel.querySelector('[data-metric="online"] .stat-label').textContent, /30 min/);
   assert.equal(panel.querySelector('[data-metric="online"] .growth-trend-pill'), null, 'weekly growth must not be presented as realtime growth');
 });
 
@@ -101,8 +102,8 @@ test('null analytics and zero previous periods never invent totals or infinite t
   const panel = container.querySelector('[data-growth-analytics]');
   assert.match(panel.textContent, /No previous-week baseline/);
   assert.doesNotMatch(panel.textContent, /NaN|Infinity|\+0\.0%/);
-  assert.equal(panel.querySelector('[data-metric="online"] .growth-value').textContent, '—');
-  assert.equal(panel.querySelector('[data-metric="history"] .growth-value').textContent, '—');
+  assert.equal(panel.querySelector('[data-metric="online"] .stat-value').textContent, '—');
+  assert.equal(panel.querySelector('[data-metric="history"] .stat-value').textContent, '—');
   assert.equal(panel.querySelector('[data-live="true"]'), null);
 });
 
@@ -397,4 +398,18 @@ test('an abandoned retry cannot mark a newer analytics result stale', async (t) 
   older.reject(new Error('old provider error')); await tick();
   assert.equal(container.querySelector('[data-live="true"]')?.textContent, 'Live');
   assert.doesNotMatch(container.querySelector('[data-growth-analytics]').textContent, /Saved listing data/);
+});
+
+test('a routine timer tick updates freshness in place without rebuilding the panels', async (t) => {
+  const pending = Promise.withResolvers(); let analyticsCalls = 0;
+  const { container, intervals, advance, calls } = setup(t, (path) => path === '/analytics' && ++analyticsCalls > 1 ? pending.promise : undefined); await tick();
+  const timer = [...intervals.values()][0];
+  const value = container.querySelector('[data-growth-analytics] [data-metric="weekly"] .stat-value');
+  const review = container.querySelector('[data-growth-reviews] [data-review-id]');
+  advance(60000); timer.callback(); await tick();
+  // The realtime poll is in flight, but the tick itself only toggles badges in place.
+  assert.equal(calls.filter((call) => call.path === '/analytics').length, 2);
+  assert.equal(calls.filter((call) => call.path === '/store').length, 1, 'the store keeps its fifteen-minute cadence');
+  assert.equal(container.querySelector('[data-growth-analytics] [data-metric="weekly"] .stat-value'), value);
+  assert.equal(container.querySelector('[data-growth-reviews] [data-review-id]'), review);
 });

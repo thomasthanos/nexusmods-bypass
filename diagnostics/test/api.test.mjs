@@ -138,7 +138,10 @@ test('PWA assets keep private caching and enforce script and worker origin bound
   const headers = await access.headers();
   const asset = await request('/', { headers });
   const policy = asset.headers.get('content-security-policy');
-  assert.ok(policy?.includes("script-src 'self' https://cdn.jsdelivr.net"));
+  assert.ok(policy?.includes("script-src 'self';"), 'scripts are first-party only');
+  // 'unsafe-inline' styles stay: WebKit's own select/date-input shadow trees report violations without it.
+  assert.ok(policy?.includes("style-src 'self' 'unsafe-inline';"));
+  assert.doesNotMatch(policy ?? '', /cdn\.jsdelivr\.net|unsafe-eval|https:/);
   assert.ok(policy.includes("worker-src 'self'"));
   assert.ok(policy.includes("connect-src 'self'"));
   assert.ok(policy.includes("frame-ancestors 'none'"));

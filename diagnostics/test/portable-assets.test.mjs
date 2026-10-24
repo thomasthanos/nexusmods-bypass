@@ -22,8 +22,9 @@ async function fixture(t, source) {
 
 test('portable files exactly match the public text and binary assets without private caches', async (t) => {
   const f = await fixture(t);
-  assert.equal(Object.keys(f.files).length, 16);
+  assert.equal(Object.keys(f.files).length, 17);
   assert.ok(f.files['/growth.js']);
+  assert.ok(f.files['/ui.js']);
   assert.ok(f.files['/ui-icons.js']);
   assert.ok(!Object.keys(f.files).some((name) => name.includes('.assetsignore')));
   for (const path of Object.keys(f.files)) {
