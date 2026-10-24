@@ -193,7 +193,7 @@ for (const width of [320, 390, 430, 1280]) {
   });
 }
 
-for (const width of [320, 402]) test(`phone tab bar clears content and every release value stays visible at ${width}px`, async (t) => {
+for (const width of [320, 402]) test(`docked phone tab bar is opaque, covers no content and every release value stays visible at ${width}px`, async (t) => {
   const { page, errors } = await session(t, width);
   await page.goto(preview.origin);
   const rows = page.locator('[data-release-list] .release-row');
@@ -206,15 +206,46 @@ for (const width of [320, 402]) test(`phone tab bar clears content and every rel
   assert.equal(clipped.length, 15);
   assert.deepEqual(clipped.filter((cell) => !cell.ok), []);
   const nav = page.locator('.app-nav');
-  const geometry = await nav.evaluate((element) => ({ position: getComputedStyle(element).position, bottom: element.getBoundingClientRect().bottom, height: element.getBoundingClientRect().height, viewport: innerHeight }));
+  const geometry = await nav.evaluate((element) => {
+    const rect = element.getBoundingClientRect(); const style = getComputedStyle(element);
+    const alpha = style.backgroundColor.startsWith('rgba') ? Number.parseFloat(style.backgroundColor.split(',').at(-1)) : 1;
+    return { position: style.position, left: rect.left, right: rect.right, bottom: rect.bottom, height: rect.height, viewport: innerHeight, width: innerWidth, alpha, border: style.borderTopWidth, filter: style.backdropFilter || style.webkitBackdropFilter || 'none',
+      pill: getComputedStyle(element, '::before').content };
+  });
+  // Docked, full-width and opaque: page content never shows through or around the bar.
   assert.equal(geometry.position, 'fixed');
-  assert.ok(geometry.bottom <= geometry.viewport - 10 && geometry.height <= 60, JSON.stringify(geometry));
-  // At the end of the page the last card sits fully above the floating tab bar.
+  assert.ok(geometry.left <= 0 && geometry.right >= geometry.width && Math.abs(geometry.bottom - geometry.viewport) < 1, JSON.stringify(geometry));
+  assert.ok(geometry.height >= 44 && geometry.height <= 52, JSON.stringify(geometry));
+  assert.ok(geometry.alpha >= 0.97, `tab bar background must be opaque: ${geometry.alpha}`);
+  assert.equal(geometry.border, '1px');
+  assert.ok(['none', 'normal', ''].includes(geometry.pill), 'no pill highlight behind the active tab on phones');
+  const active = await page.locator('.nav-button[aria-current="page"]').evaluate((element) => ({ color: getComputedStyle(element).color, background: getComputedStyle(element).backgroundColor }));
+  assert.equal(active.background, 'rgba(0, 0, 0, 0)');
+  assert.notEqual(active.color, await page.locator('.nav-button[data-view="issues"]').evaluate((element) => getComputedStyle(element).color));
+  // At the end of the page the last card sits fully above the docked tab bar.
   await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
   const overlap = await page.evaluate(() => {
     const cards = [...document.querySelectorAll('#view-overview .panel')];
     return cards.at(-1).getBoundingClientRect().bottom - document.querySelector('.app-nav').getBoundingClientRect().top;
   });
   assert.ok(overlap <= 0, `last card overlaps the tab bar by ${overlap}px`);
+  assert.deepEqual(errors, []);
+});
+
+test('skip link stays fully hidden at the top until keyboard focus, then appears below the safe area', async (t) => {
+  const { page, errors } = await session(t, 402);
+  await page.goto(preview.origin);
+  await expect(page.locator('#view-overview')).toContainText('98.2%');
+  const skip = page.locator('.skip-link');
+  const hidden = await skip.evaluate((element) => { const rect = element.getBoundingClientRect(); const style = getComputedStyle(element); return { bottom: rect.bottom, opacity: style.opacity, clip: style.clipPath }; });
+  assert.ok(hidden.bottom <= 0, `unfocused skip link must be above the viewport: ${JSON.stringify(hidden)}`);
+  assert.equal(hidden.opacity, '0');
+  // Nothing scrolled shows through the header, which covers the status-bar inset.
+  const header = await page.locator('.app-header').evaluate((element) => getComputedStyle(element).backgroundColor);
+  assert.match(header, /^rgb\(/, `header background must be opaque: ${header}`);
+  await page.keyboard.press('Tab');
+  await expect(skip).toBeFocused();
+  const shown = await skip.evaluate((element) => { const rect = element.getBoundingClientRect(); return { top: rect.top, bottom: rect.bottom, opacity: getComputedStyle(element).opacity }; });
+  assert.ok(shown.top >= 0 && shown.bottom <= 120 && shown.opacity === '1', JSON.stringify(shown));
   assert.deepEqual(errors, []);
 });
