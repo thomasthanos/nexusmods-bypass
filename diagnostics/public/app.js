@@ -1,6 +1,7 @@
 import { createApiClient, formatNumber, formatPercent, formatDate, relativeTime, buildDebugPrompt, safeGithubUrl, queryString, dateRange } from './lib.js';
 import { mountPushManager } from './push.js';
 import { mountGrowth } from './growth.js';
+import { createIcon } from './ui-icons.js';
 
 const STATUSES = ['new', 'investigating', 'fixed', 'regressed', 'ignored'];
 const BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera', 'brave', 'other'];
@@ -73,28 +74,33 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     input.name = name;
     if (choices) {
       const all = node('option', '', 'All'); all.value = ''; input.append(all);
-      for (const choice of choices) { const option = node('option', '', humanize(choice)); option.value = choice; input.append(option); }
+      for (const choice of choices) { const option = node('option', '', name === 'muted' ? choice === 'true' ? 'Muted' : 'Not muted' : humanize(choice)); option.value = choice; input.append(option); }
     } else { input.type = name === 'from' || name === 'to' ? 'date' : 'text'; input.autocomplete = 'off'; }
     input.value = value ?? '';
     wrapper.append(input);
     return wrapper;
   }
-  function heading(title, description, level = 2) {
+  function heading(title, description, level = 2, iconName = '') {
     const wrapper = node('div', level === 1 ? 'page-header' : 'panel-heading');
-    const text = node('div'); text.append(node(`h${level}`, '', title));
+    if (iconName) wrapper.append(createIcon(doc, iconName, { tile: true }));
+    const text = node('div', 'heading-copy'); text.append(node(`h${level}`, '', title));
     if (description) text.append(node('p', 'muted', description));
     wrapper.append(text); return wrapper;
   }
-  function section(title, description) {
+  function section(title, description, iconName = '') {
     const wrapper = node('section', 'panel detail-section');
-    wrapper.append(heading(title, description)); return wrapper;
+    wrapper.append(heading(title, description, 2, iconName)); return wrapper;
   }
   function disclosure(title, key, className = '') {
     const wrapper = node('details', `disclosure compact-disclosure ${className}`.trim());
+    wrapper.dataset.disclosureKey = key;
     wrapper.open = disclosureState.get(key) === true;
     wrapper.append(node('summary', '', title));
     wrapper.addEventListener('toggle', () => { if (wrapper.isConnected) disclosureState.set(key, wrapper.open); });
     return wrapper;
+  }
+  function rememberDisclosures() {
+    for (const wrapper of doc.querySelectorAll('details[data-disclosure-key]')) disclosureState.set(wrapper.dataset.disclosureKey, wrapper.open);
   }
   function compactFeed(target, rows, key) {
     const list = node('div', 'issue-list'); list.append(...rows.slice(0, 3)); target.append(list);
@@ -103,7 +109,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const rest = node('div', 'issue-list disclosure-content'); rest.append(...rows.slice(3)); more.append(rest); target.append(more);
   }
   function tag(text, kind = '') { return node('span', `tag ${kind ? `tag-${kind}` : ''}`.trim(), humanize(text)); }
-  function statusTag(status) { return tag(status, status === 'regressed' ? 'danger' : status === 'fixed' ? 'success' : status === 'investigating' ? 'warning' : ''); }
+  function statusTag(status) { return tag(status, status === 'regressed' ? 'danger' : status === 'fixed' ? 'success' : status === 'new' ? 'info' : status === 'investigating' ? 'warning' : ''); }
   function metric(label, value, note, className = '', tone = '') {
     const card = node('div', `metric-card ${className}`.trim());
     const labelNode = node('div', 'metric-label', label);
@@ -192,7 +198,10 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   }
   function updateConnection() {
     const status = elements['connection-status'];
-    status.textContent = invalidated ? 'Sign in required' : win.navigator.onLine === false ? 'Offline' : 'Connected';
+    const text = invalidated ? 'Sign in required' : win.navigator.onLine === false ? 'Offline' : 'Connected';
+    status.replaceChildren();
+    const dot = node('span', 'status-dot'); dot.setAttribute('aria-hidden', 'true');
+    status.append(dot, doc.createTextNode(text));
     status.dataset.state = invalidated ? 'error' : win.navigator.onLine === false ? 'offline' : 'online';
   }
   function invalidateSession(info) {
@@ -251,10 +260,13 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     metadata.append(node('span', '', `#${value.id} · ${value.error_code ?? 'Unknown error'}`), node('span', '', `${value.last_seen_version ?? 'Unknown version'} · ${relativeTime(value.last_seen_at)}`));
     const counts = node('span', 'issue-count'); counts.append(node('strong', '', formatNumber(value.total_occurrences)), node('span', 'muted', `reports · ${formatNumber(value.affected_installs_count)} installs`));
     if (value.relayed_report_count > 0) counts.append(node('span', 'muted', `${formatNumber(value.relayed_report_count)} via Discord`));
-    main.append(top, metadata); row.append(main, counts); return row;
+    main.append(top, metadata);
+    const chevron = node('span', 'issue-chevron', '›');
+    row.append(main, counts, chevron); return row;
   }
 
   async function loadOverview() {
+    rememberDisclosures();
     if (automaticOverviewDates) Object.assign(overviewFilters, dateRange(30));
     const generation = ++viewGeneration; abortAll('view:');
     growthManager?.dispose(); growthManager = null;
@@ -271,7 +283,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       ]);
       if (!isCurrent(generation)) return;
       target.replaceChildren(); settled(target);
-      target.append(heading('Download health', 'Opt-in telemetry for the selected UTC dates.'));
+      target.append(heading('Download health', 'Opt-in telemetry for the selected UTC dates.', 2, 'health'));
       const filterDisclosure = disclosure('Filter download health', 'overview-filters', 'overview-filter-disclosure');
       const form = node('form', 'toolbar overview-filters'); form.dataset.form = 'overview';
       form.append(field('From', 'from', filters.from), field('To', 'to', filters.to), field('Browser', 'browser', filters.browser, BROWSERS), field('Destination', 'destination', filters.destination, ['browser', 'vortex', 'mo2']));
@@ -295,7 +307,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       if (summary.reports?.total === 0) {
         const setup = section('How reports arrive'); setup.append(node('p', 'muted', REPORT_SETUP)); target.append(setup);
       }
-      const alerts = section('Live alerts', `Last ${Number.isFinite(summary.alerts?.window_seconds) ? formatNumber(summary.alerts.window_seconds / 60) : '—'} minutes, independent of date filters.`);
+      const alerts = section('Live alerts', `Last ${Number.isFinite(summary.alerts?.window_seconds) ? formatNumber(summary.alerts.window_seconds / 60) : '—'} minutes, independent of date filters.`, 'issues');
       const spikes = summary.alerts?.spikes;
       if (Array.isArray(spikes) && spikes.length) for (const spike of spikes) {
         const alert = button('', () => { void openIssue(spike.issue_id); }, 'issue-row');
@@ -304,7 +316,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         alert.append(main, statusTag(spike.status)); alerts.append(alert);
       } else empty(alerts, spikes ? 'No active spikes' : 'Live detection is unavailable', spikes ? 'No unusual increase in error reports.' : 'Refresh to try again.', spikes ? 'healthy' : '');
       target.append(alerts);
-      const health = section('By release');
+      const health = section('By release', null, 'release');
       if (!releases.items?.length) empty(health, 'No release telemetry', 'Try a wider date range or a different browser and destination.');
       else {
         const scroll = node('div', 'table-scroll'); const table = node('table', 'release-table'); const head = node('thead'); const header = node('tr');
@@ -376,7 +388,9 @@ export function createDashboard({ document: doc = globalThis.document, window: w
           const metadata = node('span', 'issue-row-meta'); metadata.append(node('span', '', `#${issue.number} · Updated ${relativeTime(issue.updated_at)}`));
           if (Array.isArray(issue.labels)) for (const label of issue.labels) if (typeof label === 'string') metadata.append(tag(label));
           if (Number.isSafeInteger(issue.comments) && issue.comments >= 0) metadata.append(node('span', '', `${formatNumber(issue.comments)} comments`));
-          main.append(title, metadata); row.append(main); rows.push(row);
+          main.append(title, metadata);
+          const chevron = node('span', 'issue-chevron', '›');
+          row.append(main, chevron); rows.push(row);
         }
         if (rows.length) compactFeed(target, rows, 'github-issues');
         else empty(target, 'No open GitHub issues', 'Open GitHub to check the latest public reports.');
@@ -404,7 +418,8 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         const main = node('span', 'issue-main');
         const title = node('span', 'issue-row-heading'); title.append(node('strong', '', discussion.title));
         main.append(title, node('span', 'issue-row-meta', `#${discussion.number} · Updated ${relativeTime(discussion.updated_at)}`));
-        row.append(main); rows.push(row);
+        const chevron = node('span', 'issue-chevron', '›');
+        row.append(main, chevron); rows.push(row);
       }
       if (rows.length) compactFeed(target, rows, 'github-discussions');
       else empty(target, 'No recent GitHub discussions', 'Open GitHub to browse discussions.');
@@ -420,15 +435,16 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     issuePage = 1; void loadIssues();
   }
   async function loadIssues() {
+    rememberDisclosures();
     if (automaticIssueDates) Object.assign(issueFilters, dateRange(30));
     const generation = ++viewGeneration; abortAll('view:'); const view = elements['view-issues']; view.replaceChildren(); settled(view);
     view.append(heading('Issues', 'Public feedback and private error reports.', 1));
     const community = node('div', 'community-grid');
-    const github = section('Open GitHub issues'); github.dataset.githubIssues = '';
-    const repository = node('a', 'button button-quiet button-small', 'All issues'); repository.href = GITHUB_ISSUES_URL; repository.target = '_blank'; repository.rel = 'noopener noreferrer'; repository.setAttribute('aria-label', 'Open all issues on GitHub'); github.firstElementChild.append(repository);
+    const github = section('Open GitHub issues', null, 'issues'); github.dataset.githubIssues = '';
+    const repository = node('a', 'button button-quiet button-small', 'All issues'); repository.href = GITHUB_ISSUES_URL; repository.target = '_blank'; repository.rel = 'noopener noreferrer'; repository.setAttribute('aria-label', 'Open all issues on GitHub'); repository.append(doc.createTextNode(' ↗')); github.firstElementChild.append(repository);
     const githubContent = node('div'); github.append(githubContent); community.append(github);
-    const discussions = section('Recent GitHub discussions'); discussions.dataset.githubDiscussions = '';
-    const discussionRepository = node('a', 'button button-quiet button-small', 'All discussions'); discussionRepository.href = GITHUB_DISCUSSIONS_URL; discussionRepository.target = '_blank'; discussionRepository.rel = 'noopener noreferrer'; discussionRepository.setAttribute('aria-label', 'Open all discussions on GitHub'); discussions.firstElementChild.append(discussionRepository);
+    const discussions = section('Recent GitHub discussions', null, 'reviews'); discussions.dataset.githubDiscussions = '';
+    const discussionRepository = node('a', 'button button-quiet button-small', 'All discussions'); discussionRepository.href = GITHUB_DISCUSSIONS_URL; discussionRepository.target = '_blank'; discussionRepository.rel = 'noopener noreferrer'; discussionRepository.setAttribute('aria-label', 'Open all discussions on GitHub'); discussionRepository.append(doc.createTextNode(' ↗')); discussions.firstElementChild.append(discussionRepository);
     const discussionsContent = node('div'); discussions.append(discussionsContent); community.append(discussions); view.append(community);
     const target = node('section', 'stack'); target.dataset.diagnosticIssues = ''; target.setAttribute('aria-label', 'Automatic extension diagnostics'); view.append(target);
     const githubPending = Promise.all([loadGithubIssues(githubContent, generation), loadGithubDiscussions(discussionsContent, generation)]);
@@ -436,20 +452,27 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     try {
       const data = await request('view:issues', `/issues${queryString({ ...issueFilters, page: issuePage, limit: 20 })}`);
       if (!isCurrent(generation)) return;
-      target.replaceChildren(); settled(target); target.append(heading('Extension diagnostics', 'Opt-in error reports. Filters apply here only; dates use UTC.'));
+      target.replaceChildren(); settled(target); target.append(heading('Extension diagnostics', 'Opt-in error reports. Filters apply here only; dates use UTC.', 2, 'health'));
       const form = node('form', 'panel issues-filter-panel'); form.dataset.form = 'issues';
-      const primary = node('div', 'toolbar issues-primary-toolbar'); primary.append(field('Search', 'q', issueFilters.q), field('Status', 'status', issueFilters.status, STATUSES), field('Version', 'version', issueFilters.version));
-      primary.querySelector('[name="q"]').maxLength = 200; primary.querySelector('[name="version"]').maxLength = 64;
+      const searchField = field('Search', 'q', issueFilters.q);
+      searchField.prepend(createIcon(doc, 'search'));
+      const primary = node('div', 'toolbar issues-primary-toolbar'); primary.append(searchField, field('Status', 'status', issueFilters.status, STATUSES), field('Version', 'version', issueFilters.version));
+      primary.querySelector('[name="q"]').maxLength = 200; primary.querySelector('[name="q"]').placeholder = 'Search issues, errors, or reports...'; primary.querySelector('[name="version"]').maxLength = 64;
       form.append(primary);
-      const moreFilters = disclosure('More filters', 'issue-filters', 'issues-disclosure'); moreFilters.open ||= Object.entries(issueFilters).some(([key, value]) => !['q', 'status', 'version', 'from', 'to'].includes(key) && value);
+      const moreFilters = disclosure('More filters', 'issue-filters', 'issues-disclosure');
+      moreFilters.querySelector('summary')?.prepend(createIcon(doc, 'sliders'));
+      moreFilters.open ||= Object.entries(issueFilters).some(([key, value]) => !['q', 'status', 'version', 'from', 'to'].includes(key) && value);
       const advanced = node('div', 'filter-grid');
       for (const [label, name, choices] of [['Browser', 'browser', BROWSERS], ['OS', 'os', SYSTEMS], ['Destination', 'destination', ['browser', 'vortex', 'mo2']], ['Mode', 'download_mode', ['manual', 'auto']], ['Fault origin', 'fault_origin', FAULTS], ['Severity', 'severity', ['debug', 'info', 'warning', 'error', 'fatal']], ['Muted', 'muted', ['true', 'false']]]) advanced.append(field(label, name, issueFilters[name], choices));
       advanced.append(field('Category', 'category', issueFilters.category), field('From', 'from', issueFilters.from), field('To', 'to', issueFilters.to)); advanced.querySelector('[name="category"]').maxLength = 80;
       moreFilters.append(advanced); form.append(moreFilters);
-      form.append(node('p', 'muted filter-summary', `${issueFilters.from} to ${issueFilters.to}`));
+      const summary = node('p', 'muted filter-summary');
+      summary.append(createIcon(doc, 'calendar'), doc.createTextNode(`${issueFilters.from} – ${issueFilters.to}`));
+      form.append(summary);
       const actions = node('div', 'filter-actions');
       const apply = node('button', 'button button-primary', 'Apply filters'); apply.type = 'submit';
-      const reset = button('Reset filters', resetIssueFilters, 'button button-quiet button-small');
+      const reset = button('Reset', resetIssueFilters, 'button button-quiet button-small');
+      reset.append(node('span', 'sr-only', ' filters'));
       actions.append(apply, reset); form.append(actions);
       form.addEventListener('submit', (event) => {
         event.preventDefault(); const next = filtersFrom(form, issueFilters); if (!validDates(next.from, next.to)) return dateError(form);
@@ -473,6 +496,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   }
 
   async function loadSettings() {
+    rememberDisclosures();
     const generation = ++viewGeneration; abortAll('view:'); const target = elements['view-settings'];
     pushManager?.dispose(); pushManager = null; target.replaceChildren(); settled(target);
     target.append(heading('Settings', 'Notifications, muted issues and privacy.', 1));
@@ -488,11 +512,11 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         if (error?.status === 401) invalidateSession(error.authInfo); throw error;
       }
     }, notify }); }
-    catch { mount.replaceChildren(section('Notifications', 'Push controls could not be initialized. Refresh to retry.')); }
-    const rules = section('Muted issues', 'Active in the last 30 UTC days. Open an issue to unmute it. Ignored issues also stay quiet.');
+    catch { mount.replaceChildren(section('Notifications', 'Push controls could not be initialized. Refresh to retry.', 'settings')); }
+    const rules = section('Muted issues', 'Active in the last 30 UTC days. Open an issue to unmute it. Ignored issues also stay quiet.', 'issues');
     rules.classList.add('muted-issues-section');
     const list = node('div', 'issue-list'); loading(list, 'Loading mute rules…'); rules.append(list); target.append(rules);
-    const privacy = section('Reports & privacy', 'Reports require opt-in in the extension. Private data stays in memory and is unavailable offline.');
+    const privacy = section('Reports & privacy', 'Reports require opt-in in the extension. Private data stays in memory and is unavailable offline.', 'shield');
     privacy.classList.add('privacy-section');
     const setup = disclosure('Set up automatic reports', 'report-setup', 'settings-information');
     setup.append(node('p', 'muted disclosure-content', REPORT_SETUP));
@@ -523,13 +547,14 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const box = section(title); const labels = node('div', 'toolbar'); labels.append(tag(categoryLabel(value.category)), tag(value.fault_origin ?? 'unknown')); box.append(labels, node('p', '', value.suggested_action ?? 'No suggested action was recorded.')); return box;
   }
   function renderReport(target, report) {
+    rememberDisclosures();
     target.replaceChildren();
     if (!report) { empty(target, 'Report bodies are no longer retained', 'Lifetime issue counts and grouping remain available. New reports will appear here.'); return; }
     const environment = section('Selected report', `Received ${formatDate(report.created_at)}`);
     environment.append(evidence('Error message', report.error_message ?? 'No message retained.'));
     environment.append(keyValues([['Version', report.version], ['Browser', `${report.browser ?? '—'} ${report.browser_version ?? ''}`.trim()], ['OS', report.source === 'relay' ? 'Not reported' : `${report.os ?? '—'} ${report.os_version ?? ''}`.trim()], ['Destination / mode', `${report.destination ?? '—'} / ${report.download_mode ?? '—'}`], ['Severity', report.severity], ['Occurred', formatDate(report.occurred_at)]]));
     const metadata = disclosure('Report metadata', 'report-metadata');
-    metadata.append(keyValues([['Report ID', report.id], ['Source', report.source === 'relay' ? 'Automatic report via the Discord relay' : 'Private diagnostics'], ['Failure stage', report.failure_stage], ['HTTP / Retry-After', `${report.http_status ?? '—'} / ${report.retry_after ?? '—'}`], ['Mod / collection', `${report.mod_id ?? '—'} / ${report.collection_id ?? '—'}`]]));
+    metadata.append(keyValues([['Report ID', report.id], ['Source', report.source === 'relay' ? 'Automatic report via the Discord relay' : 'Private diagnostics'], ['Category', report.category], ['Failure stage', report.failure_stage], ['HTTP / Retry-After', `${report.http_status ?? '—'} / ${report.retry_after ?? '—'}`], ['Mod / collection', `${report.mod_id ?? '—'} / ${report.collection_id ?? '—'}`]]));
     environment.append(metadata); target.append(environment);
     const reportClassification = disclosure('Report classification', 'report-classification');
     reportClassification.append(classification('Classified when received', report)); target.append(reportClassification);
@@ -592,7 +617,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     if (github) { const link = node('a', 'button button-quiet', 'Open GitHub issue ↗'); link.href = github; link.target = '_blank'; link.rel = 'noopener noreferrer'; target.append(link); }
   }
   function renderHistory(target, generation) {
-    target.replaceChildren(); target.append(heading('Report history', 'Select a report to view its evidence.'));
+    target.replaceChildren(); target.append(node('p', 'muted', 'Select a report to view its evidence.'));
     if (!historyData?.items?.length) empty(target, 'No retained report bodies', 'Issue counters survive report retention.');
     else {
       const list = node('div', 'issue-list');
@@ -616,8 +641,11 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       if (!isDetailCurrent(generation) || historyPage !== page || historyRequest !== historyGeneration) return;
       historyData = data; const activeTarget = elements['issue-detail'].querySelector('[data-report-history]'); settled(activeTarget); renderHistory(activeTarget, generation);
     } catch (error) {
-      if (isDetailCurrent(generation) && historyPage === page && historyRequest === historyGeneration) {
-        const activeTarget = elements['issue-detail'].querySelector('[data-report-history]'); showError(activeTarget, error, () => { void loadHistory(page, generation, activeTarget); });
+      if (error?.name !== 'AbortError' && isDetailCurrent(generation) && historyPage === page && historyRequest === historyGeneration) {
+        const activeTarget = elements['issue-detail'].querySelector('[data-report-history]');
+        const historyDisclosure = activeTarget.closest('[data-disclosure-key="report-history"]');
+        if (historyDisclosure) { historyDisclosure.open = true; disclosureState.set('report-history', true); }
+        showError(activeTarget, error, () => { void loadHistory(page, generation, activeTarget); });
       }
     }
   }
@@ -639,6 +667,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   }
   function renderDetail(generation) {
     if (!detail || !isDetailCurrent(generation)) return;
+    rememberDisclosures();
     const target = elements['issue-detail']; target.replaceChildren(); settled(target); const value = detail.issue;
     const title = node('h2', '', `Issue #${value.id}`); title.id = 'issue-title';
     const header = node('div', 'detail-heading'); const titleGroup = node('div'); titleGroup.append(title, node('p', 'muted', value.error_code ?? 'Unknown error'));

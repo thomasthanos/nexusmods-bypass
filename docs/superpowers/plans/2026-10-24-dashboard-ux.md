@@ -2,9 +2,9 @@
 
 **Goal:** Simplify the entire private diagnostics app on iPhone and desktop while preserving every diagnostic, community and notification workflow.
 
-**Architecture:** Keep the existing text-only DOM rendering and API contracts. Share one compact neumorphic visual system across Overview, Issues, Discussions, issue details and Settings; use native disclosures for secondary explanations and history.
+**Architecture:** Keep the existing text-only DOM rendering and API contracts. Share one compact charcoal glass visual system across Overview, Issues, Discussions, issue details and Settings; use native disclosures for secondary explanations and history.
 
-**Design:** Canvas `#12151f`, panels `#171b28`, controls `#1d2233`, text `#f1f4fb`, amber `#f0b86a`, mint `#7ee0b5`. Use the existing native system font for familiar iPhone controls. Left-align headings and numbers, soften shadows, remove glowing text and uppercase labels. Reserve stronger emphasis for the primary action and actionable states.
+**Design:** The owner's supplied reference refines the visual direction to charcoal glass: canvas `#0d0e10`, panels `#1b1c1f`, controls `#26272a`, text `#f6f4f0`, gold `#f3c77a`, mint `#a1f0c8`. Use the existing native system font for familiar iPhone controls. Left-align headings and numbers, use translucent surfaces with fine light borders and warm background light, and reserve gold illumination for active navigation and primary actions. Shared trusted SVG icons identify sections.
 
 ```
 Desktop                         Phone
@@ -15,7 +15,7 @@ Issues + Discussions            Health / filters / details
 Diagnostics and filters         Bottom navigation
 ```
 
-The existing style is an explicit user preference. The refresh improves hierarchy and interaction instead of introducing new decoration, fonts or dependencies.
+The supplied image is the visual reference for all screens. Metrics remain real API values; the backend supplies no time series, so the layout does not invent charts or unsupported date-range controls. No external fonts, image downloads or new dependencies are needed.
 
 ## Constraints and review focus
 
@@ -27,9 +27,11 @@ The existing style is an explicit user preference. The refresh improves hierarch
 
 ## Tasks
 
-- [ ] Refresh growth cards, source explanations and latest-three review history; verify review acknowledgements and deep links.
-- [ ] Simplify Overview, public feeds, diagnostic details and Settings with consistent short action labels and secondary disclosures.
-- [ ] Apply shared compact surfaces, typography, spacing and responsive layouts; inspect phone and desktop screenshots.
-- [ ] Run diagnostics checks and Chromium/WebKit interaction tests, review the patch, commit directly to main and deploy the dashboard.
+- [x] Refresh growth cards, source explanations and latest-three review history; verify review acknowledgements and deep links.
+- [x] Simplify Overview, public feeds, diagnostic details and Settings with consistent short action labels and secondary disclosures.
+- [x] Apply shared compact surfaces, typography, spacing and responsive layouts; inspect phone and desktop screenshots.
+- [x] Run diagnostics checks and Chromium/WebKit interaction tests, review the patch, commit directly to main and deploy the dashboard.
 
-The physical iPhone received the notification test on 24 October, confirmed by the owner. This refresh still requires browser layout/interaction verification after the final styles are applied.
+The physical iPhone received the notification test on 24 October, confirmed by the owner. The refreshed layouts passed Chromium and WebKit checks at 320, 390, 430 and 1280px; 387 diagnostics tests and 31 browser tests per engine passed. The follow-up viewport matrix reported no CSP violations. Independent review findings about hidden history errors and blocked decorative icons were fixed and rechecked.
+
+Deployed on 24 October as Worker version `6a5b15dc-af45-4060-b7d9-76dc4a964efe`. The protected production UI showed real GA4 and Store metrics, exactly three review cards and closed history. Settings retained the existing device registration, and unauthenticated page, script and admin endpoint checks still required Access. This is browser layout verification; the new visual design has not been separately confirmed on the physical phone.

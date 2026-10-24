@@ -18,7 +18,7 @@ export async function startPreviewServer(options = {}) {
   const pair = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
   const kid = crypto.randomUUID();
   const jwk = { ...await crypto.subtle.exportKey('jwk', pair.publicKey), kid, alg: 'RS256', use: 'sig' };
-  const unsigned = `${encode({ alg: 'RS256', typ: 'JWT', kid })}.${encode({ iss: 'https://fixture.cloudflareaccess.com', aud: ['fixture-application-audience'], sub: 'local-preview-fixture', exp: Math.floor(now / 1000) + 3600, nbf: Math.floor(now / 1000) - 10, iat: Math.floor(now / 1000) - 10 })}`;
+  const unsigned = `${encode({ alg: 'RS256', typ: 'JWT', kid })}.${encode({ iss: 'https://fixture.cloudflareaccess.com', aud: ['fixture-application-audience'], sub: 'local-preview-fixture', exp: Math.floor(now / 1000) + 86400 * 30, nbf: Math.floor(now / 1000) - 10, iat: Math.floor(now / 1000) - 10 })}`;
   const token = `${unsigned}.${Buffer.from(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', pair.privateKey, new TextEncoder().encode(unsigned))).toString('base64url')}`;
   const nativeFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
@@ -36,7 +36,7 @@ export async function startPreviewServer(options = {}) {
     ASSETS: { async fetch(request) {
       const pathname = new URL(request.url).pathname;
       const name = pathname === '/' ? 'index.html' : pathname.slice(1);
-      if (!/^(?:index\.html|(?:app|lib|push|growth|sw)\.js|app\.css|manifest\.json|icons\/[a-z0-9-]+\.(?:png|svg))$/.test(name)) return new Response('Not found', { status: 404 });
+      if (!/^(?:index\.html|(?:app|lib|push|growth|sw|ui-icons)\.js|app\.css|manifest\.json|icons\/[a-z0-9-]+\.(?:png|svg))$/.test(name)) return new Response('Not found', { status: 404 });
       try {
         let content = await readFile(new URL(`../../public/${name}`, import.meta.url));
         if (name === 'index.html') content = Buffer.from(content.toString().replace('<body>', '<body><aside style="padding:8px 20px;background:#efb768;color:#10111a;text-align:center;font:600 12px system-ui">Local preview · synthetic verification data</aside>'));
@@ -101,8 +101,17 @@ export async function startPreviewServer(options = {}) {
       // Browser fixtures never call Google Analytics or the public store. The
       // real Worker still verifies Access for the page and every other route.
       let response;
-      if (authenticated && request.method === 'GET' && path === '/api/admin/analytics') response = Response.json({ property_id: '547084285', source: 'ga4_store_listing', state: 'not_configured', fetched_at: null, online_30m: null, weekly_active: null, previous_weekly_active: null, weekly_change_percent: null, history_total_users: null, history_start_date: null, time_zone: null, quality: { subject_to_thresholding: false, sampled: false, data_loss: false }, message: null });
-      else if (authenticated && request.method === 'GET' && path === '/api/admin/store') response = Response.json({ state: 'ready', snapshot: { extension_id: 'chfghiknjhpcncpcjopglefnckckdlpj', store_url: 'https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj', version: '3.2.1', users: 4321, rating_average: 4.5, rating_count: 12, written_review_count: 0, latest_release_version: '3.2.1', latest_release_url: 'https://github.com/thomasthanos/nexusmods-bypass/releases/tag/v3.2.1', version_status: 'up_to_date', fetched_at: now, reviews_complete: true }, reviews: [], new_review_count: 0, last_checked_at: now, sync_interval_seconds: 900, stale: false, message: null });
+      if (authenticated && request.method === 'GET' && path === '/api/admin/analytics') {
+        if (options.standalone) {
+          response = Response.json({ property_id: '547084285', source: 'ga4_store_listing', state: 'ready', fetched_at: Date.now(), online_30m: 124, weekly_active: null, previous_weekly_active: null, weekly_change_percent: 12, history_total_users: 3200, history_start_date: null, time_zone: 'Europe/Athens', quality: { subject_to_thresholding: false, sampled: false, data_loss: false }, message: null });
+        } else {
+          response = Response.json({ property_id: '547084285', source: 'ga4_store_listing', state: 'not_configured', fetched_at: null, online_30m: null, weekly_active: null, previous_weekly_active: null, weekly_change_percent: null, history_total_users: null, history_start_date: null, time_zone: null, quality: { subject_to_thresholding: false, sampled: false, data_loss: false }, message: null });
+        }
+      }
+      else if (authenticated && request.method === 'GET' && path === '/api/admin/store') {
+        const storeStale = Boolean(options.standalone);
+        response = Response.json({ state: 'ready', snapshot: { extension_id: 'chfghiknjhpcncpcjopglefnckckdlpj', store_url: 'https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj', version: '3.2.1', users: 4321, rating_average: 4.5, rating_count: 12, written_review_count: 0, latest_release_version: '3.2.1', latest_release_url: 'https://github.com/thomasthanos/nexusmods-bypass/releases/tag/v3.2.1', version_status: 'up_to_date', fetched_at: storeStale ? Date.now() - 3600000 : now, reviews_complete: true }, reviews: [], new_review_count: 0, last_checked_at: now, sync_interval_seconds: 900, stale: storeStale, message: null });
+      }
       else if (authenticated && request.method === 'POST' && path === '/api/admin/store/reviews/ack') response = Response.json({ ok: true });
       else response = await worker.fetch(request, env, { waitUntil(promise) { pending.add(promise); promise.finally(() => pending.delete(promise)); }, passThroughOnException() {}, props: {} });
       outgoing.writeHead(response.status, Object.fromEntries(response.headers));
@@ -125,7 +134,7 @@ export async function startPreviewServer(options = {}) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const preview = await startPreviewServer();
+  const preview = await startPreviewServer({ standalone: true });
   console.log(`Synthetic diagnostics preview: ${preview.origin}`);
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await preview.close(); process.exit(0); });
 }

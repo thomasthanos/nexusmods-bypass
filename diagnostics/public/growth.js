@@ -1,4 +1,5 @@
 import { formatNumber } from './lib.js';
+import { createIcon } from './ui-icons.js';
 
 const STORE_URL = 'https://chromewebstore.google.com/detail/nexusmods-bypass/chfghiknjhpcncpcjopglefnckckdlpj';
 const RELEASE_PREFIX = 'https://github.com/thomasthanos/nexusmods-bypass/releases/tag/';
@@ -36,10 +37,15 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   function listen(target, event, action) {
     target.addEventListener(event, action); listeners.push(() => target.removeEventListener(event, action));
   }
-  function heading(panel, title, description) {
+  function heading(panel, title, description, iconName = { 'Listing visitors': 'audience', 'Chrome Web Store': 'store', Reviews: 'reviews' }[title]) {
     rememberDisclosures(panel);
     panel.replaceChildren(); panel.removeAttribute('aria-busy');
-    const top = element('div', 'panel-heading'); const copy = element('div');
+    const top = element('div', 'panel-heading');
+    if (iconName) {
+      const badge = createIcon(doc, iconName, { tile: true }); badge.classList.add('panel-icon-badge');
+      top.append(badge);
+    }
+    const copy = element('div');
     copy.append(element('h2', '', title)); if (description) copy.append(element('p', 'muted', description));
     top.append(copy); panel.append(top); return top;
   }
@@ -52,14 +58,33 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     const details = element('details', 'growth-details'); details.dataset.growthDetails = key; details.open = uiState[key] === true;
     const body = element('div', 'growth-details-body');
     if (explanation) body.append(element('p', 'muted', explanation));
-    details.append(element('summary', '', 'Source & timing'), body);
+    const summary = element('summary');
+    const summaryRow = element('span', 'growth-details-summary-content');
+    summaryRow.append(createIcon(doc, 'clock'), doc.createTextNode(' Source & timing'));
+    summary.append(summaryRow);
+    details.append(summary, body);
     details.addEventListener('toggle', () => { if (!disposed) uiState[key] = details.open; });
     panel.append(details); return body;
   }
   function metric(label, value, note, key) {
     const card = element('div', 'growth-metric'); if (key) card.dataset.metric = key;
-    card.append(element('div', 'growth-label', label), element('div', 'growth-value', value));
-    if (note) card.append(element('p', 'growth-note', note)); return card;
+    const labelNode = element('div', 'growth-label');
+    const icon = { online: 'clock', weekly: 'audience', history: 'users', users: 'users', rating: 'rating', reviews: 'reviews' }[key];
+    if (icon) labelNode.append(createIcon(doc, icon), doc.createTextNode(' '));
+    labelNode.append(doc.createTextNode(label));
+    card.append(labelNode, element('div', 'growth-value', value));
+    if (note) {
+      const noteEl = element('p', 'growth-note');
+      if (key === 'users' && note.includes('Public user badge')) {
+        const shieldBadge = element('span', 'badge-shield');
+        shieldBadge.append(createIcon(doc, 'shield'), doc.createTextNode(' Public user badge'));
+        noteEl.append(shieldBadge);
+      } else {
+        noteEl.textContent = note;
+      }
+      card.append(noteEl);
+    }
+    return card;
   }
   function fetched(panel, source, timestamp, stale = false) {
     const note = element('p', 'muted source-note growth-source');
@@ -93,7 +118,8 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     const previous = panel.querySelector('[data-store-freshness]');
     if (fresh) previous?.remove();
     else if (!previous) {
-      const warning = element('p', 'growth-state', reviews ? 'Saved reviews. Refresh for updates.' : 'Saved store data. Refresh for updates.');
+      const warning = element('div', 'growth-state growth-freshness-banner');
+      warning.append(createIcon(doc, 'sync'), doc.createTextNode(reviews ? ' Saved reviews. Refresh for updates.' : ' Saved store data. Refresh for updates.'));
       warning.dataset.storeFreshness = ''; panel.insertBefore(warning, source?.closest('.growth-details') ?? source);
     }
     const label = source?.querySelector('.growth-fetched-label');
@@ -108,7 +134,8 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   }
   function renderAnalytics() {
     if (disposed) return;
-    const top = heading(analyticsPanel, 'Listing visitors', 'Chrome Web Store listing');
+    const top = heading(analyticsPanel, 'Listing visitors', 'Chrome Web Store listing', 'audience');
+
     const ready = analytics?.state === 'ready';
     if (isFresh(analytics) && availableToPoll() && Number.isSafeInteger(analytics.online_30m) && analytics.online_30m >= 0) {
       const live = element('span', 'growth-live', 'Live'); live.dataset.live = 'true'; top.append(live);
@@ -141,7 +168,9 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     fetched(source, `Google Analytics${zone ? ` · ${zone}` : ''}`, analytics?.fetched_at, ready && !isFresh(analytics));
   }
   function externalLink(label, href) {
-    const link = element('a', 'button button-small button-quiet', label); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; return link;
+    const link = element('a', 'button button-small button-quiet', label); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    link.append(doc.createTextNode(' '), createIcon(doc, 'external'));
+    return link;
   }
   function releaseUrl(value) {
     if (typeof value !== 'string' || !value.startsWith(RELEASE_PREFIX)) return null;
@@ -151,7 +180,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   function renderStore() {
     if (disposed) return;
     const snapshot = store?.snapshot;
-    const top = heading(storePanel, 'Chrome Web Store');
+    const top = heading(storePanel, 'Chrome Web Store', null, 'store');
     top.append(externalLink('View listing', STORE_URL));
     if (!snapshot) {
       storePanel.append(element('p', 'growth-state', 'Store data is temporarily unavailable.'), button('Retry store', () => { void loadStore(); }));
@@ -164,12 +193,22 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     grid.append(metric('Store users', count(snapshot.users), 'Public user badge', 'users'), ratingCard, metric('Written reviews', count(snapshot.written_review_count), '', 'reviews'));
     storePanel.append(grid);
     const version = element('div', 'growth-version');
-    const versions = element('div'); versions.append(element('strong', '', `Store ${text(snapshot.version, 64) || 'version unavailable'}`));
+    const versionLeft = element('div', 'growth-version-info');
+    versionLeft.append(createIcon(doc, 'chrome'));
+    const versions = element('div');
+    versions.append(element('strong', '', `Store ${text(snapshot.version, 64) || 'version unavailable'}`));
     versions.append(element('span', 'muted', `Release ${text(snapshot.latest_release_version, 64) || 'unavailable'}`));
+    versionLeft.append(versions);
     const labels = { up_to_date: 'Up to date', store_behind: 'Update pending', store_ahead: 'Store ahead', unknown: 'Comparison unavailable' };
-    const status = element('span', 'tag', labels[snapshot.version_status] ?? labels.unknown); status.dataset.versionStatus = snapshot.version_status;
-    version.append(versions, status);
-    const release = releaseUrl(snapshot.latest_release_url); if (release) version.append(externalLink('Release', release));
+    const status = element('span', 'tag tag-version', '');
+    if (snapshot.version_status === 'up_to_date') status.append(createIcon(doc, 'check'), doc.createTextNode(' '));
+    status.append(doc.createTextNode(labels[snapshot.version_status] ?? labels.unknown));
+    status.dataset.versionStatus = snapshot.version_status;
+    const versionRight = element('div', 'growth-version-action');
+    versionRight.append(status);
+    const release = releaseUrl(snapshot.latest_release_url);
+    if (release) versionRight.append(externalLink('Release', release));
+    version.append(versionLeft, versionRight);
     storePanel.append(version);
     const storeStale = !isStoreFresh();
     renderedStoreFresh = !storeStale;
@@ -194,7 +233,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     if (disposed) return;
     const previousHistory = reviewsPanel.querySelector('[data-review-history]');
     if (previousHistory) reviewHistoryOpen = previousHistory.open;
-    const top = heading(reviewsPanel, 'Reviews');
+    const top = heading(reviewsPanel, 'Reviews', null, 'reviews');
     const reviews = Array.isArray(store?.reviews) ? store.reviews.filter((item, index, list) => typeof item?.id === 'string' && UUID.test(item.id) && list.findIndex((other) => typeof other?.id === 'string' && other.id.toLowerCase() === item.id.toLowerCase()) === index).slice(0, 100)
       .sort((a, b) => (Number.isFinite(b.created_at) ? b.created_at : 0) - (Number.isFinite(a.created_at) ? a.created_at : 0) || a.id.localeCompare(b.id)) : [];
     const newCount = Number.isSafeInteger(store?.new_review_count) && store.new_review_count > 0 ? store.new_review_count : 0;

@@ -161,3 +161,29 @@ test('retrying initialization cannot replace a fresh browser subscription with a
   const save = ui.calls.find((call) => call.options.method === 'POST');
   assert.equal(save.options.body.endpoint, 'https://web.push.apple.com/fresh');
 });
+
+test('device summaries stay short while raw browser details and all-device test scope remain available', async (t) => {
+  const userAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1';
+  const ui = await setup(t, { requestOverride(path, options) {
+    if (path === '/push/subscriptions' && !options.method) return { items: [{ id: 91, provider: 'apple', user_agent: userAgent, expiration_time: null }] };
+  } });
+  assert.equal(ui.container.querySelector('.push-device-name').textContent, 'iPhone · Safari');
+  assert.equal(ui.container.querySelector('.push-device-metadata').open, false);
+  assert.equal(ui.container.querySelector('.push-device-agent').textContent, userAgent);
+  assert.equal(ui.container.querySelector('.push-maintenance').open, false);
+  assert.match(ui.container.querySelector('.push-maintenance > summary').textContent, /1/);
+  const testNote = ui.container.querySelector('.push-test-note');
+  assert.match(testNote.textContent, /all registered devices/); assert.match(testNote.textContent, /does not confirm display/);
+  assert.equal(testNote.closest('details'), null, 'test scope is visible beside the main actions');
+  assert.equal(ui.button('test').textContent, 'Test all devices');
+  assert.equal(ui.container.querySelector('.push-local-options').hidden, true);
+});
+
+test('unknown device agents do not acquire a guessed browser or operating system', async (t) => {
+  const userAgent = 'Unrecognized test agent';
+  const ui = await setup(t, { requestOverride(path, options) {
+    if (path === '/push/subscriptions' && !options.method) return { items: [{ id: 91, provider: 'other', user_agent: userAgent, expiration_time: null }] };
+  } });
+  assert.equal(ui.container.querySelector('.push-device-name').textContent, 'Unknown device');
+  assert.equal(ui.container.querySelector('.push-device-agent').textContent, userAgent);
+});

@@ -570,3 +570,73 @@ test('successful copy reports its outcome inside the open modal', async (t) => {
   assert.equal(feedback.getAttribute('role'), 'status'); assert.equal(feedback.hidden, false); assert.match(feedback.textContent, /context copied/);
   assert.equal(document.querySelector('#toast').hidden, true);
 });
+
+test('public feeds show the newest three entries and preserve expansion on refresh', async (t) => {
+  const issues = Array.from({ length: 5 }, (_, index) => githubIssue({ number: 34 + index, title: `Public issue ${index + 1}`, url: `${'https://github.com/thomasthanos/nexusmods-bypass/issues'}/${34 + index}`, updated_at: `2026-10-${20 + index}T10:00:00Z` }));
+  const discussions = Array.from({ length: 5 }, (_, index) => githubDiscussion({ number: 35 + index, title: `Discussion ${index + 1}`, url: `${'https://github.com/thomasthanos/nexusmods-bypass/discussions'}/${35 + index}`, updated_at: `2026-10-${20 + index}T10:00:00Z` }));
+  const { app, document } = setup(t, (path) => path === '/github-issues' ? githubResult(issues, { stale: true }) : path === '/github-discussions' ? discussionsResult(discussions, { stale: true }) : undefined);
+  await app.navigate('issues');
+  for (const selector of ['[data-github-issues]', '[data-github-discussions]']) {
+    const panel = document.querySelector(selector); const list = panel.querySelector('.issue-list'); const more = panel.querySelector('.feed-more');
+    assert.equal(list.querySelectorAll('a.issue-row').length, 3);
+    assert.match(list.firstElementChild.textContent, /5/);
+    assert.equal(more.open, false); assert.equal(more.querySelectorAll('a.issue-row').length, 2);
+    assert.match(more.querySelector('summary').textContent, /2 more/);
+    assert.equal(panel.querySelector('.inline-message').closest('details'), null, 'stale warning stays visible');
+    assert.equal(panel.querySelector('.source-note').closest('details'), null, 'source freshness stays visible');
+    more.open = true;
+  }
+  await app.navigate('issues');
+  assert.equal(document.querySelector('[data-github-issues] .feed-more').open, true);
+  assert.equal(document.querySelector('[data-github-discussions] .feed-more').open, true);
+});
+
+test('secondary tools remember expansion while report errors and lifecycle controls stay outside disclosures', async (t) => {
+  const { app, document } = setup(t); await tick();
+  for (const key of ['overview-filters', 'compare-releases']) {
+    const disclosure = document.querySelector(`[data-disclosure-key="${key}"]`);
+    assert.equal(disclosure.open, false); disclosure.open = true;
+  }
+  await app.navigate('overview');
+  for (const key of ['overview-filters', 'compare-releases']) assert.equal(document.querySelector(`[data-disclosure-key="${key}"]`).open, true);
+  await app.openIssue(1);
+  const detail = document.querySelector('#issue-detail');
+  assert.equal(detail.querySelector('[data-form="lifecycle"]').closest('details'), null);
+  assert.equal(detail.querySelector('[data-selected-report] .evidence-block').closest('details'), null);
+  for (const key of ['execution-timeline', 'dom-evidence', 'stack-trace', 'issue-grouping', 'report-history']) assert.equal(detail.querySelector(`[data-disclosure-key="${key}"]`).open, false);
+  assert.match(detail.querySelector('[data-disclosure-key="issue-grouping"]').textContent, /NETWORK_UNREACHABLE/);
+  assert.match(detail.querySelector('.detail-heading').textContent, /Copy debug context/);
+});
+
+for (const status of [403, 500]) test(`a ${status} report history failure opens its disclosure and keeps Retry visible`, async (t) => {
+  let fail = true;
+  const { app, document } = setup(t, (path, options) => {
+    if (path.includes('/reports?') && fail) return Promise.reject(Object.assign(new Error('PRIVATE HISTORY DETAIL'), { status }));
+    if (options.method === 'PATCH') return { issue: { ...issue(), ...options.body } };
+    return undefined;
+  });
+  await app.openIssue(1);
+  let history = document.querySelector('[data-disclosure-key="report-history"]');
+  assert.equal(history.open, true, 'history errors must not remain inside a closed disclosure');
+  const error = history.querySelector('[role="alert"]'); const retry = error.querySelector('button');
+  assert.equal(retry.textContent, 'Retry'); assert.equal(retry.closest('details').open, true);
+  assert.match(error.textContent, status === 403 ? /request was blocked/ : /could not be loaded/);
+  assert.equal(document.querySelector('#app-message').hidden, true);
+  assert.match(document.querySelector('[data-selected-report]').textContent, /<img src=x/);
+  assert.doesNotMatch(document.body.textContent, /PRIVATE HISTORY DETAIL/);
+  fail = false; retry.click(); await tick();
+  assert.ok(history.querySelector('[data-report-id="report-one"]')); assert.equal(history.querySelector('[role="alert"]'), null);
+  const form = document.querySelector('[data-form="lifecycle"]'); form.elements.namedItem('muted').checked = true;
+  form.dispatchEvent(new document.defaultView.Event('submit', { cancelable: true })); await tick();
+  history = document.querySelector('[data-disclosure-key="report-history"]');
+  assert.equal(history.open, true, 'expansion survives the next detail render');
+});
+
+test('a report history authentication failure clears private views and closes the issue', async (t) => {
+  const { app, document } = setup(t, (path) => path.includes('/reports?') ? Promise.reject(Object.assign(new Error('PRIVATE HISTORY AUTH DETAIL'), { status: 401 })) : undefined);
+  await app.openIssue(1);
+  assert.equal(document.querySelector('#issue-dialog').open, false);
+  for (const id of ['view-overview', 'view-issues', 'view-settings', 'issue-detail']) assert.equal(document.getElementById(id).textContent, '');
+  assert.equal(document.querySelector('#app-message').hidden, false);
+  assert.doesNotMatch(document.body.textContent, /PRIVATE HISTORY AUTH DETAIL/);
+});

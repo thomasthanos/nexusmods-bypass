@@ -1,3 +1,5 @@
+import { createIcon } from './ui-icons.js';
+
 /** Browser-only push management. Subscription credentials stay in the browser and protected API. */
 export function mountPushManager(container, { request, notify = () => {} }) {
   const doc = container.ownerDocument; const win = doc.defaultView; const nav = win.navigator;
@@ -15,21 +17,34 @@ export function mountPushManager(container, { request, notify = () => {} }) {
   }
   const panel = element('section', 'panel push-panel'); panel.setAttribute('aria-labelledby', 'push-heading');
   const heading = element('h2', '', 'Notifications'); heading.id = 'push-heading';
-  const description = element('p', 'muted', 'Receive critical issues, regressions and detected spikes on registered devices. Permission is requested only when you enable notifications.');
+  const panelHeading = element('div', 'panel-heading'); const headingCopy = element('div', 'heading-copy'); headingCopy.append(heading); panelHeading.append(createIcon(doc, 'settings', { tile: true }), headingCopy);
+  const description = element('p', 'muted', 'Alerts for critical issues, regressions and spikes. Permission is requested only when you enable notifications.');
   const guidance = element('p', 'alert push-guidance');
   const status = element('p', 'push-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   const actions = element('div', 'button-row push-actions'); const deviceList = element('div', 'push-devices');
-  const deviceHeading = element('h4', '', 'Registered devices');
-  const deviceNote = element('p', 'muted', 'The test sends to all registered devices. Provider acceptance does not confirm that a device displayed the notification.');
+  const deviceControls = element('div', 'push-device-controls');
+  const localOptions = element('details', 'disclosure compact-disclosure push-local-options'); localOptions.append(element('summary', '', 'This device options'));
+  const localNote = element('p', 'muted', 'Turning off removes this device’s subscription and server registration.'); localOptions.append(localNote, deviceControls);
+  const maintenance = element('details', 'disclosure compact-disclosure push-maintenance');
+  const deviceHeading = element('summary', '', 'Registered devices');
+  const deviceNote = element('p', 'muted push-test-note', 'The test sends to all registered devices. Provider acceptance does not confirm display.');
+  maintenance.append(deviceHeading, element('p', 'muted', 'Removing a server registration stops its alerts. A browser subscription can be synced again.'), deviceList);
   const buttons = {};
-  function button(action, label, className = 'button button-quiet') {
+  function button(action, label, className = 'button button-quiet', target = actions) {
     const node = element('button', className, label); node.type = 'button'; node.dataset.pushAction = action;
-    buttons[action] = node; actions.append(node); return node;
+    buttons[action] = node; target.append(node); return node;
   }
   button('enable', 'Enable on this device', 'button button-primary'); button('sync', 'Sync this device', 'button');
-  button('disable', 'Disable on this device', 'button button-danger'); button('rotate', 'Replace with current server key', 'button button-danger');
-  button('test', 'Send test notification', 'button'); button('refresh', 'Refresh push status', 'button');
-  panel.append(heading, description, guidance, status, actions, deviceHeading, deviceNote, deviceList); container.replaceChildren(panel);
+  button('disable', 'Turn off this device', 'button button-danger', deviceControls); button('rotate', 'Replace subscription', 'button button-danger');
+  button('test', 'Test all devices', 'button'); button('refresh', 'Refresh status', 'button button-quiet');
+  panel.append(panelHeading, description, guidance, status, actions, deviceNote, localOptions, maintenance); container.replaceChildren(panel);
+
+  function deviceName(userAgent) {
+    const ua = typeof userAgent === 'string' ? userAgent : '';
+    const system = /iPad/i.test(ua) ? 'iPad' : /iPhone|iPod/i.test(ua) ? 'iPhone' : /Android/i.test(ua) ? 'Android' : /Windows/i.test(ua) ? 'Windows' : /CrOS/i.test(ua) ? 'ChromeOS' : /Macintosh|Mac OS X/i.test(ua) ? 'Mac' : /Linux/i.test(ua) ? 'Linux' : '';
+    const browser = /Edg(?:e|A|iOS)?\//i.test(ua) ? 'Edge' : /OPR\/|Opera/i.test(ua) ? 'Opera' : /Firefox\/|FxiOS\//i.test(ua) ? 'Firefox' : /Chrome\/|CriOS\//i.test(ua) ? 'Chrome' : /Safari\//i.test(ua) ? 'Safari' : '';
+    return [system, browser].filter(Boolean).join(' · ') || 'Unknown device';
+  }
 
   function permission() { return win.Notification?.permission ?? 'unsupported'; }
   function keyBytes(value) {
@@ -71,24 +86,31 @@ export function mountPushManager(container, { request, notify = () => {} }) {
     buttons.enable.hidden = !!local;
     buttons.enable.disabled = busy || !initialized || !supported || permission() === 'denied' || !!local;
     buttons.sync.hidden = !local; buttons.sync.disabled = busy || !initialized || !local || expired();
+    buttons.sync.classList.toggle('button-primary', !!local && !serverId);
     buttons.disable.hidden = !local; buttons.disable.disabled = busy || !initialized || !local;
+    localOptions.hidden = !local;
     buttons.rotate.hidden = !local || (!keyChanged() && !expired()); buttons.rotate.disabled = busy || !initialized || !supported || permission() !== 'granted';
     renderTestButton();
     buttons.refresh.disabled = busy;
+    deviceHeading.textContent = `Registered devices${initialized ? ` (${devices.length})` : ''}`;
+    const expandedDevices = new Set([...deviceList.querySelectorAll('details[open]')].map((item) => item.dataset.deviceId));
     deviceList.replaceChildren();
     if (!devices.length) deviceList.append(element('p', 'empty-state', initialized ? 'No server registrations were found.' : 'Loading registered devices…'));
     for (const device of devices) {
       const row = element('div', 'push-device');
       const details = element('div', 'push-device-details');
       const label = element('p', 'push-device-name');
-      label.append(doc.createTextNode(`${device.provider || 'Push'} · ${device.user_agent || 'Unknown device'}${device.id === serverId ? ' · ' : ''}`));
+      label.append(doc.createTextNode(deviceName(device.user_agent)));
       if (device.id === serverId) {
         const badge = element('span', 'tag tag-success tag-this-device', 'This device');
         label.append(badge);
       }
-      const detail = element('small', 'muted push-device-meta', device.expiration_time ? `Expires ${new Date(device.expiration_time).toLocaleString()}` : 'No expiration supplied by the browser');
-      const remove = element('button', 'button button-danger', device.id === serverId ? 'Remove this registration' : 'Remove registration'); remove.type = 'button'; remove.disabled = busy;
-      remove.setAttribute('aria-label', `Remove registration ${device.id}: ${device.provider || 'Push'}`);
+      const provider = ({ apple: 'Apple Push', fcm: 'Google Push', mozilla: 'Mozilla Push' })[device.provider] || device.provider || 'Web Push';
+      const detail = element('small', 'muted push-device-meta', provider);
+      const metadata = element('details', 'push-device-metadata'); metadata.dataset.deviceId = String(device.id); metadata.open = expandedDevices.has(String(device.id));
+      metadata.append(element('summary', '', 'Device details'), element('p', 'muted push-device-agent', device.user_agent || 'No browser details supplied.'), element('small', 'muted', device.expiration_time ? `Expires ${new Date(device.expiration_time).toLocaleString()}` : 'No expiry supplied by the browser'));
+      const remove = element('button', 'button button-danger', 'Remove registration'); remove.type = 'button'; remove.disabled = busy;
+      remove.setAttribute('aria-label', `Remove registration ${device.id}: ${deviceName(device.user_agent)}`);
       remove.addEventListener('click', () => perform(async () => {
         await api(`/push/subscriptions/${device.id}`, { method: 'DELETE' });
         if (disposed) return;
@@ -96,14 +118,14 @@ export function mountPushManager(container, { request, notify = () => {} }) {
         devices = devices.filter((item) => item.id !== device.id);
         setMessage('Server registration removed. A subscription on this browser can be synced again.', 'info', true);
       }));
-      details.append(label, detail); row.append(details, remove); deviceList.append(row);
+      details.append(label, detail, metadata); row.append(details, remove); deviceList.append(row);
     }
   }
   async function api(path, options = {}) { return request(path, { ...options, signal }); }
   function renderTestButton() {
     if (disposed) return;
     const seconds = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
-    buttons.test.textContent = seconds ? `Test available in ${seconds}s` : 'Send test notification';
+    buttons.test.textContent = seconds ? `Test in ${seconds}s` : 'Test all devices';
     buttons.test.disabled = busy || !initialized || seconds > 0;
   }
   async function refreshDevices(generation = null) {

@@ -21,6 +21,12 @@ async function session(t, width) {
   const context = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1,
     ...(engineName === 'webkit' ? { serviceWorkers: 'block' } : {}) });
   t.after(() => context.close());
+  await context.addInitScript(() => {
+    window.diagnosticsCspViolations = [];
+    document.addEventListener('securitypolicyviolation', (event) => {
+      window.diagnosticsCspViolations.push({ directive: event.effectiveDirective, blockedURI: event.blockedURI, disposition: event.disposition });
+    });
+  });
   const page = await context.newPage(); const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route('https://cdn.jsdelivr.net/**', (route) => route.abort());
@@ -77,6 +83,10 @@ async function screenshot(page, name, modal = false) {
   await page.screenshot({ path: fileURLToPath(new URL(name, screenshots)), fullPage: !modal });
 }
 
+async function noPolicyViolations(page, view) {
+  assert.deepEqual(await page.evaluate(() => window.diagnosticsCspViolations), [], `${view} must render under the production content security policy`);
+}
+
 for (const width of [320, 390, 430, 1280]) {
   test(`all views and the issue sheet support keyboard and fit ${width}px`, { timeout: 60_000 }, async (t) => {
     const { page, errors } = await session(t, width);
@@ -97,6 +107,7 @@ for (const width of [320, 390, 430, 1280]) {
       await screenshot(page, `${view}-${width}.png`);
       await exerciseDisclosures(page, '#view-' + view);
       await fitsViewport(page, '#view-' + view, width < 600);
+      await noPolicyViolations(page, view);
     }
     await page.locator('[data-view="issues"]').press('Enter');
     const launcher = page.locator('[data-diagnostic-issues] .issue-row').filter({ hasText: 'COLLECTION_HOST_MISSING' });
@@ -109,11 +120,13 @@ for (const width of [320, 390, 430, 1280]) {
     await expect(page.locator('#issue-title')).toHaveText(/Issue #\d+/);
     await fitsViewport(page, '#issue-dialog', width < 600);
     await screenshot(page, `issue-${width}.png`, true);
+    await noPolicyViolations(page, 'issue sheet');
     await exerciseDisclosures(page, '#issue-dialog');
     await fitsViewport(page, '#issue-dialog', width < 600);
     await expect(page.locator('#issue-dialog .timeline')).toBeVisible();
     await page.locator('#issue-dialog .timeline').scrollIntoViewIfNeeded();
     await page.screenshot({ path: fileURLToPath(new URL(`issue-evidence-${width}.png`, screenshots)), fullPage: false });
+    await noPolicyViolations(page, 'expanded issue evidence');
     const close = page.getByRole('button', { name: 'Close issue details' });
     await close.focus(); await page.keyboard.press('Shift+Tab');
     assert.equal(await page.evaluate(() => document.querySelector('#issue-dialog').contains(document.activeElement)), true, 'Keyboard focus stays inside the modal');

@@ -55,6 +55,37 @@ test('listing metrics distinguish visitors, store users, ratings and written rev
   assert.doesNotMatch(container.textContent, /All installs|cumulative installs|runtime active/i);
 });
 
+test('growth headings and metric labels pair readable text with decorative line icons', async (t) => {
+  const { container } = setup(t); await tick();
+  for (const [panel, icon] of [['analytics', 'audience'], ['store', 'store'], ['reviews', 'reviews']]) {
+    const heading = container.querySelector(`[data-growth-${panel}] .panel-heading`);
+    const graphic = heading.querySelector('.section-icon > svg.ui-icon');
+    assert.ok(graphic, `${panel} has a section icon`);
+    assert.equal(graphic.dataset.icon, icon);
+    assert.equal(graphic.getAttribute('aria-hidden'), 'true');
+    assert.equal(graphic.getAttribute('focusable'), 'false');
+    assert.ok(heading.querySelector('h2').textContent.trim().length > 0);
+  }
+  for (const [metric, icon] of [['online', 'clock'], ['weekly', 'audience'], ['history', 'users'], ['users', 'users'], ['rating', 'rating'], ['reviews', 'reviews']]) {
+    const label = container.querySelector(`[data-metric="${metric}"] .growth-label`);
+    assert.equal(label.querySelector('svg.ui-icon')?.dataset.icon, icon);
+    assert.ok(label.textContent.trim().length > 0);
+  }
+  assert.equal(container.querySelector('svg script,svg foreignObject,svg image,svg use,svg [href]'), null);
+});
+
+test('aggregate listing data never invents chart samples or unsupported time-range controls', async (t) => {
+  const { container } = setup(t); await tick();
+  const panel = container.querySelector('[data-growth-analytics]');
+  assert.equal(panel.querySelector('.visitor-chart,.visitor-segments'), null);
+  assert.equal([...panel.querySelectorAll('button')].some((control) => /28 days/.test(control.textContent)), false);
+  assert.equal(panel.querySelector('[data-metric="online"] .growth-value').textContent, '12');
+  assert.equal(panel.querySelector('[data-metric="weekly"] .growth-value').textContent, '580');
+  assert.equal(panel.querySelector('[data-metric="history"] .growth-value').textContent, '21,000');
+  assert.match(panel.querySelector('[data-metric="online"] .growth-label').textContent, /30 min/);
+  assert.equal(panel.querySelector('[data-metric="online"] .growth-trend-pill'), null, 'weekly growth must not be presented as realtime growth');
+});
+
 test('source explanations are collapsed while quality warnings stay visible', async (t) => {
   const { container } = setup(t, (path) => path === '/analytics' ? analytics({ quality: { subject_to_thresholding: true, sampled: false, data_loss: false } }) : undefined); await tick();
   const analyticsPanel = container.querySelector('[data-growth-analytics]');
