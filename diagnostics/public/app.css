@@ -2028,7 +2028,7 @@ td:first-child { color: var(--text); font-weight: 550; }
   background: #121315;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
-  padding: 12px 10px;
+  padding: 10px 8px 8px;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -2037,8 +2037,7 @@ td:first-child { color: var(--text); font-weight: 550; }
 [data-growth-analytics] .growth-metric-content {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
+  height: 100%;
   width: 100%;
   min-width: 0;
 }
@@ -2051,7 +2050,7 @@ td:first-child { color: var(--text); font-weight: 550; }
   justify-content: center;
   width: 100%;
   gap: 4px;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
   font-weight: 450;
   white-space: nowrap;
   letter-spacing: -0.015em;
@@ -2069,7 +2068,8 @@ td:first-child { color: var(--text); font-weight: 550; }
   font-weight: 700;
   color: #fff;
   line-height: 1.15;
-  margin-bottom: 2px;
+  margin-top: auto;
+  margin-bottom: auto;
   letter-spacing: -0.02em;
   text-align: center;
   width: 100%;
@@ -2080,7 +2080,7 @@ td:first-child { color: var(--text); font-weight: 550; }
   font-size: .62rem;
   color: #8e9aaf;
   line-height: 1.25;
-  margin-top: 4px;
+  margin-top: auto;
   text-align: center;
   width: 100%;
 }
@@ -2096,13 +2096,14 @@ td:first-child { color: var(--text); font-weight: 550; }
   background: #121315;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
-  padding: 12px 10px;
+  padding: 10px 8px 8px;
   display: flex;
   flex-direction: column;
 }
 [data-growth-store] .growth-metric-content {
   display: flex;
   flex-direction: column;
+  height: 100%;
   width: 100%;
 }
 [data-growth-store] .growth-label {
@@ -2113,7 +2114,7 @@ td:first-child { color: var(--text); font-weight: 550; }
   justify-content: center;
   width: 100%;
   gap: 4px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   white-space: nowrap;
   letter-spacing: -0.015em;
 }
@@ -2130,7 +2131,8 @@ td:first-child { color: var(--text); font-weight: 550; }
   font-size: 1.25rem;
   font-weight: 700;
   color: #fff;
-  margin-bottom: 4px;
+  margin-top: auto;
+  margin-bottom: auto;
   letter-spacing: -0.02em;
   text-align: center;
   width: 100%;
@@ -2679,13 +2681,15 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
   [data-growth-store] .growth-metrics,
   [data-growth-analytics] .growth-metrics { gap: 6px; }
   [data-growth-store] .growth-metric,
-  [data-growth-analytics] .growth-metric { padding: 10px 5px; border-radius: 14px; }
+  [data-growth-analytics] .growth-metric { padding: 8px 6px 7px; border-radius: 13px; }
+  [data-growth-store] .growth-metric-content,
+  [data-growth-analytics] .growth-metric-content { height: 100%; display: flex; flex-direction: column; }
   [data-growth-store] .growth-label,
-  [data-growth-analytics] .growth-label { font-size: clamp(.52rem, 2.6vw, .7rem) !important; gap: 4px !important; white-space: nowrap !important; letter-spacing: -0.015em !important; justify-content: center !important; width: 100% !important; }
+  [data-growth-analytics] .growth-label { font-size: clamp(.52rem, 2.5vw, .68rem) !important; gap: 4px !important; white-space: nowrap !important; letter-spacing: -0.015em !important; justify-content: center !important; width: 100% !important; margin-bottom: 2px !important; }
   [data-growth-store] .growth-label svg,
   [data-growth-analytics] .growth-label svg { width: 13px !important; height: 13px !important; flex-shrink: 0 !important; }
   [data-growth-store] .growth-value,
-  [data-growth-analytics] .growth-value { font-size: clamp(1.35rem, 5.5vw, 1.8rem) !important; text-align: center !important; width: 100% !important; }
+  [data-growth-analytics] .growth-value { font-size: clamp(1.35rem, 5.5vw, 1.8rem) !important; text-align: center !important; width: 100% !important; margin-top: auto !important; margin-bottom: auto !important; line-height: 1.15 !important; }
   [data-growth-store] .growth-note,
   [data-growth-analytics] .growth-note,
   [data-growth-analytics] .growth-trend {
@@ -2696,6 +2700,7 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
     align-items: center !important;
     width: 100% !important;
     line-height: 1.25 !important;
+    margin-top: auto !important;
   }
   .growth-version { flex-wrap: wrap; gap: 8px; padding: 10px; }
   .growth-version-info { flex: 1 1 120px !important; gap: 8px; }
