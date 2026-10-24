@@ -68,11 +68,12 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   }
   function metric(label, value, note, key) {
     const card = element('div', 'growth-metric'); if (key) card.dataset.metric = key;
+    const content = element('div', 'growth-metric-content');
     const labelNode = element('div', 'growth-label');
     const icon = { online: 'clock', weekly: 'audience', history: 'users', users: 'users', rating: 'rating', reviews: 'reviews' }[key];
     if (icon) labelNode.append(createIcon(doc, icon), doc.createTextNode(' '));
     labelNode.append(doc.createTextNode(label));
-    card.append(labelNode, element('div', 'growth-value', value));
+    content.append(labelNode, element('div', 'growth-value', value));
     if (note) {
       const noteEl = element('p', 'growth-note');
       if (key === 'users' && note.includes('Public user badge')) {
@@ -82,8 +83,9 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
       } else {
         noteEl.textContent = note;
       }
-      card.append(noteEl);
+      content.append(noteEl);
     }
+    card.append(content);
     return card;
   }
   function fetched(panel, source, timestamp, stale = false) {
@@ -153,7 +155,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     const weekly = metric('Last 7 days', ready ? count(analytics.weekly_active) : '—', '', 'weekly');
     const change = element('p', 'growth-trend', trend);
     if (ready && Number.isFinite(analytics.weekly_change_percent) && analytics.previous_weekly_active > 0) change.dataset.direction = analytics.weekly_change_percent > 0 ? 'up' : analytics.weekly_change_percent < 0 ? 'down' : 'flat';
-    weekly.append(change);
+    (weekly.querySelector('.growth-metric-content') ?? weekly).append(change);
     const historyDate = /^\d{4}-\d{2}-\d{2}$/.test(analytics?.history_start_date ?? '') ? analytics.history_start_date : null;
     grid.append(online, weekly, metric('Unique visitors', ready ? count(analytics.history_total_users) : '—', historyDate ? `Since ${historyDate}` : 'Start date unavailable', 'history'));
     analyticsPanel.append(grid);
