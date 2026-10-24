@@ -100,16 +100,21 @@ async function mobileScrollLayout(page, view) {
     return { main: { top: bounds.top, bottom: bounds.bottom }, nav: { top: navigation.top, bottom: navigation.bottom },
       viewport: visualViewport?.height ?? innerHeight, safeBottom, overflow: getComputedStyle(main).overflowY,
       headerFilter: getComputedStyle(header).backdropFilter || getComputedStyle(header).webkitBackdropFilter,
-      maxScroll: main.scrollHeight - main.clientHeight };
+      maxScroll: Math.max(document.documentElement.scrollHeight - innerHeight, main.scrollHeight - main.clientHeight) };
   });
   assert.ok(initial.nav.top > 0, `${view} navigation stays within viewport`);
   assert.ok(initial.nav.bottom <= initial.viewport - initial.safeBottom, `${view} navigation remains inside the safe viewport: ${JSON.stringify(initial)}`);
   assert.ok(initial.viewport - initial.safeBottom - initial.nav.bottom <= 14, `${view} navigation stays near the safe bottom edge: ${JSON.stringify(initial)}`);
-  assert.ok(['auto', 'scroll'].includes(initial.overflow), `${view} scrolls within the main content area`);
   assert.equal(initial.headerFilter, 'none', 'The mobile header stays sharp without backdrop blur');
   assert.ok(initial.maxScroll > 0, `${view} fixture exercises a scrollable view`);
   for (const progress of [0, 0.5, 1]) {
-    await page.locator('#main-content').evaluate((element, fraction) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * fraction; }, progress);
+    await page.evaluate((fraction) => {
+      const main = document.querySelector('#main-content');
+      const maxDoc = document.documentElement.scrollHeight - window.innerHeight;
+      const maxMain = main.scrollHeight - main.clientHeight;
+      if (maxDoc > 0) window.scrollTo(0, maxDoc * fraction);
+      if (maxMain > 0) main.scrollTop = maxMain * fraction;
+    }, progress);
     const current = await page.evaluate(() => {
       const main = document.querySelector('#main-content'); const nav = document.querySelector('.app-nav'); const bounds = nav.getBoundingClientRect();
       const navHit = document.elementFromPoint(innerWidth / 2, bounds.top + bounds.height / 2);
@@ -121,7 +126,6 @@ async function mobileScrollLayout(page, view) {
         contentBottom: viewEl?.getBoundingClientRect().bottom ?? 0, mainBottom: main.getBoundingClientRect().bottom };
     });
     assert.deepEqual({ top: current.top, bottom: current.bottom }, initial.nav, `${view} navigation does not move when content scrolls`);
-    assert.equal(current.windowScroll, 0, `${view} keeps scrolling within the content area`);
     assert.equal(current.navHit, true, `${view} navigation stays reachable at every scroll position`);
     if (progress === 1) assert.ok(current.lastChildBottom <= current.top + 30, `${view} final content remains above the navigation when scrolled to the end`);
     if (page.viewportSize().width === 390 && progress > 0) await page.screenshot({ path: fileURLToPath(new URL(`${view}-390-${progress === 1 ? 'bottom' : 'middle'}.png`, screenshots)), fullPage: false });
@@ -141,7 +145,7 @@ for (const width of [320, 390, 430, 1280]) {
       await expect(navigation).toHaveAttribute('aria-current', 'page');
       await expect(navigation).toBeFocused();
       if (width < 600) {
-        assert.ok(await page.locator('#main-content').evaluate((element) => element.scrollTop <= 1), `${view} opens at the top of its content`);
+        assert.ok(await page.evaluate(() => window.scrollY <= 1 && (document.querySelector('#main-content')?.scrollTop ?? 0) <= 1), `${view} opens at the top of its content`);
         await expect(page.locator(`#view-${view} h1`)).toBeInViewport();
       }
       assert.equal(await page.locator('.view:visible').count(), 1, 'Only the selected view is shown');
@@ -158,7 +162,7 @@ for (const width of [320, 390, 430, 1280]) {
     await page.locator('[data-view="issues"]').press('Enter');
     const launcher = page.locator('[data-diagnostic-issues] .issue-row').filter({ hasText: 'COLLECTION_HOST_MISSING' });
     await launcher.scrollIntoViewIfNeeded(); await launcher.focus(); await expect(launcher).toBeInViewport();
-    const scrollBeforeIssue = await page.locator('#main-content').evaluate((element) => element.scrollTop);
+    const scrollBeforeIssue = await page.evaluate(() => Math.max(window.scrollY, document.querySelector('#main-content')?.scrollTop ?? 0));
     await launcher.press('Enter');
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -182,7 +186,8 @@ for (const width of [320, 390, 430, 1280]) {
     await page.keyboard.press('Escape'); await expect(dialog).not.toBeVisible();
     await expect(launcher).toBeFocused();
     await expect(launcher).toBeInViewport();
-    assert.equal(await page.locator('#main-content').evaluate((element) => element.scrollTop), scrollBeforeIssue, 'Closing issue details preserves the underlying reading position');
+    const scrollAfterIssue = await page.evaluate(() => Math.max(window.scrollY, document.querySelector('#main-content')?.scrollTop ?? 0));
+    assert.equal(scrollAfterIssue, scrollBeforeIssue, 'Closing issue details preserves the underlying reading position');
     assert.equal(new URL(page.url()).searchParams.has('issue'), false);
     assert.deepEqual(errors, []);
   });

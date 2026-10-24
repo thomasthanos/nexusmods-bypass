@@ -2603,8 +2603,23 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
 }
 
 @media (max-width: 600px) {
-  .app-shell { padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right)); }
-  .app-header { padding: 12px; gap: 8px; min-height: 70px; border-radius: 22px; margin-bottom: 20px; }
+  html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: 0;
+    background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36%), radial-gradient(ellipse at 0% 90%, #d6a45924, transparent 30%), #0d0e10;
+  }
+  .app-shell {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-top: max(14px, env(safe-area-inset-top));
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    padding-inline: max(14px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-right));
+  }
+  .app-header { padding: 12px; gap: 8px; min-height: 70px; border-radius: 22px; margin-bottom: 20px; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .brand { gap: 8px; }
   .brand-copy strong { font-size: .98rem; }
   .brand-copy > span { color: var(--secondary); font-size: .7rem; }
@@ -2634,12 +2649,17 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
   .growth-version-action { margin-left: auto; }
   .growth-details > summary { font-size: .78rem; }
   .detail-heading { display: grid; }
+  .main-content {
+    min-height: 0;
+    overflow: visible;
+    padding: 0;
+  }
   .app-nav {
     position: fixed;
     z-index: 100;
     left: max(16px, env(safe-area-inset-left));
     right: max(16px, env(safe-area-inset-right));
-    bottom: max(10px, env(safe-area-inset-bottom));
+    bottom: max(12px, env(safe-area-inset-bottom));
     margin: 0 auto;
     width: calc(100% - 32px);
     max-width: 400px;
@@ -2683,42 +2703,6 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
   .nav-button svg {
     width: 20px;
     height: 20px;
-  }
-}
-
-/* Mobile floating island dock layout */
-@media (max-width: 600px) {
-  html { height: 100%; overflow: hidden; }
-  body { height: 100dvh; min-height: 0; overflow: hidden; padding-bottom: 0; }
-  .app-shell {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    min-height: 0;
-    padding-top: max(12px, env(safe-area-inset-top));
-    padding-bottom: 0;
-    padding-inline: max(14px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-right));
-    position: relative;
-    overflow: hidden;
-  }
-  .app-header {
-    flex-shrink: 0;
-    margin-bottom: 12px;
-    background: linear-gradient(135deg, #ffffff0d, transparent 50%), #1a1b1e;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    filter: none;
-  }
-  .main-content {
-    flex: 1 1 0;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
-    scroll-padding-block: 12px;
-    scroll-padding-bottom: calc(115px + env(safe-area-inset-bottom));
-    padding: 2px 2px calc(115px + env(safe-area-inset-bottom));
-    scrollbar-width: thin;
   }
   .app-footer { display: none; }
 }
