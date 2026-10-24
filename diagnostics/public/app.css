@@ -2030,11 +2030,11 @@ td:first-child { color: var(--text); font-weight: 550; }
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  padding: 2px 6px !important;
+  padding: 2px clamp(6px, 1.5vw, 12px) 2px clamp(16px, 4.5vw, 28px) !important;
   border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
   display: flex !important;
   flex-direction: column !important;
-  align-items: center !important;
+  align-items: flex-start !important;
   justify-content: flex-start !important;
 }
 [data-growth-analytics] .growth-metric-content {
@@ -2043,8 +2043,7 @@ td:first-child { color: var(--text); font-weight: 550; }
   align-items: flex-start !important;
   justify-content: flex-start !important;
   text-align: left !important;
-  width: fit-content !important;
-  max-width: 100% !important;
+  width: 100% !important;
 }
 [data-growth-analytics] .growth-metric:last-child {
   border-right: none !important;
