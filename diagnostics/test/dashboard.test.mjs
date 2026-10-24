@@ -163,18 +163,18 @@ test('GitHub issues remain visible independently of diagnostic filters and rende
   form.dispatchEvent(new document.defaultView.Event('submit', { cancelable: true })); await tick();
   assert.match(document.querySelector('[data-github-issues]').textContent, /<img src=x/);
   assert.ok(calls.filter(({ path }) => path.startsWith('/github-issues')).every(({ path }) => path === '/github-issues'));
-  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /NETWORK_UNREACHABLE/);
+  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /Connection issue|NETWORK_UNREACHABLE/);
 });
 
 test('slow or unavailable GitHub issues never hide diagnostic reports', async (t) => {
   const pending = deferred();
   const { app, document } = setup(t, (path) => path === '/github-issues' ? pending.promise.then(() => { throw Object.assign(new Error('private upstream response'), { status: 503 }); }) : undefined);
   const navigation = app.navigate('issues'); await tick();
-  assert.match(document.querySelector('#view-issues').textContent, /NETWORK_UNREACHABLE/);
+  assert.match(document.querySelector('#view-issues').textContent, /Connection issue|NETWORK_UNREACHABLE/);
   pending.resolve();
   await navigation;
   assert.match(document.querySelector('[data-github-issues]').textContent, /GitHub.*unavailable/i);
-  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /NETWORK_UNREACHABLE/);
+  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /Connection issue|NETWORK_UNREACHABLE/);
   assert.doesNotMatch(document.body.textContent, /private upstream response/);
 });
 
@@ -237,10 +237,10 @@ test('slow or unavailable discussions leave GitHub issues and automatic diagnost
   const navigation = app.navigate('issues'); await tick();
   assert.match(document.querySelector('[data-github-discussions]')?.textContent ?? '', /Loading.*discussions/);
   assert.match(document.querySelector('[data-github-issues]').textContent, /Changing the download folder/);
-  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /NETWORK_UNREACHABLE/);
+  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /Connection issue|NETWORK_UNREACHABLE/);
   pending.reject(Object.assign(new Error('PRIVATE UPSTREAM DETAIL'), { status: 503 })); await navigation;
   assert.match(document.querySelector('[data-github-discussions]').textContent, /discussions.*unavailable/i);
-  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /NETWORK_UNREACHABLE/);
+  assert.match(document.querySelector('[data-diagnostic-issues]').textContent, /Connection issue|NETWORK_UNREACHABLE/);
   assert.doesNotMatch(document.body.textContent, /PRIVATE UPSTREAM DETAIL/);
 });
 

@@ -12,7 +12,7 @@ import { createTestDatabase } from './d1.mjs';
 const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
 const install = (number) => number.toString(16).padStart(64, '0');
 
-export async function startPreviewServer() {
+export async function startPreviewServer(options = {}) {
   const db = createTestDatabase();
   const now = Date.now();
   const pair = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
@@ -109,7 +109,8 @@ export async function startPreviewServer() {
       outgoing.end(Buffer.from(await response.arrayBuffer()));
     } catch { outgoing.writeHead(500, { 'content-type': 'text/plain' }); outgoing.end('Preview error'); }
   });
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = Number(options.port ?? process.env.PORT ?? 0);
+  await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
   return { origin: `http://127.0.0.1:${server.address().port}`, ids, db,
     setAuthenticated(value) { authenticated = value; },
     setAccessRedirect(value) { accessRedirect = value; },

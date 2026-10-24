@@ -7,13 +7,13 @@ const count = (value) => Number.isSafeInteger(value) && value >= 0 ? formatNumbe
 const text = (value, length) => typeof value === 'string' ? value.slice(0, length) : '';
 
 /** Independent listing and store sources; all private state stays in this mount. */
-export function mountGrowth(container, { request, notify = () => {}, document: doc = container.ownerDocument, window: win = doc.defaultView } = {}) {
+export function mountGrowth(container, { request, notify = () => {}, document: doc = container.ownerDocument, window: win = doc.defaultView, uiState = {} } = {}) {
   let disposed = false;
   let analytics = null;
   let store = null;
   let renderedStoreFresh = null;
   let focusedReview = null;
-  let reviewHistoryOpen = false;
+  let reviewHistoryOpen = uiState.reviewHistoryOpen === true;
   let reviewAckGeneration = 0;
   const controllers = new Map();
   const listeners = [];
@@ -37,10 +37,24 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     target.addEventListener(event, action); listeners.push(() => target.removeEventListener(event, action));
   }
   function heading(panel, title, description) {
+    rememberDisclosures(panel);
     panel.replaceChildren(); panel.removeAttribute('aria-busy');
     const top = element('div', 'panel-heading'); const copy = element('div');
     copy.append(element('h2', '', title)); if (description) copy.append(element('p', 'muted', description));
     top.append(copy); panel.append(top); return top;
+  }
+  function rememberDisclosures(panel) {
+    for (const detail of panel.querySelectorAll('[data-growth-details]')) uiState[detail.dataset.growthDetails] = detail.open;
+    const history = panel.querySelector('[data-review-history]');
+    if (history) uiState.reviewHistoryOpen = reviewHistoryOpen = history.open;
+  }
+  function sourceDetails(panel, key, explanation) {
+    const details = element('details', 'growth-details'); details.dataset.growthDetails = key; details.open = uiState[key] === true;
+    const body = element('div', 'growth-details-body');
+    if (explanation) body.append(element('p', 'muted', explanation));
+    details.append(element('summary', '', 'Source & timing'), body);
+    details.addEventListener('toggle', () => { if (!disposed) uiState[key] = details.open; });
+    panel.append(details); return body;
   }
   function metric(label, value, note, key) {
     const card = element('div', 'growth-metric'); if (key) card.dataset.metric = key;
@@ -79,8 +93,8 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     const previous = panel.querySelector('[data-store-freshness]');
     if (fresh) previous?.remove();
     else if (!previous) {
-      const warning = element('p', 'growth-state', reviews ? 'Saved reviews. Refresh to check the latest store data.' : 'Saved store data. Refresh to check the latest listing.');
-      warning.dataset.storeFreshness = ''; panel.insertBefore(warning, source);
+      const warning = element('p', 'growth-state', reviews ? 'Saved reviews. Refresh for updates.' : 'Saved store data. Refresh for updates.');
+      warning.dataset.storeFreshness = ''; panel.insertBefore(warning, source?.closest('.growth-details') ?? source);
     }
     const label = source?.querySelector('.growth-fetched-label');
     if (label) label.textContent = fresh ? ' · Fetched ' : ' · Saved data from ';
@@ -94,36 +108,37 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   }
   function renderAnalytics() {
     if (disposed) return;
-    const top = heading(analyticsPanel, 'Listing audience', 'Chrome Web Store listing visitors, measured by Google Analytics.');
+    const top = heading(analyticsPanel, 'Listing visitors', 'Chrome Web Store listing');
     const ready = analytics?.state === 'ready';
     if (isFresh(analytics) && availableToPoll() && Number.isSafeInteger(analytics.online_30m) && analytics.online_30m >= 0) {
       const live = element('span', 'growth-live', 'Live'); live.dataset.live = 'true'; top.append(live);
     }
     if (!ready) {
       const configured = analytics?.state === 'not_configured';
-      analyticsPanel.append(element('p', 'growth-state', configured ? 'Listing analytics is not configured.' : 'Listing analytics is temporarily unavailable.'));
-      analyticsPanel.append(element('p', 'muted', configured ? 'Connect Google Analytics and grant access to the listing property to see audience metrics.' : 'Use Refresh or retry when Google Analytics is available.'));
+      analyticsPanel.append(element('p', 'growth-state', configured ? 'Analytics not configured.' : 'Analytics temporarily unavailable.'));
       analyticsPanel.append(button('Retry analytics', () => { void loadAnalytics(); }));
     }
     const grid = element('div', 'growth-metrics');
     const trend = ready && Number.isFinite(analytics.weekly_change_percent) && analytics.previous_weekly_active > 0
-      ? `${analytics.weekly_change_percent > 0 ? '+' : ''}${analytics.weekly_change_percent.toFixed(1)}% vs previous 7 days`
+      ? `${analytics.weekly_change_percent > 0 ? '+' : ''}${analytics.weekly_change_percent.toFixed(1)}% vs prior week`
       : ready && analytics.previous_weekly_active === 0 ? 'No previous-week baseline' : 'Previous-week comparison unavailable';
-    const online = metric('Listing active users · last 30 min', ready ? count(analytics.online_30m) : '—', 'Visitors to the store listing', 'online');
-    const weekly = metric('Weekly listing users', ready ? count(analytics.weekly_active) : '—', 'Last 7 complete days', 'weekly');
+    const online = metric('Online · 30 min', ready ? count(analytics.online_30m) : '—', '', 'online');
+    const weekly = metric('Last 7 days', ready ? count(analytics.weekly_active) : '—', '', 'weekly');
     const change = element('p', 'growth-trend', trend);
     if (ready && Number.isFinite(analytics.weekly_change_percent) && analytics.previous_weekly_active > 0) change.dataset.direction = analytics.weekly_change_percent > 0 ? 'up' : analytics.weekly_change_percent < 0 ? 'down' : 'flat';
     weekly.append(change);
     const historyDate = /^\d{4}-\d{2}-\d{2}$/.test(analytics?.history_start_date ?? '') ? analytics.history_start_date : null;
-    grid.append(online, weekly, metric('Listing unique visitors', ready ? count(analytics.history_total_users) : '—', historyDate ? `Since ${historyDate}` : 'History start date unavailable', 'history'));
+    grid.append(online, weekly, metric('Unique visitors', ready ? count(analytics.history_total_users) : '—', historyDate ? `Since ${historyDate}` : 'Start date unavailable', 'history'));
     analyticsPanel.append(grid);
-    if (ready && !isFresh(analytics)) analyticsPanel.append(element('p', 'growth-state', 'Saved listing data. Refresh to check the latest audience.'));
+    if (ready && !isFresh(analytics)) analyticsPanel.append(element('p', 'growth-state', 'Saved listing data. Refresh for updates.'));
     if (analytics?.message) analyticsPanel.append(element('p', 'growth-state', text(analytics.message, 500)));
     const quality = analytics?.quality;
     const limitations = [quality?.subject_to_thresholding && 'Google thresholding applies', quality?.sampled && 'Sampled data', quality?.data_loss && 'Google reports data loss'].filter(Boolean);
     if (limitations.length) analyticsPanel.append(element('p', 'growth-state', limitations.join(' · ')));
+    const source = sourceDetails(analyticsPanel, 'analyticsDetailsOpen', 'Google Analytics (GA4) measures store listing visitors. Online covers the last 30 minutes. Weekly users cover the last 7 complete days.');
+    if (analytics?.state === 'not_configured') source.append(element('p', 'muted', 'Connect Google Analytics and grant access to the listing property.'));
     const zone = text(analytics?.time_zone, 80);
-    fetched(analyticsPanel, `Google Analytics · store listing${zone ? ` · ${zone}` : ''}`, analytics?.fetched_at, ready && !isFresh(analytics));
+    fetched(source, `Google Analytics${zone ? ` · ${zone}` : ''}`, analytics?.fetched_at, ready && !isFresh(analytics));
   }
   function externalLink(label, href) {
     const link = element('a', 'button button-small button-quiet', label); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; return link;
@@ -136,30 +151,31 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   function renderStore() {
     if (disposed) return;
     const snapshot = store?.snapshot;
-    const top = heading(storePanel, 'Chrome Web Store', 'Public listing totals and release status.');
-    top.append(externalLink('Open store', STORE_URL));
+    const top = heading(storePanel, 'Chrome Web Store');
+    top.append(externalLink('View listing', STORE_URL));
     if (!snapshot) {
       storePanel.append(element('p', 'growth-state', 'Store data is temporarily unavailable.'), button('Retry store', () => { void loadStore(); }));
-      fetched(storePanel, 'Chrome Web Store', store?.last_checked_at); return;
+      fetched(sourceDetails(storePanel, 'storeDetailsOpen'), 'Chrome Web Store', store?.last_checked_at); return;
     }
     const grid = element('div', 'growth-metrics');
     const rating = typeof snapshot.rating_average === 'number' && Number.isFinite(snapshot.rating_average) && snapshot.rating_average >= 0 && snapshot.rating_average <= 5 ? snapshot.rating_average.toFixed(2) : '—';
-    const ratingCard = metric('Store rating', rating, `${count(snapshot.rating_count)} ratings`, 'rating');
+    const ratingCard = metric('Rating', rating, `${count(snapshot.rating_count)} ratings`, 'rating');
     const star = element('span', 'growth-star', '★'); star.setAttribute('aria-hidden', 'true'); ratingCard.querySelector('.growth-value').prepend(star, doc.createTextNode(' '));
-    grid.append(metric('Store users', count(snapshot.users), 'Public user badge', 'users'), ratingCard, metric('Written reviews', count(snapshot.written_review_count), 'Reviews with written feedback', 'reviews'));
+    grid.append(metric('Store users', count(snapshot.users), 'Public user badge', 'users'), ratingCard, metric('Written reviews', count(snapshot.written_review_count), '', 'reviews'));
     storePanel.append(grid);
     const version = element('div', 'growth-version');
     const versions = element('div'); versions.append(element('strong', '', `Store ${text(snapshot.version, 64) || 'version unavailable'}`));
-    versions.append(element('span', 'muted', `Latest release ${text(snapshot.latest_release_version, 64) || 'unavailable'}`));
-    const labels = { up_to_date: 'Up to date', store_behind: 'Store update pending', store_ahead: 'Store version ahead', unknown: 'Version comparison unavailable' };
+    versions.append(element('span', 'muted', `Release ${text(snapshot.latest_release_version, 64) || 'unavailable'}`));
+    const labels = { up_to_date: 'Up to date', store_behind: 'Update pending', store_ahead: 'Store ahead', unknown: 'Comparison unavailable' };
     const status = element('span', 'tag', labels[snapshot.version_status] ?? labels.unknown); status.dataset.versionStatus = snapshot.version_status;
     version.append(versions, status);
-    const release = releaseUrl(snapshot.latest_release_url); if (release) version.append(externalLink('View latest release', release));
+    const release = releaseUrl(snapshot.latest_release_url); if (release) version.append(externalLink('Release', release));
     storePanel.append(version);
     const storeStale = !isStoreFresh();
     renderedStoreFresh = !storeStale;
     if (store?.message) storePanel.append(element('p', 'growth-state', text(store.message, 500)));
-    fetched(storePanel, 'Chrome Web Store', snapshot.fetched_at, storeStale);
+    const source = sourceDetails(storePanel, 'storeDetailsOpen', 'Users is the public Chrome Web Store badge. Ratings include scores without text; written reviews count feedback with text.');
+    fetched(source, 'Chrome Web Store', snapshot.fetched_at, storeStale);
     applyStoreFreshness(storePanel);
   }
   function reviewDate(value) {
@@ -170,7 +186,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     const card = [...reviewsPanel.querySelectorAll('[data-review-id]')].find((item) => item.dataset.reviewId.toLowerCase() === id.toLowerCase());
     if (!card) return false;
     const history = card.closest('[data-review-history]');
-    if (history) { history.open = true; reviewHistoryOpen = true; }
+    if (history) { history.open = true; uiState.reviewHistoryOpen = reviewHistoryOpen = true; }
     if (scroll) card.scrollIntoView?.({ block: 'center', behavior: 'auto' });
     card.focus({ preventScroll: true }); return true;
   }
@@ -178,7 +194,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     if (disposed) return;
     const previousHistory = reviewsPanel.querySelector('[data-review-history]');
     if (previousHistory) reviewHistoryOpen = previousHistory.open;
-    const top = heading(reviewsPanel, 'Store reviews', 'Written feedback from the Chrome Web Store.');
+    const top = heading(reviewsPanel, 'Reviews');
     const reviews = Array.isArray(store?.reviews) ? store.reviews.filter((item, index, list) => typeof item?.id === 'string' && UUID.test(item.id) && list.findIndex((other) => typeof other?.id === 'string' && other.id.toLowerCase() === item.id.toLowerCase()) === index).slice(0, 100)
       .sort((a, b) => (Number.isFinite(b.created_at) ? b.created_at : 0) - (Number.isFinite(a.created_at) ? a.created_at : 0) || a.id.localeCompare(b.id)) : [];
     const newCount = Number.isSafeInteger(store?.new_review_count) && store.new_review_count > 0 ? store.new_review_count : 0;
@@ -187,28 +203,42 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     const list = element('div', 'growth-review-list'); list.dataset.reviewPreview = '';
     const olderList = element('div', 'growth-review-list');
     const latestIds = new Set(reviews.slice(0, 3).map((review) => review.id));
+    let hiddenUnread = 0;
     for (const review of reviews) {
       const card = element('article', 'growth-review'); card.dataset.reviewId = review.id; card.dataset.new = String(review.is_new === true); card.tabIndex = -1;
       const header = element('div', 'growth-review-heading'); const author = element('h3', '', text(review.author, 160) || 'Store reviewer');
       const rating = Number.isInteger(review.rating) && review.rating >= 1 && review.rating <= 5 ? review.rating : null;
       header.append(author, element('span', 'growth-review-rating', rating ? `★ ${rating}/5` : 'Rating unavailable'));
-      if (review.is_new === true) header.append(element('span', 'tag tag-warning', 'New review'));
+      if (review.is_new === true) header.append(element('span', 'tag tag-warning', 'New'));
       const metadata = element('div', 'growth-review-meta muted'); const created = reviewDate(review.created_at); if (created) metadata.append(created);
-      if (review.version) metadata.append(element('span', '', `Version ${text(review.version, 64)}`));
-      card.append(header, metadata, element('p', 'growth-review-body', text(review.body, 10000) || 'No written text.'));
+      if (review.version) metadata.append(element('span', '', `v${text(review.version, 64)}`));
+      card.append(header, metadata);
+      const body = text(review.body, 10000) || 'No written text.';
+      if (body.length > 320) {
+        const content = element('details', 'growth-review-text'); const summary = element('summary');
+        const label = element('span', 'growth-review-expand', 'Read full review');
+        summary.append(element('span', 'growth-review-excerpt', `${body.slice(0, 240).trimEnd()}…`), label);
+        content.addEventListener('toggle', () => { label.textContent = content.open ? 'Show less' : 'Read full review'; });
+        content.append(summary, element('p', 'growth-review-body', body)); card.append(content);
+      } else card.append(element('p', 'growth-review-body', body));
       if (review.is_new === true) card.append(button('Mark as read', (event) => { void acknowledge(review.id, event.currentTarget); }, 'ack-review'));
-      (review.is_new === true || latestIds.has(review.id) ? list : olderList).append(card);
+      const latest = latestIds.has(review.id);
+      if (!latest && review.is_new === true) hiddenUnread++;
+      (latest ? list : olderList).append(card);
     }
     reviewsPanel.append(list);
     if (olderList.children.length) {
       const history = element('details', 'growth-review-history'); history.dataset.reviewHistory = ''; history.open = reviewHistoryOpen;
-      history.append(element('summary', '', `Show ${count(olderList.children.length)} older ${olderList.children.length === 1 ? 'review' : 'reviews'}`), olderList);
+      const label = `${count(olderList.children.length)} older ${olderList.children.length === 1 ? 'review' : 'reviews'}${hiddenUnread ? ` · ${count(hiddenUnread)} unread` : ''}`;
+      history.append(element('summary', '', label), olderList);
+      history.addEventListener('toggle', () => { if (!disposed) uiState.reviewHistoryOpen = reviewHistoryOpen = history.open; });
       reviewsPanel.append(history);
     }
     const storeStale = !isStoreFresh();
-    if (store?.snapshot?.reviews_complete === false) reviewsPanel.append(element('p', 'growth-state', 'Showing the written reviews available from the latest store check. The store may contain more reviews.'));
+    if (store?.snapshot?.reviews_complete === false) reviewsPanel.append(element('p', 'growth-state', 'Partial review history. More may be available in the store.'));
     if (store?.message) reviewsPanel.append(element('p', 'growth-state', text(store.message, 1600)));
-    fetched(reviewsPanel, 'Chrome Web Store', store?.snapshot?.fetched_at, storeStale);
+    const source = sourceDetails(reviewsPanel, 'reviewDetailsOpen', 'Written feedback from the Chrome Web Store. Only Mark as read clears a new review.');
+    fetched(source, 'Chrome Web Store', store?.snapshot?.fetched_at, storeStale);
     applyStoreFreshness(reviewsPanel, true);
     if (typeof store?.last_checked_at === 'number' && Number.isFinite(store.last_checked_at) && store.last_checked_at > 0) {
       const check = element('p', 'muted source-note');
@@ -219,7 +249,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
       check.append(checkTime);
       const interval = Number.isFinite(store?.sync_interval_seconds) && store.sync_interval_seconds >= 60 ? ` · Checks every ${Math.round(store.sync_interval_seconds / 60)} minutes` : '';
       if (interval) check.append(doc.createTextNode(interval));
-      reviewsPanel.append(check);
+      source.append(check);
     }
     const targetId = new URL(win.location.href).searchParams.get('review');
     if (targetId && UUID.test(targetId) && targetId.toLowerCase() !== focusedReview) {
@@ -281,9 +311,9 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     }
   }
 
-  loading(analyticsPanel, 'Listing audience', 'Chrome Web Store listing visitors, measured by Google Analytics.');
-  loading(storePanel, 'Chrome Web Store', 'Public listing totals and release status.');
-  loading(reviewsPanel, 'Store reviews', 'Written feedback from the Chrome Web Store.');
+  loading(analyticsPanel, 'Listing visitors', 'Chrome Web Store listing');
+  loading(storePanel, 'Chrome Web Store');
+  loading(reviewsPanel, 'Reviews');
   void loadAnalytics(); void loadStore();
   const timer = win.setInterval(() => {
     updateStoreFreshness();
@@ -306,5 +336,5 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     }
   });
   listen(win, 'popstate', () => { if (store) renderReviews(); });
-  return { dispose() { if (disposed) return; disposed = true; win.clearInterval(timer); for (const controller of controllers.values()) controller.abort(); controllers.clear(); for (const remove of listeners) remove(); analytics = null; store = null; } };
+  return { dispose() { if (disposed) return; for (const panel of [analyticsPanel, storePanel, reviewsPanel]) rememberDisclosures(panel); disposed = true; win.clearInterval(timer); for (const controller of controllers.values()) controller.abort(); controllers.clear(); for (const remove of listeners) remove(); analytics = null; store = null; } };
 }

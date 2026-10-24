@@ -11,7 +11,7 @@ const review = (patch = {}) => ({ id: reviewId, author: 'Mod user', rating: 5, b
 const reviewHistory = () => Array.from({ length: 6 }, (_, index) => review({ id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, author: `Reviewer ${index + 1}`, created_at: now - (index + 1) * 86400000, is_new: false }));
 const store = (patch = {}) => ({ state: 'ready', snapshot: { extension_id: extensionId, store_url: `https://chromewebstore.google.com/detail/nexusmods-bypass/${extensionId}`, version: '3.3.1', users: 60000, rating_average: 4.84444, rating_count: 45, written_review_count: 30, latest_release_version: '3.3.2', latest_release_url: 'https://github.com/thomasthanos/nexusmods-bypass/releases/tag/v3.3.2', version_status: 'store_behind', fetched_at: now, reviews_complete: true }, reviews: [review()], new_review_count: 1, last_checked_at: now, sync_interval_seconds: 900, stale: false, message: null, ...patch });
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
-function setup(t, handler = () => undefined, url = 'https://diagnostics.test/') {
+function setup(t, handler = () => undefined, url = 'https://diagnostics.test/', uiState = {}) {
   const dom = new JSDOM('<div id="growth"></div>', { url });
   const container = dom.window.document.getElementById('growth');
   let clock = now;
@@ -19,7 +19,7 @@ function setup(t, handler = () => undefined, url = 'https://diagnostics.test/') 
   const calls = []; const intervals = new Map(); let intervalId = 0;
   dom.window.setInterval = (callback, delay) => { const id = ++intervalId; intervals.set(id, { callback, delay }); return id; };
   dom.window.clearInterval = (id) => intervals.delete(id);
-  const manager = mountGrowth(container, { document: dom.window.document, window: dom.window, request: async (path, options = {}) => {
+  const manager = mountGrowth(container, { document: dom.window.document, window: dom.window, uiState, request: async (path, options = {}) => {
     calls.push({ path, options });
     const value = handler(path, options);
     if (value !== undefined) return value;
@@ -34,11 +34,13 @@ function setup(t, handler = () => undefined, url = 'https://diagnostics.test/') 
 
 test('listing metrics distinguish visitors, store users, ratings and written reviews', async (t) => {
   const { container } = setup(t); await tick();
-  assert.match(container.textContent, /Listing active users · last 30 min/);
-  assert.match(container.textContent, /Weekly listing users/);
-  assert.match(container.textContent, /Last 7 complete days/);
+  assert.match(container.textContent, /Listing visitors/);
+  assert.match(container.textContent, /Chrome Web Store listing/);
+  assert.match(container.textContent, /Online · 30 min/);
+  assert.match(container.textContent, /Last 7 days/);
+  assert.match(container.textContent, /last 7 complete days/i);
   assert.match(container.textContent, /\+16\.0%/);
-  assert.match(container.textContent, /Listing unique visitors/);
+  assert.match(container.textContent, /Unique visitors/);
   assert.match(container.textContent, /2024-01-02/);
   assert.match(container.textContent, /Store users/);
   assert.match(container.textContent, /60,000/);
@@ -47,10 +49,20 @@ test('listing metrics distinguish visitors, store users, ratings and written rev
   assert.match(container.textContent, /Written reviews/);
   assert.match(container.textContent, /30/);
   assert.match(container.textContent, /Store 3\.3\.1/);
-  assert.match(container.textContent, /Latest release 3\.3\.2/);
-  assert.match(container.textContent, /Store update pending/);
+  assert.match(container.textContent, /Release 3\.3\.2/);
+  assert.match(container.textContent, /Update pending/);
   assert.equal(container.querySelector('[data-live="true"]')?.textContent, 'Live');
   assert.doesNotMatch(container.textContent, /All installs|cumulative installs|runtime active/i);
+});
+
+test('source explanations are collapsed while quality warnings stay visible', async (t) => {
+  const { container } = setup(t, (path) => path === '/analytics' ? analytics({ quality: { subject_to_thresholding: true, sampled: false, data_loss: false } }) : undefined); await tick();
+  const analyticsPanel = container.querySelector('[data-growth-analytics]');
+  const storePanel = container.querySelector('[data-growth-store]');
+  assert.equal(analyticsPanel.querySelector('details[data-growth-details]').open, false);
+  assert.match(analyticsPanel.querySelector('details[data-growth-details]').textContent, /Google Analytics.*store listing visitors/);
+  assert.match(storePanel.querySelector('details[data-growth-details]').textContent, /Ratings include scores without text/);
+  assert.equal([...analyticsPanel.querySelectorAll('.growth-state')].some((node) => !node.closest('details') && /threshold/i.test(node.textContent)), true);
 });
 
 test('null analytics and zero previous periods never invent totals or infinite trends', async (t) => {
@@ -207,24 +219,25 @@ test('new reviews are acknowledged only by an explicit button click', async (t) 
   assert.equal(container.ownerDocument.activeElement, container.querySelector(`[data-review-id="${reviewId}"]`));
 });
 
-test('review preview contains the latest three and every new review once, with older history collapsed', async (t) => {
-  const reviews = reviewHistory(); reviews[5].is_new = true;
-  const { container } = setup(t, (path) => path === '/store' ? store({ reviews: [...reviews].reverse().concat(reviews[0]), new_review_count: 1 }) : undefined); await tick();
+test('review preview contains exactly the latest three while history counts hidden unread reviews', async (t) => {
+  const reviews = reviewHistory(); reviews[0].is_new = true; reviews[5].is_new = true;
+  const { container } = setup(t, (path) => path === '/store' ? store({ reviews: [...reviews].reverse().concat(reviews[0]), new_review_count: 2 }) : undefined); await tick();
   const panel = container.querySelector('[data-growth-reviews]');
   const preview = panel.querySelector('[data-review-preview]');
-  assert.deepEqual([...preview.children].map((card) => card.dataset.reviewId), [reviews[0].id, reviews[1].id, reviews[2].id, reviews[5].id]);
+  assert.deepEqual([...preview.children].map((card) => card.dataset.reviewId), [reviews[0].id, reviews[1].id, reviews[2].id]);
   const history = panel.querySelector('details[data-review-history]');
   assert.equal(history.open, false);
-  assert.equal(history.querySelector('summary').textContent, 'Show 2 older reviews');
-  assert.equal(history.querySelectorAll('[data-review-id]').length, 2);
+  assert.equal(history.querySelector('summary').textContent, '3 older reviews · 1 unread');
+  assert.equal(history.querySelectorAll('[data-review-id]').length, 3);
   assert.equal(panel.querySelectorAll('[data-review-id]').length, 6);
 });
 
-test('an older review deep link opens its history before focusing, without acknowledging it', async (t) => {
-  const reviews = reviewHistory(); const id = reviews[5].id;
-  const { container, calls } = setup(t, (path) => path === '/store' ? store({ reviews, new_review_count: 0 }) : undefined, `https://diagnostics.test/?review=${id}`); await tick();
+test('an older unread review deep link opens its history before focusing, without acknowledging it', async (t) => {
+  const reviews = reviewHistory(); reviews[5].is_new = true; const id = reviews[5].id;
+  const { container, calls } = setup(t, (path) => path === '/store' ? store({ reviews, new_review_count: 1 }) : undefined, `https://diagnostics.test/?review=${id}`); await tick();
   const card = container.querySelector(`[data-review-id="${id}"]`);
   assert.equal(card.closest('details[data-review-history]').open, true);
+  assert.equal(container.querySelector('[data-review-preview]').children.length, 3);
   assert.equal(container.ownerDocument.activeElement, card);
   assert.equal(calls.filter(({ path }) => path.endsWith('/ack')).length, 0);
 });
@@ -232,13 +245,43 @@ test('an older review deep link opens its history before focusing, without ackno
 test('acknowledging an older new review opens its destination history and preserves focus', async (t) => {
   const reviews = reviewHistory(); reviews[5].is_new = true; const id = reviews[5].id;
   const { container, calls } = setup(t, (path) => path === '/store' ? store({ reviews, new_review_count: 1 }) : undefined); await tick();
+  container.querySelector('details[data-review-history]').open = true;
   container.querySelector(`[data-review-id="${id}"] [data-action="ack-review"]`).click(); await tick();
   const card = container.querySelector(`[data-review-id="${id}"]`);
   assert.equal(card.dataset.new, 'false');
   assert.equal(card.closest('details[data-review-history]').open, true);
   assert.equal(container.ownerDocument.activeElement, card);
   assert.equal(container.querySelector('[data-review-preview]').children.length, 3);
+  assert.equal(container.querySelector('[data-review-history] > summary').textContent, '3 older reviews');
   assert.equal(calls.filter(({ path }) => path.endsWith('/ack')).length, 1);
+});
+
+test('opened disclosures persist across a mount replacement using only boolean UI state', async (t) => {
+  const uiState = {}; const reviews = reviewHistory();
+  const { container, manager } = setup(t, (path) => path === '/store' ? store({ reviews, new_review_count: 0 }) : undefined, 'https://diagnostics.test/', uiState); await tick();
+  container.querySelector('details[data-review-history]').open = true;
+  container.querySelector('[data-growth-analytics] details[data-growth-details]').open = true;
+  manager.dispose();
+  const replacement = mountGrowth(container, { uiState, request: async (path) => path === '/store' ? store({ reviews, new_review_count: 0 }) : analytics() });
+  t.after(() => replacement.dispose()); await tick();
+  assert.equal(container.querySelector('details[data-review-history]').open, true);
+  assert.equal(container.querySelector('[data-growth-analytics] details[data-growth-details]').open, true);
+  assert.ok(Object.values(uiState).every((value) => typeof value === 'boolean'));
+});
+
+test('long written feedback keeps its full inert text in a collapsed disclosure', async (t) => {
+  const body = `Useful extension. ${'<script>bad</script> '.repeat(40)}The final sentence.`;
+  const { container } = setup(t, (path) => path === '/store' ? store({ reviews: [review({ body })] }) : undefined); await tick();
+  const card = container.querySelector('[data-review-id]'); const content = card.querySelector('details.growth-review-text');
+  assert.equal(content.open, false);
+  assert.equal(content.querySelector('.growth-review-body').textContent, body);
+  assert.match(content.querySelector('summary').textContent, /Read full review/);
+  assert.ok(content.querySelector('.growth-review-excerpt').textContent.length < 250);
+  assert.equal(card.querySelector('script'), null);
+  content.open = true; await tick();
+  assert.equal(content.querySelector('.growth-review-expand').textContent, 'Show less');
+  content.open = false; await tick();
+  assert.equal(content.querySelector('.growth-review-expand').textContent, 'Read full review');
 });
 
 test('expanded review history survives freshness status updates and a store refresh', async (t) => {

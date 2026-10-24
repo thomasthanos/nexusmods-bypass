@@ -69,6 +69,7 @@ test('390px overview and release comparison use the real protected Worker API wi
   await openOverview(page);
   await expect(page.locator('#view-overview')).toContainText('98.2%');
   await expect(page.locator('#view-overview')).toContainText('13 reports across 5 installs');
+  await page.locator('summary').filter({ hasText: 'Compare releases' }).click();
   await page.locator('[data-form="comparison"] [name="before"]').fill('3.2.0');
   await page.locator('[data-form="comparison"] [name="after"]').fill('3.2.1');
   await page.getByRole('button', { name: 'Compare releases', exact: true }).click();
@@ -86,9 +87,11 @@ test('mobile issue sheet renders evidence, supports a manual copy fallback and p
   await page.locator('#view-overview .issue-row').first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.locator('#issue-title')).toHaveText(`Issue #${preview.ids.upstream}`);
+  await page.locator('#issue-detail summary').filter({ hasText: 'Execution timeline' }).click();
+  await expect(page.locator('#issue-detail .timeline')).toBeVisible();
   await expect(page.locator('#issue-detail')).toContainText('UI_CLICK_DOWNLOAD');
   await expect(page.locator('#issue-detail')).toContainText('429');
-  await page.getByRole('button', { name: 'Copy AI Debug Context', exact: true }).click();
+  await page.getByRole('button', { name: 'Copy debug context', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Complete AI debug context' })).toHaveValue(/FIND_COLLECTION_HOST/);
   await page.getByLabel('Mute this issue', { exact: true }).check();
   await page.getByRole('button', { name: 'Save changes', exact: true }).click();
@@ -114,7 +117,7 @@ test('desktop filters, hostile diagnostic text, deep links and settings work wit
   await page.locator('[name="destination"]').selectOption('vortex');
   await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
   await expect(page.locator('[data-diagnostic-issues] .issue-list .issue-row')).toHaveCount(1);
-  await expect(page.locator('[data-diagnostic-issues] .issue-list')).toContainText('HANDOFF_FAILURE');
+  await expect(page.locator('[data-diagnostic-issues] .issue-list')).toContainText('Download handoff');
   await expect(page.locator('[data-diagnostic-issues] .issue-count span').filter({ hasText: 'Discord' })).toHaveText('2 via Discord');
   await page.screenshot({ path: new URL('issues-desktop.png', screenshots).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
   await page.goto(`${preview.origin}/?issue=${preview.ids.network}`);
@@ -125,7 +128,8 @@ test('desktop filters, hostile diagnostic text, deep links and settings work wit
   await expect(page.locator('#issue-title')).toHaveText(`Issue #${preview.ids.handoff}`);
   // The newest report is a relay copy: its source is named and its OS is not guessed.
   await expect(page.locator('#issue-detail')).toContainText('and 2 reports via Discord without an installation ID');
-  await expect(page.locator('#issue-detail')).toContainText('Automatic report via the Discord relay');
+  await page.locator('#issue-detail summary').filter({ hasText: 'Report metadata' }).click();
+  await expect(page.locator('#issue-detail').getByText('Automatic report via the Discord relay', { exact: true })).toBeVisible();
   await expect(page.locator('#issue-detail')).toContainText('OS not reported');
   await page.getByRole('button', { name: 'Close issue details' }).click();
   await page.locator('[data-view="settings"]').click();
@@ -259,7 +263,7 @@ test('stale mobile sheet preserves a new regression and shows copy feedback insi
   preview.db.sqlite.prepare("UPDATE issues SET status='fixed',fixed_in_version='3.2.0',muted=0 WHERE id=?").run(preview.ids.handoff);
   await page.goto(`${preview.origin}/?issue=${preview.ids.handoff}`);
   await expect(page.locator('#issue-title')).toHaveText(`Issue #${preview.ids.handoff}`);
-  await page.getByRole('button', { name: 'Copy AI Debug Context', exact: true }).click();
+  await page.getByRole('button', { name: 'Copy debug context', exact: true }).click();
   await expect(page.locator('#issue-detail [data-dialog-status]')).toContainText(/copied/i);
   await expect(page.locator('#issue-detail [data-dialog-status]')).toBeVisible();
   preview.db.sqlite.prepare("UPDATE issues SET status='regressed' WHERE id=?").run(preview.ids.handoff);
