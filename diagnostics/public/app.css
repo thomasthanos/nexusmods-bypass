@@ -2048,6 +2048,8 @@ td:first-child { color: var(--text); font-weight: 550; }
   color: #bbbcc5;
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 100%;
   gap: 4px;
   margin-bottom: 6px;
   font-weight: 450;
@@ -2069,6 +2071,8 @@ td:first-child { color: var(--text); font-weight: 550; }
   line-height: 1.15;
   margin-bottom: 2px;
   letter-spacing: -0.02em;
+  text-align: center;
+  width: 100%;
 }
 [data-growth-analytics] .growth-note,
 [data-growth-analytics] .growth-trend {
@@ -2105,6 +2109,8 @@ td:first-child { color: var(--text); font-weight: 550; }
   color: #bbbcc5;
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 100%;
   gap: 4px;
   margin-bottom: 4px;
   white-space: nowrap;
@@ -2125,6 +2131,14 @@ td:first-child { color: var(--text); font-weight: 550; }
   color: #fff;
   margin-bottom: 4px;
   letter-spacing: -0.02em;
+  text-align: center;
+  width: 100%;
+}
+[data-growth-store] [data-metric="rating"] .growth-value {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
 }
 [data-growth-store] .growth-star {
   color: #f59e0b;
@@ -2659,13 +2673,13 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
   [data-growth-store] .growth-metrics,
   [data-growth-analytics] .growth-metrics { gap: 6px; }
   [data-growth-store] .growth-metric,
-  [data-growth-analytics] .growth-metric { padding: 10px 6px; border-radius: 14px; }
+  [data-growth-analytics] .growth-metric { padding: 10px 5px; border-radius: 14px; }
   [data-growth-store] .growth-label,
-  [data-growth-analytics] .growth-label { font-size: clamp(.58rem, 2.7vw, .7rem) !important; gap: 4px !important; white-space: nowrap !important; letter-spacing: -0.015em !important; }
+  [data-growth-analytics] .growth-label { font-size: clamp(.52rem, 2.6vw, .7rem) !important; gap: 4px !important; white-space: nowrap !important; letter-spacing: -0.015em !important; justify-content: center !important; width: 100% !important; }
   [data-growth-store] .growth-label svg,
   [data-growth-analytics] .growth-label svg { width: 13px !important; height: 13px !important; flex-shrink: 0 !important; }
   [data-growth-store] .growth-value,
-  [data-growth-analytics] .growth-value { font-size: clamp(1.35rem, 5.5vw, 1.8rem) !important; }
+  [data-growth-analytics] .growth-value { font-size: clamp(1.35rem, 5.5vw, 1.8rem) !important; text-align: center !important; width: 100% !important; }
   .growth-version { flex-wrap: wrap; gap: 8px; padding: 10px; }
   .growth-version-info { flex: 1 1 120px !important; gap: 8px; }
   .growth-version-action { margin-left: auto; }
