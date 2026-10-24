@@ -364,6 +364,35 @@ const STORAGE_HANDLERS = {
     });
   },
 
+  // Imported ids are added to what is stored, inside the same write queue as NDC_HISTORY_ADD, so an id a
+  // running queue adds while the import is being read is never replaced by the page's older copy.
+  // A tab that met a rate limit holds the browser queue back as well (see publishSharedRateLimit).
+  async NDC_RATE_LIMIT_PUBLISH(payload) {
+    const until = Number(payload?.until);
+    if (!Number.isFinite(until)) return { until: await readSharedRateLimitUntil() };
+    await publishSharedRateLimit(Math.min(until, Date.now() + MAX_PAGE_RATE_LIMIT_MS));
+    return { until: await readSharedRateLimitUntil() };
+  },
+
+  async NDC_HISTORY_MERGE(payload) {
+    const lists = payload?.lists;
+    if (!lists || typeof lists !== 'object') throw new Error('invalid-lists');
+    const additions = Object.create(null);
+    for (const type of HISTORY_TYPES) {
+      const raw = Array.isArray(lists[type]) ? lists[type] : [];
+      if (raw.length > MAX_HISTORY_IDS) throw new Error('history-too-large');
+      additions[type] = raw.filter(isValidHistoryId);
+    }
+    return mutateHistory(payload, (collection) => {
+      for (const type of HISTORY_TYPES) {
+        if (!additions[type].length) continue;
+        const merged = [...new Set([...readHistoryList(collection, type), ...additions[type]])];
+        if (merged.length > MAX_HISTORY_IDS) throw new Error('history-too-large');
+        collection[type] = merged;
+      }
+    });
+  },
+
   async TOTAL_DOWNLOADS_INCREMENT() {
     return enqueueStorageTask(NXTK.TOTAL_DOWNLOADS_KEY, async () => {
       const count = Number(await storageGetLocal(NXTK.TOTAL_DOWNLOADS_KEY, 0, { strict: true })) || 0;
@@ -564,15 +593,23 @@ const DOWNLOAD_HANDLERS = {
       if (existing) return { downloadId: existing.id, filename: existing.filename || filename, duplicate: true };
       const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
       const request = downloadRequest(verdict.url, payload?.folder, requestedName, { writeMo2Meta: settings?.WriteMo2Meta === true });
+      let metaSaved = () => {};
       const downloadId = await new Promise((resolve, reject) => {
         chrome.downloads.download(request, (id) => {
           const error = getRuntimeError();
           if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
+          // Before anything else runs: the file can be complete before its .meta details are saved.
+          pendingSingleMo2Meta.set(id, new Promise((done) => { metaSaved = done; }));
           resolve(id);
         });
       });
       // A .meta for Mod Organizer 2 is a convenience: if it cannot be set up, the download goes on.
-      await rememberSingleMo2Meta(downloadId, payload, sender, request.filename || '').catch((cause) => recordBackgroundError('MO2 meta', cause));
+      try {
+        await rememberSingleMo2Meta(downloadId, payload, sender, request.filename || '').catch((cause) => recordBackgroundError('MO2 meta', cause));
+      } finally {
+        pendingSingleMo2Meta.delete(downloadId);
+        metaSaved();
+      }
       return { downloadId, filename: request.filename || requestedName };
     })();
     if (fileKey) {
@@ -813,7 +850,7 @@ async function saveNdcJob(job) {
     if (job.status === 'running' && chrome.alarms?.create) {
       chrome.alarms.create('nxtk-reconcile', { delayInMinutes: 5 });
     } else if (job.status !== 'running') {
-      reconcileNdcJobs().catch(() => {});
+      reconcileNdcJobs().catch((cause) => recordBackgroundError('collection queue reconcile', cause));
     }
   } catch (_) { }
 
@@ -954,6 +991,16 @@ async function fetchNdcResponse(url, options, timeoutMs) {
   }
 }
 
+// No HTTP answer at all: the request timer cut it off, or the connection failed.
+function connectionFailureCode(response) {
+  return response?.error === 'timed out' ? 'timeout' : 'network_error';
+}
+
+// Gateway and Cloudflare origin errors: Nexus (or the way to it) is down, not this one file.
+const NEXUS_OUTAGE_STATUSES = new Set([502, 503, 504, 520, 521, 522, 523, 524]);
+// Failures a run waits out on the same file (waitForNdcConnection) instead of moving on.
+const NDC_CONNECTION_WAIT_CODES = new Set(['network_error', 'timeout', 'server_error']);
+
 // A request that got no HTTP answer at all, in words a report can carry: what failed, after how long,
 // and whether the browser itself knew it was offline.
 function connectionFailureDetail(step, response) {
@@ -974,6 +1021,9 @@ async function readSharedRateLimitUntil({ strict = false } = {}) {
   const until = Number(stored?.until);
   return Number.isFinite(until) ? until : 0;
 }
+
+// A wait a page reports is believed up to an hour; Nexus's own Retry-After and backoff stay well inside it.
+const MAX_PAGE_RATE_LIMIT_MS = 60 * 60 * 1000;
 
 async function publishSharedRateLimit(until) {
   if (!Number.isFinite(until) || until <= Date.now()) return;
@@ -1002,12 +1052,16 @@ function cleanPendingTerminals() {
   }
 }
 
+// A waiting job wakes on this alarm; if it cannot be set, the 5-minute reconcile alarm still wakes it,
+// later, and the failure is recorded.
 function scheduleNdcJobAlarm(jobId, when) {
   try {
     chrome.alarms.create(`${NDC_ALARM_PREFIX}${jobId}`, {
       when: Math.max(Number(when) || 0, Date.now() + MIN_NDC_ALARM_DELAY_MS)
     });
-  } catch (_) { }
+  } catch (cause) {
+    recordBackgroundError('collection queue alarm', cause);
+  }
 }
 
 function clearNdcJobAlarm(jobId) {
@@ -1032,10 +1086,13 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   }, timeoutMs);
   // No answer at all from the file's page means Nexus cannot be reached, not that this file is bad:
   // advanceNdcJob waits for the connection on this same file instead of failing it.
-  if (page.status === 0) return { ...ndcResolveFailure('network_error', page), detail: connectionFailureDetail('page', page) };
+  if (page.status === 0) return { ...ndcResolveFailure(connectionFailureCode(page), page), detail: connectionFailureDetail('page', page) };
   const pageIssue = classifyNexusResponse(page, page.text);
   if (pageIssue) return { ok: false, code: pageIssue.code };
   if (page.status === 404 || page.status === 410) return ndcResolveFailure('mod_unavailable', page);
+  // The mod page itself failing with a gateway error is Nexus being down, which is waited out like a
+  // lost connection rather than failing every file in turn.
+  if (NEXUS_OUTAGE_STATUSES.has(page.status)) return { ...ndcResolveFailure('server_error', page), detail: `page HTTP ${page.status}` };
   if (!page.ok) return ndcResolveFailure(page.status === 429 ? 'rate_limited' : 'page_request_failed', page);
 
   const generated = await fetchNdcResponse(
@@ -1085,7 +1142,7 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   return { ok: true, url: verdict.url };
 }
 
-async function startNdcDownload(job, item, url) {
+async function ndcDownloadRequest(job, item, url) {
   // The same name a single-mod download gets: the file name in the link, else "<mod name>-<file id>".
   // Items saved before modName existed fall back to the Nexus file name.
   const fallbackName = item.modName ? `${item.modName}-${item.fileId}` : item.name;
@@ -1094,7 +1151,11 @@ async function startNdcDownload(job, item, url) {
     extractDownloadExtension(url) || '.zip'
   );
   const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-  const request = downloadRequest(url, job.folder, requestedName, { writeMo2Meta: settings?.WriteMo2Meta === true });
+  return downloadRequest(url, job.folder, requestedName, { writeMo2Meta: settings?.WriteMo2Meta === true });
+}
+
+async function startNdcDownload(job, item, url) {
+  const request = await ndcDownloadRequest(job, item, url);
   const downloadId = await new Promise((resolve, reject) => {
     chrome.downloads.download(request, (id) => {
       const error = getRuntimeError();
@@ -1105,6 +1166,56 @@ async function startNdcDownload(job, item, url) {
   });
   // '' when the browser placed the file: where it went inside the download location is not known.
   return { downloadId, filename: request.filename || '' };
+}
+
+// A start marker older than this is not trusted: a download that old is no longer this attempt's.
+const NDC_START_MARKER_MAX_AGE_MS = 10 * 60 * 1000;
+
+function searchDownloadsStartedAfter(at) {
+  return new Promise((resolve) => {
+    try {
+      chrome.downloads.search({ startedAfter: new Date(at).toISOString() }, (results) => {
+        resolve(getRuntimeError() ? [] : (Array.isArray(results) ? results : []));
+      });
+    } catch (_) {
+      resolve([]);
+    }
+  });
+}
+
+// The worker stopped between the browser starting this item's file and the job recording it, so the
+// job carries a start marker and no download. The browser's download of that file, if there is one, is
+// taken over; otherwise the marker is dropped and the file starts as usual. Returns undefined to carry
+// on, null to stop, or a terminal to replay for a download that already finished.
+async function adoptStartedNdcDownload(job, item, startIndex) {
+  const startedAt = Number(job.startingAt) || 0;
+  const fresh = Number(job.startingIndex) === startIndex && startedAt > 0
+    && Date.now() - startedAt <= NDC_START_MARKER_MAX_AGE_MS;
+  const found = fresh
+    ? (await searchDownloadsStartedAfter(startedAt - 5000)).find((record) => record
+      && record.state !== 'interrupted' && !record.error
+      && [record.url, record.finalUrl].some((url) => downloadUrlPath(url) === job.startingPath)) || null
+    : null;
+  const request = found ? await ndcDownloadRequest(job, item, found.url || found.finalUrl) : null;
+  const transition = await mutateNdcJobIf(job.id, idleOnItem(startIndex), (current) => {
+    delete current.startingPath;
+    delete current.startingAt;
+    delete current.startingIndex;
+    if (!found) return;
+    current.activeDownloadId = found.id;
+    current.activeDownloadPath = job.startingPath;
+    current.activeFilename = request?.filename || '';
+    current.rateLimitStrikes = 0;
+    current.cloudflareStrikes = 0;
+    current.waitingUntil = 0;
+    current.resolveAttempts = 0;
+    delete current.interruptConfirmations;
+  });
+  if (!transition.applied) return null;
+  if (!found) return undefined;
+  ndcDownloadJobs.set(found.id, job.id);
+  notifyNdcJob(transition.job, 'NXT_NDC_PROGRESS', { itemName: item.name, itemState: 'started', itemSizeKb: item.sizeKb || 0 });
+  return found.state === 'complete' ? { downloadId: found.id, state: 'complete', error: null } : null;
 }
 
 async function finishNdcJob(job) {
@@ -1210,10 +1321,10 @@ async function waitForNdcConnection(job, item, startIndex, resolved) {
       const strikes = Number(current.networkStrikes || 0) + 1;
       if (strikes > NXTK.NETWORK_WAIT_MAX_STRIKES) {
         current.status = 'error';
-        current.lastError = 'network_error';
+        current.lastError = resolved.code;
         current.networkStrikes = 0;
         current.waitingUntil = 0;
-        recordJobFailure(current, { fileId: item.fileId, code: 'network_error' });
+        recordJobFailure(current, { fileId: item.fileId, code: resolved.code });
         bumpNdcControl(current);
         return;
       }
@@ -1228,12 +1339,12 @@ async function waitForNdcConnection(job, item, startIndex, resolved) {
     clearNdcJobAlarm(job.id);
     notifyNdcJob(job, 'NXT_NDC_DONE', {
       outcome: 'error',
-      error: 'network_error',
+      error: resolved.code,
       itemName: item.name,
       skipped: jobSkippedList(job)
     });
     dropNdcJobItems(job.id);
-    await recordQueueItemFailure(job, item, 'network_error', resolved.detail);
+    await recordQueueItemFailure(job, item, resolved.code, resolved.detail);
     return null;
   }
   scheduleNdcJobAlarm(job.id, waitingUntil);
@@ -1286,6 +1397,13 @@ async function advanceNdcJob(jobId) {
 
     const startIndex = job.index;
     const item = items[startIndex];
+    if (job.startingPath) {
+      const adopted = await adoptStartedNdcDownload(job, item, startIndex);
+      if (adopted !== undefined) return adopted;
+      job = await readNdcJob(jobId);
+      if (!job || job.status !== 'running' || job.activeDownloadId !== null) return null;
+      if (job.index !== startIndex) continue;
+    }
     const resolved = await resolveNdcBrowserUrl(item, job.requestTimeout);
 
     job = await readNdcJob(jobId);
@@ -1293,7 +1411,7 @@ async function advanceNdcJob(jobId) {
     if (job.index !== startIndex) continue;
 
     // Any answer from Nexus means the connection is back, so a later drop starts its waits afresh.
-    if (resolved.code !== 'network_error' && Number(job.networkStrikes || 0) > 0) {
+    if (!NDC_CONNECTION_WAIT_CODES.has(resolved.code) && Number(job.networkStrikes || 0) > 0) {
       const transition = await mutateNdcJobIf(
         job.id,
         idleOnItem(startIndex),
@@ -1391,7 +1509,7 @@ async function advanceNdcJob(jobId) {
         await waitMs(NXTK.retryDelayMs(attempts, NDC_RESOLVE_RETRY_DELAY_MS, NDC_RESOLVE_RETRY_MAX_MS));
         continue;
       }
-      if (resolved.code === 'network_error') return waitForNdcConnection(job, item, startIndex, resolved);
+      if (NDC_CONNECTION_WAIT_CODES.has(resolved.code)) return waitForNdcConnection(job, item, startIndex, resolved);
       const failureCode = resolved.code || 'request_failed';
       const transition = await mutateNdcJobIf(
         job.id,
@@ -1417,6 +1535,15 @@ async function advanceNdcJob(jobId) {
 
     // One file the browser refuses to start must not take the rest of the queue
     // down with it: record it and move on, the way a failed resolve does.
+    // Recorded before the browser is asked, so a worker stopped before the claim below finds this file
+    // again when it restarts (adoptStartedNdcDownload) instead of starting it a second time.
+    const marked = await mutateNdcJobIf(job.id, idleOnItem(startIndex), (current) => {
+      current.startingPath = downloadUrlPath(resolved.url);
+      current.startingAt = Date.now();
+      current.startingIndex = startIndex;
+    });
+    if (!marked.applied) return null;
+    job = marked.job;
     let started;
     try {
       started = await startNdcDownload(job, item, resolved.url);
@@ -1425,6 +1552,9 @@ async function advanceNdcJob(jobId) {
         job.id,
         idleOnItem(startIndex),
         (current) => {
+          delete current.startingPath;
+          delete current.startingAt;
+          delete current.startingIndex;
           recordJobFailure(current, { fileId: item.fileId, code: 'download_not_started' });
           current.rateLimitStrikes = 0;
           current.waitingUntil = 0;
@@ -1451,6 +1581,9 @@ async function advanceNdcJob(jobId) {
         current.activeDownloadId = started.downloadId;
         current.activeDownloadPath = startedPath;
         current.activeFilename = started.filename;
+        delete current.startingPath;
+        delete current.startingAt;
+        delete current.startingIndex;
         current.rateLimitStrikes = 0;
         current.cloudflareStrikes = 0;
         current.waitingUntil = 0;
@@ -1632,6 +1765,9 @@ async function writeMo2Meta(item, relativeName, archivePath) {
 // waits in session storage, which outlives a worker stopped during a long download.
 const SINGLE_MO2_META_PREFIX = 'nxtk_mo2_meta:';
 const sessionStandIn = new Map();
+// A small file can be complete before what its .meta needs is saved. From the moment the browser hands
+// back the id until that is saved, its 'complete' (and 'interrupted') wait here.
+const pendingSingleMo2Meta = new Map();
 
 function sessionArea() {
   return chrome.storage?.session || null;
@@ -1710,6 +1846,7 @@ async function rememberSingleMo2Meta(downloadId, payload, sender, relativeName) 
 
 // Once per download: the entry is taken before the .meta is written.
 async function writeSingleMo2Meta(downloadId) {
+  await pendingSingleMo2Meta.get(downloadId);
   const key = `${SINGLE_MO2_META_PREFIX}${downloadId}`;
   const entry = await sessionGet(key);
   if (!entry) return;
@@ -1718,7 +1855,8 @@ async function writeSingleMo2Meta(downloadId) {
   await writeMo2Meta(entry, entry.relativeName, record?.filename);
 }
 
-function forgetSingleMo2Meta(downloadId) {
+async function forgetSingleMo2Meta(downloadId) {
+  await pendingSingleMo2Meta.get(downloadId);
   return sessionRemove(`${SINGLE_MO2_META_PREFIX}${downloadId}`);
 }
 
@@ -2784,7 +2922,7 @@ if (chrome.alarms?.onAlarm) {
       return;
     }
     if (name === 'nxtk-reconcile') {
-      reconcileNdcJobs().catch(() => {});
+      reconcileNdcJobs().catch((cause) => recordBackgroundError('collection queue reconcile', cause));
       // An expired claim (its tab crashed or closed) or a finished job puts the popup back.
       syncDownloadUi();
       cleanPendingTerminals();
@@ -2861,32 +2999,45 @@ async function reconcileNdcJob(jobId) {
   await processNdcJob(job.id);
 }
 
+// One job that fails here must not cost the others their recovery: each is reconciled on its own, and
+// the 5-minute alarm is set again whatever happened, because it is the recovery for every stuck job.
 async function reconcileNdcJobs() {
   if (!hasDownloadsApi()) return;
-  const jobs = await readNdcJobs();
   let runningCount = 0;
-
-  for (const job of Object.values(jobs)) {
-    if (job.status === 'running') {
-      runningCount++;
-      await reconcileNdcJob(job.id);
-      continue;
+  try {
+    const jobs = await readNdcJobs();
+    for (const job of Object.values(jobs)) {
+      try {
+        if (job.status === 'running') {
+          runningCount++;
+          await reconcileNdcJob(job.id);
+          continue;
+        }
+        // Keep the global reconciliation alarm alive even for a stopped job: Stop promised not
+        // to leave an attempt that can later resume beside a future run.
+        if (Number.isInteger(job.retiringDownloadId)
+          && !await finishNdcRetirement(job.id, job.retiringDownloadId)) {
+          runningCount++;
+        }
+      } catch (cause) {
+        recordBackgroundError('collection queue reconcile', cause);
+      }
     }
-    // Keep the global reconciliation alarm alive even for a stopped job: Stop promised not
-    // to leave an attempt that can later resume beside a future run.
-    if (Number.isInteger(job.retiringDownloadId)
-      && !await finishNdcRetirement(job.id, job.retiringDownloadId)) {
-      runningCount++;
+  } catch (cause) {
+    // The jobs could not be read, so whether any is running is unknown: the alarm stays.
+    runningCount++;
+    recordBackgroundError('collection queue reconcile', cause);
+  } finally {
+    try {
+      if (runningCount === 0 && chrome.alarms?.clear) {
+        chrome.alarms.clear('nxtk-reconcile');
+      } else if (runningCount > 0 && chrome.alarms?.create) {
+        chrome.alarms.create('nxtk-reconcile', { delayInMinutes: 5 });
+      }
+    } catch (cause) {
+      recordBackgroundError('collection queue reconcile alarm', cause);
     }
   }
-
-  try {
-    if (runningCount === 0 && chrome.alarms?.clear) {
-      chrome.alarms.clear('nxtk-reconcile');
-    } else if (runningCount > 0 && chrome.alarms?.create) {
-      chrome.alarms.create('nxtk-reconcile', { delayInMinutes: 5 });
-    }
-  } catch (_) { }
 }
 
 async function migrateNdcJobItems() {
@@ -2964,7 +3115,8 @@ const TRUSTED_SENDER_URL = /^https:\/\/(?:[\w-]+\.)*nexusmods\.com\//i;
 
 // Answers, not faults: pausing or stopping when no queue is running is a normal
 // thing for a reader to do and must not fill the error log.
-const EXPECTED_HANDLER_OUTCOMES = new Set(['job-not-found']);
+// Answers the caller handles itself, not faults: nothing to act on, or a limit the user has reached.
+const EXPECTED_HANDLER_OUTCOMES = new Set(['job-not-found', 'history-too-large']);
 
 function isTrustedSender(sender) {
   if (!sender || sender.id !== chrome.runtime.id) return false;

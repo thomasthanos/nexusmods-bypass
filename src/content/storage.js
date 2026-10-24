@@ -204,13 +204,16 @@ window.NexusExt = window.NexusExt || {};
     });
   }
 
-  async function setCollectionHistory({ gameId, collectionId, lists }) {
-    const reply = await mutateWithRetry('NDC_HISTORY_SET_COLLECTION', { gameId, collectionId, lists });
+  // Adds imported ids to a collection's history. The worker merges them with what is stored at that
+  // moment, so an id a running queue adds meanwhile is kept.
+  async function mergeCollectionHistory({ gameId, collectionId, lists }) {
+    const reply = await mutateWithRetry('NDC_HISTORY_MERGE', { gameId, collectionId, lists });
     if (reply.ok) return applyHistoryBranch(reply.value);
     if (!reply.transport) return getHistory();
     return localHistoryMutate(gameId, collectionId, (collection) => {
       for (const key of ['all', 'mandatory', 'optional']) {
-        collection[key] = Array.isArray(lists?.[key]) ? [...new Set(lists[key])] : [];
+        const added = Array.isArray(lists?.[key]) ? lists[key] : [];
+        if (added.length) collection[key] = [...new Set([...(Array.isArray(collection[key]) ? collection[key] : []), ...added])];
       }
     });
   }
@@ -219,8 +222,13 @@ window.NexusExt = window.NexusExt || {};
     return storageGet(NDC_RATE_LIMIT_KEY, { until: 0 });
   }
 
+  // The worker keeps the later of its own wait and this one, inside the same write queue as its own
+  // writes; reading here and writing could replace its longer wait with this shorter one.
   async function saveRateLimit(state) {
     const until = Number(state?.until) || 0;
+    const reply = await mutateWithRetry('NDC_RATE_LIMIT_PUBLISH', { until });
+    if (reply.ok) return true;
+    if (!reply.transport) return false;
     const current = Number((await getRateLimit())?.until) || 0;
     if (until <= current) return true;
     return storageSet(NDC_RATE_LIMIT_KEY, { until });
@@ -236,7 +244,7 @@ window.NexusExt = window.NexusExt || {};
     getHistory,
     addHistoryEntry,
     clearHistoryType,
-    setCollectionHistory,
+    mergeCollectionHistory,
     sendDownloadCommand,
     getRateLimit,
     saveRateLimit

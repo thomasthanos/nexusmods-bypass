@@ -1133,19 +1133,14 @@
       input.addEventListener('change', async () => {
         const { names: fileNames, skipped } = collectImportFileNames(input.files);
         const { matched: downloaded, unmatchedCount } = matchModsToFileNames(ndc.mods.all, fileNames);
-        const history = await NexusExt.Storage.getHistory();
-        const existing = history?.[ndc.gameId]?.[ndc.collectionId] || {};
-        const merge = (type, ids) => [...new Set([
-          ...(Array.isArray(existing[type]) ? existing[type] : []),
-          ...ids
-        ])];
-        await NexusExt.Storage.setCollectionHistory({
+        // Added to what is stored by the worker, so an entry a running queue writes meanwhile is kept.
+        await NexusExt.Storage.mergeCollectionHistory({
           gameId: ndc.gameId,
           collectionId: ndc.collectionId,
           lists: {
-            all: merge('all', downloaded.map(m => m.historyId || m.fileId)),
-            mandatory: merge('mandatory', downloaded.filter(m => !m.optional).map(m => m.historyId || m.fileId)),
-            optional: merge('optional', downloaded.filter(m => m.optional).map(m => m.historyId || m.fileId))
+            all: downloaded.map(m => m.historyId || m.fileId),
+            mandatory: downloaded.filter(m => !m.optional).map(m => m.historyId || m.fileId),
+            optional: downloaded.filter(m => m.optional).map(m => m.historyId || m.fileId)
           }
         });
         const summary = [

@@ -2623,7 +2623,10 @@ async function nexusAnswersAreClassified() {
       ['Cf-Mitigated on an empty 403', { status: 403, headers: { 'Cf-Mitigated': 'challenge' } }, null, { ok: false, code: 'cloudflare' }],
       ['Cf-Mitigated on the generator', { body: signedIn }, { status: 403, headers: { 'Cf-Mitigated': 'challenge' } }, { ok: false, code: 'cloudflare' }],
       ['a plain 403', { status: 403, body: '<html>Forbidden</html>' }, null, { ok: false, code: 'page_request_failed', status: 403 }],
-      ['a plain 503', { status: 503, body: '<html>Service Unavailable</html>' }, null, { ok: false, code: 'page_request_failed', status: 503 }],
+      // Nexus down (a gateway error on the mod page itself) is waited out like a lost connection.
+      ['a plain 503', { status: 503, body: '<html>Service Unavailable</html>' }, null, { ok: false, code: 'server_error', status: 503 }],
+      ['a Cloudflare 522', { status: 522, body: '<html>Connection timed out</html>' }, null, { ok: false, code: 'server_error', status: 522 }],
+      ['a plain 500', { status: 500, body: '<html>Error</html>' }, null, { ok: false, code: 'page_request_failed', status: 500 }],
       ['a 429 with Retry-After', { status: 429, headers: { 'Retry-After': '120' } }, null, { ok: false, code: 'rate_limited', status: 429, retryAfter: '120' }],
       ['a generator 429', { body: signedIn }, { status: 429, headers: { 'Retry-After': '30' } }, { ok: false, code: 'rate_limited', status: 429, retryAfter: '30' }],
       ['a generator sign-in error', { body: signedIn }, { status: 403, body: '{"code":"unauthenticated"}' }, { ok: false, code: 'requires_login' }],
@@ -3378,6 +3381,263 @@ async function browserPlacesUnnamedDownloads() {
   }
 }
 
+// Importing files into the download history while that collection's queue is running: the page used
+// to read the history, merge, then replace the lists, so an id the queue added in between was lost
+// and that file downloaded again next run. The worker now merges inside its own write queue.
+async function historyImportMergesWithRunningQueue() {
+  const S = context.__STORAGE_HANDLERS;
+  const branch = { gameId: 'g-merge', collectionId: 'c-merge' };
+  await storageSetLocal(STORAGE_HISTORY_KEY, { 'g-merge': { 'c-merge': { all: ['1704:1'], mandatory: [], optional: [] } } });
+  await Promise.all([
+    S.NDC_HISTORY_ADD({ ...branch, type: 'all', fileId: '1704:2' }),
+    S.NDC_HISTORY_MERGE({ ...branch, lists: { all: ['1704:3', 'bad id'], mandatory: ['1704:3'] } })
+  ]);
+  const stored = (await storageGetLocal(STORAGE_HISTORY_KEY, {}))['g-merge']['c-merge'];
+  assert.deepEqual([...stored.all].sort(), ['1704:1', '1704:2', '1704:3'], 'the queue\'s entry and the imported one both survive');
+  assert.deepEqual([...stored.mandatory], ['1704:3']);
+  assert.deepEqual([...stored.optional], [], 'a type the import does not name is left as it was');
+  await assert.rejects(
+    () => S.NDC_HISTORY_MERGE({ ...branch, lists: { all: Array.from({ length: 10000 }, (_, i) => `1704:${i + 10}`) } }),
+    /history-too-large/, 'the merged list keeps the history cap');
+  await assert.rejects(() => S.NDC_HISTORY_MERGE({ ...branch, lists: null }), /invalid-lists/);
+  const page = fs.readFileSync('src/content/ui-collection.js', 'utf8');
+  const importer = page.slice(page.indexOf("$('#nxtk-import-mods')"), page.indexOf("$('#nxtk-import-info')"));
+  assert.match(importer, /mergeCollectionHistory\(/, 'the import asks the worker to merge');
+  assert.doesNotMatch(importer, /getHistory\(/, 'and no longer reads the history to replace it');
+}
+
+// A tab that hits a rate limit tells the worker's queue, which must keep the later of the two waits:
+// the tab's own read-then-write could replace the queue's longer wait with a shorter one.
+async function rateLimitFromATabKeepsTheLongerWait() {
+  const S = context.__STORAGE_HANDLERS;
+  const key = 'nxtk_ndc_rate_limit';
+  const now = Date.now();
+  await storageSetLocal(key, { until: now + 120000 });
+  await S.NDC_RATE_LIMIT_PUBLISH({ until: now + 60000 });
+  assert.equal((await storageGetLocal(key, null)).until, now + 120000, 'a shorter wait never replaces a longer one');
+  await S.NDC_RATE_LIMIT_PUBLISH({ until: now + 300000 });
+  assert.equal((await storageGetLocal(key, null)).until, now + 300000, 'a longer one does');
+  await S.NDC_RATE_LIMIT_PUBLISH({ until: now + 10 * 3600 * 1000 });
+  assert.ok((await storageGetLocal(key, null)).until <= Date.now() + 3600 * 1000, 'a page cannot hold the queue for more than an hour');
+  await S.NDC_RATE_LIMIT_PUBLISH({ until: 'soon' });
+  await storageSetLocal(key, { until: 0 });
+  const storage = fs.readFileSync('src/content/storage.js', 'utf8');
+  assert.match(storage.slice(storage.indexOf('async function saveRateLimit')), /NDC_RATE_LIMIT_PUBLISH/, 'tabs publish through the worker');
+}
+
+// A file the browser had started when the worker stopped, before the job recorded it: the restart used
+// to fetch a fresh link and start the same file again, leaving a "(1)" copy beside an orphan.
+async function restartAdoptsADownloadStartedBeforeTheWorkerStopped() {
+  const savedDownloads = global.chrome.downloads;
+  const savedFetch = context.fetch;
+  const jobId = 'testjob-adopt';
+  const url = 'https://cf-files.nexus-cdn.com/1704/77/File-77.7z?md5=a&expires=1&user_id=2';
+  const items = [{ fileId: 77, historyId: '1704:77', gameId: '1704', name: 'File-77.7z',
+    pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/77', sizeKb: 10 }];
+  const started = [];
+  const fetched = [];
+  let onDisk = [];
+  const seed = (extra) => Promise.all([
+    storageSetLocal(`nxtk_ndc_items:${jobId}`, items),
+    storageSetLocal(NDC_JOBS_KEY, { [jobId]: {
+      id: jobId, tabId: 7, gameId: '1704', collectionId: 'adopt', type: 'all', folder: '', itemCount: 1, index: 0,
+      completed: 0, failed: [], skipped: [], status: 'running', activeDownloadId: null, createdAt: Date.now(),
+      updatedAt: Date.now(), ...extra
+    } })
+  ]);
+  global.chrome.downloads = {
+    ...(savedDownloads || {}),
+    download: (options, cb) => { started.push(options); cb(700 + started.length); },
+    search: (query, cb) => cb(onDisk.filter((item) => query?.id === undefined || item.id === query.id))
+  };
+  context.fetch = async (target) => {
+    fetched.push(String(target));
+    const generator = String(target).includes('GenerateDownloadUrl');
+    return { ok: true, status: 200, url: String(target), headers: { get: () => '' },
+      text: async () => (generator ? JSON.stringify({ url }) : '<a href="/auth/sign_out">Log out</a>') };
+  };
+  try {
+    // A normal start leaves no marker once the job has recorded its download.
+    await seed();
+    await advanceNdcJob(jobId);
+    let job = await readNdcJob(jobId);
+    assert.equal(job.activeDownloadId, 701);
+    assert.equal(job.startingPath, undefined, 'the start marker is gone once the download is recorded');
+    assert.equal(job.startingAt, undefined);
+
+    // The worker stopped between the browser starting the file and the job recording it.
+    started.length = 0;
+    fetched.length = 0;
+    onDisk = [{ id: 655, url, finalUrl: url, state: 'in_progress', startTime: new Date().toISOString(), filename: 'C:\\Downloads\\File-77.7z' }];
+    await seed({ startingPath: '/1704/77/file-77.7z', startingAt: Date.now() - 2000, startingIndex: 0 });
+    await advanceNdcJob(jobId);
+    job = await readNdcJob(jobId);
+    assert.equal(started.length, 0, 'the file is not started a second time');
+    assert.deepEqual(fetched, [], 'nor is a new link asked for');
+    assert.equal(job.activeDownloadId, 655, 'the job takes over the download the browser already has');
+    assert.equal(job.startingPath, undefined);
+
+    // Nothing in the browser matches: the marker is dropped and the file is started as usual.
+    onDisk = [];
+    await seed({ startingPath: '/1704/77/file-77.7z', startingAt: Date.now() - 2000, startingIndex: 0 });
+    await advanceNdcJob(jobId);
+    job = await readNdcJob(jobId);
+    assert.equal(started.length, 1, 'with no such download, the file starts');
+    assert.equal(job.startingPath, undefined);
+  } finally {
+    global.chrome.downloads = savedDownloads;
+    context.fetch = savedFetch;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+  }
+}
+
+// A small file can finish before the worker has saved what its Mod Organizer 2 .meta needs; the
+// 'complete' event then found nothing and no .meta was written.
+async function fastSingleDownloadStillGetsMo2Meta() {
+  const N = context.NXTK;
+  const H = context.__DOWNLOAD_HANDLERS;
+  const savedDownloads = global.chrome.downloads;
+  const savedSession = global.chrome.storage.session;
+  const session = {};
+  global.chrome.storage.session = {
+    get: (key, cb) => cb(key in session ? { [key]: structuredClone(session[key]) } : {}),
+    set: (items, cb) => setTimeout(() => { Object.assign(session, structuredClone(items)); if (cb) cb(); }, 30),
+    remove: (key, cb) => { delete session[key]; if (cb) cb(); }
+  };
+  const started = [];
+  const completions = [];
+  global.chrome.downloads = {
+    ...(savedDownloads || {}),
+    download: (options, cb) => {
+      started.push(options);
+      const id = 950 + started.length;
+      cb(id);
+      // The file is already complete: the browser's event arrives before the .meta details are saved.
+      if (!options.filename?.endsWith('.meta')) completions.push(context.writeSingleMo2Meta(id));
+    },
+    search: (query, cb) => cb([{ id: query.id, state: 'complete', filename: 'C:\\Users\\me\\Downloads\\Mods\\Tiny.7z' }])
+  };
+  try {
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
+    context.__recentDownloadStarts.clear();
+    await H.DOWNLOAD_START({ url: 'https://cf-files.nexus-cdn.com/1704/12604/Tiny.7z?md5=a', folder: 'Mods', filename: 'Tiny.7z',
+      fileId: '35499', gameId: '1704', modName: 'Tiny', version: '1' },
+    { url: 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', tab: { id: 3 } });
+    await Promise.all(completions);
+    const metas = started.filter((options) => options.filename?.endsWith('.meta'));
+    assert.equal(metas.length, 1, 'a file that finished at once still gets its .meta');
+    assert.equal(metas[0].filename, 'Mods/Tiny.7z.meta');
+    assert.deepEqual(Object.keys(session), [], 'and nothing is left waiting');
+  } finally {
+    global.chrome.downloads = savedDownloads;
+    global.chrome.storage.session = savedSession;
+    context.__recentDownloadStarts.clear();
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
+  }
+}
+
+// A Nexus outage (502/503/504) failed each queued file after three quick tries, so a few minutes of
+// downtime marched the run through the whole collection. It is now waited out like a lost connection.
+async function queueWaitsOutAServerOutage() {
+  const previousFetch = context.fetch;
+  const previousDelay = NXTK.retryDelayMs;
+  const savedAlarms = global.chrome.alarms;
+  const savedSendMessage = global.chrome.tabs.sendMessage;
+  const jobId = 'testjob-outage';
+  const items = [88, 89].map((fileId) => ({ fileId, historyId: String(fileId), gameId: '1704', name: `File ${fileId}.7z`,
+    pageUrl: `https://www.nexusmods.com/skyrimspecialedition/mods/${fileId}`, sizeKb: 10 }));
+  const events = [];
+  try {
+    NXTK.retryDelayMs = () => 0;
+    global.chrome.alarms = { create: noop, clear: noop };
+    global.chrome.tabs.sendMessage = (_tabId, message, callback) => { events.push(JSON.parse(JSON.stringify(message))); if (callback) callback(); };
+    context.fetch = async (url) => ({ ok: false, status: 503, url: String(url), text: async () => 'Service Unavailable', headers: { get: () => '' } });
+    await Promise.all([
+      storageSetLocal(`nxtk_ndc_items:${jobId}`, items),
+      storageSetLocal(NDC_JOBS_KEY, { [jobId]: {
+        id: jobId, tabId: 7, gameId: '1704', collectionId: 'outage', type: 'all', itemCount: 2, index: 0, completed: 0,
+        failed: [], skipped: [], status: 'running', activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now()
+      } })
+    ]);
+    await advanceNdcJob(jobId);
+    const job = await readNdcJob(jobId);
+    assert.equal(job.status, 'running', 'an outage does not end the run');
+    assert.equal(job.index, 0, 'nor move it past the file');
+    assert.deepEqual([...job.failed], [], 'and the file is not counted as failed');
+    assert.equal(job.networkStrikes, 1);
+    assert.ok(job.waitingUntil > Date.now(), 'the run waits on an alarm');
+    assert.equal(events.filter((event) => event.type === 'NXT_NDC_WAITING').at(-1)?.reason, 'network');
+
+    // When the waits run out, the run stops with the outage as its reason.
+    await saveNdcJob({ ...job, networkStrikes: NXTK.NETWORK_WAIT_MAX_STRIKES, waitingUntil: 0 });
+    await advanceNdcJob(jobId);
+    const stopped = await readNdcJob(jobId);
+    assert.equal(stopped.status, 'error');
+    assert.equal(stopped.lastError, 'server_error');
+    assert.equal(events.filter((event) => event.type === 'NXT_NDC_DONE').at(-1)?.error, 'server_error');
+  } finally {
+    context.fetch = previousFetch;
+    NXTK.retryDelayMs = previousDelay;
+    global.chrome.alarms = savedAlarms;
+    global.chrome.tabs.sendMessage = savedSendMessage;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+  }
+  assert.equal(context.connectionFailureCode({ status: 0, error: 'timed out' }), 'timeout', 'a request the timer cut off is a timeout');
+  assert.equal(context.connectionFailureCode({ status: 0, error: 'Failed to fetch' }), 'network_error');
+}
+
+// One job whose reconcile throws used to end the loop before the 5-minute alarm was set again, so
+// every other stuck job lost its recovery, and the failure was discarded unseen.
+async function reconcileSurvivesAFailingJob() {
+  const savedReconcile = context.reconcileNdcJob;
+  const savedRecord = context.recordBackgroundError;
+  const savedAlarms = global.chrome.alarms;
+  const savedDownloads = global.chrome.downloads;
+  const reconciled = [];
+  const recorded = [];
+  const alarms = [];
+  try {
+    global.chrome.downloads = { ...(savedDownloads || {}), download: noop, search: (_q, cb) => cb([]) };
+    global.chrome.alarms = { create: (name, info) => alarms.push([name, info]), clear: noop };
+    context.recordBackgroundError = (where, cause) => recorded.push([where, String(cause?.message || cause)]);
+    context.reconcileNdcJob = async (id) => {
+      reconciled.push(id);
+      if (id === 'testjob-broken') throw new Error('storage read failed');
+    };
+    const base = { gameId: 'g', type: 'all', itemCount: 1, index: 0, completed: 0, failed: [], status: 'running',
+      activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now() };
+    await storageSetLocal(NDC_JOBS_KEY, {
+      'testjob-broken': { ...base, id: 'testjob-broken', collectionId: 'c1' },
+      'testjob-fine': { ...base, id: 'testjob-fine', collectionId: 'c2' }
+    });
+    await context.reconcileNdcJobs();
+    assert.deepEqual(reconciled.sort(), ['testjob-broken', 'testjob-fine'], 'every running job is reconciled');
+    assert.ok(alarms.some(([name]) => name === 'nxtk-reconcile'), 'the reconcile alarm is armed again');
+    assert.ok(recorded.some(([, message]) => /storage read failed/.test(message)), 'and the failure is recorded');
+  } finally {
+    context.reconcileNdcJob = savedReconcile;
+    context.recordBackgroundError = savedRecord;
+    global.chrome.alarms = savedAlarms;
+    global.chrome.downloads = savedDownloads;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+  }
+}
+
+// A history at its cap is a limit the user reached, not a fault in the extension: it is answered,
+// not reported as a critical background error.
+async function historyLimitIsNotACrash() {
+  await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+  const reply = await new Promise((resolve) => messageListeners[0](
+    { type: 'NDC_HISTORY_SET_COLLECTION', payload: { gameId: 'g1', collectionId: 'c1', lists: { all: Array.from({ length: 10001 }, (_, i) => String(i + 1)) } } },
+    { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/collections/abc', tab: { id: 7 } },
+    resolve
+  ));
+  assert.equal(reply.ok, false);
+  assert.equal(reply.error, 'history-too-large');
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.deepEqual(await storageGetLocal(NXTK.ERROR_LOG_KEY, []), [], 'nothing was logged');
+}
+
 // Issue #34: a full path saved by an older version reaches the collection queue as well. It must not
 // become a folder "D mods" there, as it no longer does for a single download.
 async function queueIgnoresFullPathFolders() {
@@ -3451,5 +3711,12 @@ jobStateBehaviour()
   .then(queueWaitsOutLostConnection)
   .then(reusedDownloadIdIsNeverTrusted)
   .then(fullDiskStopsTheRun)
+  .then(historyImportMergesWithRunningQueue)
+  .then(rateLimitFromATabKeepsTheLongerWait)
+  .then(restartAdoptsADownloadStartedBeforeTheWorkerStopped)
+  .then(fastSingleDownloadStillGetsMo2Meta)
+  .then(queueWaitsOutAServerOutage)
+  .then(reconcileSurvivesAFailingJob)
+  .then(historyLimitIsNotACrash)
   .then(() => console.log('background.js unit behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });
