@@ -13,6 +13,8 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   let store = null;
   let renderedStoreFresh = null;
   let focusedReview = null;
+  let reviewHistoryOpen = false;
+  let reviewAckGeneration = 0;
   const controllers = new Map();
   const listeners = [];
   const analyticsPanel = element('section', 'panel growth-panel'); analyticsPanel.dataset.growthAnalytics = '';
@@ -164,14 +166,27 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     if (!Number.isFinite(value) || value <= 0) return null;
     const time = element('time', '', new Date(value).toLocaleDateString()); time.dateTime = new Date(value).toISOString(); return time;
   }
+  function focusReviewCard(id, scroll = false) {
+    const card = [...reviewsPanel.querySelectorAll('[data-review-id]')].find((item) => item.dataset.reviewId.toLowerCase() === id.toLowerCase());
+    if (!card) return false;
+    const history = card.closest('[data-review-history]');
+    if (history) { history.open = true; reviewHistoryOpen = true; }
+    if (scroll) card.scrollIntoView?.({ block: 'center', behavior: 'auto' });
+    card.focus({ preventScroll: true }); return true;
+  }
   function renderReviews() {
     if (disposed) return;
+    const previousHistory = reviewsPanel.querySelector('[data-review-history]');
+    if (previousHistory) reviewHistoryOpen = previousHistory.open;
     const top = heading(reviewsPanel, 'Store reviews', 'Written feedback from the Chrome Web Store.');
-    const reviews = Array.isArray(store?.reviews) ? store.reviews.filter((item, index, list) => UUID.test(item?.id ?? '') && list.findIndex((other) => other.id === item.id) === index).slice(0, 100) : [];
+    const reviews = Array.isArray(store?.reviews) ? store.reviews.filter((item, index, list) => typeof item?.id === 'string' && UUID.test(item.id) && list.findIndex((other) => typeof other?.id === 'string' && other.id.toLowerCase() === item.id.toLowerCase()) === index).slice(0, 100)
+      .sort((a, b) => (Number.isFinite(b.created_at) ? b.created_at : 0) - (Number.isFinite(a.created_at) ? a.created_at : 0) || a.id.localeCompare(b.id)) : [];
     const newCount = Number.isSafeInteger(store?.new_review_count) && store.new_review_count > 0 ? store.new_review_count : 0;
     if (newCount) top.append(element('span', 'tag tag-warning', `${count(newCount)} new`));
     if (!reviews.length) reviewsPanel.append(element('p', 'muted', store?.snapshot ? 'No written reviews have been fetched yet.' : 'Reviews are temporarily unavailable.'));
-    const list = element('div', 'growth-review-list');
+    const list = element('div', 'growth-review-list'); list.dataset.reviewPreview = '';
+    const olderList = element('div', 'growth-review-list');
+    const latestIds = new Set(reviews.slice(0, 3).map((review) => review.id));
     for (const review of reviews) {
       const card = element('article', 'growth-review'); card.dataset.reviewId = review.id; card.dataset.new = String(review.is_new === true); card.tabIndex = -1;
       const header = element('div', 'growth-review-heading'); const author = element('h3', '', text(review.author, 160) || 'Store reviewer');
@@ -182,9 +197,14 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
       if (review.version) metadata.append(element('span', '', `Version ${text(review.version, 64)}`));
       card.append(header, metadata, element('p', 'growth-review-body', text(review.body, 10000) || 'No written text.'));
       if (review.is_new === true) card.append(button('Mark as read', (event) => { void acknowledge(review.id, event.currentTarget); }, 'ack-review'));
-      list.append(card);
+      (review.is_new === true || latestIds.has(review.id) ? list : olderList).append(card);
     }
     reviewsPanel.append(list);
+    if (olderList.children.length) {
+      const history = element('details', 'growth-review-history'); history.dataset.reviewHistory = ''; history.open = reviewHistoryOpen;
+      history.append(element('summary', '', `Show ${count(olderList.children.length)} older ${olderList.children.length === 1 ? 'review' : 'reviews'}`), olderList);
+      reviewsPanel.append(history);
+    }
     const storeStale = !isStoreFresh();
     if (store?.snapshot?.reviews_complete === false) reviewsPanel.append(element('p', 'growth-state', 'Showing the written reviews available from the latest store check. The store may contain more reviews.'));
     if (store?.message) reviewsPanel.append(element('p', 'growth-state', text(store.message, 1600)));
@@ -203,9 +223,8 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     }
     const targetId = new URL(win.location.href).searchParams.get('review');
     if (targetId && UUID.test(targetId) && targetId.toLowerCase() !== focusedReview) {
-      const card = [...list.children].find((item) => item.dataset.reviewId.toLowerCase() === targetId.toLowerCase());
-      if (card) { focusedReview = targetId.toLowerCase(); card.scrollIntoView?.({ block: 'center', behavior: 'auto' }); card.focus({ preventScroll: true }); }
-    }
+      if (focusReviewCard(targetId, true)) focusedReview = targetId.toLowerCase();
+    } else if (!targetId || !UUID.test(targetId)) focusedReview = null;
   }
   async function run(name, path, options = {}) {
     controllers.get(name)?.abort();
@@ -228,8 +247,19 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   async function loadStore() {
     if (disposed) return;
     lastStorePoll = Date.now();
-    try { store = await run('store', '/store'); renderStore(); renderReviews(); }
-    catch (error) { if (!disposed && error?.name !== 'AbortError') { store = store ? { ...store, stale: true } : null; renderStore(); renderReviews(); } }
+    const ackGeneration = reviewAckGeneration;
+    try {
+      const latest = await run('store', '/store');
+      // A poll begun before a confirmed write may contain its old unread state.
+      // Read again after that write rather than applying the outdated response.
+      if (ackGeneration !== reviewAckGeneration) return loadStore();
+      store = latest; renderStore(); renderReviews();
+    } catch (error) {
+      if (!disposed && error?.name !== 'AbortError') {
+        if (ackGeneration !== reviewAckGeneration) return loadStore();
+        store = store ? { ...store, stale: true } : null; renderStore(); renderReviews();
+      }
+    }
   }
   async function acknowledge(id, control) {
     if (disposed || control.disabled) return;
@@ -237,8 +267,9 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     try {
       await run(`ack:${id}`, '/store/reviews/ack', { method: 'POST', body: { ids: [id] } });
       if (disposed) return;
+      reviewAckGeneration++;
       store = { ...store, new_review_count: Math.max(0, (store.new_review_count ?? 0) - 1), reviews: store.reviews.map((item) => item.id === id ? { ...item, is_new: false } : item) };
-      renderReviews(); reviewsPanel.querySelector(`[data-review-id="${id}"]`)?.focus({ preventScroll: true }); notify('Review marked as read.', 'success');
+      renderReviews(); focusReviewCard(id); notify('Review marked as read.', 'success');
     } catch (error) { if (!disposed && error?.name !== 'AbortError') { control.disabled = false; control.textContent = 'Mark as read'; notify('Could not mark the review as read. Retry when connected.', 'error'); } }
   }
 

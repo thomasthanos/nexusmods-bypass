@@ -1514,6 +1514,10 @@ td:first-child { color: var(--text); font-weight: 550; }
 .growth-version [data-version-status="store_behind"] { color: var(--amber); }
 .growth-version [data-version-status="up_to_date"] { color: var(--mint); }
 .growth-review-list { display: grid; gap: 14px; }
+.growth-review-history { margin-top: 14px; min-width: 0; }
+.growth-review-history > summary { min-height: 44px; padding: 12px 14px; border-radius: var(--radius-sm); color: var(--text); background: var(--sunken); box-shadow: var(--neu-sunken); cursor: pointer; font-size: .86rem; overflow-wrap: anywhere; }
+.growth-review-history > summary:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+.growth-review-history[open] > summary { margin-bottom: 14px; }
 .growth-review { min-width: 0; padding: 18px; background: var(--sunken); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); box-shadow: var(--neu-sunken); scroll-margin-top: 24px; }
 .growth-review[data-new="true"] { border-color: var(--line-active); }
 .growth-review:focus { outline: 2px solid var(--amber); outline-offset: 3px; }

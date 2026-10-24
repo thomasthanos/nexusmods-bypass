@@ -49,3 +49,12 @@ test('Store API serves bounded public snapshot without delivery credentials or i
   assert.equal(response.status,200); const data = await response.json(); assert.equal(data.snapshot.users,60000);
   assert.equal(data.new_review_count,0); assert.doesNotMatch(JSON.stringify(data), /lease_token|p256dh|first_seen_run_token|auth"/);
 });
+
+test('retrying an unavailable first Store scan does not wait through the successful-snapshot cache interval', async (t) => {
+  const db = createTestDatabase(); t.after(() => db.close()); const access = await createAccessFixture(t); const now = Date.now();
+  db.sqlite.prepare('INSERT INTO store_monitor_state (id,last_checked_at,last_error_at) VALUES (1,?,?)').run(now,now);
+  const response = await worker.fetch(new Request(origin+'/api/admin/store',{headers:await access.headers()}),bindings(db),context);
+  assert.equal(response.status,200); assert.equal((await response.json()).snapshot,null);
+  // The Access fixture refuses all other network traffic, but records the retry.
+  assert.ok(access.requests.some((url) => url.startsWith('https://chromewebstore.google.com/')));
+});

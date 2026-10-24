@@ -15,7 +15,7 @@ growthRoutes.get('/analytics', async (c) => c.json(await cachedAnalytics(c.env.D
 growthRoutes.get('/store', async (c) => {
   const now = c.get('serverNow');
   const previous = await getStoreDashboard(c.env.DB, now);
-  if (previous.last_checked_at === null || now - previous.last_checked_at >= 900_000) {
+  if (!previous.snapshot || previous.last_checked_at === null || now - previous.last_checked_at >= 900_000) {
     // The first private read seeds history. A per-database lease also covers cron.
     // Dispatch is scheduled separately so a GET never sends notifications.
     await syncStore(c.env.DB, { now });

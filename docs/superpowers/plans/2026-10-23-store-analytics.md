@@ -31,7 +31,7 @@
 - [x] Add OAuth GA4 adapter and named-range/quality/partial-response tests.
 - [x] Add additive D1 schema, protected snapshot/ack routes, baseline/dedupe/lease tests and scheduled review delivery.
 - [x] Add Overview cards/reviews/polling and mobile/auth/hostile-text tests.
-- [ ] Configure dedicated Google OAuth read access through the owner's Edge session when permitted; otherwise document the exact remaining account step.
+- [x] Configure dedicated Google OAuth read access through the owner's Edge session when permitted; otherwise document the exact remaining account step.
 - [ ] Review, run the required checks, apply schema, deploy, push main and verify CI.
 
 ## Verification on 24 October 2026
@@ -39,4 +39,6 @@
 - Diagnostics type generation, TypeScript and 369 tests pass. Chromium and WebKit each pass all 24 mobile browser tests.
 - Independent review fixes cover portable cron forwarding, partial Analytics messages, Store polling/freshness and the D1 bound-value budget.
 - The additive four-table/three-index migration was applied to production through the Cloudflare API and verified with an empty foreign-key check. Existing diagnostics records were preserved.
-- A dedicated Google project and Web OAuth client were created through the owner's Edge session with explicit approval. Final Google authorization and encrypted Worker-secret installation are still pending.
+- A dedicated Google project and Web OAuth client were created through the owner's Edge session with explicit approval. The owner completed Google's unverified-app consent, the helper proved property read access, and the optional encrypted Worker secret was installed. Live GA4 reports now render through the production Worker; no OAuth credentials reach dashboard JavaScript.
+- Native Workers Assets deployment and the 15-minute cron were verified. The existing seven secrets were preserved alongside the new optional secret. The Store's complete initial baseline queued no historical review deliveries. The existing Apple push subscription was preserved; physical notification display was not tested.
+- Main commit `240b61d` passed all GitHub Release gate jobs. The existing repository has no Cloudflare Actions token, so deployment was completed with the existing local Wrangler session.

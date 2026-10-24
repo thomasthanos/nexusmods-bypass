@@ -8,6 +8,7 @@ const reviewId = '8c9ccade-d3a1-4fae-92d5-a7cd21419875';
 const extensionId = 'nfgcgpjdecjmiakjhhhnkghooefplfnl';
 const analytics = (patch = {}) => ({ property_id: '547084285', source: 'ga4_store_listing', state: 'ready', fetched_at: now, online_30m: 12, weekly_active: 580, previous_weekly_active: 500, weekly_change_percent: 16, history_total_users: 21000, history_start_date: '2024-01-02', time_zone: 'Europe/Athens', quality: { subject_to_thresholding: false, sampled: false, data_loss: false }, message: null, ...patch });
 const review = (patch = {}) => ({ id: reviewId, author: 'Mod user', rating: 5, body: 'Quick downloads.', created_at: now - 86400000, updated_at: now, version: '3.3.1', language: 'en', is_new: true, ...patch });
+const reviewHistory = () => Array.from({ length: 6 }, (_, index) => review({ id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, author: `Reviewer ${index + 1}`, created_at: now - (index + 1) * 86400000, is_new: false }));
 const store = (patch = {}) => ({ state: 'ready', snapshot: { extension_id: extensionId, store_url: `https://chromewebstore.google.com/detail/nexusmods-bypass/${extensionId}`, version: '3.3.1', users: 60000, rating_average: 4.84444, rating_count: 45, written_review_count: 30, latest_release_version: '3.3.2', latest_release_url: 'https://github.com/thomasthanos/nexusmods-bypass/releases/tag/v3.3.2', version_status: 'store_behind', fetched_at: now, reviews_complete: true }, reviews: [review()], new_review_count: 1, last_checked_at: now, sync_interval_seconds: 900, stale: false, message: null, ...patch });
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 function setup(t, handler = () => undefined, url = 'https://diagnostics.test/') {
@@ -204,6 +205,75 @@ test('new reviews are acknowledged only by an explicit button click', async (t) 
   assert.equal(container.querySelector(`[data-review-id="${reviewId}"]`).dataset.new, 'false');
   assert.equal(container.querySelector('[data-action="ack-review"]'), null);
   assert.equal(container.ownerDocument.activeElement, container.querySelector(`[data-review-id="${reviewId}"]`));
+});
+
+test('review preview contains the latest three and every new review once, with older history collapsed', async (t) => {
+  const reviews = reviewHistory(); reviews[5].is_new = true;
+  const { container } = setup(t, (path) => path === '/store' ? store({ reviews: [...reviews].reverse().concat(reviews[0]), new_review_count: 1 }) : undefined); await tick();
+  const panel = container.querySelector('[data-growth-reviews]');
+  const preview = panel.querySelector('[data-review-preview]');
+  assert.deepEqual([...preview.children].map((card) => card.dataset.reviewId), [reviews[0].id, reviews[1].id, reviews[2].id, reviews[5].id]);
+  const history = panel.querySelector('details[data-review-history]');
+  assert.equal(history.open, false);
+  assert.equal(history.querySelector('summary').textContent, 'Show 2 older reviews');
+  assert.equal(history.querySelectorAll('[data-review-id]').length, 2);
+  assert.equal(panel.querySelectorAll('[data-review-id]').length, 6);
+});
+
+test('an older review deep link opens its history before focusing, without acknowledging it', async (t) => {
+  const reviews = reviewHistory(); const id = reviews[5].id;
+  const { container, calls } = setup(t, (path) => path === '/store' ? store({ reviews, new_review_count: 0 }) : undefined, `https://diagnostics.test/?review=${id}`); await tick();
+  const card = container.querySelector(`[data-review-id="${id}"]`);
+  assert.equal(card.closest('details[data-review-history]').open, true);
+  assert.equal(container.ownerDocument.activeElement, card);
+  assert.equal(calls.filter(({ path }) => path.endsWith('/ack')).length, 0);
+});
+
+test('acknowledging an older new review opens its destination history and preserves focus', async (t) => {
+  const reviews = reviewHistory(); reviews[5].is_new = true; const id = reviews[5].id;
+  const { container, calls } = setup(t, (path) => path === '/store' ? store({ reviews, new_review_count: 1 }) : undefined); await tick();
+  container.querySelector(`[data-review-id="${id}"] [data-action="ack-review"]`).click(); await tick();
+  const card = container.querySelector(`[data-review-id="${id}"]`);
+  assert.equal(card.dataset.new, 'false');
+  assert.equal(card.closest('details[data-review-history]').open, true);
+  assert.equal(container.ownerDocument.activeElement, card);
+  assert.equal(container.querySelector('[data-review-preview]').children.length, 3);
+  assert.equal(calls.filter(({ path }) => path.endsWith('/ack')).length, 1);
+});
+
+test('expanded review history survives freshness status updates and a store refresh', async (t) => {
+  const reviews = reviewHistory();
+  const { container, dom, intervals, advance } = setup(t, (path) => path === '/store' ? store({ reviews, new_review_count: 0 }) : undefined); await tick();
+  const history = container.querySelector('details[data-review-history]'); history.open = true;
+  Object.defineProperty(dom.window.navigator, 'onLine', { configurable: true, value: false });
+  dom.window.dispatchEvent(new dom.window.Event('offline'));
+  assert.equal(container.querySelector('details[data-review-history]'), history);
+  assert.equal(history.open, true);
+  Object.defineProperty(dom.window.navigator, 'onLine', { configurable: true, value: true });
+  advance(900000); [...intervals.values()][0].callback(); await tick();
+  assert.equal(container.querySelector('details[data-review-history]').open, true);
+});
+
+test('a Store poll started before a confirmed acknowledgement cannot resurrect its unread review', async (t) => {
+  const oldPoll = Promise.withResolvers(); const freshPoll = Promise.withResolvers(); let storeCalls = 0;
+  const reviews = reviewHistory(); reviews[5].is_new = true; const id = reviews[5].id;
+  const unread = store({ reviews, new_review_count: 1 });
+  const { container, intervals, advance } = setup(t, (path) => {
+    if (path !== '/store') return undefined;
+    storeCalls++;
+    return storeCalls === 1 ? unread : storeCalls === 2 ? oldPoll.promise : freshPoll.promise;
+  }); await tick();
+  advance(900000); [...intervals.values()][0].callback(); await tick();
+  assert.equal(storeCalls, 2);
+  container.querySelector(`[data-review-id="${id}"] [data-action="ack-review"]`).click(); await tick();
+  assert.equal(container.querySelector(`[data-review-id="${id}"]`).dataset.new, 'false');
+  oldPoll.resolve(unread); await tick();
+  assert.equal(storeCalls, 3, 'an outdated poll triggers a fresh read after the confirmed acknowledgement');
+  assert.equal(container.querySelector(`[data-review-id="${id}"]`).dataset.new, 'false');
+  assert.equal(container.querySelector(`[data-review-id="${id}"] [data-action="ack-review"]`), null);
+  freshPoll.resolve(store({ reviews: reviews.map((item) => ({ ...item, is_new: false })), new_review_count: 0 })); await tick();
+  assert.equal(container.querySelector(`[data-review-id="${id}"]`).dataset.new, 'false');
+  assert.equal(container.querySelector('details[data-review-history]').open, true);
 });
 
 test('a failed review acknowledgement keeps the new card available for retry', async (t) => {
