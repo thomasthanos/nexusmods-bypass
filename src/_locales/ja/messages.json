@@ -1268,6 +1268,9 @@
   "wjImportSkipped": {
     "message": "残りの $1 個は Nexus のダウンロードではなく、Wabbajack が自分で取得します。詳細はログにあります。"
   },
+  "wjImportNotQueued": {
+    "message": "$1 件の Nexus アーカイブはキューに入れていません: 重複しているか、このバージョンでは読み取れません。ログに一覧があります。"
+  },
   "wjImportFailed": {
     "message": "このモッドリストを読み込めませんでした: $1"
   },
@@ -1299,6 +1302,9 @@
   },
   "wjSkipManual": {
     "message": "$1 は Wabbajack が要求したときに手動でダウンロードする必要があります: $2"
+  },
+  "wjSkipDuplicates": {
+    "message": "$1 件はモッドリストに複数回記載されています — それぞれ 1 回だけキューに入れます。"
   },
   "wjSkipUnreadable": {
     "message": "$1 はこのバージョンでは読み取れませんでした: $2"

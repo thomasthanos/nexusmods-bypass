@@ -1344,6 +1344,9 @@
   "wjImportSkipped": {
     "message": "Los otros $1 no son descargas de Nexus: Wabbajack los obtiene por su cuenta. El registro los detalla."
   },
+  "wjImportNotQueued": {
+    "message": "$1 archivos de Nexus no se pusieron en cola: aparecen dos veces o esta versión no puede leerlos. El registro los muestra."
+  },
   "wjImportFailed": {
     "message": "No se pudo leer esta lista: $1"
   },
@@ -1375,6 +1378,9 @@
   },
   "wjSkipManual": {
     "message": "$1 habrá que descargarlas a mano cuando Wabbajack lo pida: $2"
+  },
+  "wjSkipDuplicates": {
+    "message": "$1 aparecen más de una vez en la lista — cada uno se pone en cola una sola vez."
   },
   "wjSkipUnreadable": {
     "message": "$1 no se pudieron leer en esta versión: $2"

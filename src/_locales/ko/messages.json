@@ -1268,6 +1268,9 @@
   "wjImportSkipped": {
     "message": "나머지 $1 개는 Nexus 다운로드가 아니며 Wabbajack이 직접 가져옵니다. 자세한 내용은 로그에 있습니다."
   },
+  "wjImportNotQueued": {
+    "message": "Nexus 아카이브 $1개는 대기열에 넣지 않았습니다: 중복되었거나 이 버전에서 읽을 수 없습니다. 로그에 목록이 있습니다."
+  },
   "wjImportFailed": {
     "message": "이 모드리스트를 읽을 수 없습니다: $1"
   },
@@ -1299,6 +1302,9 @@
   },
   "wjSkipManual": {
     "message": "$1 은(는) Wabbajack이 요청할 때 직접 내려받아야 합니다: $2"
+  },
+  "wjSkipDuplicates": {
+    "message": "$1개는 모드 목록에 두 번 이상 올라 있습니다 — 각각 한 번만 대기열에 넣습니다."
   },
   "wjSkipUnreadable": {
     "message": "$1 은(는) 이 버전에서 읽을 수 없었습니다: $2"

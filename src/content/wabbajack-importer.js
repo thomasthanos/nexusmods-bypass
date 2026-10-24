@@ -66,6 +66,9 @@
     NieRAutomata: game('nierautomata', 1950)
   });
 
+  // Wabbajack writes its Game enum names, but a hand-edited or older modlist can differ in case.
+  const GAME_NAMES_BY_LOWER_CASE = new Map(Object.keys(GAMES).map((name) => [name.toLowerCase(), name]));
+
   const GAME_IDS = Object.freeze(Object.fromEntries(
     Object.entries(GAMES).map(([name, metadata]) => [name, metadata?.id ?? null])
   ));
@@ -121,13 +124,14 @@
       const state = archive.State;
       const modId = positiveInteger(state.ModID);
       const fileId = positiveInteger(state.FileID);
-      const gameName = cleanText(state.GameName, 100);
-      if (!modId || !fileId || !gameName) {
+      const declaredGame = cleanText(state.GameName, 100);
+      if (!modId || !fileId || !declaredGame) {
         skip(name, 'incomplete-entry');
         continue;
       }
-      if (!Object.prototype.hasOwnProperty.call(GAMES, gameName)) {
-        skip(name, `unknown-game:${gameName}`);
+      const gameName = GAME_NAMES_BY_LOWER_CASE.get(declaredGame.toLowerCase());
+      if (!gameName) {
+        skip(name, `unknown-game:${declaredGame}`);
         continue;
       }
 
@@ -186,10 +190,20 @@
     return text.length;
   }
 
-  function sliceBalanced(text, open) {
+  // A modlist runs to hundreds of megabytes of text, read on the Nexus page itself: the scans below give
+  // the page its turn every SCAN_YIELD_CHARS characters, so it never freezes while a list is read.
+  const SCAN_YIELD_CHARS = 1024 * 1024;
+  const yieldToPage = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  async function sliceBalanced(text, open) {
     let depth = 0;
     let index = open;
+    let nextYield = open + SCAN_YIELD_CHARS;
     while (index < text.length) {
+      if (index >= nextYield) {
+        await yieldToPage();
+        nextYield = index + SCAN_YIELD_CHARS;
+      }
       const code = text.charCodeAt(index);
       if (code === QUOTE) {
         index = skipJsonString(text, index);
@@ -205,14 +219,28 @@
     return text.slice(open);
   }
 
+  // A label is a JSON string, escapes and all ("Caf\u00e9"); one that is not valid JSON is kept as written.
+  function decodeJsonString(quoted) {
+    try {
+      const value = JSON.parse(quoted);
+      if (typeof value === 'string') return value;
+    } catch (_) { }
+    return quoted.slice(1, -1);
+  }
+
   // Only the Archives array is parsed; Directives can be hundreds of megabytes.
-  function scanManifest(text) {
+  async function scanManifest(text) {
     const scalars = {};
     let archivesJson = '';
     let depth = 0;
     let index = 0;
+    let nextYield = SCAN_YIELD_CHARS;
 
     while (index < text.length) {
+      if (index >= nextYield) {
+        await yieldToPage();
+        nextYield = index + SCAN_YIELD_CHARS;
+      }
       const code = text.charCodeAt(index);
       if (code !== QUOTE) {
         if (code === OPEN_BRACE || code === OPEN_BRACKET) depth += 1;
@@ -234,13 +262,13 @@
 
       const key = text.slice(keyStart + 1, afterKey - 1);
       if (key === 'Archives' && !archivesJson && text.charCodeAt(cursor) === OPEN_BRACKET) {
-        archivesJson = sliceBalanced(text, cursor);
+        archivesJson = await sliceBalanced(text, cursor);
         index = cursor + archivesJson.length;
         continue;
       }
       if (MANIFEST_SCALAR_KEYS.has(key) && text.charCodeAt(cursor) === QUOTE) {
         const end = skipJsonString(text, cursor);
-        scalars[key] = text.slice(cursor + 1, end - 1);
+        scalars[key] = decodeJsonString(text.slice(cursor, end));
         index = end;
       }
     }
@@ -256,8 +284,8 @@
     }
   }
 
-  function parseManifest(text) {
-    const { archivesJson, scalars } = scanManifest(text);
+  async function parseManifest(text) {
+    const { archivesJson, scalars } = await scanManifest(text);
     if (!archivesJson) {
       throw new WabbajackImportError('bad-modlist', 'The modlist has no Archives list.');
     }
@@ -340,7 +368,7 @@
 
     let text = decodeManifestText(bytes);
     bytes = null;
-    const manifest = parseManifest(text);
+    const manifest = await parseManifest(text);
     text = null;
     const analyzed = analyzeManifest(manifest);
     return {
@@ -350,6 +378,23 @@
       gameName: cleanText(manifest.GameType, 100),
       ...analyzed
     };
+  }
+
+  // The id a modlist's download history is kept under: its name, made safe. A name with no such
+  // characters (a Greek or Japanese title) used to become "wj-modlist", so all of those shared one
+  // history; it now gets a stable hash of name, author and version instead.
+  const MODLIST_ID_UNSAFE = /[^A-Za-z0-9._-]+/g;
+
+  function modlistId(list) {
+    const base = String(list?.name || '').replace(MODLIST_ID_UNSAFE, '-').replace(/^-+|-+$/g, '');
+    if (base) return `wj-${base}`.slice(0, 128);
+    const identity = [list?.name, list?.author, list?.version].map((value) => String(value ?? '')).join('\n');
+    if (!identity.trim()) return 'wj-modlist';
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < identity.length; index += 1) {
+      hash = Math.imul(hash ^ identity.charCodeAt(index), 0x01000193) >>> 0;
+    }
+    return `wj-${hash.toString(36).padStart(7, '0')}`;
   }
 
   function toQueueMods(result) {
@@ -489,6 +534,7 @@
     WabbajackImportError,
     analyzeManifest,
     importFile,
+    modlistId,
     toQueueMods,
     md5Bytes,
     md5File,

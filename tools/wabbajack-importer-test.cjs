@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const zlib = require('node:zlib');
 
 const context = vm.createContext({
-  window: {}, console, Blob, DecompressionStream, TextDecoder, TextEncoder,
+  window: {}, console, Blob, DecompressionStream, TextDecoder, TextEncoder, setTimeout,
   DataView, Uint8Array, ArrayBuffer, Number, Math, JSON, Object, Array,
   String, Error, RegExp, Promise, URL, BigInt
 });
@@ -54,9 +54,11 @@ function buildZip(entries, options = {}) {
     local.writeUInt16LE(20, 4);
     local.writeUInt16LE(localFlags, 6);
     local.writeUInt16LE(method, 8);
-    local.writeUInt32LE(crc, 14);
-    local.writeUInt32LE(compressedSize, 18);
-    local.writeUInt32LE(uncompressedSize, 22);
+    // A writer using a data descriptor (flag bit 3) leaves these zero in the local header.
+    const localSizes = entry.localSizes !== false;
+    local.writeUInt32LE(localSizes ? crc : 0, 14);
+    local.writeUInt32LE(localSizes ? compressedSize : 0, 18);
+    local.writeUInt32LE(localSizes ? uncompressedSize : 0, 22);
     local.writeUInt16LE(localNameBytes.length, 26);
 
     const directory = Buffer.alloc(46);
@@ -370,6 +372,86 @@ async function rejectsCode(action, code, message) {
     'zip64-missing',
     'a saturated offset without its ZIP64 field is refused'
   );
+
+
+  // The modlist's own labels are JSON strings: an escape in them is decoded, never shown raw.
+  const escaped = `{"Archives":${JSON.stringify(MODLIST.Archives)},"Name":"Caf\\u00e9 \\"Deluxe\\" \\\\ 2","Author":"A\\/B","Version":"1.0"}`;
+  const escapedList = await Importer.importFile(buildZip([{ name: 'modlist', data: escaped }]));
+  assert.equal(escapedList.name, 'Café "Deluxe" \\ 2', 'escapes in the modlist name are decoded');
+  assert.equal(escapedList.author, 'A/B');
+  const brokenEscape = '{"Archives":[],"Name":"bad \\x escape"}';
+  assert.equal((await Importer.importFile(buildZip([{ name: 'modlist', data: brokenEscape }]))).name, 'bad \\x escape',
+    'a label that is not valid JSON is kept as written rather than failing the import');
+
+  // Game names are matched whatever their case.
+  const cased = Importer.analyzeManifest({ Archives: [nexusArchive('skyrimspecialedition', 3, 4), nexusArchive('FALLOUT4', 5, 6)] });
+  assert.deepEqual([...cased.items.map((item) => item.gameDomain)], ['skyrimspecialedition', 'fallout4'], 'a game name in another case is mapped');
+  assert.deepEqual([...cased.skipped], []);
+
+  // A modlist's history id: names with no ASCII letters used to collapse to "wj-modlist", so two such
+  // lists shared one download history.
+  const greek = Importer.modlistId({ name: 'Ελληνική λίστα', author: 'Κάποιος', version: '1' });
+  const japanese = Importer.modlistId({ name: '日本語のリスト', author: 'someone', version: '1' });
+  assert.match(greek, /^wj-[a-z0-9]{6,}$/, 'a name with no usable characters gets a stable hashed id');
+  assert.notEqual(greek, japanese, 'two such lists get different ids');
+  assert.equal(greek, Importer.modlistId({ name: 'Ελληνική λίστα', author: 'Κάποιος', version: '1' }), 'the same list always gets the same id');
+  assert.equal(Importer.modlistId({ name: 'Living Skyrim 4' }), 'wj-Living-Skyrim-4', 'an ASCII name keeps its readable id');
+  assert.ok(Importer.modlistId({ name: 'x'.repeat(400) }).length <= 128);
+
+  // Entry data is streamed from slices of the file (xorshift noise, so deflate cannot shrink it): never one read of the whole packed entry, and the
+  // inflated output is checked as it arrives.
+  const noise = Buffer.alloc(3 * 1024 * 1024);
+  let seedValue = 7;
+  for (let index = 0; index < noise.length; index += 1) {
+    seedValue ^= seedValue << 13; seedValue >>>= 0;
+    seedValue ^= seedValue >>> 17;
+    seedValue ^= seedValue << 5; seedValue >>>= 0;
+    noise[index] = seedValue & 0xff;
+  }
+  const watch = (blob) => {
+    const reads = [];
+    const wrap = (inner, offset) => ({
+      size: inner.size,
+      slice: (start = 0, end = inner.size) => wrap(inner.slice(start, end), offset + start),
+      arrayBuffer: () => { reads.push(inner.size); return inner.arrayBuffer(); },
+      stream: () => inner.stream()
+    });
+    return { file: wrap(blob, 0), reads };
+  };
+  for (const store of [false, true]) {
+    const watched = watch(buildZip([{ name: 'modlist', data: noise, store }]));
+    const read = await ZipReader.readEntry(watched.file, 'modlist', { maxBytes: 8 * 1024 * 1024 });
+    assert.equal(Buffer.compare(Buffer.from(read), noise), 0, `${store ? 'stored' : 'deflated'}: the entry is read intact`);
+    assert.ok(Math.max(...watched.reads) <= 1024 * 1024,
+      `${store ? 'stored' : 'deflated'}: no single read of more than 1 MiB (largest ${Math.max(...watched.reads)})`);
+  }
+
+  // A deflated entry in ZIP64 form, and one written with a data descriptor (bit 3): its local header
+  // carries no sizes or CRC, which is why they are only ever taken from the directory.
+  const payload = JSON.stringify(MODLIST);
+  const deflatedSize = BigInt(zlib.deflateRawSync(Buffer.from(payload)).length);
+  assert.equal((await Importer.importFile(zip64Entry(
+    zip64Extra(BigInt(Buffer.byteLength(payload)), deflatedSize, 0n),
+    { store: false, uncompressedSize: 0xffffffff, compressedSize: 0xffffffff }
+  ))).items.length, 2, 'a deflated ZIP64 entry is read');
+  assert.equal((await Importer.importFile(buildZip([{ name: 'modlist', data: payload, flags: 8, localSizes: false }]))).items.length, 2,
+    'an entry written with a data descriptor is read');
+  await rejectsCode(
+    () => ZipReader.readEntry(buildZip([{ name: 'modlist', data: 'x'.repeat(200), uncompressedSize: 100 }]), 'modlist', { maxBytes: 1000 }),
+    'corrupt-entry', 'an entry that unpacks to more than it declares is refused');
+
+  // A 10,000-archive modlist is parsed in steps: the page gets its turn while it is read.
+  const manyArchives = Array.from({ length: 10000 }, (_, index) => nexusArchive('SkyrimSpecialEdition', 100 + index, 50000 + index));
+  const filler = JSON.stringify(Array.from({ length: 40000 }, (_, index) => ({ $type: 'FromArchive, Wabbajack.Lib', To: `mods/x/${index}.dds` })));
+  const large = `{"Archives":${JSON.stringify(manyArchives)},"Directives":${filler},"Name":"Large"}`;
+  let ticks = 0;
+  let ticking = true;
+  const tick = () => { if (!ticking) return; ticks += 1; setTimeout(tick, 0); };
+  setTimeout(tick, 0);
+  const largeList = await Importer.importFile(buildZip([{ name: 'modlist', data: large, store: true }]));
+  ticking = false;
+  assert.equal(largeList.items.length, 10000);
+  assert.ok(ticks >= 3, `the page's own tasks ran while ${(large.length / 1048576).toFixed(1)} MiB were read (${ticks} turns)`);
 
   // Wabbajack writes GameType, Name and Version *after* the Directives array, and
   // Directives is where the size lives, so the reader has to walk past all of it

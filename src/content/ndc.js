@@ -1750,7 +1750,9 @@ window.NexusExt = window.NexusExt || {};
     // Stored on each entry as `mod.api`. Resolves to the number of mods described.
     ensureApiDetails() {
       const api = this.api();
-      if (!api || !this.mods?.all?.length) return Promise.resolve(0);
+      // An imported modlist shows none of these (no update policy, no endorse or track buttons), so it
+      // asks for none: a 10,000-file list would otherwise send 200 requests whenever its picker opened.
+      if (!api || this.external || !this.mods?.all?.length) return Promise.resolve(0);
       if (this.apiDetailsPromise) return this.apiDetailsPromise;
       const pairs = this.mods.all.map((mod) => ({
         gameDomain: mod.file?.mod?.game?.domainName,

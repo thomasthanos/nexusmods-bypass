@@ -18,6 +18,8 @@
   const MAX_DIRECTORY_BYTES = 64 * 1024 * 1024;
   const MAX_DIRECTORY_ENTRIES = 250000;
   const DEFAULT_MAX_ENTRY_BYTES = 16 * 1024 * 1024;
+  // A stored entry is read this much at a time; a deflated one streams in the inflater's own chunks.
+  const STREAM_CHUNK_BYTES = 1024 * 1024;
 
   class ZipReaderError extends Error {
     constructor(code, message, cause = null) {
@@ -273,39 +275,30 @@
     return null;
   }
 
-  async function inflateRaw(bytes, maxBytes) {
+  // Inflates a slice of the file as it is read, handing each piece to `take`; the packed bytes are
+  // never held whole. A piece `take` refuses stops the read.
+  async function inflateInto(blob, take) {
     if (typeof DecompressionStream !== 'function') {
       fail('no-inflate', 'This browser cannot decompress ZIP entries.');
     }
 
     let reader;
     try {
-      reader = new Blob([bytes]).stream()
+      reader = blob.stream()
         .pipeThrough(new DecompressionStream('deflate-raw'))
         .getReader();
-      const chunks = [];
-      let total = 0;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        total += value.byteLength;
-        if (total > maxBytes) {
-          try {
-            await reader.cancel();
-          } catch (_) { }
-          fail('entry-too-large', `The ZIP entry unpacks to more than the ${humanSize(maxBytes)} this build reads.`);
-        }
-        chunks.push(value);
+        take(value);
       }
-      const output = new Uint8Array(total);
-      let offset = 0;
-      for (const chunk of chunks) {
-        output.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
-      return output;
     } catch (cause) {
-      if (cause instanceof ZipReaderError) throw cause;
+      if (cause instanceof ZipReaderError) {
+        try {
+          await reader?.cancel();
+        } catch (_) { }
+        throw cause;
+      }
       fail('corrupt-entry', 'The ZIP entry could not be decompressed.', cause);
     } finally {
       reader?.releaseLock?.();
@@ -324,12 +317,46 @@
     return table;
   })();
 
-  function crc32(bytes) {
-    let value = 0xffffffff;
+  // The running CRC-32 register over one more piece; start from 0xffffffff, finish with ^ 0xffffffff.
+  function crc32Update(value, bytes) {
     for (let index = 0; index < bytes.length; index += 1) {
       value = CRC_TABLE[(value ^ bytes[index]) & 0xff] ^ (value >>> 8);
     }
-    return (value ^ 0xffffffff) >>> 0;
+    return value;
+  }
+
+  // The entry's bytes, read from slices of the file: a stored entry STREAM_CHUNK_BYTES at a time, a
+  // deflated one inflated as it streams. Each piece goes straight into one buffer of the size the
+  // directory gives and into the CRC, so the packed bytes are never held whole, nothing is copied
+  // twice, the page gets its turn between pieces, and an entry that unpacks to more than it declares
+  // is refused as soon as it does.
+  async function readEntryData(file, entry, { dataStart, dataEnd }, maxBytes) {
+    const output = new Uint8Array(entry.uncompressedSize);
+    let written = 0;
+    let crc = 0xffffffff;
+    const take = (piece) => {
+      if (written + piece.byteLength > output.byteLength) {
+        if (written + piece.byteLength > maxBytes) {
+          fail('entry-too-large', `The ZIP entry unpacks to more than the ${humanSize(maxBytes)} this build reads.`);
+        }
+        fail('corrupt-entry', 'The ZIP entry unpacks to more than its directory record says.');
+      }
+      output.set(piece, written);
+      written += piece.byteLength;
+      crc = crc32Update(crc, piece);
+    };
+    if (entry.method === 0) {
+      for (let start = dataStart; start < dataEnd; start += STREAM_CHUNK_BYTES) {
+        take(new Uint8Array(await file.slice(start, Math.min(dataEnd, start + STREAM_CHUNK_BYTES)).arrayBuffer()));
+      }
+    } else {
+      await inflateInto(file.slice(dataStart, dataEnd), take);
+    }
+    // Validate size and checksum before exposing untrusted archive data.
+    if (written !== output.byteLength || ((crc ^ 0xffffffff) >>> 0) !== entry.crc32) {
+      fail('corrupt-entry', 'The ZIP entry failed its integrity check.');
+    }
+    return output;
   }
 
   // The local header repeats the directory record, so every field that decides where the
@@ -375,15 +402,7 @@
     const entry = await findEntry(file, { name: wantedName }, maxBytes);
     if (!entry) return null;
 
-    const { dataStart, dataEnd } = await locateEntryData(file, entry);
-    const compressed = new Uint8Array(await file.slice(dataStart, dataEnd).arrayBuffer());
-    const output = entry.method === 0 ? compressed : await inflateRaw(compressed, maxBytes);
-
-    // Validate size and checksum before exposing untrusted archive data.
-    if (output.byteLength !== entry.uncompressedSize || crc32(output) !== entry.crc32) {
-      fail('corrupt-entry', 'The ZIP entry failed its integrity check.');
-    }
-    return output;
+    return readEntryData(file, entry, await locateEntryData(file, entry), maxBytes);
   }
 
   // A modlist is normally published inside a plain .zip, next to its .meta.json. An

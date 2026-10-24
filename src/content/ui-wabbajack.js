@@ -9,19 +9,13 @@
   const { svgIcon, L, openModal, nxtkAlert } = kit;
   const { createControlDeck, disposeControlDeck, deckRunIsActive } = kit.collection;
 
-  const WABBAJACK_UNSAFE_ID = /[^A-Za-z0-9._-]+/g;
-
-  function wabbajackCollectionId(list) {
-    const base = String(list?.name || '').replace(WABBAJACK_UNSAFE_ID, '-').replace(/^-+|-+$/g, '');
-    return `wj-${base || 'modlist'}`.slice(0, 128);
-  }
-
   const SKIPPED_NAMES_SHOWN = 6;
 
   function skippedBucket(reason) {
     if (/^not-on-nexus:GameFileSource$/i.test(reason)) return 'game';
     if (/^not-on-nexus:Manual$/i.test(reason)) return 'manual';
     if (/^not-on-nexus/i.test(reason)) return 'other';
+    if (reason === 'duplicate-entry') return 'duplicate';
     return 'unreadable';
   }
 
@@ -40,9 +34,11 @@
       group.reasons.add(reason);
     }
 
+    // Reasons shown first take places in the list, so the names hidden are counted after them.
     const detail = (group, extra = []) => {
       const shown = [...extra, ...group.names].slice(0, SKIPPED_NAMES_SHOWN);
-      const rest = group.count - group.names.slice(0, SKIPPED_NAMES_SHOWN).length;
+      const namesShown = Math.max(0, shown.length - extra.length);
+      const rest = group.count - namesShown;
       return `${shown.join(', ')}${rest > 0 ? ` … +${rest}` : ''}`;
     };
 
@@ -60,6 +56,9 @@
       `${group.count} are hosted on other sites — Wabbajack downloads these itself.`));
     say('manual', 'info', (group) => NXTK.t('wjSkipManual', [String(group.count), detail(group)],
       `${group.count} will have to be downloaded by hand when Wabbajack asks: ${detail(group)}`));
+    // Listed twice in the modlist and queued once: nothing is missing, so this is no error.
+    say('duplicate', 'info', (group) => NXTK.t('wjSkipDuplicates', [String(group.count)],
+      `${group.count} are listed more than once in the modlist — each is queued once.`));
     say('unreadable', 'error', (group) => {
       const reasons = [...group.reasons].slice(0, 3);
       return NXTK.t('wjSkipUnreadable', [String(group.count), detail(group, reasons)],
@@ -127,7 +126,7 @@
 
   async function mountWabbajackDeck(list, mods, { title = '' } = {}) {
     const gameDomain = dominantGameDomain(mods) || mods[0].file.mod.game.domainName;
-    const ndc = new NexusExt.NDC(gameDomain, wabbajackCollectionId(list));
+    const ndc = new NexusExt.NDC(gameDomain, NexusExt.WabbajackImporter.modlistId(list));
     await ndc.initFromMods(mods);
     ndc.displayName = title || list.name || '';
 
@@ -161,6 +160,27 @@
     return ndc;
   }
 
+  // What the import found: how many are queued, how many Wabbajack fetches from elsewhere itself, and
+  // how many Nexus archives were left out (listed twice, a game this version cannot map, no file id).
+  function importSummaryLines(list, mods, title) {
+    const skipped = Array.isArray(list?.skipped) ? list.skipped : [];
+    const offNexus = skipped.filter((entry) => /^not-on-nexus/i.test(String(entry?.reason || ''))).length;
+    const notQueued = skipped.length - offNexus;
+    const lines = [
+      NXTK.t('wjImportSummary', [String(mods.length), String(list.total), title],
+        `${mods.length} of the ${list.total} archives in ${title} come from Nexus and are queued.`)
+    ];
+    if (offNexus) {
+      lines.push(NXTK.t('wjImportSkipped', [String(offNexus)],
+        `The other ${offNexus} are not Nexus downloads — Wabbajack gets those itself. The log lists them.`));
+    }
+    if (notQueued) {
+      lines.push(NXTK.t('wjImportNotQueued', [String(notQueued)],
+        `${notQueued} Nexus archives were not queued: listed twice, or not readable by this version. The log lists them.`));
+    }
+    return lines;
+  }
+
   async function importWabbajackModlist(closeDialog) {
     const importer = NexusExt.WabbajackImporter;
     if (!importer) return;
@@ -190,15 +210,7 @@
         const mods = importer.toQueueMods(list);
         const title = list.name || file.name;
 
-        const lines = [
-          NXTK.t('wjImportSummary', [String(mods.length), String(list.total), title],
-            `${mods.length} of the ${list.total} archives in ${title} come from Nexus and are queued.`)
-        ];
-        if (list.skipped.length) {
-          lines.push(NXTK.t('wjImportSkipped', [String(list.skipped.length)],
-            `The other ${list.skipped.length} are not Nexus downloads — Wabbajack gets those itself. The log lists them.`));
-        }
-        await nxtkAlert(lines.join('\n'));
+        await nxtkAlert(importSummaryLines(list, mods, title).join('\n'));
         if (!mods.length) return;
         // Asked again: a run can have started while the file picker was open.
         if (await refuseWhileRunning()) return;

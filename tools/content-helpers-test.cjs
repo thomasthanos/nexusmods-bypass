@@ -297,13 +297,36 @@ function skippedArchiveLogTests() {
     ['not-on-nexus', 'other'],
     ['unknown-game:X', 'unreadable'],
     ['incomplete-entry', 'unreadable'],
-    ['duplicate-entry', 'unreadable']
+    ['duplicate-entry', 'duplicate']
   ]) {
     lines.length = 0;
     logSkippedArchives(ndc, [{ name: 'x.7z', reason }]);
-    const expected = { game: /game install/, manual: /by hand/, other: /other sites/, unreadable: /could not be read/ };
+    const expected = { game: /game install/, manual: /by hand/, other: /other sites/, unreadable: /could not be read/, duplicate: /listed more than once/ };
     assert.match(lines[1], expected[bucket], `${reason} belongs in the ${bucket} group`);
   }
+  // A file listed twice is queued once: that is no fault of this version, so it is no error line.
+  lines.length = 0;
+  logSkippedArchives(ndc, [{ name: 'Twice.7z', reason: 'duplicate-entry' }]);
+  assert.match(lines[1], /^info\|· 1 are listed more than once/);
+
+  // The reasons shown before the names take places in the list, so they count against what is hidden.
+  lines.length = 0;
+  logSkippedArchives(ndc, Array.from({ length: 10 }, (_, index) => ({ name: `Broken${index}.7z`, reason: `unknown-game:Game${index % 3}` })));
+  assert.match(lines[1], /unknown-game:Game0, unknown-game:Game1, unknown-game:Game2, Broken0\.7z, Broken1\.7z, Broken2\.7z … \+7$/,
+    'three reasons and three names are shown, and the other seven names are counted');
+
+  // The import summary says what was not queued and why, instead of calling every skip "not Nexus".
+  const importSummaryLines = new Function('NXTK', 'String',
+    `${extractFunction(ui, 'importSummaryLines')} return importSummaryLines;`)({ t: (_key, _subs, fallback) => fallback }, String);
+  const summary = importSummaryLines({ total: 10, skipped: [
+    ...Array.from({ length: 5 }, () => ({ reason: 'not-on-nexus:Http' })),
+    { reason: 'duplicate-entry' }, { reason: 'unknown-game:X' }
+  ] }, [1, 2, 3], 'List');
+  assert.equal(summary.length, 3);
+  assert.match(summary[0], /^3 of the 10 archives in List come from Nexus/);
+  assert.match(summary[1], /The other 5 are not Nexus downloads/, 'only files hosted elsewhere are called that');
+  assert.match(summary[2], /^2 Nexus archives were not queued/, 'a duplicate or an unknown game is counted on its own');
+  assert.equal(importSummaryLines({ total: 3, skipped: [] }, [1, 2, 3], 'List').length, 1);
 }
 
 function errorDialogTests() {
@@ -1405,6 +1428,12 @@ function modlistDeckTests() {
     'every deck on the page is asked whether its run is going');
   assert.match(extractFunction(wabbajack, 'addCloseButton'), /if \(deckRunIsActive\(deck\)\)/,
     'a modlist deck cannot be closed under a running download');
+  // An imported list never shows API details (no update policy, no endorse buttons), so opening its mod
+  // picker must not send up to 200 requests for them.
+  const ndcSource = fs.readFileSync('src/content/ndc.js', 'utf8');
+  const details = ndcSource.slice(ndcSource.indexOf('ensureApiDetails() {'), ndcSource.indexOf('this.apiDetailsPromise = api.modsByDomain'));
+  assert.match(details, /if \(!api \|\| this\.external \|\| !this\.mods\?\.all\?\.length\) return Promise\.resolve\(0\);/,
+    'an imported list asks for no API details');
 
   const main = fs.readFileSync('src/content/main.js', 'utf8');
   assert.match(extractFunction(main, 'handleRouteChangeInner'),

@@ -1268,6 +1268,9 @@
   "wjImportSkipped": {
     "message": "其余 $1 个不是 Nexus 下载，Wabbajack 会自行获取。日志中有明细。"
   },
+  "wjImportNotQueued": {
+    "message": "$1 个 Nexus 存档未排队：重复列出，或此版本无法读取。日志中列出了它们。"
+  },
   "wjImportFailed": {
     "message": "无法读取此模组列表：$1"
   },
@@ -1299,6 +1302,9 @@
   },
   "wjSkipManual": {
     "message": "$1 需要在 Wabbajack 提示时手动下载：$2"
+  },
+  "wjSkipDuplicates": {
+    "message": "$1 个在模组列表中出现了不止一次——每个只排队一次。"
   },
   "wjSkipUnreadable": {
     "message": "$1 无法被此版本读取：$2"

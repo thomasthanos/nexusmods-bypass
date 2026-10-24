@@ -1646,6 +1646,10 @@
     "message": "The other $1 are not Nexus downloads — Wabbajack gets those itself. The log lists them.",
     "description": "How many archives in the modlist were not queued. $1 is a count."
   },
+  "wjImportNotQueued": {
+    "message": "$1 Nexus archives were not queued: listed twice, or not readable by this version. The log lists them.",
+    "description": "Import summary line: Nexus archives in the modlist that were not queued (duplicates, unknown games, missing ids). $1 is a count."
+  },
   "wjImportFailed": {
     "message": "Could not read this modlist: $1",
     "description": "Shown when a .wabbajack file cannot be read. $1 is the reason."
@@ -1673,6 +1677,10 @@
   "wjSkipManual": {
     "message": "$1 will have to be downloaded by hand when Wabbajack asks: $2",
     "description": "Skipped-archive line. $1 is a count, $2 a list of file names."
+  },
+  "wjSkipDuplicates": {
+    "message": "$1 are listed more than once in the modlist — each is queued once.",
+    "description": "Skipped-archive line for archives the modlist lists more than once. $1 is a count."
   },
   "wjSkipUnreadable": {
     "message": "$1 could not be read by this version: $2",

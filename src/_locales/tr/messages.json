@@ -1344,6 +1344,9 @@
   "wjImportSkipped": {
     "message": "Diğer $1 tanesi Nexus indirmesi değil — Wabbajack bunları kendisi getirir. Günlükte listelenir."
   },
+  "wjImportNotQueued": {
+    "message": "$1 Nexus arşivi kuyruğa alınmadı: iki kez geçiyor ya da bu sürüm okuyamıyor. Günlükte listeleniyorlar."
+  },
   "wjImportFailed": {
     "message": "Bu mod listesi okunamadı: $1"
   },
@@ -1375,6 +1378,9 @@
   },
   "wjSkipManual": {
     "message": "$1 Wabbajack istediğinde elle indirilmesi gerekir: $2"
+  },
+  "wjSkipDuplicates": {
+    "message": "$1 tanesi mod listesinde birden fazla kez geçiyor — her biri bir kez kuyruğa alınır."
   },
   "wjSkipUnreadable": {
     "message": "$1 bu sürüm tarafından okunamadı: $2"

@@ -1344,6 +1344,9 @@
   "wjImportSkipped": {
     "message": "Os outros $1 não são downloads do Nexus — o Wabbajack os obtém por conta própria. O log os lista."
   },
+  "wjImportNotQueued": {
+    "message": "$1 arquivos do Nexus não entraram na fila: aparecem duas vezes ou esta versão não consegue lê-los. O registro os lista."
+  },
   "wjImportFailed": {
     "message": "Não foi possível ler esta modlist: $1"
   },
@@ -1375,6 +1378,9 @@
   },
   "wjSkipManual": {
     "message": "$1 terão de ser baixados à mão quando o Wabbajack pedir: $2"
+  },
+  "wjSkipDuplicates": {
+    "message": "$1 aparecem mais de uma vez na lista — cada um entra na fila uma só vez."
   },
   "wjSkipUnreadable": {
     "message": "$1 não puderam ser lidos por esta versão: $2"

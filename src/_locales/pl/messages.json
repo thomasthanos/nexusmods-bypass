@@ -1496,6 +1496,9 @@
   "wjImportSkipped": {
     "message": "Pozostałe $1 to nie pobierania z Nexusa — Wabbajack pobiera je sam. Log je wymienia."
   },
+  "wjImportNotQueued": {
+    "message": "$1 archiwów Nexus nie trafiło do kolejki: występują dwukrotnie lub ta wersja nie może ich odczytać. Dziennik je wymienia."
+  },
   "wjImportFailed": {
     "message": "Nie udało się odczytać tej listy: $1"
   },
@@ -1527,6 +1530,9 @@
   },
   "wjSkipManual": {
     "message": "$1 trzeba pobrać ręcznie, gdy Wabbajack o to poprosi: $2"
+  },
+  "wjSkipDuplicates": {
+    "message": "$1 występuje na liście więcej niż raz — każdy trafia do kolejki tylko raz."
   },
   "wjSkipUnreadable": {
     "message": "$1 nie mogły zostać odczytane przez tę wersję: $2"
