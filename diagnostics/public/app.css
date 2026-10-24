@@ -2048,9 +2048,11 @@ td:first-child { color: var(--text); font-weight: 550; }
   color: #bbbcc5;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   margin-bottom: 6px;
   font-weight: 450;
+  white-space: nowrap;
+  letter-spacing: -0.015em;
 }
 [data-growth-analytics] .growth-label svg {
   display: inline-block;
@@ -2103,8 +2105,10 @@ td:first-child { color: var(--text); font-weight: 550; }
   color: #bbbcc5;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   margin-bottom: 4px;
+  white-space: nowrap;
+  letter-spacing: -0.015em;
 }
 [data-growth-store] [data-metric="users"] .growth-label svg {
   color: #3b82f6;
@@ -2652,12 +2656,16 @@ body { background: radial-gradient(ellipse at 92% 16%, #b4844330, transparent 36
   .growth-panel .panel-heading > div { flex-basis: 120px; }
   .growth-panel .panel-heading > .button { margin-left: auto; }
   .growth-panel .panel-heading > div > p { font-size: .76rem; }
+  [data-growth-store] .growth-metrics,
+  [data-growth-analytics] .growth-metrics { gap: 6px; }
   [data-growth-store] .growth-metric,
-  [data-growth-analytics] .growth-metric { padding: 10px 8px; border-radius: 15px; }
-  [data-growth-store] .growth-label { font-size: .74rem; gap: 4px; }
-  [data-growth-store] .growth-value { font-size: clamp(1.35rem, 6vw, 1.8rem); }
-  [data-growth-analytics] .growth-value { font-size: clamp(1.35rem, 6vw, 1.8rem) !important; }
-  [data-growth-analytics] .growth-label { font-size: .74rem !important; }
+  [data-growth-analytics] .growth-metric { padding: 10px 6px; border-radius: 14px; }
+  [data-growth-store] .growth-label,
+  [data-growth-analytics] .growth-label { font-size: clamp(.58rem, 2.7vw, .7rem) !important; gap: 4px !important; white-space: nowrap !important; letter-spacing: -0.015em !important; }
+  [data-growth-store] .growth-label svg,
+  [data-growth-analytics] .growth-label svg { width: 13px !important; height: 13px !important; flex-shrink: 0 !important; }
+  [data-growth-store] .growth-value,
+  [data-growth-analytics] .growth-value { font-size: clamp(1.35rem, 5.5vw, 1.8rem) !important; }
   .growth-version { flex-wrap: wrap; gap: 8px; padding: 10px; }
   .growth-version-info { flex: 1 1 120px !important; gap: 8px; }
   .growth-version-action { margin-left: auto; }
