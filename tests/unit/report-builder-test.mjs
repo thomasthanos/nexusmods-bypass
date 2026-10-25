@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { JSDOM } from 'jsdom';
+import { reports } from './helpers/report-contract.mjs';
 
 const SETTINGS_KEY = 'nxtk_settings';
 const ERROR_LOG_KEY = 'nxtk_error_log';
@@ -160,6 +161,12 @@ async function reportPayloadTests() {
   assert.equal(detailed.currentError.code, payload.errors[0].code, 'the latest error is included without a page-specific error');
   assert.doesNotMatch(detailed.steps, /secret/);
   assert.doesNotMatch(detailed.expected, /jane@example/);
+  // A complete report has exactly the fields of the shared contract's manual report
+  // (tests/fixtures/relay-reports.json), so that report cannot fall behind the page.
+  const fields = (value) => Object.keys(value).sort();
+  assert.deepEqual(fields(detailed), fields(reports.manual), 'the contract manual report has the fields the page sends');
+  assert.deepEqual(fields(detailed.currentError), fields(reports.manual.currentError), 'and so does its current error');
+  assert.deepEqual(fields(detailed.logs[0]), fields(reports.manual.logs[0]), 'and its log lines');
   // Schema parity: what the report page builds is what the relay accepts (relay/worker.js), not only a
   // hand-written payload in relay/test/relay-test.mjs.
   const { validateReport } = await import('../../relay/worker.js');

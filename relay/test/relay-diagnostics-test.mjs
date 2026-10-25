@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { mock } from 'node:test';
 import fs from 'node:fs';
 import worker, { MAX_BODY_BYTES, DIAGNOSTICS_TIMEOUT_MS, dashboardReport } from '../worker.js';
+import { reports } from '../../tests/unit/helpers/report-contract.mjs';
 
 // The opt-in diagnostics transport uses the existing relay origin and a fixed service binding.
 async function bridgeTests() {
@@ -141,9 +142,8 @@ async function dashboardCopyTests() {
   const webhook = 'https://discord.com/api/webhooks/123456789012345678/fixture-webhook-token-0123456789';
   let sequence = 0;
   // Each report has its own fault, so the relay's Discord dedupe and per-address limits stay out of the way.
-  const automatic = (overrides = {}) => ({ schema: 1, kind: 'auto', version: '3.3.1', browser: 'Opera 124',
-    firstAt: '2026-10-23T12:00:00.000Z', error: { code: 'request_failed', context: `dashboard copy ${sequence++}`,
-      message: 'Private cause text' }, ...overrides });
+  const automatic = (overrides = {}) => ({ ...reports.automatic, browser: 'Opera 124', firstAt: '2026-10-23T12:00:00.000Z',
+    error: { ...reports.automatic.error, context: `dashboard copy ${sequence++}`, message: 'Private cause text' }, ...overrides });
   let address = 0;
   function send(env, payload, { headers = {} } = {}) {
     const pending = [];

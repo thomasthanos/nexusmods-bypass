@@ -199,7 +199,9 @@ curl -X POST "$RELAY/v1/report" -H 'content-type: application/json' \
 ```
 `node tests/unit/auto-reports-test.mjs` checks opt-in, retries, aggregation, limits and revocation without network access.
 `node tests/unit/report-consent-test.mjs` checks the one-time invitation, Greek copy, keyboard accessibility and explicit opt-in without an access prompt.
-`node relay/test/relay-test.mjs` runs the validation, rate-limit, Discord-formatting and failure-path tests offline.
+`node relay/test/relay-test.mjs` runs the validation, rate-limit, Discord-formatting and failure-path tests offline,
+and checks that the reports in `tests/fixtures/relay-reports.json` are accepted and copied in a form the
+diagnostics Worker's schema accepts.
 `node relay/test/discord-dispatch-test.mjs` checks embed limits, clipping, Retry-After handling and bounded retries in `discord.js`.
 
 <img src="../docs/assets/divider.svg" alt="" width="100%" />

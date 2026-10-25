@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { webcrypto } from 'node:crypto';
+import { reports, schemaErrors } from './helpers/report-contract.mjs';
 
 function fixture({ privateReports = false } = {}) {
   const context = vm.createContext({ URL, Date, console, setTimeout, clearTimeout, AbortController, structuredClone,
@@ -48,6 +49,24 @@ function fixture({ privateReports = false } = {}) {
 }
 
 async function run() {
+  {
+    // A report with every field has exactly the fields of the shared contract's complete automatic report
+    // (tests/fixtures/relay-reports.json), so that report cannot fall behind the extension.
+    const f = fixture();
+    f.enable();
+    f.store[f.kit.SETTINGS_KEY].AutoReportDiagnostics = true;
+    f.store[f.kit.DEBUG_LOG_KEY] = [{ at: Date.UTC(2026, 9, 14, 12) - 1000, level: 'info', page: 'collection', text: 'Reading collection response' }];
+    await f.reporter.enqueue(f.entry({ causeCode: 'FILE_FAILED', status: 503, action: 'collection run · browser',
+      technicalMessage: 'No collectionRevision in response', stack: 'Error\n    at readRevisionMods (chrome-extension://abc/content/ndc.js:42:5)',
+      fileIdentity: { expectedId: '7318625091714', receivedId: '819330' } }));
+    await f.reporter.flush();
+    const sent = f.sent[0].payload;
+    const contract = reports.automaticComplete;
+    const fields = (value) => Object.keys(value || {}).sort();
+    assert.deepEqual(fields(sent), fields(contract), 'the contract report has the fields the extension sends');
+    assert.deepEqual(fields(sent.error), fields(contract.error), 'and so does its error');
+    assert.deepEqual(fields(sent.diagnostics), fields(contract.diagnostics), 'and its extended diagnostics');
+  }
   for (const privateReports of [false, true]) {
     for (const failedRead of ['queue', 'settings', 'delivery-settings']) {
       const f = fixture({ privateReports });
@@ -118,6 +137,7 @@ async function run() {
     await f.reporter.flush();
     assert.equal(f.sent.length, 1);
     const body = f.sent[0].payload;
+    assert.deepEqual(schemaErrors('errorReport', body), [], 'the private report fits the diagnostics Worker schema');
     assert.equal(f.sent[0].url, f.kit.RELAY_ORIGIN + '/v1/diagnostics');
     assert.equal(f.sent[0].init.credentials, 'omit');
     assert.equal(f.sent[0].init.redirect, 'error');

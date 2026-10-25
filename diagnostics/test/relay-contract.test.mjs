@@ -9,6 +9,8 @@ import { EXTENSION, workerFixture } from './helpers/worker.mjs';
 
 // The relay copies automatic reports from the extension's Discord path into this service. Both sides
 // are tested together here, against the extension's own reporters loaded as the browser runs them.
+// The shared contract reports (tests/fixtures/relay-reports.json), one of each kind the extension sends.
+const reports = JSON.parse(await readFile(new URL('../../tests/fixtures/relay-reports.json', import.meta.url), 'utf8'));
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0';
 const WEBHOOK = 'https://discord.com/api/webhooks/123456789012345678/fixture-webhook-token-0123456789';
 
@@ -69,8 +71,7 @@ test('the relay copy matches what the extension sends the dashboard itself, minu
 });
 
 test('every payload the relay accepts becomes a report the dashboard accepts, with a stable id', async () => {
-  const base = { schema: 1, kind: 'auto', version: '3.3.1', browser: 'Chrome 155', firstAt: '2026-10-23T12:00:00.000Z',
-    error: { code: 'request_failed', context: 'x' } };
+  const base = { ...reports.automatic, firstAt: '2026-10-23T12:00:00.000Z' };
   const variants = [
     base,
     { ...base, error: { code: '' } },
@@ -79,7 +80,8 @@ test('every payload the relay accepts becomes a report the dashboard accepts, wi
     { ...base, severity: 'critical', error: { code: '9starts-with-digit', causeCode: 'NETWORK_TIMEOUT', status: null, frame: '' } },
     { ...base, diagnostics: { consent: 'extended-v1', logs: [
       { at: '2026-10-23T12:00:05.000Z', level: 'info', page: 'mod', text: 'later' },
-      { at: '2026-10-23T11:59:59.000Z', level: 'debug', page: 'mod', text: 'earlier' }] } }
+      { at: '2026-10-23T11:59:59.000Z', level: 'debug', page: 'mod', text: 'earlier' }] } },
+    ...Object.values(reports).filter((report) => report.kind === 'auto')
   ];
   for (const variant of variants) {
     assert.equal(validateReport(variant), '', JSON.stringify(variant));

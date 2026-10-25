@@ -1,0 +1,76 @@
+{
+  "automatic": {
+    "schema": 1,
+    "kind": "auto",
+    "version": "3.1.5",
+    "browser": "Chrome 140",
+    "error": { "code": "request_failed", "context": "x" }
+  },
+  "automaticComplete": {
+    "schema": 1,
+    "kind": "auto",
+    "version": "3.1.5",
+    "browser": "Edge 155",
+    "reference": "E-001abcd",
+    "severity": "critical",
+    "page": "collection",
+    "error": {
+      "code": "request_failed",
+      "causeCode": "FILE_FAILED",
+      "status": 503,
+      "context": "Reading collection response",
+      "message": "No collectionRevision in response",
+      "action": "collection run · browser",
+      "frame": "readRevisionMods@content/ndc.js:42:5"
+    },
+    "occurrences": 12,
+    "diagnostics": {
+      "consent": "extended-v1",
+      "file": { "expectedId": "7318625091714", "receivedId": "819330" },
+      "logs": [{ "at": "2026-10-14T11:59:30.000Z", "level": "info", "page": "collection", "text": "Reading collection response" }]
+    },
+    "firstAt": "2026-10-14T12:00:00.000Z",
+    "lastAt": "2026-10-14T12:10:00.000Z"
+  },
+  "manual": {
+    "schema": 1,
+    "kind": "manual",
+    "createdAt": "2026-10-14T12:00:00.000Z",
+    "version": "3.1.5",
+    "browser": "Chrome 140",
+    "locale": "en-GB",
+    "summary": "Vortex does not open",
+    "category": "vortex",
+    "steps": "Click Download",
+    "expected": "Vortex opens",
+    "note": "Nothing happened",
+    "contact": "reply@example.com",
+    "settings": { "DebugLogs": true, "NDC_downloadMethod": 0 },
+    "reference": "E-001abcd",
+    "page": "/skyrim/mods/1",
+    "currentError": {
+      "at": 1792000000000,
+      "code": "request_failed",
+      "status": null,
+      "context": "Download",
+      "action": "Send to Vortex (nxm:)",
+      "userMessage": "The download could not start.",
+      "technicalMessage": "No nxm link in the response",
+      "stack": "",
+      "url": "https://www.nexusmods.com/skyrim/mods/1?tab=files"
+    },
+    "errors": [{
+      "at": 1792000000000,
+      "code": "request_failed",
+      "status": null,
+      "context": "Download",
+      "action": "Send to Vortex (nxm:)",
+      "userMessage": "The download could not start.",
+      "technicalMessage": "No nxm link in the response",
+      "stack": "",
+      "url": "https://www.nexusmods.com/skyrim/mods/1?tab=files"
+    }],
+    "logs": [{ "at": "2026-10-14T11:59:30.000Z", "level": "info", "page": "mod-file", "text": "diagnostic" }],
+    "report": "NexusMods Bypass bug report"
+  }
+}

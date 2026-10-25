@@ -2,13 +2,18 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import worker, { dashboardReport, validateReport, discordMessage, LIMIT_PER_HOUR, GLOBAL_LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../worker.js';
+import { reports, schemaErrors } from '../../tests/unit/helpers/report-contract.mjs';
 
-const auto = { schema: 1, kind: 'auto', version: '3.1.5', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
-assert.equal(validateReport(auto), '');
-const detailed = { ...auto, reference: 'E-001abcd', occurrences: 12, severity: 'critical', page: 'collection',
-  firstAt: '2026-10-14T12:00:00.000Z', lastAt: '2026-10-14T12:10:00.000Z',
-  error: { ...auto.error, action: 'collection run · browser', message: 'No collectionRevision in response', frame: 'content/ndc.js:42:5' } };
-assert.equal(validateReport(detailed), '');
+// The shared contract reports (tests/fixtures/relay-reports.json): the relay accepts each one, and its
+// dashboard copy of an automatic one is a report the diagnostics Worker's schema accepts.
+for (const [name, report] of Object.entries(reports)) {
+  assert.equal(validateReport(structuredClone(report)), '', `${name} is accepted`);
+  if (report.kind === 'auto') {
+    assert.deepEqual(schemaErrors('relayedReport', await dashboardReport(report)), [], `${name}: its dashboard copy fits`);
+  }
+}
+const auto = reports.automatic;
+const detailed = reports.automaticComplete;
 assert.equal(validateReport({ ...detailed, occurrences: -1 }), 'bad occurrences');
 assert.equal(validateReport({ ...detailed, reference: '@everyone' }), 'bad reference');
 assert.equal(validateReport({ ...detailed, error: { ...detailed.error, frame: 'https://private.example/user' } }), 'bad error frame');
@@ -21,7 +26,8 @@ for (const frame of ['<script>@content/ndc.js:1:2', 'a b@content/ndc.js:1:2', '@
 }
 assert.equal((await dashboardReport({ ...detailed, error: { ...detailed.error, frame: 'readRevisionMods@content/ndc.js:42:5' } })).stack_trace,
   'readRevisionMods@ext://content/ndc.js:42:5', 'the dashboard copy is a stack line its parser reads');
-assert.equal((await dashboardReport(detailed)).stack_trace, 'ext://content/ndc.js:42:5', 'a frame without a function keeps its old form');
+assert.equal((await dashboardReport({ ...detailed, error: { ...detailed.error, frame: 'content/ndc.js:42:5' } })).stack_trace,
+  'ext://content/ndc.js:42:5', 'a frame without a function keeps its old form');
 assert.equal(validateReport({ ...detailed, error: { ...detailed.error, status: '503' } }), 'bad error status');
 assert.equal(validateReport({ ...detailed, error: { ...detailed.error, causeCode: '<@123>' } }), 'bad cause code');
 assert.equal(validateReport({ ...detailed, firstAt: 'yesterday' }), 'bad timestamp');
@@ -90,8 +96,7 @@ assert.equal(sent[0].body.attachments?.[0]?.is_spoiler, true, 'the attachment is
 assert.equal(JSON.parse(await sent[0].attachment.text()).error.code, 'request_failed');
 assert.equal(sent[0].body.embeds.length, 1);
 assert.equal(sent[0].body.content, `<@${ownerId}>`, 'the live handler passes only the trusted configuration');
-const manual = { schema: 1, kind: 'manual', version: '2.10.2', summary: 'Vortex does not open', category: 'vortex', steps: 'Click Download', expected: 'Vortex opens', logs: [{ text: 'diagnostic' }] };
-assert.equal(validateReport(manual), '');
+const manual = reports.manual;
 assert.equal(validateReport({ ...manual, category: 'unknown' }), 'bad category');
 assert.equal(validateReport({ ...manual, summary: 'x'.repeat(161) }), 'bad summary');
 assert.equal(validateReport({ ...manual, steps: 'x'.repeat(1001) }), 'bad steps');
@@ -102,10 +107,7 @@ assert.match(sent[1].attachment.name, /^nexusmods-report-[a-z0-9-]+\.json$/);
 assert.equal(sent[1].body.embeds[0].title, `Bug report · ${manual.summary}`);
 
 // The extended automatic attachment is opt-in, bounded and allowlisted; a manual report remains exact.
-const extended = { ...fresh(), version: '3.1.5', diagnostics: { consent: 'extended-v1',
-  file: { expectedId: '7318625091714', receivedId: '819330' },
-  logs: [{ at: '2026-10-16T12:00:00.000Z', level: 'info', page: 'mod', text: 'Generating Vortex link' }] },
-  settings: { shouldNotLeave: 'PRIVATE' }, contact: 'private@example.com' };
+const extended = { ...fresh(), diagnostics: detailed.diagnostics, settings: { shouldNotLeave: 'PRIVATE' }, contact: 'private@example.com' };
 assert.equal(validateReport(extended), '');
 assert.equal(validateReport({ ...extended, diagnostics: { ...extended.diagnostics, consent: false } }), 'bad diagnostics consent');
 assert.equal(validateReport({ ...extended, diagnostics: { ...extended.diagnostics, logs: Array(21).fill(extended.diagnostics.logs[0]) } }), 'bad diagnostics logs');

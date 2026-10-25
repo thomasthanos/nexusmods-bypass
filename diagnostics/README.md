@@ -77,7 +77,8 @@ diagnostics/
   src/utils/          fingerprints, sanitizing, installation counting
   public/             the installable dashboard, with no build step: page, styles, scripts,
                       service worker, manifest and icons
-  tools/              the portable Worker bundle and the Google Analytics connection helper
+  tools/              the portable Worker bundle, the Google Analytics connection helper and the
+                      report JSON Schema export
   docs/               setup guides
   test/               node:test suites for the Worker, its services and the dashboard scripts
   test/browser/       Playwright checks of the installed dashboard (Chromium; CI also runs WebKit)
@@ -144,6 +145,8 @@ The Access application must protect the dashboard and `/api/admin/*`; only the e
 ## Payload contract
 
 `src/schemas/ingest.ts` exports `errorReportSchema`, `heartbeatSchema`, their input/output types, reusable dimension schemas, and the fixed `MAX_BODY_BYTES = 65_536` limit. Objects reject unknown properties. No numeric coercion is used.
+
+After changing these schemas, run `node tools/export-report-schemas.mjs`: it rewrites `../tests/fixtures/report-schemas.json`, the JSON Schema the extension's and the relay's tests check their reports against, and `test/report-schemas.test.mjs` fails until it is current. Checks JSON Schema cannot express (no NUL characters, the reserved installation id, the payload budget) stay in Zod.
 
 Error reports require explicit `consent: "diagnostics-v1"`; heartbeats require separate `consent: "telemetry-v1"`. These declarations are an ingestion contract, not proof of consent: the extension must read its actual opt-in setting before preparing, queuing, and sending data. The legacy automatic-error-report preference does not automatically authorize heartbeat telemetry.
 
