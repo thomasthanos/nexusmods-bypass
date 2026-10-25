@@ -17,15 +17,15 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-3-3-2"><kbd> 3.3.2 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-1"><kbd> 3.3.1 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-0"><kbd> 3.3.0 </kbd></a>&ensp;·&ensp;
-  <a href="#release-3-2-0"><kbd> 3.2.0 </kbd></a>&ensp;·&ensp;
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases"><kbd> All releases ↗ </kbd></a>
 </p>
 
-<a id="unreleased"></a>
+<a id="release-3-3-2"></a>
 
-## Unreleased
+## 3.3.2 — 2026-10-25
 
 - **Store listing overview:** the private dashboard now shows aggregate Google Analytics 4 listing visitors alongside public Chrome Web Store users, ratings and written reviews, with the Store version compared against the latest GitHub release. Unavailable or saved data is labelled. This adds no analytics code or tracking requests to the extension.
 - **New Store reviews:** a scheduled check identifies new written reviews and sends Web Push notifications without alerting on the initial historical scan. The dashboard refreshes while visible and online, shows the latest three reviews with expandable history, and opens the matching review from a notification. Only **Mark as read** clears its unread state; a late refresh cannot restore a confirmed unread badge.
