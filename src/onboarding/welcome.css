@@ -23,6 +23,7 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   font: calc(15px * var(--s))/1.62 "SF Pro Text", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text);
   background: linear-gradient(180deg, var(--bg-2), var(--bg) 46%) fixed;

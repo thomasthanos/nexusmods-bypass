@@ -169,5 +169,10 @@ details[open] > summary svg { transform: rotate(180deg); }
   .rp-section-heading { gap: 7px; }
   .rp-category-options span { padding: 8px 10px; }
   .rp-field input, .rp-field textarea { font-size: 14px; }
+  /* A phone is used by touch: tabs, category chips, switches and export buttons are at least 44 px tall. */
+  .rp-tabs button,
+  .rp-switch-row,
+  .rp-export-actions > button { min-height: 44px; }
+  .rp-category-options span { display: flex; align-items: center; min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }

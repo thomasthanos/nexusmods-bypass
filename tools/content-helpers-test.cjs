@@ -717,6 +717,19 @@ function storeListingBehaviour() {
 // Browser-action popups are sized from their document. A viewport-relative cap on the root creates a
 // feedback loop while Chromium is measuring it: the provisional narrow viewport clamps the requested
 // width, so the popup can settle as a tall strip instead of the intended panel.
+// On a phone the browser's toolbar collapses as the page scrolls, and 100vh is the height without it:
+// a page or panel sized by it runs under the toolbar. Each one also says 100dvh, after the vh line that
+// older browsers keep.
+function viewportHeightTests() {
+  for (const [file, pattern] of [
+    ['src/onboarding/welcome.css', /min-height: 100vh;\s*min-height: 100dvh;/],
+    ['src/debug-page/debug.css', /height: calc\(100vh - 230px\);\s*height: calc\(100dvh - 230px\);/],
+    ['src/content/content-styles.css', /max-height: calc\(100vh - 24px\);\s*max-height: calc\(100dvh - 24px\);/]
+  ]) {
+    assert.match(fs.readFileSync(file, 'utf8'), pattern, `${file} follows the visible height on a phone`);
+  }
+}
+
 function popupSizingTests() {
   const css = fs.readFileSync('src/popup/popup.css', 'utf8');
   assert.match(css, /html, body\s*\{[^}]*\bwidth:\s*380px;/s,
@@ -1455,6 +1468,7 @@ queueEtaBehaviour();
 reviewFixesBehaviour();
 storeListingBehaviour();
 popupSizingTests();
+viewportHeightTests();
 downloadDoctorRemovedTests();
 modUnavailableTests();
 unavailableModPageTests();

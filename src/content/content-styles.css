@@ -678,6 +678,7 @@
   position: absolute;
   right: auto;
   max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   overflow-x: hidden;
   overflow-y: auto;
   pointer-events: none;
@@ -2294,6 +2295,25 @@ a.nxtk-settings-report { text-decoration: none; }
 .nxtk-ml-name-text { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nxtk-ml-extra { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .nxtk-ml-extra:empty { display: none; }
+/* Phones and narrow windows: the five fixed columns need about 326 px, so at 320 px the mod and file
+   names were squeezed to nothing and the type was cut off. Each mod takes two lines here instead (name
+   and type, then file and size); the header's column labels have nothing left to label. */
+@media (max-width: 560px) {
+  .nxtk-mod-list-header { display: none; }
+  .nxtk-mod-item {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "idx name type"
+      "idx file size";
+    gap: 4px 10px;
+    padding: 9px 10px;
+  }
+  .nxtk-mod-item > .nxtk-ml-idx { grid-area: idx; align-self: start; }
+  .nxtk-mod-item > .nxtk-ml-name { grid-area: name; }
+  .nxtk-mod-item > .nxtk-ml-file { grid-area: file; min-width: 0; }
+  .nxtk-mod-item > .nxtk-ml-size { grid-area: size; text-align: right; white-space: nowrap; }
+  .nxtk-mod-item > .nxtk-ml-req { grid-area: type; }
+}
 .nxtk-tag-update {
   color: var(--nxtk-success, #5fd38d);
   background: rgba(95, 211, 141, 0.12);

@@ -127,7 +127,8 @@ async function mobileScrollLayout(page, view) {
     });
     assert.deepEqual({ top: current.top, bottom: current.bottom }, initial.nav, `${view} navigation does not move when content scrolls`);
     assert.equal(current.navHit, true, `${view} navigation stays reachable at every scroll position`);
-    if (progress === 1) assert.ok(current.lastChildBottom <= current.top + 30, `${view} final content remains above the navigation when scrolled to the end`);
+    // The docked tab bar is opaque: content that ended under it would be hidden, not just tinted.
+    if (progress === 1) assert.ok(current.lastChildBottom <= current.top + 1, `${view} final content ends above the navigation when scrolled to the end: ${JSON.stringify(current)}`);
     if (page.viewportSize().width === 390 && progress > 0) await page.screenshot({ path: fileURLToPath(new URL(`${view}-390-${progress === 1 ? 'bottom' : 'middle'}.png`, screenshots)), fullPage: false });
   }
 }

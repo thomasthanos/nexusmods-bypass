@@ -1949,3 +1949,77 @@ test('collection menu: "Select mods to download" opens the picker with a real mo
     await page.close();
   }
 });
+
+// ---- phone-width pages (320–430 px) ----
+
+// The picker's five fixed columns need 326 px; at 320 px the mod and file names collapsed to nothing and
+// the type was cut off. A narrow screen now lays each mod out on two lines.
+for (const [width, height] of [[320, 640], [390, 844], [430, 932]]) {
+  test(`collection mod picker keeps each mod readable at ${width}px`, async () => {
+    const page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123', width, height, 1);
+    const deck = page.locator('#nxtk-control-deck');
+    await expect(deck).toBeVisible({ timeout: 30000 });
+    await settle(page);
+    await assertFits(page, '.nxtk-deck', `${width}px deck`);
+    await deck.locator('#nxtk-menu-toggle').click();
+    await page.locator('#nxtk-select-mods').click({ timeout: 10000 });
+    const modal = page.locator('.nxtk-modal').first();
+    await expect(modal.locator('.nxtk-mod-item').first()).toBeVisible({ timeout: 10000 });
+    await settle(page);
+    await assertFits(page, '.nxtk-modal', `${width}px mod picker`);
+    const rows = await modal.evaluate((el) => Array.from(el.querySelectorAll('.nxtk-mod-item')).slice(0, 8).map((row) => {
+      const box = (selector) => {
+        const r = row.querySelector(selector)?.getBoundingClientRect();
+        return r ? { left: r.left, right: r.right, width: r.width } : null;
+      };
+      const r = row.getBoundingClientRect();
+      return { row: { left: r.left, right: r.right }, name: box('.nxtk-ml-name'), file: box('.nxtk-ml-file'),
+        size: box('.nxtk-ml-size'), type: box('.nxtk-ml-req .nxtk-tag') };
+    }));
+    expect(rows.length, 'the picker lists mods').toBeGreaterThan(0);
+    for (const [index, row] of rows.entries()) {
+      expect(row.name.width, `${width}px row ${index}: the mod name has room`).toBeGreaterThanOrEqual(110);
+      expect(row.file.width, `${width}px row ${index}: the file name has room`).toBeGreaterThanOrEqual(110);
+      for (const [label, part] of Object.entries({ name: row.name, file: row.file, size: row.size, type: row.type })) {
+        expect(part.left, `${width}px row ${index}: ${label} starts inside the row`).toBeGreaterThanOrEqual(row.row.left - 1);
+        expect(part.right, `${width}px row ${index}: ${label} ends inside the row`).toBeLessThanOrEqual(row.row.right + 1);
+      }
+    }
+    await page.screenshot({ path: path.join(shotDir, `picker-${width}.png`) });
+    await page.close();
+  });
+}
+
+// The report page's tabs, category chips, switches and export buttons were 20–36 px tall on a phone,
+// below a comfortable touch target; the debug log and the setup page's Vortex test must fit too.
+test('extension pages fit a phone and keep touch-sized controls', async () => {
+  const { id } = await extensionPage();
+  const page = await context.newPage();
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 760 });
+    await page.goto(`chrome-extension://${id}/report-page/report.html`);
+    await settle(page);
+    const report = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      small: Array.from(document.querySelectorAll('.rp-tabs button, .rp-category-options span, .rp-export-actions > button, .rp-switch-row'))
+        .filter((el) => el.getClientRects().length)
+        .map((el) => ({ what: el.textContent.trim().slice(0, 30) || el.className, height: Math.round(el.getBoundingClientRect().height) }))
+        .filter((entry) => entry.height < 44)
+    }));
+    expect(report.overflow, `${width}px report page scrolls sideways`).toBeLessThanOrEqual(0);
+    expect(report.small, `${width}px report page controls under 44 px`).toEqual([]);
+    await page.screenshot({ path: path.join(shotDir, `report-page-${width}.png`), fullPage: true });
+    await page.goto(`chrome-extension://${id}/debug-page/debug.html`);
+    await settle(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+      `${width}px debug page scrolls sideways`).toBeLessThanOrEqual(0);
+    await page.goto(`chrome-extension://${id}/onboarding/welcome.html`);
+    await page.locator('input[name="method"][value="vortex"]').check();
+    await page.locator('#setupTestVortex').click();
+    await expect(page.locator('.vortex-dialog')).toBeVisible();
+    await assertFits(page, '.vortex-dialog', `${width}px Vortex test dialog`);
+    await page.screenshot({ path: path.join(shotDir, `welcome-vortex-dialog-${width}.png`) });
+    await page.locator('#vortexDialogCancel').click();
+  }
+  await page.close();
+});

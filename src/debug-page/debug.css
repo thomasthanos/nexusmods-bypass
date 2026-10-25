@@ -19,7 +19,7 @@ select, .db-search, .db-btn { font: inherit; color: var(--tx); background: var(-
 .db-btn:hover { border-color: var(--ac); }
 .db-btn-danger:hover { border-color: #fba9a4; color: #fba9a4; }
 .db-count { color: var(--mu); font-size: 12px; margin: 10px 0 6px; }
-.db-log { flex: 1; min-height: 240px; height: calc(100vh - 230px); overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: #12161b; font: 12.5px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace; scrollbar-color: #4a5360 transparent; }
+.db-log { flex: 1; min-height: 240px; height: calc(100vh - 230px); height: calc(100dvh - 230px); overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: #12161b; font: 12.5px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace; scrollbar-color: #4a5360 transparent; }
 .db-row { display: grid; grid-template-columns: 92px 52px 90px 1fr; gap: 10px; padding: 2px 12px; border-bottom: 1px solid #1d232a; }
 .db-row time, .db-page { color: var(--mu); }
 .db-text { white-space: pre-wrap; overflow-wrap: anywhere; }
