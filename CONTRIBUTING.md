@@ -64,13 +64,13 @@ Suggestions and questions go to <a href="https://github.com/thomasthanos/nexusmo
    node tools/check-locales.mjs
    ```
 
-5. **Run the package builder** before submitting. It runs the locale check and every regression suite in `tools/` first and packages nothing unless they all pass; the same gate runs on every push:
+5. **Run the package builder** before submitting. It runs the locale check and every regression suite in `tests/unit/` first and packages nothing unless they all pass; the same gate runs on every push:
 
    ```bash
    node tools/build-zip.mjs
    ```
 
-   A new `tools/*-test.cjs|mjs` file goes into `CHECKS` in `tools/build-zip.mjs` (the gate refuses a test it does not run) and ends by printing a line with `OK`: a test that exits without it is treated as one that stopped half-way.
+   A new `tests/unit/*-test.cjs|mjs` file goes into `CHECKS` in `tools/build-zip.mjs` (the gate refuses a test it does not run) and ends by printing a line with `OK`: a test that exits without it is treated as one that stopped half-way.
 6. **Playwright tests** (`npm run test:visual`) start the browser through `tests/visual/helpers.mjs`, which keeps it offline, and wait for states rather than for time; lint refuses `waitForTimeout`.
 7. **Explain** what changed and how it was tested.
 

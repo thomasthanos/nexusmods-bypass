@@ -18,7 +18,7 @@ const WEBHOOK = 'https://discord.com/api/webhooks/123456789012345678/fixture-web
 async function extension() {
   const context = vm.createContext({ URL, Date, console, setTimeout, clearTimeout, AbortController, structuredClone,
     crypto: webcrypto, TextEncoder, navigator: { userAgent: USER_AGENT } });
-  for (const name of ['shared.js', 'auto-reports.js']) {
+  for (const name of ['lib/shared.js', 'lib/auto-reports.js']) {
     vm.runInContext(await readFile(new URL(`../../src/${name}`, import.meta.url), 'utf8'), context);
   }
   const kit = context.NXTK;
@@ -96,7 +96,9 @@ test('every payload the relay accepts becomes a report the dashboard accepts, wi
   assert.deepEqual((await dashboardReport(variants[5])).breadcrumbs.map((crumb) => crumb.metadata.detail), ['earlier', 'later']);
 });
 
-test('an automatic report sent to the relay reaches the dashboard once, beside its Discord message', async (t) => {
+test('an automatic report sent to the relay is stored once by the dashboard, without an installation or OS', async (t) => {
+  // One report through both Workers. Each side's own rules (Discord dedupe, which origins are copied, no
+  // second Discord post) are pinned in tests/unit/relay-diagnostics-test.mjs and relayed.test.mjs.
   const db = createTestDatabase();
   const pending = [];
   const context = { waitUntil(promise) { pending.push(promise); }, passThroughOnException() {}, props: {} };
@@ -104,27 +106,18 @@ test('an automatic report sent to the relay reaches the dashboard once, beside i
   const diagnostics = bindings(db, { DISCORD_WEBHOOK_URL: WEBHOOK });
   const env = { DISCORD_WEBHOOK_URL: WEBHOOK, RELAY_EXTENSION_VERSION: '3.3.1',
     DIAGNOSTICS: { fetch: (request) => worker.fetch(request, diagnostics, context) } };
-  const discord = [];
-  t.mock.method(globalThis, 'fetch', async (input) => {
-    discord.push(String(input instanceof Request ? input.url : input));
-    return new Response(null, { status: 204 });
-  });
+  t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 204 }));
   const payload = { schema: 1, kind: 'auto', version: '3.3.1', browser: 'Firefox 144', reference: 'E-0contra', occurrences: 2,
     firstAt: new Date(Date.now() - 60_000).toISOString(), lastAt: new Date().toISOString(),
     error: { code: 'nexus_api_changed', context: 'Contract test response', message: 'Missing field' } };
-  const send = (origin = EXTENSION) => relay.fetch(new Request('https://relay.test/v1/report', { method: 'POST',
-    headers: { origin, 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.77' }, body: JSON.stringify(payload) }), env, context);
+  const send = () => relay.fetch(new Request('https://relay.test/v1/report', { method: 'POST',
+    headers: { origin: EXTENSION, 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.77' }, body: JSON.stringify(payload) }), env, context);
   const first = await send();
   assert.equal(first.status, 200);
   assert.equal((await first.json()).ok, true);
-  const again = await send();
-  assert.equal((await again.json()).duplicate, true, 'Discord dedupes the repeat');
+  await send();
   await Promise.all(pending); await Promise.all(pending);
-  assert.equal(discord.length, 1, 'one Discord message, from the relay alone');
   const stored = db.sqlite.prepare('SELECT install_id, os, browser, error_category FROM reports').all().map((row) => ({ ...row }));
   assert.deepEqual(stored, [{ install_id: RELAYED_INSTALL_ID, os: 'other', browser: 'firefox', error_category: 'API_SCHEMA_MISMATCH' }],
     'the identical retry is one dashboard report');
-  await send('https://not-an-extension.test');
-  await Promise.all(pending);
-  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM reports').get().n, 1, 'only extension pages are copied');
 });

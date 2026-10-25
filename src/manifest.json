@@ -42,10 +42,10 @@
         "content/content-styles.css"
       ],
       "js": [
-        "shared.js",
-        "selectors.js",
-        "response-classifier.js",
-        "download-url-parser.js",
+        "lib/shared.js",
+        "lib/selectors.js",
+        "lib/response-classifier.js",
+        "lib/download-url-parser.js",
         "content/storage.js",
         "content/errors.js",
         "content/auth.js",

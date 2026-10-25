@@ -6,7 +6,7 @@ import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// The source tree to check; tools/check-locales-test.mjs points it at small fixture trees.
+// The source tree to check; tests/unit/check-locales-test.mjs points it at small fixture trees.
 const pkg = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 const localesDir = join(pkg, '_locales');
 const MASTER = 'en';

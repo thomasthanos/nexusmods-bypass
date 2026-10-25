@@ -5,7 +5,7 @@
   "description": "Development tooling for the NexusMods Bypass browser extension. The extension itself has no runtime dependencies.",
   "scripts": {
     "test": "node tools/build-zip.mjs",
-    "test:dom": "node tools/dom-fixtures-test.cjs",
+    "test:dom": "node tests/unit/dom-fixtures-test.cjs",
     "lint": "eslint src tools tests relay eslint.config.mjs playwright.config.mjs",
     "lint:webext": "node tools/build-zip.mjs && node tools/lint-webext.mjs",
     "build": "node tools/build-zip.mjs",

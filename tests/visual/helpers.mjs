@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const extensionDir = path.join(root, 'src');
-export const fixture = (name) => fs.readFileSync(path.join(root, 'tools/fixtures', name), 'utf8');
+export const fixture = (name) => fs.readFileSync(path.join(root, 'tests/fixtures', name), 'utf8');
 
 const OFFLINE_RESOLVER = '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost';
 const isOurWorker = (worker) => /^chrome-extension:\/\/[a-p]{32}\/background\.js$/.test(worker.url());

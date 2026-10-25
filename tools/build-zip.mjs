@@ -12,12 +12,7 @@ const ALLOWLIST = [
   { path: 'manifest.json' },
   { path: 'LICENSE-GPL-3.0-or-later.txt' },
   { path: 'background.js' },
-  { path: 'auto-reports.js' },
-  { path: 'response-classifier.js' },
-  { path: 'download-url-parser.js' },
-  { path: 'shared.js' },
-  { path: 'selectors.js' },
-  { path: 'report.js' },
+  { path: 'lib', ext: ['.js'] },
   { path: 'content', ext: ['.js', '.css'] },
   { path: 'popup', ext: ['.js', '.css', '.html'] },
   { path: 'onboarding', ext: ['.js', '.css', '.html'] },
@@ -39,40 +34,42 @@ const fail = (message) => {
   process.exit(1);
 };
 
-// The release gate: nothing is packaged unless every check passes.
+// The release gate: nothing is packaged unless every check passes. Paths are from the repository root.
 const CHECKS = [
-  'check-locales.mjs',
-  'check-locales-test.mjs',
-  'vortex-preflight-test.cjs',
-  'nnw-parser-test.cjs',
-  'download-parser-test.cjs',
-  'background-units-test.cjs',
-  'auto-reports-test.cjs',
-  'report-consent-test.cjs',
-  'wabbajack-importer-test.cjs',
-  'content-helpers-test.cjs',
-  'report-builder-test.cjs',
-  'page-check-test.cjs',
-  'dom-fixtures-test.cjs',
-  'relay-test.mjs',
-  'relay-diagnostics-test.mjs',
-  'relay-dashboard-test.mjs',
-  'discord-dispatch-test.mjs',
-  'discord-notification-test.mjs',
-  'manifest-diff-test.mjs',
-  'nexus-api-test.cjs',
-  'debug-view-test.cjs',
-  'ux-friendly-test.cjs',
-  'settings-ui-test.cjs'
+  'tools/check-locales.mjs',
+  'tests/unit/check-locales-test.mjs',
+  'tests/unit/vortex-preflight-test.cjs',
+  'tests/unit/nnw-parser-test.cjs',
+  'tests/unit/download-parser-test.cjs',
+  'tests/unit/background-units-test.cjs',
+  'tests/unit/auto-reports-test.cjs',
+  'tests/unit/report-consent-test.cjs',
+  'tests/unit/wabbajack-importer-test.cjs',
+  'tests/unit/content-helpers-test.cjs',
+  'tests/unit/report-builder-test.cjs',
+  'tests/unit/page-check-test.cjs',
+  'tests/unit/dom-fixtures-test.cjs',
+  'tests/unit/relay-test.mjs',
+  'tests/unit/relay-diagnostics-test.mjs',
+  'tests/unit/discord-dispatch-test.mjs',
+  'tests/unit/discord-notification-test.mjs',
+  'tests/unit/manifest-diff-test.mjs',
+  'tests/unit/nexus-api-test.cjs',
+  'tests/unit/debug-view-test.cjs',
+  'tests/unit/ux-friendly-test.cjs',
+  'tests/unit/settings-ui-test.cjs'
 ];
 const CHECK_TIMEOUT_MS = 5 * 60 * 1000;
 
-// A test file this list does not name never runs, so it cannot fail.
-const unlisted = readdirSync(join(root, 'tools')).filter((name) => /-test\.[cm]?js$/.test(name) && !CHECKS.includes(name));
-if (unlisted.length) fail(`tools/ has tests the release gate does not run: ${unlisted.join(', ')} — add them to CHECKS.`);
+// A test file this list does not name never runs, so it cannot fail; and tools/ holds scripts, not tests.
+const isTest = (name) => /-test\.[cm]?js$/.test(name);
+const strays = readdirSync(join(root, 'tools')).filter(isTest);
+if (strays.length) fail(`tools/ holds build and CI scripts only; move ${strays.join(', ')} to tests/unit/.`);
+const unlisted = readdirSync(join(root, 'tests/unit')).filter((name) => isTest(name) && !CHECKS.includes(`tests/unit/${name}`));
+if (unlisted.length) fail(`tests/unit/ has tests the release gate does not run: ${unlisted.join(', ')} — add them to CHECKS.`);
 
 for (const check of CHECKS) {
-  const run = spawnSync(process.execPath, [join(root, 'tools', check)], {
+  const run = spawnSync(process.execPath, [join(root, check)], {
     cwd: root,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'inherit'],
@@ -233,15 +230,15 @@ assertWorkerImportsArePackaged();
 for (const [index, script] of (manifest.content_scripts || []).entries()) {
   const files = script.js || [];
   const errorsIndex = files.indexOf('content/errors.js');
-  const classifierIndex = files.indexOf('response-classifier.js');
+  const classifierIndex = files.indexOf('lib/response-classifier.js');
   if (errorsIndex !== -1 && (classifierIndex === -1 || classifierIndex > errorsIndex)) {
-    fail(`content_scripts[${index}] must load response-classifier.js before content/errors.js`);
+    fail(`content_scripts[${index}] must load lib/response-classifier.js before content/errors.js`);
   }
   const nnwIndex = files.indexOf('content/nnw.js');
-  const sharedIndex = files.indexOf('shared.js');
-  const parserIndex = files.indexOf('download-url-parser.js');
+  const sharedIndex = files.indexOf('lib/shared.js');
+  const parserIndex = files.indexOf('lib/download-url-parser.js');
   if (nnwIndex !== -1 && (sharedIndex === -1 || parserIndex === -1 || sharedIndex > parserIndex || parserIndex > nnwIndex)) {
-    fail(`content_scripts[${index}] must load shared.js, then download-url-parser.js, before content/nnw.js`);
+    fail(`content_scripts[${index}] must load lib/shared.js, then lib/download-url-parser.js, before content/nnw.js`);
   }
 }
 
@@ -285,15 +282,15 @@ for (const name of entryNames.filter((entry) => entry.endsWith('.js'))) {
 // download-target checks, so a copy creeping back in is the drift this build refuses.
 function assertWorkerUsesShared() {
   const imports = workerImports();
-  for (const required of ['shared.js', 'download-url-parser.js']) {
+  for (const required of ['lib/shared.js', 'lib/download-url-parser.js']) {
     if (!imports.includes(required)) fail(`background.js must importScripts ${required}`);
   }
-  if (imports.indexOf('shared.js') > imports.indexOf('download-url-parser.js')) {
-    fail('background.js must import shared.js before download-url-parser.js');
+  if (imports.indexOf('lib/shared.js') > imports.indexOf('lib/download-url-parser.js')) {
+    fail('background.js must import lib/shared.js before lib/download-url-parser.js');
   }
   const worker = readFileSync(join(pkg, 'background.js'), 'utf8');
   for (const needle of ['DEFAULTS = {', 'SENSITIVE_PARAM_NAMES = ', 'function validateDownloadTarget(']) {
-    if (worker.includes(needle)) fail(`background.js carries its own ${needle.trim()} — use shared.js instead`);
+    if (worker.includes(needle)) fail(`background.js carries its own ${needle.trim()} — use lib/shared.js instead`);
   }
 }
 
@@ -339,9 +336,9 @@ assertContentBundles();
 // The popup builds bug reports with report.js, which extends what shared.js defines.
 function assertPopupLoadsReport() {
   const popup = readFileSync(join(pkg, 'popup/popup.html'), 'utf8');
-  const at = ['../shared.js', '../report.js', 'popup.js'].map((file) => popup.indexOf(`<script src="${file}"></script>`));
+  const at = ['../lib/shared.js', '../lib/report.js', 'popup.js'].map((file) => popup.indexOf(`<script src="${file}"></script>`));
   if (at.includes(-1) || at[0] > at[1] || at[1] > at[2]) {
-    fail('popup/popup.html must load ../shared.js, then ../report.js, before popup.js');
+    fail('popup/popup.html must load ../lib/shared.js, then ../lib/report.js, before popup.js');
   }
 }
 
@@ -369,12 +366,12 @@ function readLiteralAfter(source, needle, openChar, closeChar, file) {
 }
 
 function assertRedactionIsConsistent() {
-  const source = readFileSync(join(pkg, 'shared.js'), 'utf8');
-  const sensitive = readLiteralAfter(source, 'SENSITIVE_PARAM_NAMES = ', '[', ']', 'shared.js');
-  const ambiguous = [...readLiteralAfter(source, 'AMBIGUOUS_PARAM_NAMES = new Set(', '[', ']', 'shared.js')];
+  const source = readFileSync(join(pkg, 'lib/shared.js'), 'utf8');
+  const sensitive = readLiteralAfter(source, 'SENSITIVE_PARAM_NAMES = ', '[', ']', 'lib/shared.js');
+  const ambiguous = [...readLiteralAfter(source, 'AMBIGUOUS_PARAM_NAMES = new Set(', '[', ']', 'lib/shared.js')];
   for (const name of ambiguous) {
     if (!sensitive.includes(name)) {
-      fail(`shared.js: "${name}" is exempt from the loose redaction rule but is not a sensitive name`);
+      fail(`lib/shared.js: "${name}" is exempt from the loose redaction rule but is not a sensitive name`);
     }
   }
 }
@@ -460,7 +457,7 @@ function assertFirefoxManifest(firefox) {
   if (firefox.background?.service_worker) fail('Firefox: background.service_worker is not supported; use background.scripts');
   const scripts = firefox.background?.scripts || [];
   if (scripts[scripts.length - 1] !== manifest.background.service_worker) fail('Firefox: background.scripts must end with the worker');
-  if (scripts.indexOf('shared.js') > scripts.indexOf('download-url-parser.js')) fail('Firefox: shared.js must load before download-url-parser.js');
+  if (scripts.indexOf('lib/shared.js') > scripts.indexOf('lib/download-url-parser.js')) fail('Firefox: lib/shared.js must load before lib/download-url-parser.js');
   const unsupported = (firefox.permissions || []).filter((name) => CHROME_ONLY_PERMISSIONS.includes(name));
   if (unsupported.length) fail(`Firefox: Chromium-only permissions remain: ${unsupported.join(', ')}`);
   for (const key of ['minimum_chrome_version', 'side_panel', 'offline_enabled', 'update_url', 'key']) {
@@ -646,14 +643,14 @@ function emit(fileName, archive, replacements) {
 
 // Relay flag: the report page shows "Send" as available only when the relay is deployed. Set
 // NXTK_RELAY_CONFIGURED=1 for a build made after `wrangler deploy` (relay/README.md); otherwise the
-// flag in src/shared.js is packaged as written.
+// flag in src/lib/shared.js is packaged as written.
 const RELAY_FLAG = /const RELAY_CONFIGURED = (true|false);/;
 {
-  const shared = readFileSync(join(pkg, 'shared.js'), 'utf8');
-  if (!RELAY_FLAG.test(shared)) fail('shared.js must declare `const RELAY_CONFIGURED = true|false;`');
+  const shared = readFileSync(join(pkg, 'lib/shared.js'), 'utf8');
+  if (!RELAY_FLAG.test(shared)) fail('lib/shared.js must declare `const RELAY_CONFIGURED = true|false;`');
   const wanted = process.env.NXTK_RELAY_CONFIGURED;
   if (wanted === '1' || wanted === '0') {
-    localeReplacements.set('shared.js', Buffer.from(shared.replace(RELAY_FLAG, `const RELAY_CONFIGURED = ${wanted === '1'};`), 'utf8'));
+    localeReplacements.set('lib/shared.js', Buffer.from(shared.replace(RELAY_FLAG, `const RELAY_CONFIGURED = ${wanted === '1'};`), 'utf8'));
   }
   console.log(`Relay: ${(wanted ? wanted === '1' : shared.match(RELAY_FLAG)[1] === 'true') ? 'configured' : 'not configured (Send shows as unavailable)'}`);
 }

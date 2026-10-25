@@ -13,7 +13,7 @@ function client({ extended = false, privateConsent = true } = {}) {
     crypto: webcrypto,
     navigator: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0' }
   });
-  for (const name of ['shared.js', 'auto-reports.js']) {
+  for (const name of ['lib/shared.js', 'lib/auto-reports.js']) {
     vm.runInContext(readFileSync(new URL(`../../src/${name}`, import.meta.url), 'utf8'), context, { filename: name });
   }
   const kit = context.NXTK;

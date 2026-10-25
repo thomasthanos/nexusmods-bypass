@@ -123,7 +123,7 @@ installation identifier or OS, which only that separate consent covers. Its repo
 the content: a client's retry reaches the same dashboard report. The copy runs under `waitUntil` with a
 ten-second limit and never changes the response; a failure logs `dashboard_copy_failed` with the error
 code, version and status, never report text. Manual reports are not copied, and the dashboard does not
-post copies to Discord again. `tools/relay-dashboard-test.mjs` and the diagnostics package's
+post copies to Discord again. `tests/unit/relay-diagnostics-test.mjs` and the diagnostics package's
 `test/relay-contract.test.mjs` cover both sides.
 
 ## Delivery and failure handling
@@ -170,14 +170,14 @@ npx wrangler deploy
 ```
 `wrangler deploy` prints the Worker URL, for example
 `https://nexusmods-bypass-relay.<your-subdomain>.workers.dev`. If it differs from the one in the
-extension, update `RELAY_ORIGIN` in `src/shared.js`. The manifest needs no relay host permission.
+extension, update `RELAY_ORIGIN` in `src/lib/shared.js`. The manifest needs no relay host permission.
 
 Then check it and build the extension with the relay switched on:
 ```sh
 curl "$RELAY/v1/health"                     # {"ok":true,"configured":true,...}
 NXTK_RELAY_CONFIGURED=1 NXTK_REQUIRE_DOM=1 node tools/build-zip.mjs
 ```
-Until the relay is deployed, leave `RELAY_CONFIGURED = false` in `src/shared.js` (or build with
+Until the relay is deployed, leave `RELAY_CONFIGURED = false` in `src/lib/shared.js` (or build with
 `NXTK_RELAY_CONFIGURED=0`): the report page then shows **Send** as unavailable and offers a prefilled
 GitHub issue (with the full JSON on the clipboard) instead of failing on click, and automatic error
 reports stay off.
@@ -195,10 +195,10 @@ This removes a browser access prompt, while automatic reporting still requires t
 curl -X POST "$RELAY/v1/report" -H 'content-type: application/json' \
   -d '{"schema":1,"kind":"auto","version":"2.9.0","error":{"code":"test"}}'
 ```
-`node tools/auto-reports-test.cjs` checks opt-in, retries, aggregation, limits and revocation without network access.
-`node tools/report-consent-test.cjs` checks the one-time invitation, Greek copy, keyboard accessibility and explicit opt-in without an access prompt.
-`node tools/relay-test.mjs` runs the validation, rate-limit, Discord-formatting and failure-path tests offline.
-`node tools/discord-dispatch-test.mjs` checks embed limits, clipping, Retry-After handling and bounded retries in `discord.js`.
+`node tests/unit/auto-reports-test.cjs` checks opt-in, retries, aggregation, limits and revocation without network access.
+`node tests/unit/report-consent-test.cjs` checks the one-time invitation, Greek copy, keyboard accessibility and explicit opt-in without an access prompt.
+`node tests/unit/relay-test.mjs` runs the validation, rate-limit, Discord-formatting and failure-path tests offline.
+`node tests/unit/discord-dispatch-test.mjs` checks embed limits, clipping, Retry-After handling and bounded retries in `discord.js`.
 
 <img src="../docs/assets/divider.svg" alt="" width="100%" />
 

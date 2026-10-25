@@ -206,7 +206,7 @@ For a browser extension running *on* nexusmods.com, the lowest-friction legitima
 | Item | Status | Where |
 |---|---|---|
 | Central API module: token bucket (60 burst, 1/s), 429 backoff honouring `Retry-After` (60 s doubling to 15 min otherwise), memory and TTL cache, permanent cache for published revisions (`storage.local`, 20 entries), in-flight dedupe | ✅ | `src/content/nexus-api.js` |
-| Weekly schema watch with Discord alert | ✅ | `tools/schema-watch.mjs`, `.github/workflows/schema-watch.yml`, snapshot `tools/fixtures/nexus-v2-schema.json` |
+| Weekly schema watch with Discord alert | ✅ | `tools/schema-watch.mjs`, `.github/workflows/schema-watch.yml`, snapshot `tests/fixtures/nexus-v2-schema.json` |
 | P1 collection lookups via `api.nexusmods.com/v2/graphql`, router fallback on network/5xx/404/adult-blocked (never on 403/Cloudflare) | ✅ | `ndc.js` `fetchMods`/`fetchRevisions` |
 | P1 game id via `game(domainName)` | ✅ | `nnw.js` `prefetchGameIdFromApi` (DOM is the fallback) |
 | P1 mod-page file list from `modFiles`, DOM only for placement | ✅ (archived view: headers without `data-id` matched by unique name+version) | `nnw.js` `loadApiFileList` |

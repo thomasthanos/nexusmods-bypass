@@ -29,7 +29,7 @@ GPL-3.0-or-later with this attribution, while the remaining original extension c
 current licence. The repository's main <a href="LICENSE"><kbd>licence</kbd></a> documents that scope.
 
 Reading download links out of Nexus Mods responses is handled by
-<a href="src/download-url-parser.js"><kbd><code>src/download-url-parser.js</code></kbd></a>, which both `nnw.js` and the background
+<a href="src/lib/download-url-parser.js"><kbd><code>src/lib/download-url-parser.js</code></kbd></a>, which both `nnw.js` and the background
 worker call. That file is original NexusMods Bypass code under the main licence; `nnw.js` no longer
 contains a parser of its own.
 

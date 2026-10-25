@@ -2,14 +2,14 @@
 // the live Nexus Mods v2 schema, which Nexus publishes through open introspection. A field Nexus
 // removes or renames shows up here before users hit it.
 //   node tools/schema-watch.mjs            live schema
-//   node tools/schema-watch.mjs --snapshot use tools/fixtures/nexus-v2-schema.json (offline)
+//   node tools/schema-watch.mjs --snapshot use tests/fixtures/nexus-v2-schema.json (offline)
 //   node tools/schema-watch.mjs --update   live schema, and refresh the snapshot
 // Writes a Markdown summary to $SCHEMA_WATCH_SUMMARY when set.
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { buildClientSchema, getIntrospectionQuery, parse, validate } from 'graphql';
 
-const SNAPSHOT = 'tools/fixtures/nexus-v2-schema.json';
+const SNAPSHOT = 'tests/fixtures/nexus-v2-schema.json';
 const ENDPOINT = 'https://api.nexusmods.com/v2/graphql';
 const args = new Set(process.argv.slice(2));
 

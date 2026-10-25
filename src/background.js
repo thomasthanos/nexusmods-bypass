@@ -1,10 +1,10 @@
 // shared.js holds the settings defaults, redaction and download-target rules the pages use;
 // loading that same file here is what keeps the worker from drifting away from them.
 if (typeof importScripts === 'function') {
-  if (!globalThis.NXTK) importScripts('shared.js');
-  if (!globalThis.NXTKResponseClassifier) importScripts('response-classifier.js');
-  if (!globalThis.NXTKDownloadParser) importScripts('download-url-parser.js');
-  if (!globalThis.NXTKAutoReports) importScripts('auto-reports.js');
+  if (!globalThis.NXTK) importScripts('lib/shared.js');
+  if (!globalThis.NXTKResponseClassifier) importScripts('lib/response-classifier.js');
+  if (!globalThis.NXTKDownloadParser) importScripts('lib/download-url-parser.js');
+  if (!globalThis.NXTKAutoReports) importScripts('lib/auto-reports.js');
 }
 
 const NXTK = globalThis.NXTK;
@@ -3150,7 +3150,7 @@ function isTrustedSender(sender) {
 // it (loadBundle in content/ui.js) and gets exactly these packaged files added to the frame that asked —
 // never a file the page names itself, and never a page outside nexusmods.com.
 const CONTENT_BUNDLES = {
-  report: ['report.js'],
+  report: ['lib/report.js'],
   settings: ['content/ui-settings.js'],
   collection: ['content/ndc.js', 'content/ui-collection.js'],
   wabbajack: ['content/zip-reader.js', 'content/wabbajack-importer.js', 'content/ui-wabbajack.js']

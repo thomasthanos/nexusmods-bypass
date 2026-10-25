@@ -72,8 +72,6 @@ diagnostics/
   tsconfig.json
   wrangler.toml
   schema.sql
-  examples/
-    send-report.ts
   public/
     .assetsignore
     index.html
@@ -117,7 +115,6 @@ diagnostics/
     admin.test.mjs
     api.test.mjs
     delivery.test.mjs
-    example.test.mjs
     fingerprint.test.mjs
     ingest.test.mjs
     ingestion.test.mjs
@@ -225,11 +222,9 @@ Heartbeat counters are immutable **deltas**, grouped by UTC date, version, brows
 
 Rate-limit buckets store HMAC subject hashes, scope, window, count, and expiry; no raw IP column exists. Include the exact route and scope in the HMAC input, encoded as an unambiguous tuple, to keep ingest and heartbeat limits separate. Notification claims support unique event identities and bounded delivery leases so concurrent ingests can reserve delivery atomically. `last_pushed_at` describes successful delivery, not merely a reservation. Push endpoints and subscription keys are private credentials accessible only through protected admin paths.
 
-## Extension example
+## Extension integration
 
-`examples/send-report.ts` contains complete `prepareExampleReport()` and `sendPreparedReport()` functions. The caller supplies its real relay origin, persisted random installation seed, release/browser/OS values, and current consent. Preparing generates one report identity and a SHA-256 installation hash; the returned immutable object is reused for retries. Sending checks current consent, omits credentials, rejects redirects, and applies a ten-second timeout. It holds no webhook, Access token, or VAPID private key.
-
-The example remains a standalone TypeScript reference that imports the shared Zod schema. The shipped dependency-free integration is `DiagnosticsReporter` in `../src/auto-reports.js`; it maps real error events to the diagnostics contract and sends from the extension's background context to the existing relay. It does not inject Zod into Nexus pages or add a host permission.
+The extension's dependency-free integration is `DiagnosticsReporter` in `../src/lib/auto-reports.js`; it maps real error events to the diagnostics contract and sends from the extension's background context to the existing relay. It does not inject Zod into Nexus pages or add a host permission.
 
 ## Phase boundary and operational limits
 

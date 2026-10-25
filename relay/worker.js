@@ -547,7 +547,7 @@ async function bridgeDiagnostics(request, env, path, headers) {
 // ---- Copy for the private dashboard ------------------------------------------------------------
 
 // The dashboard's fields for an automatic report, as the extension's own private-dashboard reporter
-// writes them (src/auto-reports.js), so a fault groups into the same issue from either path. Without
+// writes them (src/lib/auto-reports.js), so a fault groups into the same issue from either path. Without
 // that separate consent there is no installation identifier and no OS. The id is derived from the
 // content, so a client retrying the same report reaches the same dashboard report.
 export async function dashboardReport(p, receivedAt = Date.now()) {
@@ -576,7 +576,7 @@ export async function dashboardReport(p, receivedAt = Date.now()) {
     error_category: category, error_code: identifier(error.causeCode || error.code, 'REQUEST_FAILED'), failure_stage: category,
     error_name: 'ExtensionError',
     error_message: text(error.message || error.context || error.code, 2048) || 'Extension error',
-    // "fn@script:line:col" becomes "fn@ext://script:line:col", as src/auto-reports.js writes it.
+    // "fn@script:line:col" becomes "fn@ext://script:line:col", as src/lib/auto-reports.js writes it.
     ...(error.frame ? { stack_trace: error.frame.includes('@') ? error.frame.replace('@', '@ext://') : `ext://${error.frame}` } : {}),
     ...(Number.isInteger(error.status) && error.status >= 100 && error.status <= 599 ? { http_status: error.status } : {}),
     breadcrumbs: logs.map((line) => ({
