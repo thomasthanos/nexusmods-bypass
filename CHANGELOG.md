@@ -27,7 +27,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
-- **Repository layout:** the extension's unit tests and saved Nexus pages moved from `tools/` to `tests/unit/` and `tests/fixtures/`, so `tools/` holds only the build and CI scripts, and the scripts every extension page shares moved from `src/` to `src/lib/`. Relay tests that checked the same thing twice were folded together, and finished planning documents, the diagnostics phase write-ups, an unused example client, an unused icon draft and the note files of releases already published (their text stays on the GitHub release pages) were removed. Error references for faults in the moved scripts change once, because they include the script's path.
+- **Repository layout:** the extension's unit tests and saved Nexus pages moved from `tools/` to `tests/unit/` and `tests/fixtures/`, so `tools/` holds only the build and CI scripts, and the scripts every extension page shares moved from `src/` to `src/lib/`. The relay's tests live beside it in `relay/test/`, and a test-only change there no longer redeploys the relay. Relay tests that checked the same thing twice were folded together, and finished planning documents, the diagnostics phase write-ups, an unused example client, an unused icon draft and the note files of releases already published (their text stays on the GitHub release pages) were removed. Error references for faults in the moved scripts change once, because they include the script's path.
 
 <a id="release-3-3-2"></a>
 

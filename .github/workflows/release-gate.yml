@@ -137,8 +137,8 @@ jobs:
         run: |
           if [ -z "$TOKEN" ]; then echo "::notice::CLOUDFLARE_API_TOKEN is not set, so the relay Worker was not deployed."; exit 0; fi
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$CHOSEN" = diagnostics ]; then exit 0; fi
-          if [ "$GITHUB_EVENT_NAME" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null && git diff --quiet "$BEFORE" "$GITHUB_SHA" -- ../relay; then
-            echo "::notice::relay/ did not change in this push."; exit 0
+          if [ "$GITHUB_EVENT_NAME" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null && git diff --quiet "$BEFORE" "$GITHUB_SHA" -- ../relay ':(exclude)../relay/test'; then
+            echo "::notice::The relay Worker did not change in this push."; exit 0
           fi
           echo deploy=true >> "$GITHUB_OUTPUT"
       - if: steps.plan.outputs.deploy == 'true'

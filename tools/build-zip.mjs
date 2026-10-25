@@ -49,9 +49,9 @@ const CHECKS = [
   'tests/unit/report-builder-test.cjs',
   'tests/unit/page-check-test.cjs',
   'tests/unit/dom-fixtures-test.cjs',
-  'tests/unit/relay-test.mjs',
-  'tests/unit/relay-diagnostics-test.mjs',
-  'tests/unit/discord-dispatch-test.mjs',
+  'relay/test/relay-test.mjs',
+  'relay/test/relay-diagnostics-test.mjs',
+  'relay/test/discord-dispatch-test.mjs',
   'tests/unit/discord-notification-test.mjs',
   'tests/unit/manifest-diff-test.mjs',
   'tests/unit/nexus-api-test.cjs',
@@ -65,8 +65,10 @@ const CHECK_TIMEOUT_MS = 5 * 60 * 1000;
 const isTest = (name) => /-test\.[cm]?js$/.test(name);
 const strays = readdirSync(join(root, 'tools')).filter(isTest);
 if (strays.length) fail(`tools/ holds build and CI scripts only; move ${strays.join(', ')} to tests/unit/.`);
-const unlisted = readdirSync(join(root, 'tests/unit')).filter((name) => isTest(name) && !CHECKS.includes(`tests/unit/${name}`));
-if (unlisted.length) fail(`tests/unit/ has tests the release gate does not run: ${unlisted.join(', ')} — add them to CHECKS.`);
+const unlisted = ['tests/unit', 'relay/test']
+  .flatMap((dir) => readdirSync(join(root, dir)).filter(isTest).map((name) => `${dir}/${name}`))
+  .filter((file) => !CHECKS.includes(file));
+if (unlisted.length) fail(`tests the release gate does not run: ${unlisted.join(', ')} — add them to CHECKS.`);
 
 for (const check of CHECKS) {
   const run = spawnSync(process.execPath, [join(root, check)], {

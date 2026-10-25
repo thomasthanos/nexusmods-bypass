@@ -1,7 +1,7 @@
 // Offline tests for relay/discord.js: embed limits, safe clipping and the webhook dispatcher's
 // rate-limit and retry behaviour. No request leaves the machine.
 import assert from 'node:assert/strict';
-import { DISCORD_LIMITS, COLORS, clip, quiet, fitEmbed, discordRetryAfterMs, backoffMs, postWebhook } from '../../relay/discord.js';
+import { DISCORD_LIMITS, COLORS, clip, quiet, fitEmbed, discordRetryAfterMs, backoffMs, postWebhook } from '../discord.js';
 
 // clip never splits a surrogate pair and repairs lone halves.
 assert.equal(clip('abc', 5), 'abc');

@@ -161,7 +161,7 @@ async function reportPayloadTests() {
   assert.doesNotMatch(detailed.steps, /secret/);
   assert.doesNotMatch(detailed.expected, /jane@example/);
   // Schema parity: what the report page builds is what the relay accepts (relay/worker.js), not only a
-  // hand-written payload in tests/unit/relay-test.mjs.
+  // hand-written payload in relay/test/relay-test.mjs.
   const { validateReport } = await import('../../relay/worker.js');
   assert.equal(validateReport(JSON.parse(JSON.stringify(payload))), '', 'the relay accepts the report page payload');
   assert.equal(validateReport(JSON.parse(JSON.stringify(detailed))), '', 'with every optional field filled in');

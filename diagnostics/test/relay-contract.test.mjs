@@ -95,7 +95,7 @@ test('every payload the relay accepts becomes a report the dashboard accepts, wi
 
 test('an automatic report sent to the relay is stored once by the dashboard, without an installation or OS', async (t) => {
   // One report through both Workers. Each side's own rules (Discord dedupe, which origins are copied, no
-  // second Discord post) are pinned in tests/unit/relay-diagnostics-test.mjs and relayed.test.mjs.
+  // second Discord post) are pinned in relay/test/relay-diagnostics-test.mjs and relayed.test.mjs.
   const dashboard = workerFixture(t, { DISCORD_WEBHOOK_URL: WEBHOOK });
   const { db, pending, context } = dashboard;
   const env = { DISCORD_WEBHOOK_URL: WEBHOOK, RELAY_EXTENSION_VERSION: '3.3.1', DIAGNOSTICS: { fetch: dashboard.fetch } };

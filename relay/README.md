@@ -123,7 +123,7 @@ installation identifier or OS, which only that separate consent covers. Its repo
 the content: a client's retry reaches the same dashboard report. The copy runs under `waitUntil` with a
 ten-second limit and never changes the response; a failure logs `dashboard_copy_failed` with the error
 code, version and status, never report text. Manual reports are not copied, and the dashboard does not
-post copies to Discord again. `tests/unit/relay-diagnostics-test.mjs` and the diagnostics package's
+post copies to Discord again. `test/relay-diagnostics-test.mjs` and the diagnostics package's
 `test/relay-contract.test.mjs` cover both sides.
 
 ## Delivery and failure handling
@@ -197,8 +197,8 @@ curl -X POST "$RELAY/v1/report" -H 'content-type: application/json' \
 ```
 `node tests/unit/auto-reports-test.cjs` checks opt-in, retries, aggregation, limits and revocation without network access.
 `node tests/unit/report-consent-test.cjs` checks the one-time invitation, Greek copy, keyboard accessibility and explicit opt-in without an access prompt.
-`node tests/unit/relay-test.mjs` runs the validation, rate-limit, Discord-formatting and failure-path tests offline.
-`node tests/unit/discord-dispatch-test.mjs` checks embed limits, clipping, Retry-After handling and bounded retries in `discord.js`.
+`node relay/test/relay-test.mjs` runs the validation, rate-limit, Discord-formatting and failure-path tests offline.
+`node relay/test/discord-dispatch-test.mjs` checks embed limits, clipping, Retry-After handling and bounded retries in `discord.js`.
 
 <img src="../docs/assets/divider.svg" alt="" width="100%" />
 

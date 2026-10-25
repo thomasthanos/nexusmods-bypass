@@ -1,7 +1,7 @@
 // Offline tests for relay/worker.js: validation, size limit, rate limit, Discord formatting.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import worker, { dashboardReport, validateReport, discordMessage, LIMIT_PER_HOUR, GLOBAL_LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../../relay/worker.js';
+import worker, { dashboardReport, validateReport, discordMessage, LIMIT_PER_HOUR, GLOBAL_LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../worker.js';
 
 const auto = { schema: 1, kind: 'auto', version: '3.1.5', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
 assert.equal(validateReport(auto), '');
@@ -488,7 +488,7 @@ const report = (ip, body, targetEnv = env, ctx = {}) => worker.fetch(new Request
 }
 {
   // The "older client" label compares against this baseline, so a release the relay was not updated for is caught here.
-  const toml = fs.readFileSync(new URL('../../relay/wrangler.toml', import.meta.url), 'utf8');
+  const toml = fs.readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
   const manifest = JSON.parse(fs.readFileSync(new URL('../../src/manifest.json', import.meta.url), 'utf8'));
   assert.equal(toml.match(/^RELAY_EXTENSION_VERSION = "([^"]+)"/m)?.[1], manifest.version, 'relay baseline matches the released version');
 }

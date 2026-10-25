@@ -34,7 +34,7 @@ export default [
     }
   },
   {
-    files: ['tools/**/*.{js,cjs,mjs}', 'tests/**/*.{js,cjs,mjs}', '*.config.mjs'],
+    files: ['tools/**/*.{js,cjs,mjs}', 'tests/**/*.{js,cjs,mjs}', 'relay/test/**/*.mjs', '*.config.mjs'],
     languageOptions: { ecmaVersion: 2022, globals: { ...globals.node, NexusExt: 'writable', NXTK: 'writable', document: 'readonly' } },
     rules: { ...js.configs.recommended.rules, 'no-unused-vars': 'off', 'no-empty': 'off' }
   },
@@ -55,5 +55,5 @@ export default [
     }
   },
   { files: ['tools/**/*.cjs', 'tests/**/*.cjs'], languageOptions: { sourceType: 'commonjs' } },
-  { files: ['tools/**/*.mjs', 'tests/**/*.mjs', '*.config.mjs'], languageOptions: { sourceType: 'module' } }
+  { files: ['tools/**/*.mjs', 'tests/**/*.mjs', 'relay/test/**/*.mjs', '*.config.mjs'], languageOptions: { sourceType: 'module' } }
 ];

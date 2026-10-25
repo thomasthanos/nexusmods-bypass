@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { mock } from 'node:test';
 import fs from 'node:fs';
-import worker, { MAX_BODY_BYTES, DIAGNOSTICS_TIMEOUT_MS, dashboardReport } from '../../relay/worker.js';
+import worker, { MAX_BODY_BYTES, DIAGNOSTICS_TIMEOUT_MS, dashboardReport } from '../worker.js';
 
 // The opt-in diagnostics transport uses the existing relay origin and a fixed service binding.
 async function bridgeTests() {
@@ -127,7 +127,7 @@ async function bridgeTests() {
       assert.equal(forwarded.signal.aborted, true);
     } finally { mock.timers.reset(); }
     assert.equal(externalCalls, 0, 'the diagnostics path never sends a duplicate legacy Discord report or public-network fetch');
-    const config = fs.readFileSync(new URL('../../relay/wrangler.toml', import.meta.url), 'utf8');
+    const config = fs.readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
     assert.match(config, /\[\[services\]\]\s+binding = "DIAGNOSTICS"\s+service = "nexusmods-diagnostics"/);
   } finally {
     globalThis.fetch = externalFetch;
