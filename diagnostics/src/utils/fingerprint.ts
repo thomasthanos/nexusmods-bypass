@@ -9,6 +9,18 @@ function recognizableFile(value: string): boolean {
     || /(?:^|[\\/])[^@:\s]+\.(?:[cm]?[jt]sx?|html?|wasm)(?::\d+)*$/i.test(value);
 }
 
+/**
+ * The function's own name, as every engine reports it. V8 adds the receiver ("NDC.read", "Object.run")
+ * and marks "async " and "new "; SpiderMonkey marks "async*" and names a nested closure "outer/<", which
+ * V8 would leave anonymous. Without these, a fault groups the same way from Chrome, Edge and Firefox.
+ */
+function functionLabel(raw: string | undefined): string {
+  const name = sanitizeText(raw ?? '').replace(/\([^)]*\)/g, '').replace(/[\r\n]/g, ' ').trim()
+    .replace(/^(?:async\*|async\s+|new\s+)+/i, '');
+  const last = name.split('.').pop() ?? '';
+  return !/[/<>\s]/.test(name) && /^[A-Za-z_$][\w$]{0,119}$/.test(last) ? last : '<anonymous>';
+}
+
 /** All source positions are removed: extension bundles do not reliably identify minified frames. */
 export function normalizeStack(stack: string | undefined): string {
   if (!stack?.trim()) return UNKNOWN_FRAME;
@@ -29,8 +41,9 @@ export function normalizeStack(stack: string | undefined): string {
       if (!frame.fileName || !recognizableFile(frame.fileName)) return [];
       if (frame.lineNumber === undefined && !/^(?:[a-z][a-z0-9+.-]*:\/\/|[A-Za-z]:[\\/]|\/)/i.test(frame.fileName)) return [];
       let file = sanitizeUrl(frame.fileName).replace(/:\d+(?::\d+)?$/, '');
-      file = file.replace(/^(?:chrome|moz|safari-web)-extension:\/\/[^/]*\//i, 'extension:///');
-      const name = sanitizeText(frame.functionName ?? '<anonymous>').replace(/\([^)]*\)/g, '').replace(/[\r\n]/g, ' ').trim().slice(0, 120) || '<anonymous>';
+      // A raw stack names the extension by its origin, a frame the extension sends itself as ext://.
+      file = file.replace(/^(?:chrome|moz|safari-web)-extension:\/\/[^/]*\//i, 'extension:///').replace(/^ext:\/\//i, 'extension:///');
+      const name = functionLabel(frame.functionName);
       return [`${name}@${file.slice(0, 512)}`];
     }).slice(0, 20);
     return frames.length > 0 ? frames.join('\n').slice(0, 12_000) : UNKNOWN_FRAME;

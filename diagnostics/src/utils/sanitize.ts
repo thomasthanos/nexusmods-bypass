@@ -100,6 +100,11 @@ export function sanitizeUrl(value: string): string {
     url.pathname = sanitizePath(url.pathname);
     return url.toString().slice(0, MAX_TEXT_LENGTH);
   } catch {
+    // The extension's own frames are kept. A script at the top of the package ("ext://background.js:10:5")
+    // has no folder, so the URL parser reads its position as a port and refuses it; the frame is still
+    // nothing but a packaged script name and a position.
+    const plain = bounded.split(/[?#]/, 1)[0] ?? '';
+    if (/^ext:\/\/[\w/.-]+\.js(?::\d+){0,2}$/i.test(plain)) return plain;
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(bounded)) return REDACTED;
     return sanitizePath(bounded.split(/[?#]/, 1)[0] ?? '').slice(0, MAX_TEXT_LENGTH) || REDACTED;
   }

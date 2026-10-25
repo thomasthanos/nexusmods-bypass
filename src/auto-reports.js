@@ -330,7 +330,8 @@
         error_category: category, error_code: code, failure_stage: category,
         error_name: 'ExtensionError',
         error_message: this.kit.sanitizeDiagnosticText(error.message || error.context || error.code || 'Extension error', 2048),
-        ...(error.frame ? { stack_trace: `ext://${error.frame}` } : {}),
+        // "fn@script:line:col" becomes "fn@ext://script:line:col", a stack line the dashboard's parser reads.
+        ...(error.frame ? { stack_trace: error.frame.includes('@') ? error.frame.replace('@', '@ext://') : `ext://${error.frame}` } : {}),
         ...(Number.isInteger(error.status) && error.status >= 100 && error.status <= 599 ? { http_status: error.status } : {}),
         breadcrumbs: logs.map((line) => ({
           timestamp_offset_ms: Math.max(0, Math.min(86400000, Date.parse(line.at) - firstAt)),

@@ -336,7 +336,8 @@ function errorDialogTests() {
   const nnw = fs.readFileSync('src/content/nnw.js', 'utf8');
   assert.match(nnw, /info: \(\.\.\.args\) => \{ NXTK\.noteActivity\?\.\('info', args\); if \(cfg\.DebugLogs\)/, 'info is recorded but not printed');
   assert.match(nnw, /warn: \(\.\.\.args\) => \{ NXTK\.noteActivity\?\.\('warn', args\); emitLog/, 'warn is recorded and printed');
-  assert.match(nnw, /debug: \(\.\.\.args\) => \{ if \(cfg\.DebugLogs\)/, 'debug stays behind the flag');
+  assert.match(nnw, /debug: \(\.\.\.args\) => \{ NXTK\.noteDebug\?\.\(args\); if \(cfg\.DebugLogs\)/,
+    'debug lines reach the debug log (it keeps them only while debug logs are on) and print behind the flag');
   const shared = fs.readFileSync('src/shared.js', 'utf8');
   assert.match(shared, /DebugLogs: false/, 'the stored setting stays so nothing needs migrating');
   // A rate limit, a sign-in and a Cloudflare check are Nexus asking for something,

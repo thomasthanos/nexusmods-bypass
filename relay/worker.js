@@ -72,7 +72,8 @@ export function validateReport(p) {
     if (e.message !== undefined && !isStr(e.message, 400)) return 'bad error message';
     if (e.status !== undefined && e.status !== null && (!Number.isInteger(e.status) || e.status < 100 || e.status > 599)) return 'bad error status';
     if (e.action !== undefined && !isStr(e.action, 200)) return 'bad error action';
-    if (e.frame !== undefined && (!isStr(e.frame, 200) || (e.frame !== '' && !/^[\w/.-]+\.js:\d+:\d+$/.test(e.frame)))) return 'bad error frame';
+    // "script.js:line:col", optionally after "function@" (3.3.2 and later); a function is a plain identifier.
+    if (e.frame !== undefined && (!isStr(e.frame, 200) || (e.frame !== '' && !/^(?:[A-Za-z_$][\w$]{0,63}@)?[\w/.-]+\.js:\d+:\d+$/.test(e.frame)))) return 'bad error frame';
     if (p.severity !== undefined && !['critical', 'error'].includes(p.severity)) return 'bad severity';
     if (p.occurrences !== undefined && (!Number.isInteger(p.occurrences) || p.occurrences < 1 || p.occurrences > 10000)) return 'bad occurrences';
     for (const key of ['firstAt', 'lastAt']) {
@@ -575,7 +576,8 @@ export async function dashboardReport(p, receivedAt = Date.now()) {
     error_category: category, error_code: identifier(error.causeCode || error.code, 'REQUEST_FAILED'), failure_stage: category,
     error_name: 'ExtensionError',
     error_message: text(error.message || error.context || error.code, 2048) || 'Extension error',
-    ...(error.frame ? { stack_trace: `ext://${error.frame}` } : {}),
+    // "fn@script:line:col" becomes "fn@ext://script:line:col", as src/auto-reports.js writes it.
+    ...(error.frame ? { stack_trace: error.frame.includes('@') ? error.frame.replace('@', '@ext://') : `ext://${error.frame}` } : {}),
     ...(Number.isInteger(error.status) && error.status >= 100 && error.status <= 599 ? { http_status: error.status } : {}),
     breadcrumbs: logs.map((line) => ({
       timestamp_offset_ms: Math.max(0, Math.min(86400000, Date.parse(line.at) - start)),

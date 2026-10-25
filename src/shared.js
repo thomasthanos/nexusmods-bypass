@@ -818,6 +818,8 @@
     if (!URL_SHAPE.test(raw)) return notAUrl();
     try {
       const parsed = new URL(raw);
+      // An extension page: its path, never the extension's id (Firefox gives each installation its own).
+      if (/^(?:chrome|moz|safari-web|ms-browser)-extension:$/.test(parsed.protocol)) return `ext:/${parsed.pathname}`;
       if (parsed.protocol === 'nxm:') {
         const nxm = nxmHostAndPath(raw) || parsed;
         return redactPersonalData('nxm://' + nxm.hostname + nxm.pathname) + ' (query removed)';
@@ -868,7 +870,9 @@
   }
 
   function sanitizeDiagnosticText(value, maxLength = 1500) {
-    let text = boundForScan(String(value ?? ''), maxLength);
+    // NUL first: a JSON.parse error on a body that starts with one carries it into the message, and the
+    // private dashboard refuses any report with a NUL, which made the reporter delete it.
+    let text = boundForScan(String(value ?? '').split(String.fromCharCode(0)).join(''), maxLength);
     if (!text) return text;
     text = text.replace(EXTENSION_ORIGIN_PATTERN, 'ext://');
     text = text.replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, (match) => sanitizeUrlForReport(match));
@@ -934,18 +938,45 @@
       .slice(0, limit);
   }
 
+  // The first frame in the extension's own scripts: its function, script, line and column. V8 writes
+  // "at Receiver.fn (url:line:col)" (with "async " or "new " before it), SpiderMonkey and JavaScriptCore
+  // "fn@url:line:col" (with "async*"); without the receiver and those markers the same function reads the
+  // same in every browser. A nested Firefox closure ("outer/<") or Object.<anonymous> has no name.
+  // Only a packaged script name leaves here, never a user's extension ID or a Nexus URL.
+  const EXTENSION_FRAME = /(?:ext:\/\/|(?:chrome|moz|safari-web|ms-browser)-extension:\/\/[^/]+\/)([\w/.-]+\.js):(\d+):(\d+)/;
+
+  function frameFunctionName(raw) {
+    const name = String(raw || '').trim().replace(/^(?:async\*|async\s+|new\s+)+/, '');
+    if (!name || /[/<>\s()]/.test(name)) return '';
+    const last = name.split('.').pop();
+    return /^[A-Za-z_$][\w$]{0,63}$/.test(last) ? last : '';
+  }
+
+  function extensionFrame(stack) {
+    for (const line of String(stack || '').split('\n')) {
+      const at = EXTENSION_FRAME.exec(line);
+      if (!at) continue;
+      const before = line.slice(0, at.index);
+      const v8 = /^\s*at\s+(.*?)\s*\(?\s*$/.exec(before);
+      const name = frameFunctionName(v8 ? v8[1] : before.replace(/@\s*$/, ''));
+      return { name, file: at[1], line: at[2], column: at[3] };
+    }
+    return null;
+  }
+
   function errorReference(error) {
-    // Keep only a packaged script and position, never a user's extension ID or Nexus URL.
-    const frame = String(error?.stack || '').match(/(?:ext:\/\/|(?:chrome|moz)-extension:\/\/[^/]+\/)([\w/.-]+\.js):(\d+):(\d+)/);
+    // The column is left out: engines count it differently, and the same fault from Chrome and Firefox
+    // must have one reference (the relay de-duplicates Discord messages by it).
+    const frame = extensionFrame(error?.stack);
     const signature = [String(error?.code || ''), error?.causeCode || '', error?.status || '',
-      autoDiagnosticText(error?.context), frame ? `${frame[1]}:${frame[2]}:${frame[3]}` : ''].join('|');
+      autoDiagnosticText(error?.context), frame ? `${frame.file}:${frame.line}` : ''].join('|');
     let hash = 5381;
     for (let i = 0; i < signature.length; i += 1) hash = (((hash << 5) + hash) ^ signature.charCodeAt(i)) >>> 0;
     return `E-${hash.toString(36).padStart(7, '0')}`;
   }
 
   function autoReportDetails(entry) {
-    const frame = String(entry.stack || '').match(/ext:\/\/([\w/.-]+\.js):(\d+):(\d+)/);
+    const frame = extensionFrame(entry.stack);
     return {
       reference: errorReference(entry),
       severity: /uncaught|unhandled|background_error/.test(entry.code) ? 'critical' : 'error',
@@ -957,7 +988,8 @@
         context: autoDiagnosticText(entry.context),
         message: autoDiagnosticText(entry.technicalMessage, 300),
         action: autoDiagnosticText(entry.action),
-        frame: frame ? `${frame[1]}:${frame[2]}:${frame[3]}` : ''
+        // "function@script:line:column", so the dashboard can tell two faults in one script apart.
+        frame: frame ? `${frame.name ? `${frame.name}@` : ''}${frame.file}:${frame.line}:${frame.column}` : ''
       }
     };
   }
@@ -1156,7 +1188,8 @@
       if (/\/collections\//.test(path)) return 'collection';
       if (/\/mods\/\d+/.test(path)) return /file_id=/.test(location.search) ? 'mod-file' : 'mod';
       if (typeof location !== 'undefined' && /^(chrome|moz)-extension:/.test(location.protocol)) return 'extension';
-      return path ? 'other' : 'worker';
+      // Any other Nexus page, named as reportPageType names it, or its lines never reach a report about it.
+      return path ? 'nexus' : 'worker';
     } catch (_) {
       return 'unknown';
     }
@@ -1279,6 +1312,13 @@
       return String(value ?? '');
     });
     return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // A debug-level line: kept in the debug log while debug logs are on (queueDebugEntry drops it
+  // otherwise), but never in the short trail a report carries.
+  function noteDebug(args) {
+    const text = sanitizeDiagnosticText(trailText(args), 400);
+    if (text) queueDebugEntry('debug', text);
   }
 
   // The console setting never reaches the person reading a report; this does.
@@ -1637,6 +1677,8 @@
     recordError,
     setActivity,
     noteActivity,
+    noteDebug,
+    queueDebugEntry,
     flushDebugLog,
     PROTOCOL_BLUR_OPENED_MS,
     describeActivity,
@@ -1649,4 +1691,39 @@
     setForceEnglish,
     applyI18nTo
   };
+
+  // The popup, report, debug-log and setup pages load this file first. Their uncaught errors and unhandled
+  // promises are recorded the way content/main.js records them on a Nexus page (the worker has its own),
+  // so a fault there reaches the error log and, with consent, an automatic report.
+  function watchExtensionPageErrors() {
+    let page = '';
+    try {
+      const base = typeof window !== 'undefined' && typeof location !== 'undefined' ? chrome?.runtime?.getURL?.('') : '';
+      if (!base || !String(location.href).startsWith(base)) return;
+      page = location.pathname.split('/').filter(Boolean).join('/');
+    } catch (_) {
+      return;
+    }
+    window.addEventListener('error', (event) => {
+      recordError({
+        code: 'uncaught_exception',
+        context: `Uncaught on the extension page ${page}`,
+        userMessage: 'An unexpected extension error occurred.',
+        technicalMessage: String(event.message || ''),
+        // A thrown string has no stack; where it was thrown still tells two faults apart.
+        stack: String(event.error?.stack || '') || (event.filename ? `    at ${event.filename}:${event.lineno}:${event.colno}` : '')
+      });
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason;
+      recordError({
+        code: 'unhandled_rejection',
+        context: `Unhandled promise on the extension page ${page}`,
+        userMessage: 'An unexpected extension error occurred.',
+        technicalMessage: String(reason?.message || reason || ''),
+        stack: String(reason?.stack || '')
+      });
+    });
+  }
+  watchExtensionPageErrors();
 })();

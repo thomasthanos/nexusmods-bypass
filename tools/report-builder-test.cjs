@@ -160,6 +160,11 @@ async function reportPayloadTests() {
   assert.equal(detailed.currentError.code, payload.errors[0].code, 'the latest error is included without a page-specific error');
   assert.doesNotMatch(detailed.steps, /secret/);
   assert.doesNotMatch(detailed.expected, /jane@example/);
+  // Schema parity: what the report page builds is what the relay accepts (relay/worker.js), not only a
+  // hand-written payload in tools/relay-test.mjs.
+  const { validateReport } = await import('../relay/worker.js');
+  assert.equal(validateReport(JSON.parse(JSON.stringify(payload))), '', 'the relay accepts the report page payload');
+  assert.equal(validateReport(JSON.parse(JSON.stringify(detailed))), '', 'with every optional field filled in');
   const issue = new URL(NXTK.buildPayloadIssueUrl(detailed).url);
   assert.equal(issue.searchParams.get('title'), '[Bug] [vortex] Cannot start Vortex');
   assert.equal(issue.searchParams.get('labels'), 'bug,area: vortex', 'issue is labelled by area');
@@ -684,6 +689,62 @@ async function errorPipelineTests() {
   assert.ok(dated.retryAfterSeconds >= 118 && dated.retryAfterSeconds <= 120, 'an HTTP-date Retry-After is understood');
 }
 
+// The popup, report, debug-log and setup pages had no handler for an uncaught error or an unhandled
+// promise, so a fault there reached neither the error log nor an automatic report. Every one of them loads
+// shared.js first, which now records them the way content/main.js does on a Nexus page.
+async function extensionPageErrorTests() {
+  const page = (url) => {
+    const dom = new JSDOM('<!doctype html><body></body>', { url, runScripts: 'outside-only' });
+    const w = dom.window;
+    const sent = [];
+    w.chrome = {
+      runtime: {
+        id: 'test-extension-id', lastError: null,
+        getURL: (path = '') => `chrome-extension://test-extension-id/${path}`,
+        getManifest: () => ({ version: '3.3.2' }),
+        sendMessage: (message, callback) => { sent.push(message); callback?.(); }
+      },
+      i18n: { getMessage: () => '', getUILanguage: () => 'en' },
+      storage: { local: { get: (_key, callback) => callback({}), set: (_values, callback) => callback?.() }, onChanged: { addListener() {} } }
+    };
+    w.eval(fs.readFileSync('src/shared.js', 'utf8'));
+    const logged = () => sent.filter((message) => message.type === 'ERROR_LOG_APPEND').map((message) => message.payload.entry);
+    return { w, logged, close: () => dom.window.close() };
+  };
+
+  const popup = page('chrome-extension://test-extension-id/popup/popup.html');
+  try {
+    popup.w.dispatchEvent(new popup.w.ErrorEvent('error', {
+      message: 'Uncaught TypeError: boom', filename: 'chrome-extension://test-extension-id/popup/popup.js', lineno: 5, colno: 7
+    }));
+    const rejection = new popup.w.Event('unhandledrejection');
+    rejection.reason = new popup.w.Error('settings read failed');
+    popup.w.dispatchEvent(rejection);
+    const entries = popup.logged();
+    assert.deepEqual(entries.map((entry) => entry.code), ['uncaught_exception', 'unhandled_rejection'], 'both are recorded');
+    assert.match(entries[0].context, /popup\.html/, 'the page is named');
+    assert.match(entries[0].stack, /ext:\/\/popup\/popup\.js:5:7/, 'an error with no stack keeps where it was thrown');
+    assert.doesNotMatch(JSON.stringify(entries), /test-extension-id/, 'the installation id stays out');
+  } finally {
+    popup.close();
+  }
+
+  // On a Nexus page content/main.js has its own handlers; shared.js must not record the page's errors twice.
+  const nexus = page('https://www.nexusmods.com/skyrimspecialedition/mods/1');
+  try {
+    nexus.w.dispatchEvent(new nexus.w.ErrorEvent('error', { message: 'x', filename: 'https://www.nexusmods.com/app.js', lineno: 1, colno: 1 }));
+    assert.deepEqual(nexus.logged(), [], 'nothing is recorded from a Nexus page here');
+  } finally {
+    nexus.close();
+  }
+
+  // content/main.js: an error with no stack (a thrown string, a cross-script error) keeps its position.
+  const main = fs.readFileSync('src/content/main.js', 'utf8');
+  const handler = main.slice(main.indexOf("window.addEventListener('error'"), main.indexOf("window.addEventListener('unhandledrejection'"));
+  assert.match(handler, /event\.error\?\.stack[^\n]*\|\|[^\n]*event\.filename[^\n]*event\.lineno[^\n]*event\.colno/,
+    'the position stands in for a missing stack');
+}
+
 Promise.resolve()
   .then(reportContentTests)
   .then(pageCheckSectionTests)
@@ -701,6 +762,7 @@ Promise.resolve()
   .then(reportCanaryTests)
   .then(runPromptTests)
   .then(errorPipelineTests)
+  .then(extensionPageErrorTests)
   .then(() => console.log('bug report builder behavior OK'))
   .catch((error) => {
     console.error(error);

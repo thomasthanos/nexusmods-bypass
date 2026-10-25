@@ -48,7 +48,8 @@
       context: `Uncaught at ${event.filename}:${event.lineno}:${event.colno}`,
       userMessage: 'An unexpected extension error occurred.',
       technicalMessage: String(event.message || ''),
-      stack: String(event.error?.stack || '')
+      // A thrown string has no stack; where it was thrown still tells two faults apart.
+      stack: String(event.error?.stack || '') || `    at ${event.filename}:${event.lineno}:${event.colno}`
     });
   });
 

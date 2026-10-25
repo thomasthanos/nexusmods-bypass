@@ -376,6 +376,65 @@ async function run() {
     assert.equal(f.sent.length, 1, 'the queue still delivers');
     assert.equal(f.store[f.KEY].pending.length, 0);
   }
+  {
+    // One frame, the same in every browser: the function a V8 or SpiderMonkey stack names, without its
+    // receiver or async marker, and the script's line. The column differs by engine, so it stays out of
+    // the reference that groups reports and keeps Discord from posting the same fault twice.
+    const f = fixture(); f.enable();
+    const chrome = f.entry({ code: 'uncaught_exception',
+      stack: 'TypeError: x is undefined\n    at async NDC.readRevisionMods (chrome-extension://abc/content/ndc.js:812:19)\n    at run (chrome-extension://abc/content/ndc.js:900:5)' });
+    const firefox = f.entry({ code: 'uncaught_exception',
+      stack: 'async*readRevisionMods@moz-extension://1234-5678/content/ndc.js:812:42\nrun@moz-extension://1234-5678/content/ndc.js:900:7' });
+    assert.equal(f.kit.autoReportDetails(chrome).error.frame, 'readRevisionMods@content/ndc.js:812:19');
+    assert.equal(f.kit.autoReportDetails(firefox).error.frame, 'readRevisionMods@content/ndc.js:812:42');
+    assert.equal(f.kit.errorReference(chrome), f.kit.errorReference(firefox), 'the same fault from Chrome and Firefox has one reference');
+    assert.equal(f.kit.autoReportDetails(f.entry({ stack: '    at Object.<anonymous> (chrome-extension://abc/background.js:10:5)' })).error.frame,
+      'background.js:10:5', 'an anonymous function has no name');
+    assert.equal(f.kit.autoReportDetails(f.entry({ stack: 'outer/<@moz-extension://x/content/ui.js:5:6' })).error.frame,
+      'content/ui.js:5:6', 'nor does a nested Firefox closure');
+    assert.notEqual(f.kit.errorReference(f.entry({ stack: '    at a (chrome-extension://abc/content/ndc.js:812:19)' })),
+      f.kit.errorReference(f.entry({ stack: '    at a (chrome-extension://abc/content/ndc.js:900:19)' })), 'different lines are different faults');
+    await f.reporter.enqueue(chrome); await f.reporter.flush();
+    assert.equal(f.sent[0].payload.error.frame, 'readRevisionMods@content/ndc.js:812:19', 'the relay is sent the frame with its function');
+  }
+  {
+    // A NUL in a message (a JSON.parse error on a body that starts with one) made the private dashboard
+    // refuse the report, and a refused report is deleted. No report text carries one now.
+    const f = fixture({ privateReports: true }); f.enablePrivate();
+    const nul = String.fromCharCode(0);
+    assert.equal(f.kit.sanitizeDiagnosticText(`a${nul}b`), 'ab', 'report text never carries NUL');
+    await f.reporter.enqueue(f.entry({ technicalMessage: `Unexpected token ${nul} in JSON at position 0`,
+      stack: '    at readRevisionMods (chrome-extension://abc/content/ndc.js:812:19)' }));
+    await f.reporter.flush();
+    const body = f.sent.at(-1).payload;
+    assert.equal(JSON.stringify(body).includes('\\u0000'), false, 'the private report has no NUL');
+    assert.equal(body.stack_trace, 'readRevisionMods@ext://content/ndc.js:812:19', 'the dashboard gets the frame as a stack line its parser reads');
+  }
+  {
+    // Lines from a Nexus page that is neither a mod nor a collection were kept as "other" while the report
+    // called that page "nexus", so the extended report dropped them. queueDebugEntry was not exported
+    // either, so the page check, the download fallbacks and the API notes never reached the log at all.
+    const sent = [];
+    const context = vm.createContext({ URL, Date, console, setTimeout, clearTimeout, structuredClone, TextEncoder,
+      location: { pathname: '/skyrimspecialedition', search: '', protocol: 'https:', href: 'https://www.nexusmods.com/skyrimspecialedition' },
+      chrome: { runtime: { id: 'x', lastError: null, sendMessage: (message, callback) => { sent.push(message); callback?.(); } } } });
+    vm.runInContext(fs.readFileSync('src/shared.js', 'utf8'), context);
+    const kit = context.NXTK;
+    assert.equal(typeof kit.queueDebugEntry, 'function', 'pages can write to the debug log');
+    kit.setDebugLogging(true);
+    kit.queueDebugEntry('error', 'Nexus page check skipped on the game page');
+    const entries = sent.find((message) => message.type === 'DEBUG_LOG_APPEND')?.payload?.entries || [];
+    assert.equal(entries[0]?.page, 'nexus', 'a Nexus page that is not a mod or collection is "nexus", as reports call it');
+    const at = Date.now();
+    const extended = kit.autoReportDiagnostics({ at, url: 'https://www.nexusmods.com/skyrimspecialedition' },
+      [{ at: at - 1000, level: 'debug', page: 'nexus', text: 'page check skipped' }], at);
+    assert.equal(extended.logs.length, 1, 'and its lines reach an extended report about that page');
+    sent.length = 0;
+    kit.noteDebug(['Download API route failed', { code: 'request_failed' }]);
+    kit.queueDebugEntry('error', 'flush');
+    const debugLines = sent.flatMap((message) => message.payload?.entries || []).filter((entry) => entry.level === 'debug');
+    assert.equal(debugLines[0]?.text, 'Download API route failed request_failed', 'a debug line is recorded while debug logs are on');
+  }
   console.log('Auto-report tests passed: opt-in, durable retries, aggregation, caps, opt-out and redaction.');
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; });

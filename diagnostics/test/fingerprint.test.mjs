@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import { errorReportSchema } from '../src/schemas/ingest.ts';
 import { fingerprintReport, normalizedTopFrame, normalizeStack } from '../src/utils/fingerprint.ts';
+import { sanitizeText } from '../src/utils/sanitize.ts';
 
 const report = (stack_trace) => errorReportSchema.parse({
   schema_version: 1, consent: 'diagnostics-v1', report_id: '3761cb55-49b3-4f63-bbad-74c5cc586528',
@@ -93,4 +94,32 @@ test('space-containing OS usernames never leak into normalized frames or split f
   }
   assert.equal((await fingerprintReport(report(first))).fingerprint, (await fingerprintReport(report(second))).fingerprint);
   assert.equal(normalizeStack('download@file:///Users/John%20Doe/code.js:1:2'), 'download@file:///Users/[REDACTED]/code.js');
+});
+
+// The extension sends one frame, "function@script:line:column". The function is the same in every engine
+// once V8's receiver ("NDC.", "Object.") and the async markers ("async ", Firefox's "async*") are gone,
+// so a fault groups by the function it happened in, whichever browser reported it.
+test('a frame the extension sends and the same raw stack from either engine group as one function', async () => {
+  const chrome = 'TypeError: x is undefined\n    at async NDC.readRevisionMods (chrome-extension://abc/content/ndc.js:812:19)\n    at Object.run (chrome-extension://abc/content/ndc.js:900:5)';
+  const firefox = 'async*readRevisionMods@moz-extension://1234-5678/content/ndc.js:812:42\nrun@moz-extension://1234-5678/content/ndc.js:900:7';
+  const sent = 'readRevisionMods@ext://content/ndc.js:812:19';
+  assert.equal(normalizeStack(chrome), 'readRevisionMods@extension:///content/ndc.js\nrun@extension:///content/ndc.js');
+  assert.equal(normalizeStack(firefox), normalizeStack(chrome));
+  assert.equal(normalizedTopFrame(sent), 'readRevisionMods@extension:///content/ndc.js');
+  const fingerprint = async (stack) => (await fingerprintReport(report(stack))).fingerprint;
+  assert.equal(await fingerprint(sent), await fingerprint(chrome), 'the frame a client sends matches the raw stack');
+  assert.equal(await fingerprint(chrome), await fingerprint(firefox), 'Chrome and Firefox give one fingerprint');
+  assert.notEqual(await fingerprint('readRevisionMods@ext://content/ndc.js:812:19'), await fingerprint('applyRevision@ext://content/ndc.js:812:19'),
+    'two functions in one script are two issues');
+  assert.equal(normalizedTopFrame('ext://content/ndc.js:42:5'), '<anonymous>@extension:///content/ndc.js', 'a frame without a function stays anonymous');
+  assert.equal(normalizedTopFrame('outer/<@moz-extension://x/content/ui.js:5:6'), '<anonymous>@extension:///content/ui.js',
+    'a nested Firefox closure has no name V8 would give it');
+  assert.equal(normalizedTopFrame('    at new Deck (chrome-extension://abc/content/ui.js:5:6)'), 'Deck@extension:///content/ui.js');
+});
+
+test('a top-level script frame keeps its script instead of being redacted', () => {
+  assert.equal(sanitizeText('ext://background.js:1200:3'), 'ext://background.js:1200:3');
+  assert.equal(sanitizeText('fetchJob@ext://background.js:1200:3'), 'fetchJob@ext://background.js:1200:3');
+  assert.equal(normalizedTopFrame('fetchJob@ext://background.js:1200:3'), 'fetchJob@extension:///background.js');
+  assert.equal(sanitizeText('ext://background.js:1200:3?token=secret'), 'ext://background.js:1200:3', 'only a plain script position is kept as it is');
 });

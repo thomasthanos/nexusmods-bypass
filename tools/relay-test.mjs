@@ -1,7 +1,7 @@
 // Offline tests for relay/worker.js: validation, size limit, rate limit, Discord formatting.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import worker, { validateReport, discordMessage, LIMIT_PER_HOUR, GLOBAL_LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../relay/worker.js';
+import worker, { dashboardReport, validateReport, discordMessage, LIMIT_PER_HOUR, GLOBAL_LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fitEmbed, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../relay/worker.js';
 
 const auto = { schema: 1, kind: 'auto', version: '3.1.5', browser: 'Chrome 140', error: { code: 'request_failed', context: 'x' } };
 assert.equal(validateReport(auto), '');
@@ -12,6 +12,16 @@ assert.equal(validateReport(detailed), '');
 assert.equal(validateReport({ ...detailed, occurrences: -1 }), 'bad occurrences');
 assert.equal(validateReport({ ...detailed, reference: '@everyone' }), 'bad reference');
 assert.equal(validateReport({ ...detailed, error: { ...detailed.error, frame: 'https://private.example/user' } }), 'bad error frame');
+// A frame names its function when the stack does ("function@script:line:column"), so the dashboard can tell
+// two faults in one script apart. Only a plain identifier is accepted before the @.
+assert.equal(validateReport({ ...detailed, error: { ...detailed.error, frame: 'readRevisionMods@content/ndc.js:42:5' } }), '');
+assert.equal(validateReport({ ...detailed, error: { ...detailed.error, frame: '$_init9@background.js:1:2' } }), '');
+for (const frame of ['<script>@content/ndc.js:1:2', 'a b@content/ndc.js:1:2', '@content/ndc.js:1:2', 'x@https://private.example/a.js:1:2']) {
+  assert.equal(validateReport({ ...detailed, error: { ...detailed.error, frame } }), 'bad error frame', `${frame} is refused`);
+}
+assert.equal((await dashboardReport({ ...detailed, error: { ...detailed.error, frame: 'readRevisionMods@content/ndc.js:42:5' } })).stack_trace,
+  'readRevisionMods@ext://content/ndc.js:42:5', 'the dashboard copy is a stack line its parser reads');
+assert.equal((await dashboardReport(detailed)).stack_trace, 'ext://content/ndc.js:42:5', 'a frame without a function keeps its old form');
 assert.equal(validateReport({ ...detailed, error: { ...detailed.error, status: '503' } }), 'bad error status');
 assert.equal(validateReport({ ...detailed, error: { ...detailed.error, causeCode: '<@123>' } }), 'bad cause code');
 assert.equal(validateReport({ ...detailed, firstAt: 'yesterday' }), 'bad timestamp');
