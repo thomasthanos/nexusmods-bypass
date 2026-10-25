@@ -16,3 +16,4 @@ nexusmods
 docs/store/store-description.md
 .webext-lint/
 test-results/
+state/
