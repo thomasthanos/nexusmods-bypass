@@ -65,70 +65,24 @@ The client creates a random local installation seed only after consent and sends
 
 ```text
 diagnostics/
-  .gitignore
-  README.md
-  package.json
-  package-lock.json
-  tsconfig.json
-  wrangler.toml
-  schema.sql
-  public/
-    .assetsignore
-    index.html
-    app.css
-    app.js
-    lib.js
-    push.js
-    sw.js
-    manifest.json
-    icons/
-      icon.svg
-      icon-192.png
-      icon-512.png
-      apple-touch-icon.png
-      maskable-512.png
-      badge.svg
-      badge-96.png
-  src/
-    index.ts
-    http/
-      types.ts
-      config.ts
-      security.ts
-    routes/
-      admin.ts
-    schemas/
-      ingest.ts
-    utils/
-      sanitize.ts
-      fingerprint.ts
-    services/
-      ruleEngine.ts
-      delivery.ts
-      notifications.ts
-      ingestion.ts
-  test/
-    helpers/
-      d1.mjs
-      access.mjs
-      preview-server.mjs
-    admin.test.mjs
-    api.test.mjs
-    delivery.test.mjs
-    fingerprint.test.mjs
-    ingest.test.mjs
-    ingestion.test.mjs
-    notifications.test.mjs
-    ruleEngine.test.mjs
-    sanitize.test.mjs
-    schema.test.mjs
-    security.test.mjs
-    dashboard-lib.test.mjs
-    dashboard.test.mjs
-    push.test.mjs
-    sw.test.mjs
-    browser/
-      pwa.test.mjs
+  wrangler.toml       Worker, D1, assets and cron configuration
+  schema.sql          the canonical D1 schema
+  migrations/         additive D1 migrations for an existing database
+  src/index.ts        the Worker: ingest and heartbeat routes, admin routes, static assets, scheduled checks
+  src/http/           configuration, Access, CORS and body checks, shared types
+  src/routes/         the protected /api/admin routes: reports and issues, store and analytics
+  src/schemas/        the ingest and heartbeat contracts (Zod)
+  src/services/       ingestion, alert rules, notifications and push delivery, GitHub feeds,
+                      Google Analytics and Chrome Web Store monitoring
+  src/utils/          fingerprints, sanitizing, installation counting
+  public/             the installable dashboard, with no build step: page, styles, scripts,
+                      service worker, manifest and icons
+  tools/              the portable Worker bundle and the Google Analytics connection helper
+  docs/               setup guides
+  test/               node:test suites for the Worker, its services and the dashboard scripts
+  test/browser/       Playwright checks of the installed dashboard (Chromium; CI also runs WebKit)
+  test/helpers/       the test database, Access and Worker fixtures, the preview server, the workerd runner
+  test/fixtures/      saved public responses
 ```
 
 `npm run cf:types` generates the ignored `worker-configuration.d.ts`. Dependencies and local database state live in ignored `node_modules/` and `.wrangler/` directories.
