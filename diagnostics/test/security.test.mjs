@@ -5,7 +5,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { publicCors, requireAccess, requireSameOrigin, boundedJson, limitPublicIp, limitPublicInstall, limitAdminPushTest } from '../src/http/security.ts';
 import { notificationConfiguration, ingestionOptions } from '../src/http/config.ts';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { testDatabase } from './helpers/d1.mjs';
 import { bindings, createAccessFixture } from './helpers/access.mjs';
 
 const ORIGIN = `chrome-extension://${'a'.repeat(32)}`;
@@ -22,7 +22,6 @@ function request(path = '/api/ingest', options = {}) {
   return new Request(`https://diagnostics.example.com${path}`, { method: 'POST', ...options,
     headers: { Origin: ORIGIN, 'Content-Type': 'application/json', 'CF-Connecting-IP': '203.0.113.8', ...options.headers } });
 }
-function database(t) { const db = createTestDatabase(); t.after(() => db.close()); return db; }
 
 test('CORS accepts exact extension origins and retains headers on downstream failures', async () => {
   const app = appWith(publicCors, boundedJson);
@@ -111,7 +110,7 @@ test('same-origin middleware allows safe methods and rejects missing or foreign 
 });
 
 test('IP and installation limits are atomic, independent per route, HMAC hashed and reset per window', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const env = bindings(db, { INGEST_IP_LIMIT: '3', INGEST_INSTALL_LIMIT: '2' });
   const app = appWith(publicCors, limitPublicIp, boundedJson, limitPublicInstall);
   const send = (path = '/api/ingest', install = INSTALL) => app.fetch(request(path, { body: JSON.stringify({ install_id: install }) }), env);
@@ -136,7 +135,7 @@ test('IP and installation limits are atomic, independent per route, HMAC hashed 
 });
 
 test('trusted IP validation, invalid installs and unavailable rate storage fail closed before processing', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const app = appWith(limitPublicIp, boundedJson, limitPublicInstall);
   for (const ip of ['', 'garbage', '1.2.3.999', '1.2.3.4, 5.6.7.8', '[::1]', 'fe80::1%eth0', '1.2.3.04']) {
     assert.equal((await app.fetch(request('/api/ingest', { headers: { 'CF-Connecting-IP': ip }, body: '{}' }), bindings(db))).status, 403, ip);
@@ -153,7 +152,7 @@ test('trusted IP validation, invalid installs and unavailable rate storage fail 
 });
 
 test('new buckets purge at most 100 expired rows while preserving active buckets', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const insert = db.sqlite.prepare(`INSERT INTO rate_limit_buckets
     (scope,key_hash,window_started_at,window_duration_ms,request_count,expires_at) VALUES ('ip',?,0,60000,1,120000)`);
   for (let index = 0; index < 140; index++) insert.run(index.toString(16).padStart(64, '0'));
@@ -166,7 +165,7 @@ test('new buckets purge at most 100 expired rows while preserving active buckets
 });
 
 test('admin push-test rate is one per minute per verified identity with no raw identity in storage', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const env = bindings(db, { RATE_LIMIT_WINDOW_SECONDS: '1', INGEST_INSTALL_LIMIT: '1000' });
   const app = new Hono();
   app.use('*', (c, next) => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { createTestDatabase, testDatabase } from './helpers/d1.mjs';
 import { errorReportSchema } from '../src/schemas/ingest.ts';
 import {
   reservePushNotification, completePushNotification, releasePushNotification,
@@ -14,9 +14,7 @@ const uuid = (n) => `12345678-1234-4234-8234-${n.toString(16).padStart(12, '0')}
 
 function database(t) {
   t.mock.method(Date, 'now', () => NOW);
-  const db = createTestDatabase();
-  t.after(() => db.close());
-  return db;
+  return testDatabase(t);
 }
 
 function issue(db, overrides = {}) {

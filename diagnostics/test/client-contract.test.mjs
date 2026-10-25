@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import vm from 'node:vm';
 import { errorReportSchema } from '../src/schemas/ingest.ts';
 import { acceptErrorReport } from '../src/services/ingestion.ts';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { testDatabase } from './helpers/d1.mjs';
 
 function client({ extended = false, privateConsent = true } = {}) {
   const context = vm.createContext({
@@ -61,7 +61,7 @@ function client({ extended = false, privateConsent = true } = {}) {
 
 test('real opt-in extension payload satisfies the canonical schema and is stored once after a lost response', async (t) => {
   const f = client();
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   let accepted;
   f.transport(async (body) => {
     const parsed = errorReportSchema.parse(body);

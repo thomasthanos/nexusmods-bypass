@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readPublicAssets, portableModules } from '../tools/build-portable-worker.mjs';
 import { bindings, createAccessFixture } from './helpers/access.mjs';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { testDatabase } from './helpers/d1.mjs';
 
 async function fixture(t, source) {
   const directory = await mkdtemp(join(tmpdir(), 'nxtk-portable-'));
@@ -48,7 +48,7 @@ test('portable asset routing preserves HEAD, navigation fallback and missing-res
 
 test('portable deployment still requires the real Access verifier before serving every private asset', async (t) => {
   const { worker } = await fixture(t);
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const env = bindings(db);
   for (const path of ['/', '/app.js', '/sw.js', '/manifest.json', '/api/admin/overview']) {
     const response = await worker.fetch(new Request('https://diagnostics.example' + path), env, { waitUntil() {}, passThroughOnException() {}, props: {} });
@@ -61,7 +61,7 @@ test('portable deployment still requires the real Access verifier before serving
 test('portable deployment serves the current dashboard and real API after a verified Access login', async (t) => {
   const { worker } = await fixture(t);
   const access = await createAccessFixture(t);
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const env = bindings(db);
   const headers = await access.headers();
   const context = { waitUntil() {}, passThroughOnException() {}, props: {} };

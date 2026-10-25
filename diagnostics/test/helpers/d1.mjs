@@ -1,6 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 
+// A test database that closes when the test ends.
+export function testDatabase(t) {
+  const db = createTestDatabase();
+  t.after(() => db.close());
+  return db;
+}
+
 // Exercise production SQL against SQLite; only the D1 method boundary is adapted.
 export function createTestDatabase() {
   const sqlite = new DatabaseSync(':memory:');

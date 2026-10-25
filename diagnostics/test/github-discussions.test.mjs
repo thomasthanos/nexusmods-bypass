@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import worker from '../src/index.ts';
 import { bindings, createAccessFixture } from './helpers/access.mjs';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { testDatabase } from './helpers/d1.mjs';
 
 const NOW = Date.UTC(2026, 9, 23, 12);
 const REPOSITORY = 'https://github.com/thomasthanos/nexusmods-bypass/discussions';
@@ -20,7 +20,7 @@ function memoryCache() {
 }
 
 test('Discussions route requires genuine Access and leaves automatic diagnostics empty', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const access = await createAccessFixture(t);
   const accessFetch = globalThis.fetch;
   let calls = 0;
@@ -145,7 +145,7 @@ test('slow fetch and response streams time out and oversized streams cancel with
 });
 
 test('protected route reports only stable 503 on upstream failure', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const access = await createAccessFixture(t);
   const accessFetch = globalThis.fetch;
   t.mock.method(globalThis, 'fetch', async (input, init) => String(input) === ATOM_URL ? new Response('provider-private-error', { status: 500 }) : accessFetch(input, init));

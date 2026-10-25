@@ -2,14 +2,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Hono } from 'hono';
 import adminRoutes from '../src/routes/admin.ts';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { testDatabase } from './helpers/d1.mjs';
 
 const NOW = Date.UTC(2026, 9, 21, 12);
 const uuid = (n) => `12345678-1234-4234-8234-${n.toString(16).padStart(12, '0')}`;
 
 function fixture(t) {
-  const db = createTestDatabase();
-  t.after(() => db.close());
+  const db = testDatabase(t);
   const env = { DB: db, MAX_BODY_BYTES: '65536', VAPID_PUBLIC_KEY: 'public-only', VAPID_PRIVATE_KEY: 'never-disclose', VAPID_SUBJECT: 'mailto:owner@example.org',
     DISCORD_WEBHOOK_URL: 'https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwx', PUSH_COOLDOWN_SECONDS: '1800', DETECTION_WINDOW_SECONDS: '900', SPIKE_REPORT_THRESHOLD: '10', DISTINCT_INSTALL_THRESHOLD: '3' };
   const app = new Hono();

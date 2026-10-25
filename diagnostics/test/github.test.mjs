@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import worker from '../src/index.ts';
 import { bindings, createAccessFixture } from './helpers/access.mjs';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { testDatabase } from './helpers/d1.mjs';
 
 const NOW = Date.UTC(2026, 9, 23, 12);
 const REPOSITORY = 'https://github.com/thomasthanos/nexusmods-bypass/issues';
@@ -18,7 +18,7 @@ function memoryCache() {
 }
 
 test('GitHub issues route requires Access and returns public issues without inserting diagnostic reports', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const access = await createAccessFixture(t);
   const accessFetch = globalThis.fetch;
   let githubCalls = 0;
@@ -164,7 +164,7 @@ test('fetch and streamed response timeouts are bounded and do not leak provider 
 });
 
 test('protected route maps upstream failure to safe 503 without touching diagnostics storage', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const access = await createAccessFixture(t);
   const accessFetch = globalThis.fetch;
   t.mock.method(globalThis, 'fetch', async (input, init) => String(input).startsWith(API)
@@ -206,7 +206,7 @@ test('an optional GITHUB_TOKEN secret authenticates the fixed API read and never
     await getGithubIssues({ now: () => NOW, cache: null, fetch, token: invalid });
     assert.equal(seen.at(-1), null, `${JSON.stringify(invalid)} is not sent`);
   }
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const access = await createAccessFixture(t);
   const accessFetch = globalThis.fetch;
   t.mock.method(globalThis, 'fetch', async (input, init) => {

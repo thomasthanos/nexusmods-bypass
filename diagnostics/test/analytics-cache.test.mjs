@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { testDatabase } from './helpers/d1.mjs';
 import { cachedAnalytics } from '../src/services/analytics-cache.ts';
 
 const now = 1792771200000;
@@ -13,7 +13,7 @@ const unavailable = { ...ready, state: 'unavailable', fetched_at: null, online_3
   history_start_date: null, time_zone: null, message: 'Analytics temporarily unavailable.' };
 
 test('aggregate cache avoids repeated OAuth requests and never persists credentials', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close()); let requests = 0;
+  const db = testDatabase(t); let requests = 0;
   const fetchSnapshot = async () => { requests++; return ready; };
   const a = await cachedAnalytics(db, { credentials: 'private-credential', now, fetchSnapshot });
   const b = await cachedAnalytics(db, { credentials: 'private-credential', now: now + 30000, fetchSnapshot });
@@ -22,7 +22,7 @@ test('aggregate cache avoids repeated OAuth requests and never persists credenti
 });
 
 test('upstream failures retain previous aggregates with explicit stale state and original time', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   await cachedAnalytics(db, { credentials: 'configured', now, fetchSnapshot: async () => ready });
   const failed = await cachedAnalytics(db, { credentials: 'configured', now: now + 61000, fetchSnapshot: async () => unavailable });
   assert.equal(failed.stale, true); assert.equal(failed.online_30m, 4); assert.equal(failed.fetched_at, now);
@@ -30,14 +30,14 @@ test('upstream failures retain previous aggregates with explicit stale state and
 });
 
 test('missing configuration never reuses previously connected Analytics data', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   await cachedAnalytics(db, { credentials: 'configured', now, fetchSnapshot: async () => ready });
   const result = await cachedAnalytics(db, { now: now + 1 });
   assert.equal(result.state, 'not_configured'); assert.equal(result.online_30m, null);
 });
 
 test('parallel refreshes share a database lease and abandoned work cannot overwrite its successor', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close()); let resolve; let started;
+  const db = testDatabase(t); let resolve; let started;
   const gate = new Promise((r) => { started = r; });
   const first = cachedAnalytics(db, { credentials: 'configured', now, fetchSnapshot: () => { started(); return new Promise((r) => { resolve = r; }); } });
   await gate;

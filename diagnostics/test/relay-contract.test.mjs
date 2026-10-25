@@ -4,14 +4,11 @@ import { webcrypto } from 'node:crypto';
 import { test } from 'node:test';
 import vm from 'node:vm';
 import relay, { dashboardReport, validateReport } from '../../relay/worker.js';
-import worker from '../src/index.ts';
 import { RELAYED_INSTALL_ID, relayedReportSchema } from '../src/schemas/ingest.ts';
-import { bindings } from './helpers/access.mjs';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { EXTENSION, workerFixture } from './helpers/worker.mjs';
 
 // The relay copies automatic reports from the extension's Discord path into this service. Both sides
 // are tested together here, against the extension's own reporters loaded as the browser runs them.
-const EXTENSION = `chrome-extension://${'a'.repeat(32)}`;
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0';
 const WEBHOOK = 'https://discord.com/api/webhooks/123456789012345678/fixture-webhook-token-0123456789';
 
@@ -99,13 +96,9 @@ test('every payload the relay accepts becomes a report the dashboard accepts, wi
 test('an automatic report sent to the relay is stored once by the dashboard, without an installation or OS', async (t) => {
   // One report through both Workers. Each side's own rules (Discord dedupe, which origins are copied, no
   // second Discord post) are pinned in tests/unit/relay-diagnostics-test.mjs and relayed.test.mjs.
-  const db = createTestDatabase();
-  const pending = [];
-  const context = { waitUntil(promise) { pending.push(promise); }, passThroughOnException() {}, props: {} };
-  t.after(async () => { await Promise.allSettled(pending); db.close(); });
-  const diagnostics = bindings(db, { DISCORD_WEBHOOK_URL: WEBHOOK });
-  const env = { DISCORD_WEBHOOK_URL: WEBHOOK, RELAY_EXTENSION_VERSION: '3.3.1',
-    DIAGNOSTICS: { fetch: (request) => worker.fetch(request, diagnostics, context) } };
+  const dashboard = workerFixture(t, { DISCORD_WEBHOOK_URL: WEBHOOK });
+  const { db, pending, context } = dashboard;
+  const env = { DISCORD_WEBHOOK_URL: WEBHOOK, RELAY_EXTENSION_VERSION: '3.3.1', DIAGNOSTICS: { fetch: dashboard.fetch } };
   t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 204 }));
   const payload = { schema: 1, kind: 'auto', version: '3.3.1', browser: 'Firefox 144', reference: 'E-0contra', occurrences: 2,
     firstAt: new Date(Date.now() - 60_000).toISOString(), lastAt: new Date().toISOString(),

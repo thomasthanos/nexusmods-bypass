@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { errorReportSchema } from '../src/schemas/ingest.ts';
 import { classifyReport, evaluateRules } from '../src/services/ruleEngine.ts';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { testDatabase } from './helpers/d1.mjs';
 
 const NOW = 1_792_604_800_000;
 const WINDOW = 15 * 60 * 1000;
@@ -197,12 +197,6 @@ test('classification is deterministic, returns independent results and preserves
   assert.deepEqual(input, original);
 });
 
-function database(t) {
-  const db = createTestDatabase();
-  t.after(() => db.close());
-  return db;
-}
-
 function insert(db, table, values) {
   const keys = Object.keys(values);
   return db.sqlite.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`)
@@ -231,7 +225,7 @@ function storedReport(db, issueId, number, install, created_at = NOW, occurred_a
 }
 
 test('requires three distinct stored installations rather than repeat reports', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const issueId = issue(db);
   const input = report({ error_message: 'Missing collection host' });
   for (let i = 1; i <= 5; i += 1) storedReport(db, issueId, i, 'a');
@@ -250,7 +244,7 @@ test('requires three distinct stored installations rather than repeat reports', 
 });
 
 test('counts inclusive server receipt bounds and ignores client time, other issues and lifetime installs', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const issueId = issue(db);
   issue(db, 2);
   storedReport(db, issueId, 1, 'a', NOW, NOW - WINDOW * 10);
@@ -268,7 +262,7 @@ test('counts inclusive server receipt bounds and ignores client time, other issu
 });
 
 test('supports explicit detection windows and distinct-install thresholds', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const issueId = issue(db);
   storedReport(db, issueId, 1, 'a', NOW);
   storedReport(db, issueId, 2, 'b', NOW - 1001);
@@ -282,7 +276,7 @@ test('supports explicit detection windows and distinct-install thresholds', asyn
 });
 
 test('canary evaluation leaves reports, issue classification and server timestamps unchanged', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const issueId = issue(db);
   for (const [index, install] of ['a', 'b', 'c'].entries()) storedReport(db, issueId, index + 1, install);
   const before = {
@@ -300,7 +294,7 @@ test('canary evaluation leaves reports, issue classification and server timestam
 });
 
 test('high report volume does not turn network or security failures into upstream canaries', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const issueId = issue(db);
   for (const [index, install] of ['a', 'b', 'c'].entries()) storedReport(db, issueId, index + 1, install);
   for (const [input, category] of [
@@ -315,7 +309,7 @@ test('high report volume does not turn network or security failures into upstrea
 });
 
 test('three installations with a current network failure and earlier API mismatch context never trigger a canary', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const issueId = issue(db);
   for (const [index, install] of ['a', 'b', 'c'].entries()) storedReport(db, issueId, index + 1, install);
   const input = report({
@@ -329,7 +323,7 @@ test('three installations with a current network failure and earlier API mismatc
 });
 
 test('rejects invalid query bounds and thresholds rather than producing misleading canaries', async (t) => {
-  const db = database(t);
+  const db = testDatabase(t);
   const input = report({ error_code: 'DOM_SELECTOR_MISSING' });
   for (const options of [
     { issueId: 0, now: NOW }, { issueId: 1.5, now: NOW },

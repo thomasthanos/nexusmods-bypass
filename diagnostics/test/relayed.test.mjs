@@ -1,14 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import worker from '../src/index.ts';
 import { RELAYED_INSTALL_ID } from '../src/schemas/ingest.ts';
-import { bindings, createAccessFixture } from './helpers/access.mjs';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { createAccessFixture } from './helpers/access.mjs';
+import { EXTENSION, workerFixture } from './helpers/worker.mjs';
 
 // Automatic reports the relay copies from the extension's Discord path: no installation identifier,
 // no OS, and Discord already has them.
-const ORIGIN = 'https://diagnostics.test';
-const EXTENSION = `chrome-extension://${'a'.repeat(32)}`;
 const WEBHOOK = 'https://discord.com/api/webhooks/123456789012345678/fixture-webhook-token-0123456789';
 const uuid = (n) => `12345678-1234-4234-8234-${n.toString(16).padStart(12, '0')}`;
 const identity = { error_category: 'nexus_api_changed', error_code: 'nexus_api_changed', failure_stage: 'nexus_api_changed',
@@ -24,8 +21,6 @@ function extension(n, install, overrides = {}) {
 }
 
 async function fixture(t, overrides = {}) {
-  const db = createTestDatabase();
-  const pending = [];
   const access = await createAccessFixture(t);
   const discord = [];
   const accessFetch = globalThis.fetch;
@@ -34,15 +29,9 @@ async function fixture(t, overrides = {}) {
     if (url.startsWith('https://discord.com/')) { discord.push(url); return new Response(null, { status: 204 }); }
     return accessFetch(input, init);
   });
-  const env = bindings(db, { DISCORD_WEBHOOK_URL: WEBHOOK, ...overrides });
-  const context = { waitUntil(promise) { pending.push(promise); }, passThroughOnException() {}, props: {} };
-  t.after(async () => { await Promise.allSettled(pending); db.close(); });
-  const request = (path, init = {}) => worker.fetch(new Request(`${ORIGIN}${path}`, init), env, context);
-  const post = (path, value, headers = {}) => request(path, { method: 'POST', headers: {
-    origin: EXTENSION, 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.10', ...headers
-  }, body: JSON.stringify(value) });
-  const admin = async (path) => (await request(`/api/admin${path}`, { headers: await access.headers() })).json();
-  return { db, pending, discord, request, post, admin };
+  const dashboard = workerFixture(t, { DISCORD_WEBHOOK_URL: WEBHOOK, ...overrides });
+  const admin = async (path) => (await dashboard.request(`/api/admin${path}`, { headers: await access.headers() })).json();
+  return { ...dashboard, discord, admin };
 }
 
 test('a relayed automatic report is stored without an installation or OS, once, and is not posted to Discord again', async (t) => {

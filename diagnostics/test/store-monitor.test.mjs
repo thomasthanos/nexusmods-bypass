@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { testDatabase } from './helpers/d1.mjs';
 
 const service = () => import('../src/services/store-monitor.ts').catch((error) => {
   if (error.code === 'ERR_MODULE_NOT_FOUND') return {};
@@ -19,7 +19,6 @@ const snapshot = (reviews = [review(1)], patch = {}) => ({ extension_id: ID,
 const config = { vapid: { publicKey: 'test-public', privateKey: 'test-private', subject: 'mailto:owner@example.test' } };
 const delivered = { ok: true, status: 201, retryable: false, expired: false, retry_after_ms: null, reason: 'delivered' };
 const failed = (patch = {}) => ({ ok: false, status: 503, retryable: true, expired: false, retry_after_ms: null, reason: 'http_error', ...patch });
-function database(t) { const db = createTestDatabase(); t.after(() => db.close()); return db; }
 function subscription(db, n = 1) {
   return Number(db.sqlite.prepare('INSERT INTO push_subscriptions(endpoint,p256dh,auth,created_at,updated_at) VALUES(?,?,?,?,?)')
     .run(`https://web.push.apple.com/test-${n}`, 'A'.repeat(87), 'B'.repeat(22), NOW, NOW).lastInsertRowid);
@@ -35,7 +34,7 @@ test('exports isolated store persistence and delivery operations', async () => {
 });
 
 test('complete first sync establishes an acknowledged baseline without historical targets or diagnostics rows', async (t) => {
-  const db = database(t); subscription(db);
+  const db = testDatabase(t); subscription(db);
   const { getStoreDashboard } = await service();
   assert.equal((await getStoreDashboard(db, NOW)).snapshot, null);
   assert.equal((await sync(db, snapshot())).state, 'synced');
@@ -51,7 +50,7 @@ test('complete first sync establishes an acknowledged baseline without historica
 });
 
 test('incomplete and failed first syncs cannot establish a baseline or later flood historical reviews', async (t) => {
-  const db = database(t); subscription(db);
+  const db = testDatabase(t); subscription(db);
   const { syncStore, getStoreDashboard } = await service();
   await sync(db, snapshot([review(1)], { reviews_complete: false, written_review_count: 20 }));
   assert.equal(db.sqlite.prepare('SELECT baseline_at FROM store_monitor_state').get().baseline_at, null);
@@ -66,7 +65,7 @@ test('incomplete and failed first syncs cannot establish a baseline or later flo
 });
 
 test('new stable IDs capture current subscriptions once; edits and new subscriptions never replay history', async (t) => {
-  const db = database(t); subscription(db);
+  const db = testDatabase(t); subscription(db);
   await sync(db, snapshot());
   await sync(db, snapshot([review(1), review(2)], { fetched_at: NOW + 1 }), NOW + 1);
   const { getStoreDashboard, acknowledgeReviews } = await service();
@@ -84,7 +83,7 @@ test('new stable IDs capture current subscriptions once; edits and new subscript
 });
 
 test('overlapping syncs admit one fetch and fence an expired owner after a successor commits', async (t) => {
-  const db = database(t); const { syncStore, getStoreDashboard } = await service();
+  const db = testDatabase(t); const { syncStore, getStoreDashboard } = await service();
   const pending = Promise.withResolvers(); let fetches = 0;
   const first = syncStore(db, { now: NOW, fetchSnapshot: async () => { fetches++; return pending.promise; } });
   await new Promise((resolve) => setImmediate(resolve));
@@ -98,7 +97,7 @@ test('overlapping syncs admit one fetch and fence an expired owner after a succe
 });
 
 test('failed D1 batches roll back reviews and baseline while preserving last good metadata', async (t) => {
-  const db = database(t); await sync(db, snapshot());
+  const db = testDatabase(t); await sync(db, snapshot());
   const previous = db.sqlite.prepare('SELECT snapshot_json FROM store_monitor_state').get().snapshot_json;
   const original = db.batch;
   db.batch = async (statements) => original([...statements.slice(0, 2), db.prepare('SELECT private_missing_column'), ...statements.slice(2)]);
@@ -112,7 +111,7 @@ test('failed D1 batches roll back reviews and baseline while preserving last goo
 });
 
 test('review batches below 2 MiB still respect the stricter D1 value limit and preserve baseline state', async (t) => {
-  const db = database(t); await sync(db, snapshot());
+  const db = testDatabase(t); await sync(db, snapshot());
   const previous = db.sqlite.prepare('SELECT snapshot_json,baseline_at FROM store_monitor_state').get();
   const reviews = Array.from({ length: 460 }, (_, index) => review(index + 1, { body: 'x'.repeat(4096) }));
   const bytes = new TextEncoder().encode(JSON.stringify(reviews)).byteLength;
@@ -121,7 +120,7 @@ test('review batches below 2 MiB still respect the stricter D1 value limit and p
   assert.equal((await sync(db, large, NOW + 1)).state, 'failed');
   assert.deepEqual(db.sqlite.prepare('SELECT snapshot_json,baseline_at FROM store_monitor_state').get(), previous);
   assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM store_reviews').get().n, 1);
-  const empty = database(t);
+  const empty = testDatabase(t);
   assert.equal((await sync(empty, large, NOW + 1)).state, 'failed');
   assert.equal(db.sqlite.prepare('SELECT lease_token FROM store_monitor_state').get().lease_token, null);
   assert.equal(empty.sqlite.prepare('SELECT baseline_at FROM store_monitor_state').get().baseline_at, null);
@@ -129,7 +128,7 @@ test('review batches below 2 MiB still respect the stricter D1 value limit and p
 });
 
 test('per-subscription claims prevent overlap and successful targets are never replayed on partial retry', async (t) => {
-  const db = database(t); const one = subscription(db); const two = subscription(db, 2);
+  const db = testDatabase(t); const one = subscription(db); const two = subscription(db, 2);
   await sync(db, snapshot()); await sync(db, snapshot([review(1), review(2)], { fetched_at: NOW + 1 }), NOW + 1);
   const { dispatchReviewPush } = await service();
   const calls = []; let failedOnce = false;
@@ -153,7 +152,7 @@ test('per-subscription claims prevent overlap and successful targets are never r
 });
 
 test('expired-target cleanup cannot remove a subscription whose keys rotated during delivery', async (t) => {
-  const db = database(t); const sub = subscription(db);
+  const db = testDatabase(t); const sub = subscription(db);
   await sync(db, snapshot()); await sync(db, snapshot([review(1), review(2)], { fetched_at: NOW + 1 }), NOW + 1);
   const { dispatchReviewPush } = await service();
   await dispatchReviewPush(db, config, 'https://diagnostics.test', { now: NOW + 2, send: async () => {
@@ -165,7 +164,7 @@ test('expired-target cleanup cannot remove a subscription whose keys rotated dur
 });
 
 test('an expired dispatch owner cannot delete a subscription after its successor delivers', async (t) => {
-  const db = database(t); const sub = subscription(db);
+  const db = testDatabase(t); const sub = subscription(db);
   await sync(db, snapshot()); await sync(db, snapshot([review(1), review(2)], { fetched_at: NOW + 1 }), NOW + 1);
   const { dispatchReviewPush } = await service(); const pending = Promise.withResolvers();
   const first = dispatchReviewPush(db, config, 'https://diagnostics.test', { now: NOW + 2, send: async () => pending.promise });
@@ -177,7 +176,7 @@ test('an expired dispatch owner cannot delete a subscription after its successor
 });
 
 test('dispatch caps work at twenty targets and four concurrent sends, leaving the rest durable', async (t) => {
-  const db = database(t); for (let n = 1; n <= 25; n++) subscription(db, n);
+  const db = testDatabase(t); for (let n = 1; n <= 25; n++) subscription(db, n);
   await sync(db, snapshot()); await sync(db, snapshot([review(1), review(2)], { fetched_at: NOW + 1 }), NOW + 1);
   const { dispatchReviewPush } = await service(); let inFlight = 0; let maximum = 0; let count = 0;
   const send = async () => { inFlight++; maximum = Math.max(maximum, inFlight); count++;
@@ -190,7 +189,7 @@ test('dispatch caps work at twenty targets and four concurrent sends, leaving th
 });
 
 test('expired matching targets are deleted and terminal failures do not retry', async (t) => {
-  const db = database(t); subscription(db); subscription(db, 2);
+  const db = testDatabase(t); subscription(db); subscription(db, 2);
   await sync(db, snapshot()); await sync(db, snapshot([review(1), review(2)], { fetched_at: NOW + 1 }), NOW + 1);
   const { dispatchReviewPush } = await service(); let count = 0;
   const send = async (target) => { count++; return target.endpoint.endsWith('-1')
@@ -201,7 +200,7 @@ test('expired matching targets are deleted and terminal failures do not retry', 
 });
 
 test('acknowledgements validate IDs and reading never marks reviews acknowledged', async (t) => {
-  const db = database(t); await sync(db, snapshot()); await sync(db, snapshot([review(1), review(2)], { fetched_at: NOW + 1 }), NOW + 1);
+  const db = testDatabase(t); await sync(db, snapshot()); await sync(db, snapshot([review(1), review(2)], { fetched_at: NOW + 1 }), NOW + 1);
   const { getStoreDashboard, acknowledgeReviews } = await service();
   assert.equal((await getStoreDashboard(db, NOW + 2)).new_review_count, 1);
   assert.equal((await getStoreDashboard(db, NOW + 3)).new_review_count, 1);

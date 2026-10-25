@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { errorReportSchema, heartbeatSchema } from '../src/schemas/ingest.ts';
-import { createTestDatabase } from './helpers/d1.mjs';
+import { testDatabase } from './helpers/d1.mjs';
 
 const NOW = 1_792_604_800_000;
 const uuid = (number) => `12345678-1234-4234-8234-${number.toString(16).padStart(12, '0')}`;
@@ -35,7 +35,7 @@ function heartbeat(overrides = {}) {
 
 test('persists one report and counts its anonymous installation exactly once', async (t) => {
   assert.equal(typeof acceptErrorReport, 'function', 'report ingestion service must exist');
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const result = await acceptErrorReport(db, report(), NOW);
   assert.equal(result.accepted, true);
   assert.equal(result.isNewIssue, true);
@@ -50,7 +50,7 @@ test('persists one report and counts its anonymous installation exactly once', a
 });
 
 test('serializes concurrent first reports and replays without duplicate counts or new issue events', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const input = report();
   const results = await Promise.all(Array.from({ length: 8 }, (_, index) => acceptErrorReport(db, input, NOW + index)));
   assert.equal(results.filter((result) => result.accepted).length, 1);
@@ -67,7 +67,7 @@ test('serializes concurrent first reports and replays without duplicate counts o
 });
 
 test('concurrent distinct reports track counts without confusing issue creation with postinsert totals', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const results = await Promise.all(Array.from({ length: 12 }, (_, index) => acceptErrorReport(db,
     report({ report_id: uuid(index + 1), install_id: install(index % 4 + 1) }), NOW + index)));
   assert.equal(results.filter((result) => result.isNewIssue).length, 1);
@@ -78,7 +78,7 @@ test('concurrent distinct reports track counts without confusing issue creation 
 });
 
 test('retention replays preserve receipts without recreating a body or activity', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   await acceptErrorReport(db, report(), NOW);
   db.sqlite.prepare('DELETE FROM reports').run();
   const before = db.sqlite.prepare('SELECT * FROM issues').get();
@@ -90,7 +90,7 @@ test('retention replays preserve receipts without recreating a body or activity'
 });
 
 test('rejects a report UUID belonging to a different installation or fingerprint without leaking its issue', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   await acceptErrorReport(db, report(), NOW);
   const before = db.sqlite.prepare('SELECT * FROM issues').all();
   for (const overrides of [{ install_id: install(2) }, { destination: 'vortex' }, { error_code: 'DIFFERENT_ERROR' }]) {
@@ -107,7 +107,7 @@ test('rejects a report UUID belonging to a different installation or fingerprint
 });
 
 test('rejects altered retained report bodies but accepts semantically identical metadata order', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const breadcrumbs = [{ timestamp_offset_ms: 0, stage: 'API', action: 'REQUEST', status: 'error', metadata: { a: 1, b: 2 } }];
   await acceptErrorReport(db, report({ breadcrumbs }), NOW);
   await assert.rejects(acceptErrorReport(db, report({ breadcrumbs, error_message: 'Changed body' }), NOW + 1), IngestionConflict);
@@ -116,7 +116,7 @@ test('rejects altered retained report bodies but accepts semantically identical 
 });
 
 test('one conflicting concurrent UUID wins and leaves no orphan issue', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const results = await Promise.allSettled([
     acceptErrorReport(db, report(), NOW),
     acceptErrorReport(db, report({ install_id: install(2), destination: 'mo2' }), NOW),
@@ -129,7 +129,7 @@ test('one conflicting concurrent UUID wins and leaves no orphan issue', async (t
 });
 
 test('database failures roll back the issue, report, receipt and trigger totals together', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   db.sqlite.exec("CREATE TRIGGER reject_reports BEFORE INSERT ON reports BEGIN SELECT RAISE(ABORT, 'injected report failure'); END;");
   await assert.rejects(acceptErrorReport(db, report(), NOW), /injected report failure/);
   for (const table of ['issues', 'reports', 'report_receipts', 'issue_installs']) {
@@ -138,7 +138,7 @@ test('database failures roll back the issue, report, receipt and trigger totals 
 });
 
 test('sanitizes every free-form persisted report field and normalizes raw Firefox stacks for grouping', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const result = await acceptErrorReport(db, report({
     error_message: 'Failure Authorization: Bearer private-secret',
     stack_trace: 'download@chrome-extension://private-extension-id/background.js?token=private-token:7:8',
@@ -154,7 +154,7 @@ test('sanitizes every free-form persisted report field and normalizes raw Firefo
 });
 
 test('stores immutable base classifications while updating current canary classification using receipt time', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const common = { error_category: 'DOM_SELECTOR_MISSING', error_code: 'SELECTOR_NOT_FOUND', error_message: 'Missing collection host', occurred_at: '1970-01-01T00:00:00.000Z' };
   let result;
   for (let index = 1; index <= 3; index++) result = await acceptErrorReport(db, report({ ...common, report_id: uuid(index), install_id: install(index) }), NOW + index);
@@ -166,7 +166,7 @@ test('stores immutable base classifications while updating current canary classi
 });
 
 test('groups reports independently of versions while separating target destinations', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const first = await acceptErrorReport(db, report(), NOW);
   const version = await acceptErrorReport(db, report({ report_id: uuid(2), version: '4.0.0' }), NOW + 1);
   const target = await acceptErrorReport(db, report({ report_id: uuid(3), destination: 'vortex' }), NOW + 2);
@@ -175,7 +175,7 @@ test('groups reports independently of versions while separating target destinati
 });
 
 test('regresses only newly accepted versions above the fixed SemVer baseline with one transition event', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const original = await acceptErrorReport(db, report({ version: '3.1.0' }), NOW);
   db.sqlite.prepare("UPDATE issues SET status = 'fixed', fixed_in_version = '3.2.0' WHERE id = ?").run(original.issueId);
   for (const [index, version] of ['3.1.9', '3.2.0-alpha.2', '3.2.0', '3.2.0+build.4'].entries()) {
@@ -196,7 +196,7 @@ test('regresses only newly accepted versions above the fixed SemVer baseline wit
 });
 
 test('heartbeat receipts aggregate immutable deltas per version/date/browser/destination and exact replays do nothing', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const input = heartbeat();
   const results = await Promise.all(Array.from({ length: 5 }, (_, index) => acceptHeartbeat(db, input, NOW + index)));
   assert.equal(results.filter((result) => result.accepted).length, 1);
@@ -216,7 +216,7 @@ test('heartbeat receipts aggregate immutable deltas per version/date/browser/des
 });
 
 test('changed heartbeat identities conflict including concurrent inserts without inflating metrics', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   await acceptHeartbeat(db, heartbeat(), NOW);
   for (const change of [{ metric_date: '2026-10-20' }, { version: '3.2.1' }, { browser: 'firefox' }, { destination: 'mo2' }, { attempts_count: 12 }, { success_count: 7 }, { fallback_triggered_count: 4 }]) {
     await assert.rejects(acceptHeartbeat(db, heartbeat(change), NOW + 1), IngestionConflict);
@@ -232,7 +232,7 @@ test('changed heartbeat identities conflict including concurrent inserts without
 });
 
 test('an older same-millisecond rule evaluation cannot replace a newer canary result', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const common = { error_category: 'DOM_SELECTOR_MISSING', error_code: 'SELECTOR_NOT_FOUND', error_message: 'Missing collection host' };
   await acceptErrorReport(db, report(common), NOW);
   let resume;
@@ -266,7 +266,7 @@ test('an older same-millisecond rule evaluation cannot replace a newer canary re
 });
 
 test('out-of-order batch completions refresh the current issue at its newest receipt window', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const common = { error_category: 'DOM_SELECTOR_MISSING', error_code: 'SELECTOR_NOT_FOUND', error_message: 'Missing collection host' };
   await acceptErrorReport(db, report(common), NOW);
   let resume;
@@ -292,7 +292,7 @@ test('out-of-order batch completions refresh the current issue at its newest rec
 });
 
 test('refreshes use the newest retained report classification instead of an older report sharing its fingerprint', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   await acceptErrorReport(db, report(), NOW);
   let resume;
   const gate = new Promise((resolve) => { resume = resolve; });
@@ -320,7 +320,7 @@ test('refreshes use the newest retained report classification instead of an olde
 });
 
 test('accepted reports survive postcommit classification faults with their base delivery context', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   const input = report({ error_category: 'DOM_SELECTOR_MISSING', error_code: 'SELECTOR_NOT_FOUND', error_message: 'Missing collection host' });
   const faultyDb = {
     ...db,
@@ -337,7 +337,7 @@ test('accepted reports survive postcommit classification faults with their base 
 });
 
 test('a fixed baseline changed during ingestion is compared again before regression', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   await acceptErrorReport(db, report(), NOW);
   db.sqlite.prepare("UPDATE issues SET status = 'fixed', fixed_in_version = '4.0.0'").run();
   const changingDb = {
@@ -354,7 +354,7 @@ test('a fixed baseline changed during ingestion is compared again before regress
 });
 
 test('heartbeat failures roll back receipts and release totals together', async (t) => {
-  const db = createTestDatabase(); t.after(() => db.close());
+  const db = testDatabase(t);
   db.sqlite.exec("CREATE TRIGGER reject_metrics BEFORE INSERT ON release_metrics BEGIN SELECT RAISE(ABORT, 'injected metrics failure'); END;");
   await assert.rejects(acceptHeartbeat(db, heartbeat(), NOW), /injected metrics failure/);
   assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM heartbeat_receipts').get().n, 0);
