@@ -7,5 +7,5 @@ import { exportedSchemas, OUTPUT } from '../tools/export-report-schemas.mjs';
 // every change to src/schemas/ingest.ts.
 test('the committed report JSON Schema is what the Zod schemas export today', () => {
   assert.equal(readFileSync(OUTPUT, 'utf8').replace(/\r\n/g, '\n'), exportedSchemas(),
-    'tests/fixtures/report-schemas.json is out of date: run node tools/export-report-schemas.mjs in diagnostics/');
+    'tests/fixtures/report-schemas.json is out of date: run node tools/export-report-schemas.mjs in workers/diagnostics/');
 });

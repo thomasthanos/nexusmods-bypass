@@ -10,7 +10,7 @@ import { EXTENSION, workerFixture } from './helpers/worker.mjs';
 // The relay copies automatic reports from the extension's Discord path into this service. Both sides
 // are tested together here, against the extension's own reporters loaded as the browser runs them.
 // The shared contract reports (tests/fixtures/relay-reports.json), one of each kind the extension sends.
-const reports = JSON.parse(await readFile(new URL('../../tests/fixtures/relay-reports.json', import.meta.url), 'utf8'));
+const reports = JSON.parse(await readFile(new URL('../../../tests/fixtures/relay-reports.json', import.meta.url), 'utf8'));
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0';
 const WEBHOOK = 'https://discord.com/api/webhooks/123456789012345678/fixture-webhook-token-0123456789';
 
@@ -18,7 +18,7 @@ async function extension() {
   const context = vm.createContext({ URL, Date, console, setTimeout, clearTimeout, AbortController, structuredClone,
     crypto: webcrypto, TextEncoder, navigator: { userAgent: USER_AGENT } });
   for (const name of ['lib/shared.js', 'lib/auto-reports.js']) {
-    vm.runInContext(await readFile(new URL(`../../src/${name}`, import.meta.url), 'utf8'), context);
+    vm.runInContext(await readFile(new URL(`../../../src/${name}`, import.meta.url), 'utf8'), context);
   }
   const kit = context.NXTK;
   const { Reporter, DiagnosticsReporter } = context.NXTKAutoReports;
@@ -97,7 +97,7 @@ test('every payload the relay accepts becomes a report the dashboard accepts, wi
 
 test('an automatic report sent to the relay is stored once by the dashboard, without an installation or OS', async (t) => {
   // One report through both Workers. Each side's own rules (Discord dedupe, which origins are copied, no
-  // second Discord post) are pinned in relay/test/relay-diagnostics-test.mjs and relayed.test.mjs.
+  // second Discord post) are pinned in workers/relay/test/relay-diagnostics-test.mjs and relayed.test.mjs.
   const dashboard = workerFixture(t, { DISCORD_WEBHOOK_URL: WEBHOOK });
   const { db, pending, context } = dashboard;
   const env = { DISCORD_WEBHOOK_URL: WEBHOOK, RELAY_EXTENSION_VERSION: '3.3.1', DIAGNOSTICS: { fetch: dashboard.fetch } };

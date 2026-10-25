@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="../docs/assets/header-relay.svg" alt="Bug-report relay" width="100%" />
+  <img src="../../docs/assets/header-relay.svg" alt="Bug-report relay" width="100%" />
 </p>
 
 <p align="center">
-  <a href="../README.md"><kbd> ← README </kbd></a>&ensp;·&ensp;
-  <a href="../PRIVACY.md"><kbd> 🔒 Privacy </kbd></a>&ensp;·&ensp;
-  <a href="../.github/CONTRIBUTING.md"><kbd> 🤝 Contributing </kbd></a>&ensp;·&ensp;
-  <a href="../CHANGELOG.md"><kbd> 📋 Changelog </kbd></a>
+  <a href="../../README.md"><kbd> ← README </kbd></a>&ensp;·&ensp;
+  <a href="../../PRIVACY.md"><kbd> 🔒 Privacy </kbd></a>&ensp;·&ensp;
+  <a href="../../.github/CONTRIBUTING.md"><kbd> 🤝 Contributing </kbd></a>&ensp;·&ensp;
+  <a href="../../CHANGELOG.md"><kbd> 📋 Changelog </kbd></a>
 </p>
 
-<img src="../docs/assets/divider.svg" alt="" width="100%" />
+<img src="../../docs/assets/divider.svg" alt="" width="100%" />
 
 
 A small Cloudflare Worker that receives reports from the extension's **Send bug report** page (and
@@ -60,8 +60,8 @@ Optional `error.causeCode` is backwards compatible with schema 1 and lets securi
 labelled explicitly. Older clients' blocked-file messages are also recognised. No browser or
 antivirus block is bypassed. Test destinations are mocked; no live Discord message is sent.
 
-To redeploy, install the relay's pinned Wrangler with `npm ci -w relay` at the repository root,
-authenticate with Cloudflare and run `npx wrangler deploy` from `relay/`.
+To redeploy, install the relay's pinned Wrangler with `npm ci -w workers/relay` at the repository root,
+authenticate with Cloudflare and run `npx wrangler deploy` from `workers/relay/`.
 Keep the existing `DISCORD_WEBHOOK_URL`, `REPORT_MENTION_USER_ID`, CORS origins and `RATE_LIMIT` binding.
 Do not rotate or overwrite the existing destination secret just to update the Worker.
 
@@ -129,7 +129,7 @@ post copies to Discord again. `test/relay-diagnostics-test.mjs` and the diagnost
 
 ## Delivery and failure handling
 
-Not yet deployed: run `npx wrangler deploy` from `relay/` to apply it. Wrangler bundles
+Not yet deployed: run `npx wrangler deploy` from `workers/relay/` to apply it. Wrangler bundles
 `worker.js` with `discord.js`, the dispatcher it shares with the GitHub workflows.
 
 - **Discord rate limits:** a 429 is waited out inside the request when Discord asks for a short pause
@@ -153,13 +153,13 @@ Not yet deployed: run `npx wrangler deploy` from `relay/` to apply it. Wrangler 
 - **Bounded input:** bodies without a `Content-Length` are read in chunks and refused past 64 KB.
 
 ## Deploy
-Pushes to `main` that change the Worker in `relay/` (not only `relay/test/`) deploy it automatically,
+Pushes to `main` that change the Worker in `workers/relay/` (not only its `test/`) deploy it automatically,
 after the Release gate's checks and the diagnostics deployment, once the repository has the
 `CLOUDFLARE_API_TOKEN` secret described in the [diagnostics README](../diagnostics/README.md). That job
 never changes secrets, KV or `wrangler.toml`. To deploy by hand or deploy your own copy, use your machine:
 ```sh
-npm ci -w relay                                 # at the repository root: the relay's pinned Wrangler
-cd relay
+npm ci -w workers/relay                         # at the repository root: the relay's pinned Wrangler
+cd workers/relay
 npx wrangler login
 npx wrangler secret put DISCORD_WEBHOOK_URL      # paste the webhook URL when prompted
 # optional e-mail via Resend:
@@ -199,13 +199,13 @@ curl -X POST "$RELAY/v1/report" -H 'content-type: application/json' \
 ```
 `node tests/unit/auto-reports-test.mjs` checks opt-in, retries, aggregation, limits and revocation without network access.
 `node tests/unit/report-consent-test.mjs` checks the one-time invitation, Greek copy, keyboard accessibility and explicit opt-in without an access prompt.
-`node relay/test/relay-test.mjs` runs the validation, rate-limit, Discord-formatting and failure-path tests offline,
+`node workers/relay/test/relay-test.mjs` runs the validation, rate-limit, Discord-formatting and failure-path tests offline,
 and checks that the reports in `tests/fixtures/relay-reports.json` are accepted and copied in a form the
 diagnostics Worker's schema accepts.
-`node relay/test/discord-dispatch-test.mjs` checks embed limits, clipping, Retry-After handling and bounded retries in `discord.js`.
+`node workers/relay/test/discord-dispatch-test.mjs` checks embed limits, clipping, Retry-After handling and bounded retries in `discord.js`.
 
-<img src="../docs/assets/divider.svg" alt="" width="100%" />
+<img src="../../docs/assets/divider.svg" alt="" width="100%" />
 
 <p align="center">
-  <a href="https://github.com/thomasthanos"><img src="../docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+  <a href="https://github.com/thomasthanos"><img src="../../docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
 </p>

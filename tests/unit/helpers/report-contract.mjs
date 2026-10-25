@@ -1,6 +1,6 @@
 // The report contract every side checks. tests/fixtures/relay-reports.json holds one report of each kind
 // the extension sends the relay; tests/fixtures/report-schemas.json is the JSON Schema of what the
-// diagnostics Worker accepts, exported from its Zod schemas by diagnostics/tools/export-report-schemas.mjs.
+// diagnostics Worker accepts, exported from its Zod schemas by workers/diagnostics/tools/export-report-schemas.mjs.
 import fs from 'node:fs';
 import Ajv2020 from 'ajv/dist/2020.js';
 

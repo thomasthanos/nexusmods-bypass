@@ -94,11 +94,11 @@ All four authorized phases are delivered. Supporting CSS, shared API helpers and
 
 Use Node.js 24 or newer. The tests use Node's built-in test runner, native TypeScript stripping, and SQLite; these development APIs are never imported into the Worker. The runtime schemas use the requested libraries and standard Web APIs.
 
-Packages install from the repository root, where one lockfile covers the extension's tooling, this Worker and the relay: `npm ci` installs all three, `npm ci -w diagnostics` only this Worker's.
+Packages install from the repository root, where one lockfile covers the extension's tooling, this Worker and the relay: `npm ci` installs all three, `npm ci -w workers/diagnostics` only this Worker's.
 
 ```powershell
-npm ci -w diagnostics    # at the repository root
-cd diagnostics
+npm ci -w workers/diagnostics    # at the repository root
+cd workers/diagnostics
 npm run check
 npm run cf:types
 npm run db:init:local
@@ -146,7 +146,7 @@ The Access application must protect the dashboard and `/api/admin/*`; only the e
 
 `src/schemas/ingest.ts` exports `errorReportSchema`, `heartbeatSchema`, their input/output types, reusable dimension schemas, and the fixed `MAX_BODY_BYTES = 65_536` limit. Objects reject unknown properties. No numeric coercion is used.
 
-After changing these schemas, run `node tools/export-report-schemas.mjs`: it rewrites `../tests/fixtures/report-schemas.json`, the JSON Schema the extension's and the relay's tests check their reports against, and `test/report-schemas.test.mjs` fails until it is current. Checks JSON Schema cannot express (no NUL characters, the reserved installation id, the payload budget) stay in Zod.
+After changing these schemas, run `node tools/export-report-schemas.mjs`: it rewrites `../../tests/fixtures/report-schemas.json`, the JSON Schema the extension's and the relay's tests check their reports against, and `test/report-schemas.test.mjs` fails until it is current. Checks JSON Schema cannot express (no NUL characters, the reserved installation id, the payload budget) stay in Zod.
 
 Error reports require explicit `consent: "diagnostics-v1"`; heartbeats require separate `consent: "telemetry-v1"`. These declarations are an ingestion contract, not proof of consent: the extension must read its actual opt-in setting before preparing, queuing, and sending data. The legacy automatic-error-report preference does not automatically authorize heartbeat telemetry.
 
@@ -182,7 +182,7 @@ Rate-limit buckets store HMAC subject hashes, scope, window, count, and expiry; 
 
 ## Extension integration
 
-The extension's dependency-free integration is `DiagnosticsReporter` in `../src/lib/auto-reports.js`; it maps real error events to the diagnostics contract and sends from the extension's background context to the existing relay. It does not inject Zod into Nexus pages or add a host permission.
+The extension's dependency-free integration is `DiagnosticsReporter` in `../../src/lib/auto-reports.js`; it maps real error events to the diagnostics contract and sends from the extension's background context to the existing relay. It does not inject Zod into Nexus pages or add a host permission.
 
 ## Phase boundary and operational limits
 

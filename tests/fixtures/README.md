@@ -17,7 +17,7 @@ Two JSON files hold the report contract that the extension, the relay and the di
 tested against. `relay-reports.json` has one report of each kind the extension sends the relay; the
 extension's tests check that what it builds has exactly these fields, and the relay's and the diagnostics
 Worker's tests send them. `report-schemas.json` is the JSON Schema of the reports the diagnostics Worker
-accepts, written by `node tools/export-report-schemas.mjs` in `diagnostics/` from its Zod schemas; a
+accepts, written by `node tools/export-report-schemas.mjs` in `workers/diagnostics/` from its Zod schemas; a
 diagnostics test fails while it is out of date.
 
 <img src="../../docs/assets/divider.svg" alt="" width="100%" />

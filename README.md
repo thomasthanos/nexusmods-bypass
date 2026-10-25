@@ -95,7 +95,7 @@ Settings, history and logs stay in local extension storage; no analytics or acco
 <details>
 <summary><strong>Bug reports &amp; debug log</strong> — Reports and diagnostics</summary>
 
-- **Send bug report** (popup → Help & Bugs, or **Add details** on an error): describe it, review the redacted JSON, then send through the <a href="relay/README.md"><kbd>relay</kbd></a>, save/copy it, or open a prefilled <a href="https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose"><kbd>GitHub issue</kbd></a>.
+- **Send bug report** (popup → Help & Bugs, or **Add details** on an error): describe it, review the redacted JSON, then send through the <a href="workers/relay/README.md"><kbd>relay</kbd></a>, save/copy it, or open a prefilled <a href="https://github.com/thomasthanos/nexusmods-bypass/issues/new/choose"><kbd>GitHub issue</kbd></a>.
 - **Ideas and questions** (Help & Bugs → **Report on GitHub** → *Idea or suggestion* or *Question*, or **Suggest an idea** in the settings): open a new <a href="https://github.com/thomasthanos/nexusmods-bypass/discussions"><kbd>GitHub discussion</kbd></a> in *Ideas* or *Q&A*, where others can upvote and answer. Bug reports stay issues.
 - **Debug log** (Help & Bugs → Debug log): opt-in live log with filters, search and export.
 - **Automatic error reports**: off by default. A one-time, keyboard-accessible invitation on Nexus Mods after an update lets you opt in with one click, without another browser permission. New extension faults send minimal technical diagnostics; repeated faults are grouped, failed sends retry, and you can switch reporting off at any time.
@@ -154,7 +154,7 @@ npm run test:visual    # Playwright tests
 
 See <a href=".github/CONTRIBUTING.md"><kbd>CONTRIBUTING.md</kbd></a>, <a href="docs/nexus-site-map.md"><kbd>docs/nexus-site-map.md</kbd></a> and <a href=".github/SECURITY.md"><kbd>SECURITY.md</kbd></a>.
 
-The independent <a href="diagnostics/README.md"><kbd>private diagnostics service and mobile dashboard</kbd></a> live in `diagnostics/`, with their own dependencies and tests. Deployment and extension-client integration are separate setup steps; the shipped extension continues to use the existing reporting relay and consent settings.
+The independent <a href="workers/diagnostics/README.md"><kbd>private diagnostics service and mobile dashboard</kbd></a> live in `workers/diagnostics/`, with their own dependencies and tests. Deployment and extension-client integration are separate setup steps; the shipped extension continues to use the existing reporting relay and consent settings.
 </details>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />

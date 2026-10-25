@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: diagnostics
+        working-directory: workers/diagnostics
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,7 +22,7 @@ jobs:
           node-version: 24
           cache: npm
       # The diagnostics workspace only, from the one lockfile at the repository root.
-      - run: npm ci -w diagnostics
+      - run: npm ci -w workers/diagnostics
         working-directory: .
       - name: Binding types, TypeScript and diagnostics regressions
         run: npm run check
@@ -42,6 +42,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: diagnostics-screenshots
-          path: diagnostics/.wrangler/browser-qa/
+          path: workers/diagnostics/.wrangler/browser-qa/
           include-hidden-files: true
           retention-days: 14

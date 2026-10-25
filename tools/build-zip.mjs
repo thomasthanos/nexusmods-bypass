@@ -53,9 +53,9 @@ const CHECKS = [
   'tests/unit/report-builder-test.mjs',
   'tests/unit/page-check-test.mjs',
   'tests/unit/dom-fixtures-test.mjs',
-  'relay/test/relay-test.mjs',
-  'relay/test/relay-diagnostics-test.mjs',
-  'relay/test/discord-dispatch-test.mjs',
+  'workers/relay/test/relay-test.mjs',
+  'workers/relay/test/relay-diagnostics-test.mjs',
+  'workers/relay/test/discord-dispatch-test.mjs',
   'tests/unit/discord-notification-test.mjs',
   'tests/unit/manifest-diff-test.mjs',
   'tests/unit/nexus-api-test.mjs',
@@ -69,7 +69,7 @@ const CHECK_TIMEOUT_MS = 5 * 60 * 1000;
 const isTest = (name) => /-test\.[cm]?js$/.test(name);
 const strays = readdirSync(join(root, 'tools')).filter(isTest);
 if (strays.length) fail(`tools/ holds build and CI scripts only; move ${strays.join(', ')} to tests/unit/.`);
-const unlisted = ['tests/unit', 'relay/test']
+const unlisted = ['tests/unit', 'workers/relay/test']
   .flatMap((dir) => readdirSync(join(root, dir)).filter(isTest).map((name) => `${dir}/${name}`))
   .filter((file) => !CHECKS.includes(file));
 if (unlisted.length) fail(`tests the release gate does not run: ${unlisted.join(', ')} — add them to CHECKS.`);
@@ -692,7 +692,7 @@ function emit(fileName, archive, replacements) {
 }
 
 // Relay flag: the report page shows "Send" as available only when the relay is deployed. Set
-// NXTK_RELAY_CONFIGURED=1 for a build made after `wrangler deploy` (relay/README.md); otherwise the
+// NXTK_RELAY_CONFIGURED=1 for a build made after `wrangler deploy` (workers/relay/README.md); otherwise the
 // flag in src/lib/shared.js is packaged as written.
 const RELAY_FLAG = /const RELAY_CONFIGURED = (true|false);/;
 {

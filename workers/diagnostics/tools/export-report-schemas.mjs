@@ -1,4 +1,4 @@
-// Writes ../tests/fixtures/report-schemas.json: the JSON Schema of the reports this Worker accepts, exported
+// Writes ../../tests/fixtures/report-schemas.json: the JSON Schema of the reports this Worker accepts, exported
 // from the Zod schemas in src/schemas/ingest.ts, so the extension's and the relay's own tests can check
 // what they build without loading this package. Checks JSON Schema cannot express (no NUL characters, the
 // reserved installation id, the payload budget) stay in Zod. Run after changing those schemas:
@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { errorReportSchema, relayedReportSchema } from '../src/schemas/ingest.ts';
 
-export const OUTPUT = new URL('../../tests/fixtures/report-schemas.json', import.meta.url);
+export const OUTPUT = new URL('../../../tests/fixtures/report-schemas.json', import.meta.url);
 
 export function exportedSchemas() {
   // What a client may send: optional fields with defaults stay optional.

@@ -4,13 +4,13 @@
   "private": true,
   "description": "Development tooling for the NexusMods Bypass browser extension. The extension itself has no runtime dependencies.",
   "workspaces": [
-    "diagnostics",
-    "relay"
+    "workers/diagnostics",
+    "workers/relay"
   ],
   "scripts": {
     "test": "node tools/build-zip.mjs",
     "test:dom": "node tests/unit/dom-fixtures-test.mjs",
-    "lint": "eslint src tools tests relay eslint.config.mjs playwright.config.mjs",
+    "lint": "eslint src tools tests workers/relay eslint.config.mjs playwright.config.mjs",
     "lint:webext": "node tools/build-zip.mjs && node tools/lint-webext.mjs",
     "build": "node tools/build-zip.mjs",
     "test:visual": "playwright test"

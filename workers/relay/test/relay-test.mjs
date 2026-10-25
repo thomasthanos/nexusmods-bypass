@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import worker, { dashboardReport, validateReport, discordMessage, LIMIT_PER_HOUR, GLOBAL_LIMIT_PER_HOUR, severityOf, SEVERITY_COLORS, fingerprintOf, incidentLogger, DEDUPE_WINDOW_MS, NETWORK_WINDOW_MS, MENTION_WINDOW_MS } from '../worker.js';
-import { reports, schemaErrors } from '../../tests/unit/helpers/report-contract.mjs';
+import { reports, schemaErrors } from '../../../tests/unit/helpers/report-contract.mjs';
 
 // The shared contract reports (tests/fixtures/relay-reports.json): the relay accepts each one, and its
 // dashboard copy of an automatic one is a report the diagnostics Worker's schema accepts.
@@ -224,7 +224,7 @@ for (const [browser, expected] of [
 // Every error the extension can send automatically has a title of its own: the generic "Action could
 // not complete" is for codes this relay has not seen yet (Vortex link failures used to land there).
 {
-  const read = (file) => fs.readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
+  const read = (file) => fs.readFileSync(new URL(`../../../${file}`, import.meta.url), 'utf8');
   const errors = read('src/content/errors.js');
   const definitions = errors.slice(errors.indexOf('const DEFINITIONS'), errors.indexOf('\n  };', errors.indexOf('const DEFINITIONS')));
   const localOnly = new Set(read('src/lib/auto-reports.js').match(/LOCAL_ONLY = new Set\(\[([\s\S]*?)\]\)/)[1].match(/'([^']+)'/g).map((code) => code.slice(1, -1)));
@@ -491,7 +491,7 @@ const report = (ip, body, targetEnv = env, ctx = {}) => worker.fetch(new Request
 {
   // The "older client" label compares against this baseline, so a release the relay was not updated for is caught here.
   const toml = fs.readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
-  const manifest = JSON.parse(fs.readFileSync(new URL('../../src/manifest.json', import.meta.url), 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(new URL('../../../src/manifest.json', import.meta.url), 'utf8'));
   assert.equal(toml.match(/^RELAY_EXTENSION_VERSION = "([^"]+)"/m)?.[1], manifest.version, 'relay baseline matches the released version');
 }
 

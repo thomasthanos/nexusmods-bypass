@@ -74,7 +74,7 @@ jobs:
       cancel-in-progress: false
     defaults:
       run:
-        working-directory: diagnostics
+        working-directory: workers/diagnostics
     steps:
       - uses: actions/checkout@v4
         with:
@@ -90,7 +90,7 @@ jobs:
           if [ -z "$TOKEN" ]; then echo "::notice::CLOUDFLARE_API_TOKEN is not set, so the diagnostics Worker was not deployed."; exit 0; fi
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$CHOSEN" = relay ]; then exit 0; fi
           if [ "$GITHUB_EVENT_NAME" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null && git diff --quiet "$BEFORE" "$GITHUB_SHA" -- .; then
-            echo "::notice::diagnostics/ did not change in this push."; exit 0
+            echo "::notice::The diagnostics Worker did not change in this push."; exit 0
           fi
           echo deploy=true >> "$GITHUB_OUTPUT"
       - if: steps.plan.outputs.deploy == 'true'
@@ -99,7 +99,7 @@ jobs:
           node-version: 24
           cache: npm
       - if: steps.plan.outputs.deploy == 'true'
-        run: npm ci -w diagnostics
+        run: npm ci -w workers/diagnostics
         working-directory: .
       - name: Deploy the diagnostics Worker
         if: steps.plan.outputs.deploy == 'true'
@@ -110,7 +110,7 @@ jobs:
           npx wrangler deploy
 
   # The relay forwards to the diagnostics Worker, so it follows that deployment. It pins its own
-  # Wrangler (relay/package.json), the same version as diagnostics/.
+  # Wrangler (workers/relay/package.json), the same version as workers/diagnostics/.
   deploy-relay:
     needs: [gate, deploy-diagnostics]
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -123,7 +123,7 @@ jobs:
       cancel-in-progress: false
     defaults:
       run:
-        working-directory: relay
+        working-directory: workers/relay
     steps:
       - uses: actions/checkout@v4
         with:
@@ -148,7 +148,7 @@ jobs:
           node-version: 24
           cache: npm
       - if: steps.plan.outputs.deploy == 'true'
-        run: npm ci -w relay
+        run: npm ci -w workers/relay
         working-directory: .
       - name: Deploy the relay Worker
         if: steps.plan.outputs.deploy == 'true'

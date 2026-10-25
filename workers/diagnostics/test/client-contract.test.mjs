@@ -14,7 +14,7 @@ function client({ extended = false, privateConsent = true } = {}) {
     navigator: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0' }
   });
   for (const name of ['lib/shared.js', 'lib/auto-reports.js']) {
-    vm.runInContext(readFileSync(new URL(`../../src/${name}`, import.meta.url), 'utf8'), context, { filename: name });
+    vm.runInContext(readFileSync(new URL(`../../../src/${name}`, import.meta.url), 'utf8'), context, { filename: name });
   }
   const kit = context.NXTK;
   const { DiagnosticsReporter, DIAGNOSTICS_KEY, INSTALL_SEED_KEY } = context.NXTKAutoReports;

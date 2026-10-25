@@ -167,9 +167,9 @@ async function reportPayloadTests() {
   assert.deepEqual(fields(detailed), fields(reports.manual), 'the contract manual report has the fields the page sends');
   assert.deepEqual(fields(detailed.currentError), fields(reports.manual.currentError), 'and so does its current error');
   assert.deepEqual(fields(detailed.logs[0]), fields(reports.manual.logs[0]), 'and its log lines');
-  // Schema parity: what the report page builds is what the relay accepts (relay/worker.js), not only a
-  // hand-written payload in relay/test/relay-test.mjs.
-  const { validateReport } = await import('../../relay/worker.js');
+  // Schema parity: what the report page builds is what the relay accepts (workers/relay/worker.js), not only a
+  // hand-written payload in workers/relay/test/relay-test.mjs.
+  const { validateReport } = await import('../../workers/relay/worker.js');
   assert.equal(validateReport(JSON.parse(JSON.stringify(payload))), '', 'the relay accepts the report page payload');
   assert.equal(validateReport(JSON.parse(JSON.stringify(detailed))), '', 'with every optional field filled in');
   const issue = new URL(NXTK.buildPayloadIssueUrl(detailed).url);

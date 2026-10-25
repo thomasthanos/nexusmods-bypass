@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mock } from 'node:test';
 import fs from 'node:fs';
 import worker, { MAX_BODY_BYTES, DIAGNOSTICS_TIMEOUT_MS, dashboardReport } from '../worker.js';
-import { reports } from '../../tests/unit/helpers/report-contract.mjs';
+import { reports } from '../../../tests/unit/helpers/report-contract.mjs';
 
 // The opt-in diagnostics transport uses the existing relay origin and a fixed service binding.
 async function bridgeTests() {

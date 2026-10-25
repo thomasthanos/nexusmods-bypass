@@ -1,12 +1,12 @@
 // Discord notices for GitHub workflows. Formats the message and, with --send, posts it through the
-// dispatcher the report relay uses (relay/discord.js): Discord's rate limits are waited out, gateway
+// dispatcher the report relay uses (workers/relay/discord.js): Discord's rate limits are waited out, gateway
 // errors are retried with backoff, and a failed post is a workflow warning, never a failed job. The
 // webhook comes from DISCORD_WEBHOOK_URL and is never printed or put on a command line.
 //   node tools/discord-notification.mjs <release|issue|discussion|manifest|schema> [summary.md]          print it
 //   node tools/discord-notification.mjs <release|issue|discussion|manifest|schema> [summary.md] --send   post it
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { COLORS, clip, quiet, fitEmbed, postWebhook } from '../relay/discord.js';
+import { COLORS, clip, quiet, fitEmbed, postWebhook } from '../workers/relay/discord.js';
 
 const compact = (value) => quiet(value)
   .replace(/<\/?(?:p|img|details|summary|br)\b[^>]*>/gi, '')

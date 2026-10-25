@@ -34,12 +34,12 @@ export default [
     }
   },
   {
-    files: ['tools/**/*.{js,cjs,mjs}', 'tests/**/*.{js,cjs,mjs}', 'relay/test/**/*.mjs', '*.config.mjs'],
+    files: ['tools/**/*.{js,cjs,mjs}', 'tests/**/*.{js,cjs,mjs}', 'workers/relay/test/**/*.mjs', '*.config.mjs'],
     languageOptions: { ecmaVersion: 2022, globals: { ...globals.node, NexusExt: 'writable', NXTK: 'writable', document: 'readonly' } },
     rules: { ...js.configs.recommended.rules, 'no-unused-vars': 'off', 'no-empty': 'off' }
   },
   {
-    files: ['relay/**/*.js'],
+    files: ['workers/relay/**/*.js'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.serviceworker } },
     rules: { ...js.configs.recommended.rules, 'no-unused-vars': 'off', 'no-empty': ['error', { allowEmptyCatch: true }] }
   },
@@ -55,5 +55,5 @@ export default [
     }
   },
   { files: ['tools/**/*.cjs'], languageOptions: { sourceType: 'commonjs' } },
-  { files: ['tools/**/*.mjs', 'tests/**/*.mjs', 'relay/test/**/*.mjs', '*.config.mjs'], languageOptions: { sourceType: 'module' } }
+  { files: ['tools/**/*.mjs', 'tests/**/*.mjs', 'workers/relay/test/**/*.mjs', '*.config.mjs'], languageOptions: { sourceType: 'module' } }
 ];
