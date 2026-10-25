@@ -2,7 +2,8 @@
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname, extname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { availableParallelism } from 'node:os';
 import { deflateRawSync, inflateRawSync } from 'node:zlib';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -73,24 +74,68 @@ const unlisted = ['tests/unit', 'relay/test']
   .filter((file) => !CHECKS.includes(file));
 if (unlisted.length) fail(`tests the release gate does not run: ${unlisted.join(', ')} — add them to CHECKS.`);
 
-for (const check of CHECKS) {
-  const run = spawnSync(process.execPath, [join(root, check)], {
-    cwd: root,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'inherit'],
-    timeout: CHECK_TIMEOUT_MS,
-    killSignal: 'SIGKILL',
-    maxBuffer: 64 * 1024 * 1024
+// The suites share no files or ports (each makes its own temporary folders), so several run at once. Each
+// one's output is held back and printed in CHECKS order. NXTK_TEST_JOBS=1 runs them one at a time.
+const JOBS = Math.max(1, Math.floor(Number(process.env.NXTK_TEST_JOBS)) || Math.min(4, availableParallelism()));
+const children = new Set();
+
+function runCheck(check) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [join(root, check)], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+    children.add(child);
+    const stdout = [];
+    const stderr = [];
+    child.stdout.on('data', (chunk) => stdout.push(chunk));
+    child.stderr.on('data', (chunk) => stderr.push(chunk));
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, CHECK_TIMEOUT_MS);
+    const settle = (fields) => {
+      clearTimeout(timer);
+      children.delete(child);
+      resolve({ check, timedOut, stdout: Buffer.concat(stdout).toString('utf8'), stderr: Buffer.concat(stderr).toString('utf8'), ...fields });
+    };
+    child.on('error', (error) => settle({ error }));
+    child.on('close', (status, signal) => settle({ status, signal }));
   });
-  process.stdout.write(run.stdout || '');
-  if (run.error?.code === 'ETIMEDOUT') fail(`${check} did not finish within ${CHECK_TIMEOUT_MS / 60000} minutes — package not built.`);
-  if (run.error) fail(`${check} could not run: ${run.error.message} — package not built.`);
-  if (run.status !== 0) fail(`${check} did not pass (${run.status ?? run.signal}) — package not built.`);
+}
+
+function problemWith(run) {
+  const { check } = run;
+  if (run.timedOut) return `${check} did not finish within ${CHECK_TIMEOUT_MS / 60000} minutes — package not built.`;
+  if (run.error) return `${check} could not run: ${run.error.message} — package not built.`;
+  if (run.status !== 0) return `${check} did not pass (${run.status ?? run.signal}) — package not built.`;
   // A test whose promise chain stalls on a promise that never settles exits 0 having skipped every step
   // after it. Each test ends by printing an OK line, which only a run that got there prints.
-  const last = String(run.stdout || '').trim().split(/\r?\n/).pop() || '';
+  const last = run.stdout.trim().split(/\r?\n/).pop() || '';
   if (!/\b(?:OK|passed)\b/.test(last)) {
-    fail(`${check} exited 0 without its closing OK line (last line: "${last.slice(0, 120)}") — a step in it never finished. Package not built.`);
+    return `${check} exited 0 without its closing OK line (last line: "${last.slice(0, 120)}") — a step in it never finished. Package not built.`;
+  }
+  return '';
+}
+
+// Suites start in CHECKS order as slots free up.
+let active = 0;
+const waiting = [];
+const slot = () => new Promise((resolve) => { if (active < JOBS) { active += 1; resolve(); } else waiting.push(resolve); });
+const freeSlot = () => { const next = waiting.shift(); if (next) next(); else active -= 1; };
+let stopped = false;
+const runs = CHECKS.map(async (check) => {
+  await slot();
+  try {
+    return stopped ? null : await runCheck(check);
+  } finally {
+    freeSlot();
+  }
+});
+for (const pending of runs) {
+  const run = await pending;
+  process.stdout.write(run.stdout);
+  process.stderr.write(run.stderr);
+  const problem = problemWith(run);
+  if (problem) {
+    stopped = true;
+    for (const child of children) child.kill('SIGKILL');
+    fail(problem);
   }
 }
 

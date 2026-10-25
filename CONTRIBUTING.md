@@ -64,7 +64,7 @@ Suggestions and questions go to <a href="https://github.com/thomasthanos/nexusmo
    node tools/check-locales.mjs
    ```
 
-5. **Run the package builder** before submitting. It runs the locale check and every regression suite in `tests/unit/` first and packages nothing unless they all pass; the same gate runs on every push:
+5. **Run the package builder** before submitting. It runs the locale check and every regression suite in `tests/unit/` and `relay/test/` first, up to four at a time (`NXTK_TEST_JOBS=1` runs them one by one), and packages nothing unless they all pass; the same gate runs on every push:
 
    ```bash
    node tools/build-zip.mjs
