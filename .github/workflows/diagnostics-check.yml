@@ -21,8 +21,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: diagnostics/package-lock.json
-      - run: npm ci
+      # The diagnostics workspace only, from the one lockfile at the repository root.
+      - run: npm ci -w diagnostics
+        working-directory: .
       - name: Binding types, TypeScript and diagnostics regressions
         run: npm run check
       - run: npx playwright install --with-deps chromium webkit

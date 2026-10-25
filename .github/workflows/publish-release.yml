@@ -62,7 +62,7 @@ jobs:
           const title = heading ? `v${version} — ${heading[1]}` : `v${version}`;
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\ntitle=${title.replace(/[\r\n]+/g, ' ')}\n`);
           NODE
-      - run: npm ci
+      - run: npm ci --workspaces=false
       - run: npm run lint
       - name: Regression tests and browser packages
         run: node tools/build-zip.mjs

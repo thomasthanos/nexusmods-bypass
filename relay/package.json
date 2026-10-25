@@ -1,1 +1,12 @@
-{ "private": true, "type": "module" }
+{
+  "name": "nexusmods-bypass-relay",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker that relays NexusMods Bypass reports to Discord and the diagnostics service.",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.3"
+  }
+}

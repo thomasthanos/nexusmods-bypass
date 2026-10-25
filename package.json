@@ -3,6 +3,10 @@
   "version": "3.3.2",
   "private": true,
   "description": "Development tooling for the NexusMods Bypass browser extension. The extension itself has no runtime dependencies.",
+  "workspaces": [
+    "diagnostics",
+    "relay"
+  ],
   "scripts": {
     "test": "node tools/build-zip.mjs",
     "test:dom": "node tests/unit/dom-fixtures-test.cjs",
@@ -22,5 +26,10 @@
     "globals": "^15.15.0",
     "graphql": "^16.14.2",
     "jsdom": "^25.0.1"
+  },
+  "overrides": {
+    "miniflare": {
+      "undici": "7.30.1"
+    }
   }
 }

@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --workspaces=false
       - name: Validate operations against the live schema
         id: watch
         env:

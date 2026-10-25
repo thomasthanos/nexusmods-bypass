@@ -60,7 +60,8 @@ Optional `error.causeCode` is backwards compatible with schema 1 and lets securi
 labelled explicitly. Older clients' blocked-file messages are also recognised. No browser or
 antivirus block is bypassed. Test destinations are mocked; no live Discord message is sent.
 
-To redeploy, authenticate with Cloudflare and run `npx wrangler deploy` from `relay/`.
+To redeploy, install the relay's pinned Wrangler with `npm ci -w relay` at the repository root,
+authenticate with Cloudflare and run `npx wrangler deploy` from `relay/`.
 Keep the existing `DISCORD_WEBHOOK_URL`, `REPORT_MENTION_USER_ID`, CORS origins and `RATE_LIMIT` binding.
 Do not rotate or overwrite the existing destination secret just to update the Worker.
 
@@ -152,11 +153,12 @@ Not yet deployed: run `npx wrangler deploy` from `relay/` to apply it. Wrangler 
 - **Bounded input:** bodies without a `Content-Length` are read in chunks and refused past 64 KB.
 
 ## Deploy
-Pushes to `main` that change `relay/` deploy this Worker automatically, after the Release gate's checks and
-the diagnostics deployment, once the repository has the `CLOUDFLARE_API_TOKEN` secret described in the
-[diagnostics README](../diagnostics/README.md). That job never changes secrets, KV or `wrangler.toml`.
-To deploy by hand or deploy your own copy, use your machine:
+Pushes to `main` that change the Worker in `relay/` (not only `relay/test/`) deploy it automatically,
+after the Release gate's checks and the diagnostics deployment, once the repository has the
+`CLOUDFLARE_API_TOKEN` secret described in the [diagnostics README](../diagnostics/README.md). That job
+never changes secrets, KV or `wrangler.toml`. To deploy by hand or deploy your own copy, use your machine:
 ```sh
+npm ci -w relay                                 # at the repository root: the relay's pinned Wrangler
 cd relay
 npx wrangler login
 npx wrangler secret put DISCORD_WEBHOOK_URL      # paste the webhook URL when prompted

@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm ci
+      - run: npm ci --workspaces=false
 
       - name: Resolve base commit
         id: base
@@ -47,7 +47,7 @@ jobs:
           # Firefox variants come from the packager; build each side without its test gate if possible.
           node tools/build-zip.mjs >/dev/null 2>&1 && unzip -p dist/*-firefox.zip manifest.json > /tmp/mw/head-firefox.json || echo '{}' > /tmp/mw/head-firefox.json
           git worktree add -q /tmp/mw/base-tree "${{ steps.base.outputs.sha }}" 2>/dev/null \
-            && (cd /tmp/mw/base-tree && npm ci >/dev/null 2>&1 && node tools/build-zip.mjs >/dev/null 2>&1 && unzip -p dist/*-firefox.zip manifest.json > /tmp/mw/base-firefox.json) \
+            && (cd /tmp/mw/base-tree && npm ci --workspaces=false >/dev/null 2>&1 && node tools/build-zip.mjs >/dev/null 2>&1 && unzip -p dist/*-firefox.zip manifest.json > /tmp/mw/base-firefox.json) \
             || echo '{}' > /tmp/mw/base-firefox.json
 
       - name: Diff

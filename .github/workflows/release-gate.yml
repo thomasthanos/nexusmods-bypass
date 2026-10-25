@@ -23,7 +23,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # The extension's tooling only: the Workers install their own packages in their jobs.
+      - run: npm ci --workspaces=false
       - name: ESLint
         run: npm run lint
       # The locale check, every regression suite (DOM fixtures required here), and the Chrome and Firefox package checks.
@@ -44,7 +45,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --workspaces=false
       - run: npx playwright install --with-deps chromium
       # Loads the unpacked extension against local page fixtures at 3840x2160, 2560x1440, 1920x1080
       # and 1280x720, each at 100/125/150% zoom, and checks nothing overflows or clips.
@@ -97,9 +98,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: diagnostics/package-lock.json
       - if: steps.plan.outputs.deploy == 'true'
-        run: npm ci
+        run: npm ci -w diagnostics
+        working-directory: .
       - name: Deploy the diagnostics Worker
         if: steps.plan.outputs.deploy == 'true'
         env:
@@ -108,8 +109,8 @@ jobs:
           npx wrangler d1 migrations apply DB --remote
           npx wrangler deploy
 
-  # The relay forwards to the diagnostics Worker, so it follows that deployment. It has no
-  # dependencies of its own and uses the Wrangler version pinned in diagnostics/.
+  # The relay forwards to the diagnostics Worker, so it follows that deployment. It pins its own
+  # Wrangler (relay/package.json), the same version as diagnostics/.
   deploy-relay:
     needs: [gate, deploy-diagnostics]
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -122,7 +123,7 @@ jobs:
       cancel-in-progress: false
     defaults:
       run:
-        working-directory: diagnostics
+        working-directory: relay
     steps:
       - uses: actions/checkout@v4
         with:
@@ -137,7 +138,7 @@ jobs:
         run: |
           if [ -z "$TOKEN" ]; then echo "::notice::CLOUDFLARE_API_TOKEN is not set, so the relay Worker was not deployed."; exit 0; fi
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$CHOSEN" = diagnostics ]; then exit 0; fi
-          if [ "$GITHUB_EVENT_NAME" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null && git diff --quiet "$BEFORE" "$GITHUB_SHA" -- ../relay ':(exclude)../relay/test'; then
+          if [ "$GITHUB_EVENT_NAME" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null && git diff --quiet "$BEFORE" "$GITHUB_SHA" -- . ':(exclude)test'; then
             echo "::notice::The relay Worker did not change in this push."; exit 0
           fi
           echo deploy=true >> "$GITHUB_OUTPUT"
@@ -146,15 +147,15 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: diagnostics/package-lock.json
       - if: steps.plan.outputs.deploy == 'true'
-        run: npm ci
+        run: npm ci -w relay
+        working-directory: .
       - name: Deploy the relay Worker
         if: steps.plan.outputs.deploy == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           # The relay's service binding requires the diagnostics Worker's account.
-          CLOUDFLARE_ACCOUNT_ID="$(sed -n 's/^account_id = "\([0-9a-f]*\)"$/\1/p' wrangler.toml)"
+          CLOUDFLARE_ACCOUNT_ID="$(sed -n 's/^account_id = "\([0-9a-f]*\)"$/\1/p' ../diagnostics/wrangler.toml)"
           export CLOUDFLARE_ACCOUNT_ID
-          npx wrangler deploy --config ../relay/wrangler.toml
+          npx wrangler deploy
