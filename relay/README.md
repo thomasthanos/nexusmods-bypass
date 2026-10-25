@@ -18,19 +18,23 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 
 ## Current deployment
 
-Updated on 2026-10-15 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev with the 3.1.2 Worker.
-Production version `68f921b1-01e1-474b-88ec-cbc7a2d9aa48` serves 100% of traffic.
-Read-back of the deployed module exactly matched `relay/worker.js` from
-<a href="https://github.com/thomasthanos/nexusmods-bypass/commit/1c9865299dfd0a212c1813b0e2cde723b0828ff0"><kbd><code>1c98652</code></kbd></a>
-(source SHA-256 `9b338e00637e45bfd791cfa9e0f5b32eb2968b4e249ba8724f04230ed9d71ed0`).
-The existing `DISCORD_WEBHOOK_URL` secret, maintainer setting, CORS origins and KV binding were inherited.
-No secret value was retrieved or replaced.
+Updated on 2026-10-25 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev with the 3.3.2 Worker,
+deployed by hand with Wrangler from `diagnostics/` as release-gate.yml would (its deploy jobs skip while the
+repository has no `CLOUDFLARE_API_TOKEN` secret). Production version `3c34c5ae-cbe3-4081-9a90-e985edc1356a`
+serves 100% of traffic, built from `relay/worker.js` at
+<a href="https://github.com/thomasthanos/nexusmods-bypass/commit/85ad408a0157e6033014e5918bdfa20fefbed618"><kbd><code>85ad408</code></kbd></a>
+(release 3.3.2, `RELAY_EXTENSION_VERSION` 3.3.2). It replaced `985d392e-7b4f-40c0-b4b3-a20ad9efcbc9` (2026-10-24).
+The `DIAGNOSTICS` binding reaches the diagnostics Worker version `05fc660d-8a19-465b-9cc1-4c1d293632a2`,
+deployed from the same commit just before it (no D1 migration was pending). The existing secrets, CORS
+origins and KV binding were inherited; no secret value was retrieved or replaced.
 
-Live checks passed: health returned `ok: true, configured: true` (HTTP 200), Chrome and Firefox
-extension-origin JSON preflights returned 204, and an invalid-schema report returned 422 with the
-correct CORS header. The invalid report stops before forwarding. No live Discord test message or ping
-was sent for this deployment. Formatting, memory/KV cooldowns, manual attachments and delivery retries
-were checked with the offline relay suite; ESLint also passed.
+Live checks passed: health returned `ok: true, configured: true` (HTTP 200). An automatic report whose
+frame names a function (`probeFunction@content/ndc.js:1:2`) now passes the frame check and stops at a
+deliberately invalid timestamp (422 `bad timestamp`; the previous version answered 422 `bad error frame`),
+the frame form without a function still passes, and a frame with an invalid function name is still refused.
+An empty report through `/v1/diagnostics` reached the diagnostics Worker over the service binding and was
+rejected there (400). No report was delivered to Discord or stored for these checks.
+
 `RELAY_CONFIGURED` is enabled in the extension. The deployed Worker already allows extension
 origins through CORS. The 3.1.1 and 3.1.2 extensions use ordinary CORS requests without asking for a relay
 host permission; earlier releases request the optional permission. KV-backed rate limiting and auto-report dedupe use the `RATE_LIMIT` binding in
