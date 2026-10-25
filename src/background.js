@@ -1183,6 +1183,32 @@ function searchDownloadsStartedAfter(at) {
   });
 }
 
+function downloadUrlHost(url) {
+  try {
+    return new URL(String(url || '')).host.toLowerCase();
+  } catch (_) {
+    return '';
+  }
+}
+
+// The download this job asked for: started by this extension (the browser names the extension that
+// started a download, and the same file fetched by hand from its Nexus page names none), from the same
+// host and path as the link the job resolved. Anything less is left alone and the job starts its own
+// copy, which at worst is the duplicate the marker exists to avoid.
+function isThisJobsStartedDownload(record, job) {
+  return !!record && !!job.startingHost && !!job.startingPath
+    && record.byExtensionId === chrome.runtime?.id
+    && record.state !== 'interrupted' && !record.error
+    && [record.url, record.finalUrl].some((url) => downloadUrlHost(url) === job.startingHost && downloadUrlPath(url) === job.startingPath);
+}
+
+function clearNdcStartMarker(current) {
+  delete current.startingHost;
+  delete current.startingPath;
+  delete current.startingAt;
+  delete current.startingIndex;
+}
+
 // The worker stopped between the browser starting this item's file and the job recording it, so the
 // job carries a start marker and no download. The browser's download of that file, if there is one, is
 // taken over; otherwise the marker is dropped and the file starts as usual. Returns undefined to carry
@@ -1192,15 +1218,11 @@ async function adoptStartedNdcDownload(job, item, startIndex) {
   const fresh = Number(job.startingIndex) === startIndex && startedAt > 0
     && Date.now() - startedAt <= NDC_START_MARKER_MAX_AGE_MS;
   const found = fresh
-    ? (await searchDownloadsStartedAfter(startedAt - 5000)).find((record) => record
-      && record.state !== 'interrupted' && !record.error
-      && [record.url, record.finalUrl].some((url) => downloadUrlPath(url) === job.startingPath)) || null
+    ? (await searchDownloadsStartedAfter(startedAt - 5000)).find((record) => isThisJobsStartedDownload(record, job)) || null
     : null;
   const request = found ? await ndcDownloadRequest(job, item, found.url || found.finalUrl) : null;
   const transition = await mutateNdcJobIf(job.id, idleOnItem(startIndex), (current) => {
-    delete current.startingPath;
-    delete current.startingAt;
-    delete current.startingIndex;
+    clearNdcStartMarker(current);
     if (!found) return;
     current.activeDownloadId = found.id;
     current.activeDownloadPath = job.startingPath;
@@ -1538,6 +1560,7 @@ async function advanceNdcJob(jobId) {
     // Recorded before the browser is asked, so a worker stopped before the claim below finds this file
     // again when it restarts (adoptStartedNdcDownload) instead of starting it a second time.
     const marked = await mutateNdcJobIf(job.id, idleOnItem(startIndex), (current) => {
+      current.startingHost = downloadUrlHost(resolved.url);
       current.startingPath = downloadUrlPath(resolved.url);
       current.startingAt = Date.now();
       current.startingIndex = startIndex;
@@ -1552,9 +1575,7 @@ async function advanceNdcJob(jobId) {
         job.id,
         idleOnItem(startIndex),
         (current) => {
-          delete current.startingPath;
-          delete current.startingAt;
-          delete current.startingIndex;
+          clearNdcStartMarker(current);
           recordJobFailure(current, { fileId: item.fileId, code: 'download_not_started' });
           current.rateLimitStrikes = 0;
           current.waitingUntil = 0;
@@ -1581,9 +1602,7 @@ async function advanceNdcJob(jobId) {
         current.activeDownloadId = started.downloadId;
         current.activeDownloadPath = startedPath;
         current.activeFilename = started.filename;
-        delete current.startingPath;
-        delete current.startingAt;
-        delete current.startingIndex;
+        clearNdcStartMarker(current);
         current.rateLimitStrikes = 0;
         current.cloudflareStrikes = 0;
         current.waitingUntil = 0;

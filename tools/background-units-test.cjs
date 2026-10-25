@@ -3463,23 +3463,48 @@ async function restartAdoptsADownloadStartedBeforeTheWorkerStopped() {
     let job = await readNdcJob(jobId);
     assert.equal(job.activeDownloadId, 701);
     assert.equal(job.startingPath, undefined, 'the start marker is gone once the download is recorded');
+    assert.equal(job.startingHost, undefined);
     assert.equal(job.startingAt, undefined);
 
     // The worker stopped between the browser starting the file and the job recording it.
+    const marker = { startingHost: 'cf-files.nexus-cdn.com', startingPath: '/1704/77/file-77.7z', startingAt: Date.now() - 2000, startingIndex: 0 };
+    const ours = { id: 655, url, finalUrl: url, state: 'in_progress', startTime: new Date().toISOString(),
+      filename: 'C:\\Downloads\\File-77.7z', byExtensionId: 'test-extension-id' };
     started.length = 0;
     fetched.length = 0;
-    onDisk = [{ id: 655, url, finalUrl: url, state: 'in_progress', startTime: new Date().toISOString(), filename: 'C:\\Downloads\\File-77.7z' }];
-    await seed({ startingPath: '/1704/77/file-77.7z', startingAt: Date.now() - 2000, startingIndex: 0 });
+    onDisk = [ours];
+    await seed(marker);
     await advanceNdcJob(jobId);
     job = await readNdcJob(jobId);
     assert.equal(started.length, 0, 'the file is not started a second time');
     assert.deepEqual(fetched, [], 'nor is a new link asked for');
     assert.equal(job.activeDownloadId, 655, 'the job takes over the download the browser already has');
     assert.equal(job.startingPath, undefined);
+    assert.equal(job.startingHost, undefined);
+
+    // Only a download this extension started, from the same host, is taken over. The same file
+    // downloaded by hand from its Nexus page (no extension named), by another extension, or from
+    // another host is left alone and the job starts its own copy.
+    for (const [label, record] of [
+      ['a download no extension started', { ...ours, id: 656, byExtensionId: undefined }],
+      ['another extension\'s download', { ...ours, id: 657, byExtensionId: 'someone-else' }],
+      ['the same path on another host', { ...ours, id: 658,
+        url: 'https://premium-files.nexus-cdn.com/1704/77/File-77.7z?md5=a', finalUrl: 'https://premium-files.nexus-cdn.com/1704/77/File-77.7z?md5=a' }]
+    ]) {
+      started.length = 0;
+      onDisk = [record];
+      await seed(marker);
+      await advanceNdcJob(jobId);
+      job = await readNdcJob(jobId);
+      assert.notEqual(job.activeDownloadId, record.id, `${label} is not taken over`);
+      assert.equal(started.length, 1, `${label}: the job starts its own download`);
+      assert.equal(job.startingHost, undefined, `${label}: the marker is dropped`);
+    }
 
     // Nothing in the browser matches: the marker is dropped and the file is started as usual.
+    started.length = 0;
     onDisk = [];
-    await seed({ startingPath: '/1704/77/file-77.7z', startingAt: Date.now() - 2000, startingIndex: 0 });
+    await seed(marker);
     await advanceNdcJob(jobId);
     job = await readNdcJob(jobId);
     assert.equal(started.length, 1, 'with no such download, the file starts');
