@@ -2,7 +2,7 @@
   <img src="../../docs/assets/header-fixtures.svg" alt="Page fixtures" width="100%" />
 </p>
 
-<p align="center"><sub><a href="../../README.md">← README</a> · <a href="../../PRIVACY.md">Privacy</a> · <a href="../../CONTRIBUTING.md">Contributing</a> · <a href="../../CHANGELOG.md">Changelog</a></sub></p>
+<p align="center"><sub><a href="../../README.md">← README</a> · <a href="../../PRIVACY.md">Privacy</a> · <a href="../../.github/CONTRIBUTING.md">Contributing</a> · <a href="../../CHANGELOG.md">Changelog</a></sub></p>
 
 <img src="../../docs/assets/divider.svg" alt="" width="100%" />
 

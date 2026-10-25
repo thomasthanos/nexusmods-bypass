@@ -152,7 +152,7 @@ npm run build          # regression checks, then Chrome and Firefox zips
 npm run test:visual    # Playwright tests
 ```
 
-See <a href="CONTRIBUTING.md"><kbd>CONTRIBUTING.md</kbd></a>, <a href="docs/nexus-site-map.md"><kbd>docs/nexus-site-map.md</kbd></a> and <a href="SECURITY.md"><kbd>SECURITY.md</kbd></a>.
+See <a href=".github/CONTRIBUTING.md"><kbd>CONTRIBUTING.md</kbd></a>, <a href="docs/nexus-site-map.md"><kbd>docs/nexus-site-map.md</kbd></a> and <a href=".github/SECURITY.md"><kbd>SECURITY.md</kbd></a>.
 
 The independent <a href="diagnostics/README.md"><kbd>private diagnostics service and mobile dashboard</kbd></a> live in `diagnostics/`, with their own dependencies and tests. Deployment and extension-client integration are separate setup steps; the shipped extension continues to use the existing reporting relay and consent settings.
 </details>

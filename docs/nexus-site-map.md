@@ -5,7 +5,7 @@
 <p align="center">
   <a href="../README.md"><kbd> ← README </kbd></a>&ensp;·&ensp;
   <a href="../PRIVACY.md"><kbd> 🔒 Privacy </kbd></a>&ensp;·&ensp;
-  <a href="../CONTRIBUTING.md"><kbd> 🤝 Contributing </kbd></a>&ensp;·&ensp;
+  <a href="../.github/CONTRIBUTING.md"><kbd> 🤝 Contributing </kbd></a>&ensp;·&ensp;
   <a href="../CHANGELOG.md"><kbd> 📋 Changelog </kbd></a>
 </p>
 
