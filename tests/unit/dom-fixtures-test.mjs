@@ -1,13 +1,14 @@
 // Fixture-based checks of the content scripts against reduced Nexus page snapshots (tests/fixtures).
 // Needs the jsdom dev dependency (npm install). Without it the suite is skipped with a notice, unless
 // NXTK_REQUIRE_DOM=1 (set in CI), where a missing jsdom fails the gate.
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 let JSDOM;
 try {
-  ({ JSDOM } = require('jsdom'));
+  ({ JSDOM } = await import('jsdom'));
 } catch (_) {
   if (process.env.NXTK_REQUIRE_DOM === '1') {
     console.error('jsdom is required (run npm ci).');
@@ -17,7 +18,7 @@ try {
   process.exit(0);
 }
 
-const root = path.join(__dirname, '..', '..');
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const fixture = (name) => fs.readFileSync(path.join(root, 'tests', 'fixtures', name), 'utf8');
 const SCRIPTS = [
   'src/lib/shared.js',

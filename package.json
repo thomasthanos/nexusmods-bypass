@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "test": "node tools/build-zip.mjs",
-    "test:dom": "node tests/unit/dom-fixtures-test.cjs",
+    "test:dom": "node tests/unit/dom-fixtures-test.mjs",
     "lint": "eslint src tools tests relay eslint.config.mjs playwright.config.mjs",
     "lint:webext": "node tools/build-zip.mjs && node tools/lint-webext.mjs",
     "build": "node tools/build-zip.mjs",

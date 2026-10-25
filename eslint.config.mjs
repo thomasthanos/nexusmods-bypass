@@ -54,6 +54,6 @@ export default [
       }]
     }
   },
-  { files: ['tools/**/*.cjs', 'tests/**/*.cjs'], languageOptions: { sourceType: 'commonjs' } },
+  { files: ['tools/**/*.cjs'], languageOptions: { sourceType: 'commonjs' } },
   { files: ['tools/**/*.mjs', 'tests/**/*.mjs', 'relay/test/**/*.mjs', '*.config.mjs'], languageOptions: { sourceType: 'module' } }
 ];

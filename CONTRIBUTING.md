@@ -70,7 +70,7 @@ Suggestions and questions go to <a href="https://github.com/thomasthanos/nexusmo
    node tools/build-zip.mjs
    ```
 
-   A new `*-test.cjs|mjs` file in `tests/unit/` or `relay/test/` goes into `CHECKS` in `tools/build-zip.mjs` (the gate refuses a test it does not run) and ends by printing a line with `OK`: a test that exits without it is treated as one that stopped half-way.
+   A new `*-test.mjs` file in `tests/unit/` or `relay/test/` goes into `CHECKS` in `tools/build-zip.mjs` (the gate refuses a test it does not run) and ends by printing a line with `OK`: a test that exits without it is treated as one that stopped half-way.
 6. **Playwright tests** (`npm run test:visual`) start the browser through `tests/visual/helpers.mjs`, which keeps it offline, and wait for states rather than for time; lint refuses `waitForTimeout`.
 7. **Explain** what changed and how it was tested.
 

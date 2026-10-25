@@ -1,6 +1,9 @@
 // Offline tests for src/debug-page/debug-view.js (filtering, counts, export).
-const assert = require('node:assert/strict');
-const V = require('../../src/debug-page/debug-view.js');
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+
+// debug-view.js is a page script that also exports itself the CommonJS way, for these tests.
+const V = createRequire(import.meta.url)('../../src/debug-page/debug-view.js');
 
 const log = [
   { at: Date.UTC(2026, 9, 12, 16, 0, 0, 5), level: 'debug', page: 'mod', text: 'page check ok' },

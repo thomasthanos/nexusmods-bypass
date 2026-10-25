@@ -1,4 +1,4 @@
-const assert = require('node:assert/strict');
+import assert from 'node:assert/strict';
 
 const MANUAL_URL = 'https://premium-files.nexus-cdn.com/100/200/manual.zip?key=a&expires=2';
 const SECOND_MANUAL_URL = 'https://premium-files.nexus-cdn.com/100/201/second.zip?key=b&expires=3';
@@ -258,7 +258,7 @@ function runParserCases({ parse, parseNxmDownloadLink, label }) {
   );
 }
 
-module.exports = {
+export {
   LegacyChromiumURL,
   MANUAL_URL,
   SECOND_MANUAL_URL,

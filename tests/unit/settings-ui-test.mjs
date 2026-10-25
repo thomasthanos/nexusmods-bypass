@@ -1,9 +1,10 @@
 // Real settings modal + storage + shared helpers. Only browser APIs are supplied by the fixture.
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const { JSDOM } = require('jsdom');
-const root = path.resolve(__dirname, '..', '..');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const en = JSON.parse(fs.readFileSync(path.join(root, 'src/_locales/en/messages.json'), 'utf8'));
 const tick = () => new Promise((resolve) => setTimeout(resolve, 15));
 

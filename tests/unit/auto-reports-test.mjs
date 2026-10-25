@@ -1,10 +1,11 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import { webcrypto } from 'node:crypto';
 
 function fixture({ privateReports = false } = {}) {
   const context = vm.createContext({ URL, Date, console, setTimeout, clearTimeout, AbortController, structuredClone,
-    crypto: require('node:crypto').webcrypto, TextEncoder,
+    crypto: webcrypto, TextEncoder,
     navigator: { userAgent: 'Mozilla/5.0 Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0' } });
   for (const name of ['lib/shared.js', 'lib/auto-reports.js']) vm.runInContext(fs.readFileSync(`src/${name}`, 'utf8'), context);
   const kit = context.NXTK;

@@ -1,13 +1,13 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const {
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {
   LegacyChromiumURL,
   MANUAL_URL,
   SECOND_MANUAL_URL,
   VORTEX_URL,
   runParserCases
-} = require('./download-parser-cases.cjs');
+} from './download-parser-cases.mjs';
 
 // The parser as the service worker loads it: through importScripts, with no window, document or location.
 function loadWorkerParser({ withShared = true, url = URL } = {}) {

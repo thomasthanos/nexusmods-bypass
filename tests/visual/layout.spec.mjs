@@ -1662,7 +1662,7 @@ test('welcome page: setup saves choices and Test Vortex asks when it cannot tell
   expect((await read('nxtk_vortex_open')).confirmed).toBe(false);
   // What a real nxm:// navigation does in a test browser depends on the build: some lose focus, some
   // replace the page with an error page, so the outcome was a coin toss. The detector has its own unit
-  // tests (tests/unit/vortex-preflight-test.cjs, tests/unit/ux-friendly-test.cjs); here it gives a fixed
+  // tests (tests/unit/vortex-preflight-test.mjs, tests/unit/ux-friendly-test.mjs); here it gives a fixed
   // verdict and the link goes to a fragment, so this test pins down only what the welcome page does with
   // each verdict.
   const handoff = (verdict) => page.evaluate((opened) => {

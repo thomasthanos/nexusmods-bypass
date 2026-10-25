@@ -1,6 +1,6 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
 
 // The queue policy is the real one from shared.js; shared.js needs no browser to load.
 const shared = vm.createContext({ console, URL, URLSearchParams, Intl, setTimeout, clearTimeout, setInterval, clearInterval });

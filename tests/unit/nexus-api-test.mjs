@@ -1,9 +1,10 @@
 // Official-API layer (src/content/nexus-api.js): throttle, 429 backoff, caching, fallback, batching,
 // update policy, query/schema contract; plus NDC's API paths and the MD5 used for archive lookup.
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const crypto = require('node:crypto');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
 
 const recorded = [];
 const debugEntries = [];
@@ -272,7 +273,7 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
   // ---- Every query is valid against the schema snapshot (tools/schema-watch.mjs checks the live one).
   {
     let graphql = null;
-    try { graphql = require('graphql'); } catch (_) { console.log('graphql package not installed; schema contract skipped'); }
+    try { graphql = createRequire(import.meta.url)('graphql'); } catch (_) { console.log('graphql package not installed; schema contract skipped'); }
     if (graphql) {
       const schema = graphql.buildClientSchema(JSON.parse(fs.readFileSync('tests/fixtures/nexus-v2-schema.json', 'utf8')));
       for (const [name, query] of Object.entries(NexusApi.QUERIES)) {

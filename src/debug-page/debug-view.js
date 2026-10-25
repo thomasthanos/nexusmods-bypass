@@ -1,4 +1,4 @@
-// Pure helpers for the debug log page, kept DOM-free so tests/unit/debug-view-test.cjs can cover them.
+// Pure helpers for the debug log page, kept DOM-free so tests/unit/debug-view-test.mjs can cover them.
 (function (root) {
   const LEVELS = ['debug', 'info', 'warn', 'error'];
   const RANK = { debug: 0, info: 1, warn: 2, error: 3 };

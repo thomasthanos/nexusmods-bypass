@@ -197,8 +197,8 @@ This removes a browser access prompt, while automatic reporting still requires t
 curl -X POST "$RELAY/v1/report" -H 'content-type: application/json' \
   -d '{"schema":1,"kind":"auto","version":"2.9.0","error":{"code":"test"}}'
 ```
-`node tests/unit/auto-reports-test.cjs` checks opt-in, retries, aggregation, limits and revocation without network access.
-`node tests/unit/report-consent-test.cjs` checks the one-time invitation, Greek copy, keyboard accessibility and explicit opt-in without an access prompt.
+`node tests/unit/auto-reports-test.mjs` checks opt-in, retries, aggregation, limits and revocation without network access.
+`node tests/unit/report-consent-test.mjs` checks the one-time invitation, Greek copy, keyboard accessibility and explicit opt-in without an access prompt.
 `node relay/test/relay-test.mjs` runs the validation, rate-limit, Discord-formatting and failure-path tests offline.
 `node relay/test/discord-dispatch-test.mjs` checks embed limits, clipping, Retry-After handling and bounded retries in `discord.js`.
 

@@ -1,6 +1,6 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { JSDOM } = require('jsdom');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { JSDOM } from 'jsdom';
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
 const script = (w, path) => w.eval(fs.readFileSync(path, 'utf8'));
 const english = JSON.parse(fs.readFileSync('src/_locales/en/messages.json', 'utf8'));

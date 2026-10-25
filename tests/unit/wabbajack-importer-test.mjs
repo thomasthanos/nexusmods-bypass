@@ -1,7 +1,7 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const zlib = require('node:zlib');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import zlib from 'node:zlib';
 
 const context = vm.createContext({
   window: {}, console, Blob, DecompressionStream, TextDecoder, TextEncoder, setTimeout,

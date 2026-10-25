@@ -1,7 +1,7 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const { JSDOM } = require('jsdom');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import { JSDOM } from 'jsdom';
 
 const SETTINGS_KEY = 'nxtk_settings';
 const ERROR_LOG_KEY = 'nxtk_error_log';

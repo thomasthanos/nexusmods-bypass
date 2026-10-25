@@ -1,6 +1,6 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
 
 // The page check reads only what it is handed, so a page is a few answers to querySelector.
 const store = {};
