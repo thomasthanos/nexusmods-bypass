@@ -5,7 +5,7 @@ import globals from 'globals';
 
 export default [
   // .wrangler holds Wrangler's local bundles, as in .gitignore.
-  { ignores: ['dist/**', 'node_modules/**', 'internal/**', 'test-results/**', '**/.wrangler/**'] },
+  { ignores: ['dist/**', 'node_modules/**', 'docs/promo/**', 'test-results/**', '**/.wrangler/**'] },
   {
     files: ['src/**/*.js'],
     languageOptions: {

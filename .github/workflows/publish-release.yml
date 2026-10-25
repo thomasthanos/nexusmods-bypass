@@ -51,7 +51,7 @@ jobs:
               lock.version !== version || lock.packages[''].version !== version) {
             throw new Error('Manifest and tooling versions must match.');
           }
-          const notes = `internal/docs/releases/${version}.md`;
+          const notes = `docs/store/releases/${version}.md`;
           if (!fs.existsSync(notes)) {
             throw new Error(`Missing release notes for ${version}.`);
           }
@@ -84,7 +84,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           TITLE: ${{ steps.version.outputs.title }}
         run: |
-          notes="internal/docs/releases/${VERSION}.md"
+          notes="docs/store/releases/${VERSION}.md"
           published_before=false
           if gh release view "$VERSION" --json isDraft --jq '.isDraft' > /tmp/release-is-draft; then
             if [ "$(cat /tmp/release-is-draft)" = "false" ]; then
@@ -128,5 +128,5 @@ jobs:
         # Skips without the secret; waits out Discord rate limits; a failed post is a warning only.
         run: |
           R_URL="$(gh release view "$VERSION" --json url --jq .url)" \
-          R_BODY="$(cat "internal/docs/releases/${VERSION}.md")" \
+          R_BODY="$(cat "docs/store/releases/${VERSION}.md")" \
             node tools/discord-notification.mjs release --send

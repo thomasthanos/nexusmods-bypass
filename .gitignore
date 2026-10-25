@@ -8,11 +8,11 @@ node_modules/
 .dev.vars*
 nexus.mods.bypass/.claude/settings.local.json
 .claude/settings.local.json
-/internal/promo
+/docs/promo
 /LeadManagerUI
 
 you need to add this (gitgnore this folder)/
 nexusmods
-internal/docs/store-description.md
+docs/store/store-description.md
 .webext-lint/
 test-results/
