@@ -17,6 +17,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-3-3-3"><kbd> 3.3.3 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-2"><kbd> 3.3.2 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-1"><kbd> 3.3.1 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-0"><kbd> 3.3.0 </kbd></a>&ensp;·&ensp;
@@ -27,6 +28,11 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+<a id="release-3-3-3"></a>
+
+## 3.3.3 — 2026-10-27
+
+- **Longer diagnostics sign-in:** the live Cloudflare Access application, its MFA session and the team's global sign-in session now last 30 days instead of 24 hours. The next sign-in in the same browser or installed app receives the longer session; Safari and Home Screen apps may keep separate cookies. Owner-only access, MFA and protected API validation remain enforced. These are account-side settings, independent of the extension update.
 - **Retry and navigation fixes:** cancelled, erased or deleted downloads can be retried immediately without duplicate starts; stopped or disposed collection panels cannot resume delayed startup work or overwrite a newer run; archived-file metadata stays tied to its game and mod; automatic reports retain a server cooldown even when the last retry is exhausted.
 - **Setup and modlists:** late setup defaults preserve fields already edited, importing downloaded filenames selects only missing files, and Wabbajack manifests accept escaped JSON property names. Live page checks recognize Nexus notices without reporting a site change.
 - **Diagnostics recovery:** an accepted push keeps its reservation if database completion fails, avoiding an immediate duplicate; reconnecting retries unavailable Store data immediately while fresh data keeps its normal polling interval.
