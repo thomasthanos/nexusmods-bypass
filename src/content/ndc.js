@@ -131,6 +131,7 @@ window.NexusExt = window.NexusExt || {};
       this.initialized = false;
       this.lifecycleController = typeof AbortController === 'function' ? new AbortController() : null;
       this.downloadController = null;
+      this.activeRun = null;
       this.backgroundJobId = null;
       this.backgroundStartId = null;
       this.settleBrowserQueue = null;
@@ -160,6 +161,7 @@ window.NexusExt = window.NexusExt || {};
     stopDownload() {
       this.running = false;
       this.runStatus = STATUS_STOPPED;
+      if (this.activeRun) this.activeRun.cancelled = true;
       this.stopBackgroundQueue();
       try {
         this.downloadController?.abort();
@@ -219,12 +221,13 @@ window.NexusExt = window.NexusExt || {};
     }
 
     // Renew the worker claim to prevent duplicate collection runs across tabs.
-    async acquireRunClaim() {
+    async acquireRunClaim(run = this.activeRun) {
       const reply = await NexusExt.Storage.sendDownloadCommand('NDC_RUN_CLAIM', {
         gameId: this.gameId,
         collectionId: this.collectionId,
         method: this.claimMethod()
       });
+      if (run && !this.isCurrentRun(run)) return { granted: false };
       if (!reply?.ok) return { granted: true };
       if (!reply.value?.granted) return { granted: false, reason: reply.value?.reason || 'lease' };
 
@@ -237,6 +240,10 @@ window.NexusExt = window.NexusExt || {};
         }).catch?.(() => undefined);
       }, 15000);
       return { granted: true };
+    }
+
+    isCurrentRun(run) {
+      return !this.disposed && this.activeRun === run && !run.cancelled && !run.controller?.signal.aborted;
     }
 
     claimMethod() {
@@ -286,13 +293,14 @@ window.NexusExt = window.NexusExt || {};
 
     async init() {
       const settings = await NexusExt.Storage.getSettings();
+      if (this.disposed) return false;
       this.loadRunSettings(settings);
       this.downloadMethod = settings.NDC_downloadMethod;
 
       this.watchSettings();
 
       const response = await this.fetchMods();
-      if (!response) return false;
+      if (this.disposed || !response) return false;
 
       this.loadedRevision = {
         number: Number(response.revisionNumber) || Number(this.revision) || null,
@@ -330,6 +338,7 @@ window.NexusExt = window.NexusExt || {};
 
     async initFromMods(mods) {
       const settings = await NexusExt.Storage.getSettings();
+      if (this.disposed) return false;
       this.loadRunSettings(settings);
       // An imported modlist must reach the disk, so the saved collection method is not used.
       this.downloadMethod = DOWNLOAD_METHOD_BROWSER;
@@ -1290,8 +1299,11 @@ window.NexusExt = window.NexusExt || {};
         fallbackActive: false
       });
       this.downloadController = typeof AbortController === 'function' ? new AbortController() : null;
+      const run = { controller: this.downloadController, cancelled: false };
+      this.activeRun = run;
       try {
-        const claim = await this.acquireRunClaim();
+        const claim = await this.acquireRunClaim(run);
+        if (!this.isCurrentRun(run)) return;
         if (!claim.granted) {
           this.ui.logText(
             claim.reason === 'background-job'
@@ -1303,12 +1315,18 @@ window.NexusExt = window.NexusExt || {};
         }
         await this.runCollection(mods, type);
       } finally {
-        this.releaseRunClaim();
-        this.running = false;
+        if (this.activeRun === run) {
+          this.releaseRunClaim();
+          this.running = false;
+          this.activeRun = null;
+        }
       }
     }
 
     async runCollection(mods, type) {
+      const run = this.activeRun;
+      const stopped = () => this.isStopped() || (run && !this.isCurrentRun(run));
+      if (this.disposed || this.downloadSignal?.aborted || (run && !this.isCurrentRun(run))) return;
       if (this.runStatus === STATUS_STOPPED) this.runStatus = STATUS_DOWNLOADING;
 
       const loginError = Auth?.getDocumentLoginError?.(document, 'Starting collection download');
@@ -1327,6 +1345,7 @@ window.NexusExt = window.NexusExt || {};
       if (this.downloadMethod === DOWNLOAD_METHOD_VORTEX
         && typeof NexusExt.UI?.showVortexHandoffModal === 'function') {
         const choice = await NexusExt.UI.showVortexHandoffModal();
+        if (stopped()) return;
         if (choice === 'cancel') {
           this.ui.logText(T('logCanceledBeforeStart', 'Download canceled before start.'), 'info');
           return;
@@ -1346,11 +1365,13 @@ window.NexusExt = window.NexusExt || {};
       }
 
       mods = await this.applyUpdatePolicy(mods);
+      if (stopped()) return;
 
       let history = null;
       let restart = false;
       if (type !== null) {
         history = await NexusExt.Storage.getHistory();
+        if (stopped()) return;
         history[this.gameId] = history[this.gameId] || {};
         history[this.gameId][this.collectionId] = history[this.gameId][this.collectionId] || {};
         history[this.gameId][this.collectionId][type] = history[this.gameId][this.collectionId][type] || [];
@@ -1362,6 +1383,7 @@ window.NexusExt = window.NexusExt || {};
             downloadedCount: history[this.gameId][this.collectionId][type].length,
             totalCount: mods.length
           });
+          if (stopped()) return;
 
           if (choice === 'cancel') {
             this.ui.logText(T('logCanceledBeforeStart', 'Download canceled before start.'), 'info');
@@ -1386,6 +1408,7 @@ window.NexusExt = window.NexusExt || {};
         }
       }
 
+      if (stopped()) return;
       if (this.smallestFirst) {
         mods = NXTK.orderQueueBySize(mods, (mod) => mod.file?.size);
         this.ui.logText(T('logSmallestFirst', 'Downloading the smallest files first.'), 'info');

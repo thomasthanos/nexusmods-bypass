@@ -247,14 +247,18 @@ async function issuePush(db: D1Database, issue: IssueState, input: NotificationI
     issueId: issue.id, trigger, dedupeKey: eventKey(trigger, input, now, resolved.cooldownMs), now, cooldownMs: resolved.cooldownMs
   });
   if (!claim) return summary('already_claimed', trigger);
+  let accepted = false;
   try {
     const badge = await appBadgeCount(db);
     const result = await dispatchPush(db, targets, pushPayload(trigger, issue, input, resolved.origin, badge), config, now, resolved.requestTimeoutMs);
+    accepted = result.delivered > 0;
     if (result.delivered) await completePushNotification(db, claim, Math.max(now, Date.now()));
     else await releasePushNotification(db, claim);
     return result;
   } catch (error) {
-    await releasePushNotification(db, claim);
+    // A provider may already have accepted the push while D1 completion failed.
+    // Keep that reservation until expiry to avoid an immediate duplicate send.
+    if (!accepted) await releasePushNotification(db, claim);
     throw error;
   }
 }

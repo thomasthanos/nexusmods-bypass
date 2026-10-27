@@ -333,10 +333,11 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     } catch (error) { if (!disposed && error?.name !== 'AbortError') { control.disabled = false; control.textContent = 'Mark as read'; notify('Could not mark the review as read. Retry when connected.', 'error'); } }
   }
 
-  function checkStorePoll() {
+  function checkStorePoll(retryUnavailable = false) {
     if (!availableToPoll()) return;
     const storeInterval = (Number.isFinite(store?.sync_interval_seconds) && store.sync_interval_seconds >= 60 ? store.sync_interval_seconds : 900) * 1000;
-    if (Date.now() - lastStorePoll >= storeInterval && !controllers.has('store')) {
+    const retry = retryUnavailable && (!store?.snapshot || store.stale === true);
+    if ((retry || Date.now() - lastStorePoll >= storeInterval) && !controllers.has('store')) {
       void loadStore();
     }
   }
@@ -363,7 +364,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     updateStoreFreshness();
     if (availableToPoll()) {
       if (!controllers.has('analytics')) void loadAnalytics();
-      checkStorePoll();
+      checkStorePoll(true);
     }
   });
   listen(win, 'popstate', () => { if (store) renderReviews(); });

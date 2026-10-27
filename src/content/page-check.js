@@ -333,7 +333,7 @@ window.NexusExt = window.NexusExt || {};
     });
   }
 
-  function reportFailures(result, build, doc) {
+  function reportFailures(result, build, doc = (typeof document !== 'undefined' ? document : null)) {
     const failed = failuresOf(result);
     if (!failed.length) return;
     let variant = pageVariant(doc);

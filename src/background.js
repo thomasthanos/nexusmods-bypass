@@ -543,7 +543,7 @@ function findDuplicateDownload(items, { url, filename, now = Date.now(), windowM
   const wantedPath = urlPathKey(url);
   const wantedName = downloadBaseName(filename);
   for (const item of Array.isArray(items) ? items : []) {
-    if (!item || item.state === 'interrupted' || item.error) continue;
+    if (!item || item.state === 'interrupted' || item.error || (item.state === 'complete' && item.exists === false)) continue;
     const started = Date.parse(item.startTime || '') || 0;
     const recent = item.state === 'in_progress' || (started && now - started <= windowMs);
     if (!recent) continue;
@@ -591,13 +591,25 @@ const DOWNLOAD_HANDLERS = {
     }
     const fileKey = downloadFileKey(payload);
     const previous = fileKey ? recentDownloadStarts.get(fileKey) : null;
-    if (previous) {
-      // Started (or starting) already: hand back the same result instead of a second file.
-      const earlier = await previous.result.catch(() => null);
-      if (earlier) return { ...earlier, duplicate: true };
-    }
-    // Registered before anything is awaited, so two requests arriving together share one start.
+    const entry = { at: now, result: null };
+    // Chain and register before awaiting either the old start or its browser record. Concurrent
+    // retries then share one replacement when the old transfer was canceled or its file deleted.
     const result = (async () => {
+      if (previous) {
+        const earlier = await previous.result.catch(() => null);
+        if (earlier && Number.isInteger(earlier.downloadId)) {
+          let reusable = true;
+          try {
+            const record = await searchDownload(earlier.downloadId, { strict: true });
+            reusable = !!record && record.state !== 'interrupted' && !record.error
+              && (record.state !== 'complete' || record.exists !== false);
+          } catch (_) { /* An unreadable record does not authorize starting a duplicate. */ }
+          if (reusable) {
+            entry.at = previous.at;
+            return { ...earlier, duplicate: true };
+          }
+        }
+      }
       const existing = findDuplicateDownload(await searchRecentDownloads(now), { url: verdict.url, filename: requestedName, now });
       if (existing) return { downloadId: existing.id, filename: existing.filename || filename, duplicate: true };
       const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
@@ -622,8 +634,11 @@ const DOWNLOAD_HANDLERS = {
       return { downloadId, filename: request.filename || requestedName };
     })();
     if (fileKey) {
-      recentDownloadStarts.set(fileKey, { at: now, result });
-      result.catch(() => recentDownloadStarts.delete(fileKey));
+      entry.result = result;
+      recentDownloadStarts.set(fileKey, entry);
+      result.catch(() => {
+        if (recentDownloadStarts.get(fileKey) === entry) recentDownloadStarts.delete(fileKey);
+      });
     }
     return result;
   }
@@ -2976,15 +2991,17 @@ if (chrome.downloads?.onChanged) {
   });
 }
 
-function searchDownload(downloadId) {
-  return new Promise((resolve) => {
+function searchDownload(downloadId, { strict = false } = {}) {
+  return new Promise((resolve, reject) => {
+    const failed = (cause) => strict ? reject(new Error(String(cause?.message || cause))) : resolve(null);
     try {
       chrome.downloads.search({ id: downloadId }, (results) => {
-        if (getRuntimeError()) return resolve(null);
+        const error = getRuntimeError();
+        if (error) return failed(error);
         resolve(Array.isArray(results) && results.length ? results[0] : null);
       });
-    } catch (_) {
-      resolve(null);
+    } catch (cause) {
+      failed(cause);
     }
   });
 }

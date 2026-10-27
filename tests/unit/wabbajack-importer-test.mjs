@@ -391,6 +391,14 @@ async function rejectsCode(action, code, message) {
   const escapedList = await Importer.importFile(buildZip([{ name: 'modlist', data: escaped }]));
   assert.equal(escapedList.name, 'Café "Deluxe" \\ 2', 'escapes in the modlist name are decoded');
   assert.equal(escapedList.author, 'A/B');
+  const escapedKeys = '{"\\u0041rchives":' + JSON.stringify(MODLIST.Archives)
+    + ',"Na\\u006de":"Escaped keys","\\u0041uthor":"A/B","Versi\\u006fn":"2.0","Game\\u0054ype":"SkyrimSpecialEdition"}';
+  const escapedKeyList = await Importer.importFile(buildZip([{ name: 'modlist', data: escapedKeys }]));
+  assert.equal(escapedKeyList.items.length, 2, 'an escaped top-level Archives key is still recognized');
+  assert.equal(escapedKeyList.name, 'Escaped keys', 'an escaped Name key preserves the list identity');
+  assert.equal(escapedKeyList.author, 'A/B');
+  assert.equal(escapedKeyList.version, '2.0');
+  assert.equal(escapedKeyList.gameName, 'SkyrimSpecialEdition');
   const brokenEscape = '{"Archives":[],"Name":"bad \\x escape"}';
   assert.equal((await Importer.importFile(buildZip([{ name: 'modlist', data: brokenEscape }]))).name, 'bad \\x escape',
     'a label that is not valid JSON is kept as written rather than failing the import');

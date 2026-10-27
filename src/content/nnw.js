@@ -2470,12 +2470,17 @@ window.NexusExt = window.NexusExt || {};
     const api = officialApi();
     if (!api || !isModPage()) return;
     const modId = currentModId();
-    const gameId = (await prefetchGameIdFromApi()) || getGameId();
-    if (!modId || !gameId) return;
-    const key = `${gameId}:${modId}`;
+    const domain = getGameDomainFromUrl();
+    if (!domain || !modId) return;
+    // Mod and file ids are scoped to a game; another game's same mod id is a different page.
+    const key = `${domain}:${modId}`;
+    const prefetchedGameId = await prefetchGameIdFromApi();
+    if (`${getGameDomainFromUrl()}:${currentModId()}` !== key) return;
+    const gameId = prefetchedGameId || getGameId();
+    if (!gameId) return;
     if (apiFileList.key === key) return;
     const files = await api.modFiles({ modId, gameId });
-    if (!Array.isArray(files) || currentModId() !== modId) return;
+    if (!Array.isArray(files) || `${getGameDomainFromUrl()}:${currentModId()}` !== key) return;
     apiFileList = { key, files };
     // A second pass can now match archived headers that had no id.
     archivedFileHandler();
@@ -2483,7 +2488,7 @@ window.NexusExt = window.NexusExt || {};
 
   function apiFileIdForHeader(header) {
     const modId = currentModId();
-    if (!header || !apiFileList.key.endsWith(`:${modId}`)) return '';
+    if (!header || apiFileList.key !== `${getGameDomainFromUrl()}:${modId}`) return '';
     const text = String(header.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
     if (!text) return '';
     const matches = apiFileList.files.filter((file) => {
@@ -2498,7 +2503,7 @@ window.NexusExt = window.NexusExt || {};
   function fileVersionOf(fileId) {
     const id = toFileId(fileId);
     if (!id) return '';
-    const listed = apiFileList.key.endsWith(`:${currentModId()}`)
+    const listed = apiFileList.key === `${getGameDomainFromUrl()}:${currentModId()}`
       ? apiFileList.files.find((file) => toFileId(file?.fileId) === id)?.version
       : '';
     const header = document.querySelector(`.file-expander-header[data-id="${id}"]`)?.dataset?.version;

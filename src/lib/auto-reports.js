@@ -204,17 +204,22 @@
                 item.nextAt = this.clock() + repeatWindow(item.payload);
                 item.attempts = 0;
               } else state.pending = state.pending.filter((p) => p !== item);
-            } else if ([400, 409, 413, 415, 422].includes(response?.status) || item.attempts >= 6) {
-              state.pending = state.pending.filter((p) => p !== item);
-            } else if (response?.status === 429
-              || (response?.status === 503 && response.headers?.get?.('retry-after'))) {
-              // The relay's own allowance, Discord throttling the relay, or a Worker that said when to
-              // come back: the whole queue waits, since every report would meet the same answer.
-              const raw = response.headers?.get?.('retry-after');
-              const seconds = Number(raw);
-              const wait = raw && Number.isFinite(seconds) ? seconds * 1000 : Date.parse(raw) - this.clock();
-              state.cooldownUntil = this.clock() + Math.min(DAY, Math.max(60000, wait || 3600000));
-              item.nextAt = state.cooldownUntil;
+            } else {
+              if ([400, 409, 413, 415, 422].includes(response?.status) || item.attempts >= 6) {
+                state.pending = state.pending.filter((p) => p !== item);
+              }
+              // A final attempt can still announce a server-wide cooldown. Drop the exhausted
+              // item without letting the next distinct fault retry into that same rate limit.
+              if (response?.status === 429
+                || (response?.status === 503 && response.headers?.get?.('retry-after'))) {
+                // The relay's own allowance, Discord throttling the relay, or a Worker that said when to
+                // come back: the whole queue waits, since every report would meet the same answer.
+                const raw = response.headers?.get?.('retry-after');
+                const seconds = Number(raw);
+                const wait = raw && Number.isFinite(seconds) ? seconds * 1000 : Date.parse(raw) - this.clock();
+                state.cooldownUntil = this.clock() + Math.min(DAY, Math.max(60000, wait || 3600000));
+                item.nextAt = state.cooldownUntil;
+              }
             }
             await this.write(this.key, state);
             await this.schedule(state);

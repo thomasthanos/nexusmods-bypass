@@ -310,3 +310,28 @@ test('subscription cleanup errors cannot orphan in-flight sends or discard parti
   assert.equal(db.sqlite.prepare('SELECT last_pushed_at FROM issues WHERE id=?').get(id).last_pushed_at, NOW);
   assert.equal(db.sqlite.prepare('SELECT delivered_at FROM notification_claims WHERE issue_id=?').get(id).delivered_at, NOW);
 });
+
+test('accepted pushes keep their lease when completion fails instead of allowing immediate duplicate delivery', async (t) => {
+  const db = database(t);
+  const id = issue(db);
+  const value = report(db, id);
+  const config = await configuration(db);
+  t.mock.method(db, 'batch', async () => { throw new Error('Completion temporarily unavailable'); });
+  let pushes = 0;
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    if (new URL(url).hostname === 'web.push.apple.com') pushes++;
+    return new Response(null, { status: 201 });
+  });
+  const first = await sendIssueNotifications(db, { issueId: id, report: value, rule, isNewIssue: true, now: NOW }, config);
+  assert.equal(first.discord.ok, true);
+  assert.equal(first.push.state, 'failed');
+  assert.equal(pushes, 1);
+  const claim = db.sqlite.prepare('SELECT lease_token,lease_expires_at,delivered_at FROM notification_claims WHERE issue_id=?').get(id);
+  assert.ok(claim.lease_token, 'an accepted notification keeps its lease until completion can be retried safely');
+  assert.equal(claim.lease_expires_at, NOW + 30_000);
+  assert.equal(claim.delivered_at, null);
+  const second = await sendIssueNotifications(db, { issueId: id, report: value, rule, isNewIssue: true, now: NOW + 1 }, config);
+  assert.equal(second.push.state, 'already_claimed');
+  assert.equal(pushes, 1);
+  assert.ok(await reservePushNotification(db, claimInput(id, { now: NOW + 30_001 })), 'expired reservations remain recoverable');
+});

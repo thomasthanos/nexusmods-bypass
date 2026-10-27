@@ -227,6 +227,104 @@ function createHarness(choice) {
     assert.equal(await attaching, true);
   }
 
+  // Closing/replacing a deck while asynchronous startup work is pending ends its lifetime.
+  // The eventual settings, API, claim or modal response must never start that disposed deck again.
+  {
+    for (const method of ['init', 'initFromMods']) {
+      const { ndc } = createHarness('browser');
+      let release;
+      let watched = 0;
+      NexusExt.Storage.getSettings = () => new Promise((resolve) => { release = resolve; });
+      ndc.watchSettings = () => { watched++; };
+      ndc.fetchMods = async () => ({ modFiles: [] });
+      const starting = ndc[method]([]);
+      ndc.dispose();
+      release({});
+      assert.equal(await starting, false, `${method}: disposal during settings load cancels initialization`);
+      assert.equal(watched, 0, `${method}: no settings listener is installed after disposal`);
+      assert.equal(ndc.initialized, false);
+    }
+    const lateApi = createHarness('browser').ndc;
+    let resolveApi;
+    lateApi.watchSettings = () => {};
+    lateApi.fetchMods = () => new Promise((resolve) => { resolveApi = resolve; });
+    const initializing = lateApi.init();
+    await new Promise((resolve) => setImmediate(resolve));
+    lateApi.dispose();
+    resolveApi({ modFiles: [] });
+    assert.equal(await initializing, false, 'a late collection response cannot initialize a disposed deck');
+
+    const claimed = createHarness('browser');
+    let resolveClaim;
+    NexusExt.Storage.sendDownloadCommand = (type) => type === 'NDC_RUN_CLAIM'
+      ? new Promise((resolve) => { resolveClaim = resolve; })
+      : Promise.resolve({ ok: true });
+    const claiming = claimed.ndc.downloadMods([{ fileId: 1 }]);
+    claimed.ndc.dispose();
+    resolveClaim({ ok: true, value: { granted: true } });
+    await claiming;
+    assert.equal(claimed.calls.browserQueue, 0, 'a late run claim cannot start downloads after disposal');
+    assert.equal(claimed.ndc.claimTimer, null, 'the late claim has no renewal timer left');
+
+    const stoppedClaim = createHarness('browser');
+    let grantStopped;
+    NexusExt.Storage.sendDownloadCommand = (type) => type === 'NDC_RUN_CLAIM'
+      ? new Promise((resolve) => { grantStopped = resolve; }) : Promise.resolve({ ok: true });
+    const stopping = stoppedClaim.ndc.downloadMods([{ fileId: 1 }]);
+    stoppedClaim.ndc.stopDownload();
+    grantStopped({ ok: true, value: { granted: true } });
+    await stopping;
+    assert.equal(stoppedClaim.calls.browserQueue, 0, 'Stop during a pending claim prevents the later grant from starting a queue');
+    assert.equal(stoppedClaim.ndc.claimTimer, null);
+
+    for (const oldFirst of [true, false]) {
+      const restarted = createHarness('browser');
+      const grants = [];
+      let releases = 0;
+      let runStarts = 0;
+      let finishRun;
+      NexusExt.Storage.sendDownloadCommand = (type) => {
+        if (type === 'NDC_RUN_CLAIM') return new Promise((resolve) => grants.push(resolve));
+        if (type === 'NDC_RUN_RELEASE') releases++;
+        return Promise.resolve({ ok: true });
+      };
+      restarted.ndc.runCollection = () => {
+        runStarts++;
+        return new Promise((resolve) => { finishRun = resolve; });
+      };
+      const oldRun = restarted.ndc.downloadMods([{ fileId: 1 }]);
+      restarted.ndc.stopDownload();
+      const newRun = restarted.ndc.downloadMods([{ fileId: 2 }]);
+      if (!oldFirst) {
+        grants[1]({ ok: true, value: { granted: true } });
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      const timer = restarted.ndc.claimTimer;
+      grants[0]({ ok: true, value: { granted: true } });
+      await oldRun;
+      assert.equal(restarted.ndc.running, true, 'the stopped run cannot clear the replacement run\'s running state');
+      assert.equal(restarted.ndc.claimTimer, timer, 'a stale grant cannot replace or clear the new run\'s renewal timer');
+      assert.equal(releases, 0, 'the stopped run cannot release the replacement run\'s shared claim');
+      if (oldFirst) grants[1]({ ok: true, value: { granted: true } });
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(runStarts, 1, 'only the replacement run starts, whichever claim answers first');
+      finishRun();
+      await newRun;
+      assert.equal(releases, 1, 'the replacement run releases its own claim');
+      assert.equal(restarted.ndc.claimTimer, null);
+    }
+
+    const modal = createHarness('browser');
+    let resolveModal;
+    NexusExt.UI.showVortexHandoffModal = () => new Promise((resolve) => { resolveModal = resolve; });
+    const choosing = modal.ndc.runCollection([{ fileId: 1 }], null);
+    modal.ndc.dispose();
+    resolveModal('browser');
+    await choosing;
+    assert.equal(modal.calls.patch, 0, 'a late modal choice cannot change saved settings after disposal');
+    assert.equal(modal.calls.browserQueue, 0, 'a late modal choice cannot start downloads after disposal');
+  }
+
   // A Vortex run in size order: the smallest file goes first, a file with no size goes last, and a
   // removed mod is skipped without stopping the rest (#10 follow-up).
   const runVortexQueue = async (mods, answerFor) => {

@@ -56,6 +56,10 @@
     $('setupFolderRow').hidden = vortex;
     $('setupTestVortex').hidden = !vortex;
   };
+  const editedFields = new Set();
+  const markEdited = (event) => editedFields.add(event.target.name === 'method' ? 'method' : event.target.id);
+  form.addEventListener('input', markEdited);
+  form.addEventListener('change', (event) => { markEdited(event); syncRows(); });
 
   // Issue #34: Opera saves a file the extension names in the system Downloads folder, not in its own
   // download location, so a folder typed here gets a note saying where those files go.
@@ -70,16 +74,16 @@
   try {
     chrome.storage.local.get(NXTK.SETTINGS_KEY, (result) => {
       const cfg = { ...NXTK.DEFAULTS, ...(result?.[NXTK.SETTINGS_KEY] || {}) };
-      form.querySelector(`input[name="method"][value="${cfg.NDC_downloadMethod === 1 ? 'browser' : 'vortex'}"]`).checked = true;
-      $('setupFolder').value = cfg.DownloadFolder || '';
-      $('setupCloseTab').checked = !!cfg.AutoCloseTab;
+      // Storage can answer after the user starts setup. Prefill only untouched controls.
+      if (!editedFields.has('method')) form.querySelector(`input[name="method"][value="${cfg.NDC_downloadMethod === 1 ? 'browser' : 'vortex'}"]`).checked = true;
+      if (!editedFields.has('setupFolder')) $('setupFolder').value = cfg.DownloadFolder || '';
+      if (!editedFields.has('setupCloseTab')) $('setupCloseTab').checked = !!cfg.AutoCloseTab;
       syncFolderNote();
       syncRows();
     });
   } catch (_) {
     syncRows();
   }
-  form.addEventListener('change', syncRows);
 
   // The setup choices as a settings patch: the matching preset, then the two answers.
   function setupPatch() {

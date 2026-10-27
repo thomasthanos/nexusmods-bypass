@@ -1792,7 +1792,7 @@
         const { matched } = matchModsToFileNames(ndc.mods.all, fileNames);
         const downloadedIds = new Set(matched.map(modEntryId));
         listEl.querySelectorAll('.nxtk-mod-item').forEach(el => {
-          if (!downloadedIds.has(el.dataset.fileId)) el.classList.add('nxtk-selected');
+          el.classList.toggle('nxtk-selected', !downloadedIds.has(el.dataset.fileId));
         });
         updateCount();
         const notDl = listEl.querySelectorAll('.nxtk-mod-item.nxtk-selected').length;

@@ -90,6 +90,67 @@ async function popupRegressionTests() {
   console.log('Popup settings regressions OK: ordered saves, rejected writes and language metadata');
 }
 
+async function onboardingRegressionTests() {
+  const html = fs.readFileSync(path.join(root, 'src/onboarding/welcome.html'), 'utf8');
+  const f = fixture('en', { html });
+  try {
+    const pending = [];
+    f.w.chrome.storage.local.get = (key, callback) => pending.push(() => callback({ [key]: { ...f.w.NXTK.DEFAULTS, DownloadFolder: 'Old folder' } }));
+    f.w.eval(fs.readFileSync(path.join(root, 'src/onboarding/welcome.js'), 'utf8'));
+    const form = f.w.document.getElementById('setupForm');
+    const browser = form.querySelector('[name="method"][value="browser"]');
+    browser.checked = true;
+    browser.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+    const folder = f.w.document.getElementById('setupFolder');
+    folder.value = 'New folder';
+    folder.dispatchEvent(new f.w.Event('input', { bubbles: true }));
+    const closeTab = f.w.document.getElementById('setupCloseTab');
+    closeTab.checked = false;
+    closeTab.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+    pending.forEach((release) => release());
+    assert.equal(browser.checked, true, 'late onboarding settings never reset a method the user chose');
+    assert.equal(folder.value, 'New folder', 'late onboarding settings preserve a folder already being typed');
+    assert.equal(closeTab.checked, false, 'late onboarding settings preserve the user\'s close-tab choice');
+    form.dispatchEvent(new f.w.Event('submit', { bubbles: true, cancelable: true }));
+    await tick();
+    assert.equal(f.store.nxtk_settings.NDC_downloadMethod, 1);
+    assert.equal(f.store.nxtk_settings.DownloadFolder, 'New folder', 'Save uses the user\'s choices rather than the late prefill');
+    console.log('Onboarding late-prefill regression OK');
+  } finally { f.close(); }
+}
+
+async function collectionSelectionRegressionTests() {
+  const f = fixture();
+  try {
+    for (const file of ['src/content/errors.js', 'src/content/ndc.js', 'src/content/ui-collection.js']) {
+      f.w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+    }
+    const ndc = new f.w.NexusExt.NDC('skyrimspecialedition', 'abc');
+    ndc.mods.all = [
+      { fileId: 101, file: { fileId: 101, name: 'Alpha package', uri: 'alpha-package-1.7z', size: 1024, mod: { modId: 1, name: 'Alpha' } } },
+      { fileId: 102, file: { fileId: 102, name: 'Beta package', uri: 'beta-package-2.7z', size: 1024, mod: { modId: 2, name: 'Beta' } } }
+    ];
+    ndc.mods.mandatory = ndc.mods.all;
+    const deck = f.w.NexusExt.UI.createControlDeck(ndc);
+    f.w.document.body.appendChild(deck);
+    deck.querySelector('#nxtk-select-mods').click();
+    await tick();
+    const picker = f.w.document.getElementById('nxtk-select-modal');
+    picker.querySelector('#nxtk-sel-all').click();
+    assert.equal(picker.querySelectorAll('.nxtk-mod-item.nxtk-selected').length, 2);
+    let input;
+    const click = f.w.HTMLInputElement.prototype.click;
+    f.w.HTMLInputElement.prototype.click = function () { if (this.type === 'file') input = this; else click.call(this); };
+    picker.querySelector('#nxtk-import-dl-mods').click();
+    Object.defineProperty(input, 'files', { value: [{ name: 'alpha-package-1.7z' }] });
+    input.dispatchEvent(new f.w.Event('change'));
+    const selected = [...picker.querySelectorAll('.nxtk-mod-item.nxtk-selected')].map((row) => row.dataset.fileId);
+    assert.deepEqual(selected, ['102'], 'importing downloaded archives removes already-present files from an earlier selection');
+    assert.match(f.w.document.querySelector('.nxtk-alert-modal').textContent, /Selected 1 mod/);
+    console.log('Collection downloaded-file selection regression OK');
+  } finally { f.close(); }
+}
+
 async function settingsRegressionTests() {
   const failures = [];
   const cases = [
@@ -195,6 +256,9 @@ async function settingsRegressionTests() {
 }
 
 (async () => {
+  const newRegressions = await Promise.allSettled([onboardingRegressionTests(), collectionSelectionRegressionTests()]);
+  const failures = newRegressions.filter((result) => result.status === 'rejected').map((result) => result.reason);
+  if (failures.length) throw new AggregateError(failures, 'Onboarding/collection selection regressions failed');
   await popupRegressionTests();
   await settingsRegressionTests();
   const f = fixture();

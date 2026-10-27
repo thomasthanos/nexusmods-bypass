@@ -261,7 +261,8 @@
       cursor += 1;
       while (cursor < text.length && text.charCodeAt(cursor) <= 32) cursor += 1;
 
-      const key = text.slice(keyStart + 1, afterKey - 1);
+      // JSON permits the same escapes in property names as in values ("\\u0041rchives").
+      const key = decodeJsonString(text.slice(keyStart, afterKey));
       if (key === 'Archives' && !archivesJson && text.charCodeAt(cursor) === OPEN_BRACKET) {
         archivesJson = await sliceBalanced(text, cursor);
         index = cursor + archivesJson.length;

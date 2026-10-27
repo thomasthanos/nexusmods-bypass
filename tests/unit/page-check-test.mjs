@@ -304,6 +304,11 @@ assert.equal(PageCheck.detectBuild(fakeDoc({ scripts: ['https://ads.example/x.js
   for (const key of Object.keys(session)) delete session[key];
   PageCheck.reportFailures(noticeFailing, record, withNotice);
   assert.equal(recorded.length, beforeNotice, 'a Nexus notice in place of the download control is not a site change');
+  for (const key of Object.keys(session)) delete session[key];
+  context.document = withNotice;
+  PageCheck.reportFailures(noticeFailing, record);
+  delete context.document;
+  assert.equal(recorded.length, beforeNotice, 'the scheduled live-page call also recognizes the Nexus notice without an explicit document');
   const withoutNotice = { ...withNotice, querySelector: () => null };
   for (const key of Object.keys(session)) delete session[key]; // a new tab: the same failure may be reported again
   PageCheck.reportFailures(noticeFailing, record, withoutNotice);

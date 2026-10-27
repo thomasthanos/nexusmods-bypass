@@ -1424,6 +1424,48 @@ async function hiddenTabStartTests() {
   assert.equal(await visible.wait(visible.key), true, 'a tab already shown does not wait');
 }
 
+async function apiFileMetadataNavigationTests() {
+  function page() {
+    const route = { domain: 'skyrim', modId: '7', gameId: '110' };
+    let fileResponse = [{ fileId: 11, name: 'Shared name', version: '1' }];
+    let applied = 0;
+    const api = { modFiles: async () => fileResponse };
+    const helpers = new Function('officialApi', 'isModPage', 'currentModId', 'getGameDomainFromUrl',
+      'prefetchGameIdFromApi', 'getGameId', 'archivedFileHandler', 'toFileId', 'document', `
+      let apiFileList = { key: '', files: [] };
+      async ${extractFunction(nnw, 'loadApiFileList')}
+      ${extractFunction(nnw, 'apiFileIdForHeader')}
+      ${extractFunction(nnw, 'fileVersionOf')}
+      return { loadApiFileList, apiFileIdForHeader, fileVersionOf };
+    `)(() => api, () => true, () => route.modId, () => route.domain,
+      async () => route.gameId, () => route.gameId, () => { applied++; }, String,
+      { querySelector: () => null });
+    return { ...helpers, route, setResponse: (value) => { fileResponse = value; }, applied: () => applied };
+  }
+  const header = { textContent: 'Shared name 1' };
+  const current = page();
+  await current.loadApiFileList();
+  assert.equal(current.apiFileIdForHeader(header), '11');
+  assert.equal(current.fileVersionOf(11), '1');
+  Object.assign(current.route, { domain: 'fallout4', gameId: '1151' });
+  assert.equal(current.apiFileIdForHeader(header), '', 'matching mod ids in different games cannot reuse an archived file id');
+  assert.equal(current.fileVersionOf(11), '', 'MO2 metadata never takes another game\'s file version');
+  current.setResponse([{ fileId: 22, name: 'Shared name', version: '1' }]);
+  await current.loadApiFileList();
+  assert.equal(current.apiFileIdForHeader(header), '22', 'the new game gets its own API file list');
+
+  const pending = page();
+  let release;
+  pending.setResponse(new Promise((resolve) => { release = resolve; }));
+  const loading = pending.loadApiFileList();
+  await new Promise((resolve) => setImmediate(resolve));
+  Object.assign(pending.route, { domain: 'fallout4', gameId: '1151' });
+  release([{ fileId: 11, name: 'Shared name', version: '1' }]);
+  await loading;
+  assert.equal(pending.applied(), 0, 'a response arriving after cross-game navigation cannot enhance the new page');
+  assert.equal(pending.apiFileIdForHeader(header), '');
+}
+
 // Importing a modlist on a collection page put its deck above the page's content, on the black strip over it,
 // and removed the collection's deck before the modlist had loaded, so content/main.js put that deck back in
 // the gap and the page showed two.
@@ -1483,5 +1525,6 @@ bundleBoundaryTests();
 modlistDeckTests();
 requestClassifierForwardingTests()
   .then(hiddenTabStartTests)
+  .then(apiFileMetadataNavigationTests)
   .then(() => console.log('content-script helper behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

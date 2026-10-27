@@ -287,6 +287,22 @@ async function run() {
     assert.equal(f.sent[1].payload.severity, 'critical', 'crashes go first after cooldown');
     assert.equal(f.store[f.KEY].pending.length, 0);
   }
+  for (const status of [429, 503]) {
+    // A final failed attempt is dropped, but its server cooldown still applies to other faults.
+    const f = fixture(); f.enable();
+    f.delivery(async () => { throw new TypeError('offline'); });
+    await f.reporter.enqueue(f.entry({ context: 'first fault' })); await f.reporter.flush();
+    await f.reporter.enqueue(f.entry({ context: 'second fault' })); await f.reporter.flush();
+    f.store[f.KEY].pending[0].attempts = 5;
+    f.advance(60000);
+    const sentBefore = f.sent.length;
+    f.delivery(async () => ({ ok: false, status, headers: { get: () => '600' } }));
+    await f.reporter.flush();
+    assert.equal(f.sent.length, sentBefore + 1, 'the next fault is held after a sixth attempt receives a rate limit');
+    assert.equal(f.store[f.KEY].pending.length, 1, 'the exhausted report is dropped while the other report stays queued');
+    assert.equal(f.store[f.KEY].cooldownUntil - Date.UTC(2026, 9, 14, 12) - 60000, 600000,
+      'exhausting one report does not discard the global Retry-After');
+  }
   {
     const f = fixture(); f.enable();
     await Promise.all(Array.from({ length: 12 }, (_, i) => f.reporter.enqueue(f.entry({ context: `stage ${String.fromCharCode(65 + i)}` }))));

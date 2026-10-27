@@ -226,6 +226,36 @@ test('store polling refreshes every fifteen minutes while visible and resumes du
   assert.equal(calls.filter(({ path }) => path === '/store').length, 4);
 });
 
+test('reconnecting retries an unavailable Store request before the fifteen-minute poll is due', async (t) => {
+  let storeCalls = 0;
+  const { dom, container, advance } = setup(t, (path) => {
+    if (path === '/store') {
+      if (++storeCalls === 1) throw Error('Offline');
+      return store();
+    }
+  });
+  await tick();
+  assert.match(container.querySelector('[data-growth-reviews]').textContent, /Reviews unavailable/);
+  Object.defineProperty(dom.window.navigator, 'onLine', { configurable: true, value: false });
+  dom.window.dispatchEvent(new dom.window.Event('offline'));
+  advance(5000);
+  Object.defineProperty(dom.window.navigator, 'onLine', { configurable: true, value: true });
+  dom.window.dispatchEvent(new dom.window.Event('online')); await tick();
+  assert.equal(storeCalls, 2, 'connectivity recovery must retry the failed source immediately');
+  assert.ok(container.querySelector(`[data-review-id="${reviewId}"]`));
+});
+
+test('reconnecting retains a fresh Store snapshot without polling it early', async (t) => {
+  const { dom, calls, advance } = setup(t);
+  await tick();
+  Object.defineProperty(dom.window.navigator, 'onLine', { configurable: true, value: false });
+  dom.window.dispatchEvent(new dom.window.Event('offline'));
+  advance(5000);
+  Object.defineProperty(dom.window.navigator, 'onLine', { configurable: true, value: true });
+  dom.window.dispatchEvent(new dom.window.Event('online')); await tick();
+  assert.equal(calls.filter(({ path }) => path === '/store').length, 1);
+});
+
 test('review text stays bounded and inert and untrusted external links are rejected', async (t) => {
   const data = store(); data.reviews = [review({ author: '<img src=x onerror=alert(1)>'.repeat(100), body: '<script>bad</script>'.repeat(1000) })];
   data.snapshot.store_url = 'https://evil.test/store'; data.snapshot.latest_release_url = 'https://github.com/other/repo/releases/tag/v3.3.2';

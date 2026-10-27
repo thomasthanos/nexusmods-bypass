@@ -27,6 +27,10 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+- **Retry and navigation fixes:** cancelled, erased or deleted downloads can be retried immediately without duplicate starts; stopped or disposed collection panels cannot resume delayed startup work or overwrite a newer run; archived-file metadata stays tied to its game and mod; automatic reports retain a server cooldown even when the last retry is exhausted.
+- **Setup and modlists:** late setup defaults preserve fields already edited, importing downloaded filenames selects only missing files, and Wabbajack manifests accept escaped JSON property names. Live page checks recognize Nexus notices without reporting a site change.
+- **Diagnostics recovery:** an accepted push keeps its reservation if database completion fails, avoiding an immediate duplicate; reconnecting retries unavailable Store data immediately while fresh data keeps its normal polling interval.
+- **DOM test reliability:** late archived-file checks wait for their download controls instead of assuming a fixed rendering delay.
 - **Downloads and Nexus API:** resumed browser queues restore the correct controls, active downloads remain protected from duplicate starts, concurrent API calls keep independent cancellation and respect the longest rate-limit cooldown, and response-text rate limits retain Nexus's `Retry-After`.
 - **Settings and reports:** rapid popup changes save in order and recover the last saved value after failure; switching to browser downloads retries only after the setting saves; report actions retain their own snapshot during edits; clearing debug logs waits for pending writes. Relay retries share one delivery deadline and expose `Retry-After` to extension clients.
 - **Wabbajack:** accept the official `Nexus` download-state alias and stop archive identification cleanly when cancelled during a file read.

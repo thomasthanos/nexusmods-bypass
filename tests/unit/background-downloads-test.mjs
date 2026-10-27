@@ -14,11 +14,17 @@ async function downloadStartsAreDeduplicated() {
   const H = context.__DOWNLOAD_HANDLERS;
   const saved = global.chrome.downloads;
   const started = [];
+  const startedRecords = new Map();
   let browserItems = [];
   global.chrome.downloads = {
     ...(saved || {}),
-    download: (options, cb) => { started.push(options); setTimeout(() => cb(100 + started.length), 5); },
-    search: (_query, cb) => cb(browserItems)
+    download: (options, cb) => {
+      started.push(options);
+      const id = 100 + started.length;
+      startedRecords.set(id, { id, state: 'in_progress', url: options.url });
+      setTimeout(() => cb(id), 5);
+    },
+    search: (query, cb) => cb(Number.isInteger(query.id) ? [startedRecords.get(query.id)].filter(Boolean) : browserItems)
   };
   try {
     const cdn = 'https://supporter-files.nexus-cdn.com/1704/12604/SkyUI_SDK_5_2-12604-5-2SE.7z?md5=a&expires=1';
@@ -56,6 +62,68 @@ async function downloadStartsAreDeduplicated() {
     assert.equal(find([{ id: 1, state: 'interrupted', filename: '/d/file.zip', startTime: new Date(now).toISOString() }], { url: '', filename: 'file.zip', now }), null, 'a failed download does not block a retry');
   } finally {
     global.chrome.downloads = saved;
+    context.__recentDownloadStarts.clear();
+  }
+}
+
+async function failedSingleDownloadsCanBeRetried() {
+  const H = context.__DOWNLOAD_HANDLERS;
+  const savedDownloads = global.chrome.downloads;
+  const records = [];
+  let starts = 0;
+  let lookupError = false;
+  const url = 'https://supporter-files.nexus-cdn.com/1704/77/File-77.7z';
+  const payload = { url, filename: 'File-77.7z', fileId: '77', gameId: '1704' };
+  global.chrome.downloads = {
+    download: (_options, callback) => {
+      const id = 901 + starts++;
+      records.push({ id, url, state: 'in_progress', exists: false, filename: '/Downloads/File-77.7z', startTime: new Date().toISOString() });
+      callback(id);
+    },
+    search: (query, callback) => {
+      if (lookupError && Number.isInteger(query.id)) {
+        global.chrome.runtime.lastError = { message: 'temporary search failure' };
+        callback([]);
+        global.chrome.runtime.lastError = null;
+        return;
+      }
+      callback(records.filter((record) => Number.isInteger(query.id) ? record.id === query.id
+        : query.state ? record.state === query.state : Date.parse(record.startTime) > Date.parse(query.startedAfter)));
+    }
+  };
+  try {
+    context.__recentDownloadStarts.clear();
+    const first = await H.DOWNLOAD_START(payload);
+    assert.equal((await H.DOWNLOAD_START(payload)).downloadId, first.downloadId,
+      'an active transfer remains reusable before its file exists on disk');
+    Object.assign(records[0], { state: 'interrupted', error: 'USER_CANCELED' });
+    const retried = await Promise.all([H.DOWNLOAD_START(payload), H.DOWNLOAD_START(payload)]);
+    assert.equal(starts, 2, 'simultaneous retries after cancellation start exactly one replacement');
+    assert.notEqual(retried[0].downloadId, first.downloadId, 'a failed cached download cannot block a retry');
+    assert.equal(retried[0].downloadId, retried[1].downloadId);
+
+    Object.assign(records[1], { state: 'complete', exists: false });
+    const restored = await H.DOWNLOAD_START(payload);
+    assert.equal(starts, 3, 'deleting a completed file permits another download immediately');
+    assert.notEqual(restored.downloadId, retried[0].downloadId);
+    records.pop(); // The user erased the most recent browser download record.
+    const missing = await H.DOWNLOAD_START(payload);
+    assert.equal(starts, 4, 'an erased browser record cannot hold the retry back either');
+    assert.notEqual(missing.downloadId, restored.downloadId);
+
+    Object.assign(records.at(-1), { state: 'complete', exists: true });
+    assert.equal((await H.DOWNLOAD_START(payload)).downloadId, missing.downloadId, 'an existing completed copy is still reused');
+    lookupError = true;
+    assert.equal((await H.DOWNLOAD_START(payload)).downloadId, missing.downloadId, 'a failed browser lookup does not authorize a duplicate');
+    assert.equal(starts, 4);
+    lookupError = false;
+    records.at(-1).exists = false;
+    context.__recentDownloadStarts.clear();
+    await H.DOWNLOAD_START(payload);
+    assert.equal(starts, 5, 'a worker restart also ignores deleted files returned by the browser search');
+  } finally {
+    global.chrome.downloads = savedDownloads;
+    global.chrome.runtime.lastError = null;
     context.__recentDownloadStarts.clear();
   }
 }
@@ -1737,6 +1805,7 @@ async function restartAdoptsADownloadStartedBeforeTheWorkerStopped() {
 }
 
 Promise.resolve()
+  .then(failedSingleDownloadsCanBeRetried)
   .then(mo2MetaBesideCollectionFile)
   .then(singleDownloadGetsMo2Meta)
   .then(browserPlacesUnnamedDownloads)

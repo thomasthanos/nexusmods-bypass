@@ -20,6 +20,13 @@ try {
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const fixture = (name) => fs.readFileSync(path.join(root, 'tests', 'fixtures', name), 'utf8');
+async function waitForState(check, message) {
+  const deadline = Date.now() + 5000;
+  while (!check()) {
+    assert.ok(Date.now() < deadline, message);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
 const SCRIPTS = [
   'src/lib/shared.js',
   'src/lib/selectors.js',
@@ -233,7 +240,7 @@ const archivedFilesDone = (async () => {
   const addFile = (id) => list.insertAdjacentHTML('beforeend', `<dt id="file-expander-header-${id}" class="file-expander-header" data-id="${id}"><p>Late</p></dt>`
     + `<dd data-id="${id}"><div class="tabbed-block"><ul class="accordion-downloads"></ul></div></dd>`);
   addFile('44');
-  await new Promise((r) => setTimeout(r, 400));
+  await waitForState(() => links('44').length === 2, 'a late archived file must receive its download buttons');
   assert.deepEqual(links('44'), buttons('44'), 'a file Nexus draws later gets its buttons too');
 
   // Turned off: Nexus's boxes come back, and nothing is added any more.
