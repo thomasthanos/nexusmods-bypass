@@ -8,8 +8,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const en = JSON.parse(fs.readFileSync(path.join(root, 'src/_locales/en/messages.json'), 'utf8'));
 const tick = () => new Promise((resolve) => setTimeout(resolve, 15));
 
-function fixture(locale = 'en', { userAgent = '' } = {}) {
-  const dom = new JSDOM('<!doctype html><body><button id="opener">Settings</button></body>', {
+function fixture(locale = 'en', { userAgent = '', html = '<!doctype html><body><button id="opener">Settings</button></body>' } = {}) {
+  const dom = new JSDOM(html, {
     url: 'https://www.nexusmods.com/skyrimspecialedition/mods/1', runScripts: 'outside-only', pretendToBeVisual: true
   });
   const w = dom.window;
@@ -49,6 +49,45 @@ function fixture(locale = 'en', { userAgent = '' } = {}) {
   }
   const modal = () => w.document.querySelector('#nxtk-settings-modal .nxtk-modal');
   return { w, store, modal, close: () => { observers.forEach((o) => o.disconnect()); dom.window.close(); } };
+}
+
+async function popupRegressionTests() {
+  const html = fs.readFileSync(path.join(root, 'src/popup/popup.html'), 'utf8');
+  for (const failFirst of [true, false]) {
+    const f = fixture('el', { html });
+    try {
+      const pending = [];
+      const send = f.w.chrome.runtime.sendMessage;
+      f.w.NXTK.prepareRatingPrompt = async () => null;
+      f.w.chrome.runtime.sendMessage = (message, callback) => {
+        if (message.type === 'SETTINGS_PATCH') {
+          pending.push((ok) => ok ? send(message, callback) : callback({ ok: false, error: 'write-rejected' }));
+        } else send(message, callback);
+      };
+      f.w.eval(fs.readFileSync(path.join(root, 'src/popup/popup.js'), 'utf8'));
+      await tick();
+      const input = f.w.document.querySelector('[data-key="ForceEnglish"]');
+      const change = (checked) => {
+        input.checked = checked;
+        input.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+      };
+      change(true);
+      change(false);
+      await tick();
+      assert.equal(pending.length, 1, 'popup writes wait for the previous reply');
+      pending.shift()(!failFirst);
+      await tick();
+      assert.equal(input.checked, false, 'an older reply preserves the newer visible choice');
+      assert.equal(pending.length, 1, 'the next choice is saved after the first settles');
+      pending.shift()(failFirst);
+      await tick();
+      const expected = !failFirst;
+      assert.equal(input.checked, expected, 'the final switch matches the last successfully saved value');
+      assert.equal(f.store.nxtk_settings.ForceEnglish, expected);
+      assert.equal(f.w.document.documentElement.lang, expected ? 'en' : 'el', 'language metadata follows the saved setting');
+    } finally { f.close(); }
+  }
+  console.log('Popup settings regressions OK: ordered saves, rejected writes and language metadata');
 }
 
 async function settingsRegressionTests() {
@@ -156,6 +195,7 @@ async function settingsRegressionTests() {
 }
 
 (async () => {
+  await popupRegressionTests();
   await settingsRegressionTests();
   const f = fixture();
   const { w, store, modal } = f;

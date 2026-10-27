@@ -199,6 +199,34 @@ function createHarness(choice) {
   assert.deepEqual(commands, ['NDC_QUEUE_PAUSE', 'NDC_QUEUE_STOP'],
     'a browser run still controls its queue');
 
+  // The saved method may change while a browser job keeps running. Reconnecting must restore the
+  // job's method, or Stop and Pause take the local Vortex path and leave the worker downloading.
+  {
+    const resumed = createHarness('vortex');
+    const attachedCommands = [];
+    let settle;
+    resumed.ndc.ui.setProgress = () => {};
+    resumed.ndc.ui.setDownloadStatus = () => {};
+    resumed.ndc.watchBackgroundJob = () => new Promise((resolve) => { settle = resolve; });
+    NexusExt.Storage.sendDownloadCommand = async (type, payload) => {
+      attachedCommands.push({ type, payload });
+      return type === 'NDC_QUEUE_ATTACH'
+        ? { ok: true, value: { jobId: 'running-browser-job', status: 'paused', index: 2, total: 5 } }
+        : { ok: true, value: {} };
+    };
+    const attaching = resumed.ndc.resumeBackgroundRun();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(resumed.ndc.downloadMethod, 1, 'the worker job restores browser mode');
+    assert.equal(resumed.calls.selectedMethod, 1, 'the deck reflects the attached job');
+    resumed.ndc.setPaused(false);
+    resumed.ndc.stopDownload();
+    assert.deepEqual(attachedCommands.map(({ type }) => type), ['NDC_QUEUE_ATTACH', 'NDC_QUEUE_RESUME', 'NDC_QUEUE_STOP']);
+    assert.equal(attachedCommands[2].payload.jobId, 'running-browser-job', 'Stop targets the reconnected job');
+    assert.equal(resumed.calls.patch, 0, 'reattaching does not overwrite the saved method preference');
+    settle();
+    assert.equal(await attaching, true);
+  }
+
   // A Vortex run in size order: the smallest file goes first, a file with no size goes last, and a
   // removed mod is skipped without stopping the rest (#10 follow-up).
   const runVortexQueue = async (mods, answerFor) => {

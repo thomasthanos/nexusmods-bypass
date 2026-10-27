@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildDiscordMessage, sendDiscordReport, sendWebPush } from '../src/services/delivery.ts';
 import { errorReportSchema } from '../src/schemas/ingest.ts';
+import { testDatabase } from './helpers/d1.mjs';
+import { acceptErrorReport } from '../src/services/ingestion.ts';
+import { sendIssueNotifications, sendTestNotification } from '../src/services/notifications.ts';
 
 const NOW = 1_792_604_800_000;
 const fingerprint = 'ab'.repeat(32);
@@ -271,4 +274,37 @@ test('sanitizes push display text before it reaches the encrypted notification',
   const clear = await decrypt(requests[0].init.body);
   assert.ok(!JSON.stringify(clear).includes('owner@example.com'));
   assert.ok(!JSON.stringify(clear).includes('plaintext-secret'));
+});
+
+test('issue and test pushes preserve unread review badges and exclude resolved or muted issues', async (t) => {
+  const db = testDatabase(t);
+  t.mock.method(Date, 'now', () => NOW);
+  const accepted = await acceptErrorReport(db, report(), NOW);
+  const copy = db.sqlite.prepare(`INSERT INTO issues (fingerprint,error_category,error_code,failure_stage,normalized_top_frame,destination,category,fault_origin,suggested_action,
+    first_seen_at,last_seen_at,first_seen_version,last_seen_version,created_at,updated_at,status,muted,fixed_in_version)
+    SELECT ?,error_category,error_code,failure_stage,normalized_top_frame,destination,category,fault_origin,suggested_action,
+    first_seen_at,last_seen_at,first_seen_version,last_seen_version,created_at,updated_at,?,?,'3.2.0' FROM issues WHERE id=?`);
+  copy.run('c'.repeat(64), 'fixed', 0, accepted.issueId);
+  copy.run('d'.repeat(64), 'new', 1, accepted.issueId);
+  const review = db.sqlite.prepare(`INSERT INTO store_reviews (id,author,rating,body,created_at,updated_at,first_seen_at,last_seen_at,first_seen_run_token,acknowledged_at)
+    VALUES (?,'Reviewer',5,'Useful',?,?,?,?, 'test',?)`);
+  for (const [id, read] of [['1', null], ['2', null], ['3', NOW]]) {
+    review.run(`12345678-1234-4234-8234-${id.padStart(12, '0')}`, NOW, NOW, NOW, NOW, read);
+  }
+  db.sqlite.prepare('INSERT INTO push_subscriptions (endpoint,p256dh,auth,created_at,updated_at) VALUES (?,?,?,?,?)')
+    .run(material.target.endpoint, material.target.p256dh, material.target.auth, NOW, NOW);
+  const config = { ...context(), discordWebhookUrl: 'https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz_0123456789', vapid: material.vapid };
+  const requests = network(t);
+  const sent = await sendIssueNotifications(db, { issueId: accepted.issueId, report: accepted.report, rule: accepted.rule, isNewIssue: true, now: NOW }, config);
+  assert.equal(sent.push.delivered, 1);
+  let pushes = requests.filter(({ url }) => url === material.target.endpoint);
+  assert.equal((await decrypt(pushes[0].init.body)).badge_count, 3);
+  assert.equal((await sendTestNotification(db, config, NOW)).delivered, 1);
+  pushes = requests.filter(({ url }) => url === material.target.endpoint);
+  assert.equal((await decrypt(pushes[1].init.body)).badge_count, 3);
+  db.sqlite.prepare('UPDATE store_reviews SET acknowledged_at=?').run(NOW);
+  db.sqlite.prepare("UPDATE issues SET status='ignored' WHERE id=?").run(accepted.issueId);
+  await sendTestNotification(db, config, NOW);
+  pushes = requests.filter(({ url }) => url === material.target.endpoint);
+  assert.equal((await decrypt(pushes[2].init.body)).badge_count, 0);
 });

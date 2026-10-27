@@ -96,6 +96,8 @@ async function bridgeTests() {
     result = await call({});
     assert.equal(result.status, 503);
     assert.equal(result.headers.get('retry-after'), '60');
+    assert.equal(result.headers.get('access-control-expose-headers'), 'retry-after',
+      'the extension can read when unavailable diagnostics should be retried');
     for (const status of [400, 401, 403, 409, 413, 415, 422, 429, 500, 302]) {
       result = await call({ DIAGNOSTICS: { async fetch() { return new Response('PRIVATE upstream detail', { status,
         headers: { 'set-cookie': 'PRIVATE', location: 'https://evil.example', 'retry-after': '999999999', 'content-type': 'text/plain' } }); } } });
@@ -103,7 +105,11 @@ async function bridgeTests() {
       assert.equal(result.headers.get('set-cookie'), null);
       assert.equal(result.headers.get('location'), null);
       assert.doesNotMatch(await result.text(), /PRIVATE|evil/);
-      if (status === 429) assert.equal(result.headers.get('retry-after'), '86400');
+      if (status === 429) {
+        assert.equal(result.headers.get('retry-after'), '86400');
+        assert.equal(result.headers.get('access-control-expose-headers'), 'retry-after',
+          'the diagnostics cooldown crosses the CORS bridge');
+      }
     }
     for (const response of [new Response('<html>login</html>', { headers: { 'content-type': 'text/html' } }),
       success('report_id', heartbeatId), Response.json({ ok: true, report_id: reportId, duplicate: 'yes' }),

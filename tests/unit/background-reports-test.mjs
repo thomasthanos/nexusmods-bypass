@@ -62,6 +62,43 @@ async function debugLogAndAutoReports() {
 
 }
 
+async function debugClearWaitsForPendingAppends() {
+  const S = context.__STORAGE_HANDLERS;
+  const realGet = global.chrome.storage.local.get;
+  await storageSetLocal(NXTK.DEBUG_LOG_KEY, [{ text: 'before clear' }]);
+  let releaseRead;
+  let startedRead;
+  const reading = new Promise((resolve) => { startedRead = resolve; });
+  global.chrome.storage.local.get = (key, callback) => {
+    if (key !== NXTK.DEBUG_LOG_KEY || releaseRead) return realGet(key, callback);
+    realGet(key, (snapshot) => {
+      releaseRead = () => callback(snapshot);
+      startedRead();
+    });
+  };
+  try {
+    const append = S.DEBUG_LOG_APPEND({ entries: [{ text: 'append already pending' }] });
+    await reading;
+    const clear = S.DEBUG_LOG_CLEAR();
+    // Let the clear reach its write if it is not serialized with the pending append.
+    await Promise.resolve();
+    releaseRead();
+    await Promise.all([append, clear]);
+    assert.deepEqual(await storageGetLocal(NXTK.DEBUG_LOG_KEY, null), [],
+      'clearing the log also clears an append that was already pending');
+
+    await Promise.all([
+      S.DEBUG_LOG_CLEAR(),
+      S.DEBUG_LOG_APPEND({ entries: [{ text: 'after clear' }] })
+    ]);
+    const log = await storageGetLocal(NXTK.DEBUG_LOG_KEY, []);
+    assert.deepEqual(log.map((line) => line.text), ['after clear'], 'a later append survives the clear');
+  } finally {
+    releaseRead?.();
+    global.chrome.storage.local.get = realGet;
+  }
+}
+
 // A repeating failure must not evict the history that explains it.
 async function errorLogCollapsing() {
   await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
@@ -176,6 +213,7 @@ Promise.resolve()
   .then(errorLogCollapsing)
   .then(expectedOutcomesStayOutOfTheLog)
   .then(debugLogAndAutoReports)
+  .then(debugClearWaitsForPendingAppends)
   .then(queueFailureLogKeepsDistinctFaults)
   .then(() => console.log('background.js report behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

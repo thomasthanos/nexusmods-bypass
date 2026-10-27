@@ -268,6 +268,18 @@ async function rejectsCode(action, code, message) {
     State: { $type: 'Wabbajack.Downloaders.Nexus.NexusDownloader, Wabbajack.Downloaders.Nexus' }
   });
   assert.equal(Importer.analyzeManifest({ Archives: [namespaced] }).items.length, 1);
+  for (const type of ['Nexus', 'nexus', 'Wabbajack.DTOs.DownloadStates.Nexus, Wabbajack.DTOs']) {
+    const alias = nexusArchive('Skyrim', 1, 2, { State: { $type: type } });
+    const list = await Importer.importFile(buildZip([{
+      name: 'modlist', data: JSON.stringify({ Archives: [alias] })
+    }]));
+    assert.equal(list.items.length, 1, `${type}: a Nexus DTO alias imports its file`);
+    assert.equal(list.items[0].fileId, 2);
+    assert.equal(list.skipped.length, 0, `${type}: the entry is not mistaken for an external download`);
+  }
+  assert.equal(Importer.analyzeManifest({ Archives: [
+    nexusArchive('Skyrim', 1, 2, { State: { $type: 'NotNexus' } })
+  ] }).items.length, 0, 'an unrelated declared downloader cannot match the Nexus alias');
   const untyped = nexusArchive('Skyrim', 1, 2, { State: { $type: undefined } });
   assert.equal(Importer.analyzeManifest({ Archives: [untyped] }).items.length, 1);
   const unrelated = nexusArchive('Skyrim', 1, 2, {
@@ -623,6 +635,28 @@ async function rejectsCode(action, code, message) {
     'bad-entry-name', 'and a suffix is held to the same rule');
   assert.equal(await ZipReader.readEntry(buildZip([{ name: 'περιεχόμενο', data: 'ναι', store: true }]), 'modlist'),
     null, 'a UTF-8 entry name is walked past without upsetting the directory scan');
+
+  // A cancellation can land while the final (often only) asynchronous file read is pending.
+  // It must stop before hashing that chunk or looking the archive up on Nexus.
+  const cancelled = new AbortController();
+  cancelled.abort();
+  await assert.rejects(() => Importer.md5File(new Blob(), { signal: cancelled.signal }), /aborted/,
+    'an already-cancelled empty file does not finish hashing');
+  const duringRead = new AbortController();
+  const cancelledFile = {
+    name: 'cancelled.7z', size: 3,
+    slice: () => ({ arrayBuffer: async () => { duringRead.abort(); return new Uint8Array([1, 2, 3]).buffer; } })
+  };
+  let hashLookups = 0;
+  let progressEvents = 0;
+  const cancelledResults = await Importer.identifyArchives([cancelledFile], {
+    signal: duringRead.signal,
+    onProgress: () => { progressEvents++; },
+    api: { fileByMd5: async () => { hashLookups++; return []; } }
+  });
+  assert.equal(hashLookups, 0, 'cancelling the final read prevents the Nexus hash lookup');
+  assert.equal(progressEvents, 0, 'a cancelled read is not presented as completed progress');
+  assert.equal(cancelledResults.length, 0, 'cancelling identification produces no failed archive result');
 
   console.log('wabbajack importer OK');
 })().catch((error) => {

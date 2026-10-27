@@ -51,6 +51,26 @@ test('overview uses weighted server totals, live-window alerts and null-safe rel
   assert.doesNotMatch(document.querySelector('[data-comparison-result]').textContent, /NaN|Infinity/);
 });
 
+test('release pagination can return from an emptied last page after refresh', async (t) => {
+  let total = 11;
+  const { document, calls } = setup(t, (path) => {
+    if (!path.startsWith('/releases?')) return undefined;
+    const page = Number(new URL(path, 'https://diagnostics.test').searchParams.get('page'));
+    return { items: page === 1 || total > 10 ? [{ version: '3.2.0', ...overview.releases }] : [], total, page, limit: 10 };
+  });
+  await tick();
+  document.querySelector('.release-panel .pagination button:last-child').click(); await tick();
+  total = 1;
+  document.querySelector('#refresh-button').click(); await tick();
+  assert.match(document.querySelector('.release-panel').textContent, /No release telemetry/);
+  const previous = document.querySelector('.release-panel .pagination button:first-child');
+  assert.ok(previous, 'empty pages must keep a route back to earlier releases');
+  assert.equal(previous.disabled, false);
+  previous.click(); await tick();
+  assert.equal(new URL(calls.filter(({ path }) => path.startsWith('/releases?')).at(-1).path, 'https://diagnostics.test').searchParams.get('page'), '1');
+  assert.ok(document.querySelector('.release-panel .release-row'));
+});
+
 test('listing sources load alongside pending diagnostics and survive a diagnostics failure', async (t) => {
   const pending = Promise.withResolvers();
   const { document, calls } = setup(t, (path) => {

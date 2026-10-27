@@ -142,7 +142,9 @@ window.NexusExt = window.NexusExt || {};
       const fromHeader = Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0 ? retryAfterSeconds * 1000 : null;
       const backoff = Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * (2 ** limiter.strikes)) * (1 + random() * 0.2);
       limiter.strikes = Math.min(limiter.strikes + 1, 8);
-      limiter.blockedUntil = now() + (fromHeader ?? backoff);
+      // Concurrent requests can finish out of order: a shorter Retry-After must not erase a
+      // longer wait another response already imposed on this shared client.
+      limiter.blockedUntil = Math.max(limiter.blockedUntil, now() + (fromHeader ?? backoff));
       bucket.tokens = 0;
     }
 
@@ -270,14 +272,19 @@ window.NexusExt = window.NexusExt || {};
       query, operationName, variables = {}, context = 'Nexus API', signal = null, timeoutMs,
       cacheKey = '', ttlMs = 0, permanentIf = null, fallback = true, mutation = false, retries = 2, optional = false
     }) {
+      if (signal?.aborted) return abortedResult(context);
       const modsVersion = modsCacheVersion;
       const cached = mutation ? null : await readCache(cacheKey);
+      if (signal?.aborted) return abortedResult(context);
       if (cached != null) {
         stats.cacheHits++;
         return { ok: true, status: 200, text: cached, source: 'cache' };
       }
       const key = !mutation && cacheKey ? cacheKey : '';
-      if (key && inflight.has(key)) return inflight.get(key);
+      // Only callers with the same cancellation lifetime may share a request. A collection being
+      // disposed must not abort an identical lookup another page feature is still waiting for.
+      const pending = key && inflight.get(key);
+      if (pending && pending.signal === signal) return pending.promise;
 
       const finish = async (result, source, firstAttempt) => {
         let final = { ...result, source };
@@ -328,8 +335,9 @@ window.NexusExt = window.NexusExt || {};
         }
       })();
       if (key) {
-        inflight.set(key, run);
-        run.finally(() => { if (inflight.get(key) === run) inflight.delete(key); }).catch(() => {});
+        const entry = { signal, promise: run };
+        inflight.set(key, entry);
+        run.finally(() => { if (inflight.get(key) === entry) inflight.delete(key); }).catch(() => {});
       }
       return run;
     }

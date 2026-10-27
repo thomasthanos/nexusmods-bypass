@@ -2,6 +2,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { fetchStoreSnapshot } from './store-source.ts';
 import type { StoreReview, StoreSnapshot } from './store-source.ts';
 import { sendWebPush } from './delivery.ts';
+import { appBadgeCount } from './badge.ts';
 import type { DeliveryResult, PushPayload, PushTarget } from './delivery.ts';
 
 type Clock = number | (() => number);
@@ -212,15 +213,14 @@ export async function dispatchReviewPush(db: D1Database, configuration: ReviewPu
     .bind(token, started + LEASE_MS, started, started, MAX_TARGETS).all<Target>();
   const summary: ReviewPushSummary = { attempted: 0, delivered: 0, failed: 0, expired: 0, retryable: false };
   if (!claimed.results.length) return summary;
-  const badge = await db.prepare(`SELECT (SELECT COUNT(*) FROM store_reviews WHERE acknowledged_at IS NULL)
-    +(SELECT COUNT(*) FROM issues WHERE status IN('new','investigating','regressed') AND muted=0) AS count`).first<{ count: number }>();
+  const badge = await appBadgeCount(db);
   const deadline = performance.now() + DELIVERY_BUDGET_MS; let next = 0;
   async function deliver(target: Target): Promise<void> {
     summary.attempted++;
     const payload: PushPayload = { title: `New store review · ${target.rating}/5`,
       body: text(`${target.author}: ${target.body}`, 240), tag: `store-review:${target.review_id}`,
       data: { url: `${dashboard}/?review=${target.review_id}`, issue_id: null, fingerprint: null, trigger: 'NEW_REVIEW', review_id: target.review_id },
-      badge_count: Math.min(9999, badge?.count ?? 0) };
+      badge_count: badge };
     let result: DeliveryResult;
     try { result = await (options.send ?? sendWebPush)(target, payload, vapid, { now: started, timeoutMs: 4000 }); }
     catch { result = failure(); }

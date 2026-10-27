@@ -140,36 +140,40 @@ async function classifiedRateLimitWaitsInsteadOfFailing() {
   };
 
   try {
-    await storageSetLocal(rateLimitKey, { until: 0 });
-    await storageSetLocal(`nxtk_ndc_items:${jobId}`, [item]);
-    await storageSetLocal(NDC_JOBS_KEY, {
-      [jobId]: {
-        id: jobId, tabId: 7, gameId: '1704', collectionId: 'rate-classifier', type: 'all',
-        itemCount: 1, index: 0, completed: 0, failed: [], status: 'running',
-        activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now()
-      }
-    });
-    let calls = 0;
-    context.fetch = async (url) => {
-      calls += 1;
-      return {
-        ok: true,
-        status: 200,
-        url: String(url),
-        text: async () => calls === 1
-          ? '<a href="/auth/sign_out">Log out</a><a data-download-url="x">Download</a>'
-          : '<p>Too many requests from your account</p>',
-        headers: { get: (name) => name === 'Retry-After' ? '1' : '' }
+    for (const limitedResponse of [1, 2]) {
+      await storageSetLocal(rateLimitKey, { until: 0 });
+      await storageSetLocal(`nxtk_ndc_items:${jobId}`, [item]);
+      await storageSetLocal(NDC_JOBS_KEY, {
+        [jobId]: {
+          id: jobId, tabId: 7, gameId: '1704', collectionId: 'rate-classifier', type: 'all',
+          itemCount: 1, index: 0, completed: 0, failed: [], status: 'running',
+          activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now()
+        }
+      });
+      let calls = 0;
+      context.fetch = async (url) => {
+        calls += 1;
+        return {
+          ok: true,
+          status: 200,
+          url: String(url),
+          text: async () => calls === limitedResponse
+            ? '<p>Too many requests from your account</p>'
+            : '<a href="/auth/sign_out">Log out</a><a data-download-url="x">Download</a>',
+          headers: { get: (name) => name === 'Retry-After' ? '120' : '' }
+        };
       };
-    };
 
-    await advanceNdcJob(jobId);
-    const job = await readNdcJob(jobId);
-    assert.equal(calls, 2, 'the page and generated response both pass through the worker request path');
-    assert.equal(job.status, 'running', 'a rate limit waits instead of blocking the job as an account fault');
-    assert.equal(job.index, 0, 'the current file is retained for the later retry');
-    assert.equal(jobFailureCount(job), 0, 'a wait is not recorded as a failed file');
-    assert.ok(job.waitingUntil > Date.now(), 'the queue schedules a backoff');
+      const before = Date.now();
+      await advanceNdcJob(jobId);
+      const job = await readNdcJob(jobId);
+      assert.equal(calls, limitedResponse, 'rate limiting on either response stops further requests');
+      assert.equal(job.status, 'running', 'a rate limit waits instead of blocking the job as an account fault');
+      assert.equal(job.index, 0, 'the current file is retained for the later retry');
+      assert.equal(jobFailureCount(job), 0, 'a wait is not recorded as a failed file');
+      assert.ok(job.waitingUntil >= before + 120000, 'the queue respects Retry-After on a classified rate limit');
+      assert.ok(job.waitingUntil <= Date.now() + 120000, 'the explicit wait replaces the fallback backoff');
+    }
   } finally {
     context.fetch = previousFetch;
     await storageSetLocal(rateLimitKey, { until: 0 });

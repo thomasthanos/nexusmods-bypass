@@ -39,6 +39,16 @@ async function downloadStartsAreDeduplicated() {
     assert.equal(native.downloadId, 7);
     assert.equal(started.length, 2);
 
+    context.__recentDownloadStarts.clear();
+    browserItems = [{ ...browserItems[0], startTime: new Date(Date.now() - 10 * 60 * 1000).toISOString() }];
+    global.chrome.downloads.search = (query, cb) => cb(browserItems.filter((item) => (
+      query.state ? item.state === query.state : Date.parse(item.startTime) > Date.parse(query.startedAfter)
+    )));
+    const longRunning = await H.DOWNLOAD_START(payload);
+    assert.equal(longRunning.downloadId, 7, 'a ten-minute transfer is still reused after the worker forgets its starts');
+    assert.equal(longRunning.duplicate, true);
+    assert.equal(started.length, 2, 'an older active transfer does not start a second copy');
+
     const find = context.findDuplicateDownload;
     const now = Date.now();
     assert.ok(find([{ id: 1, state: 'complete', filename: '/d/File (1).zip', url: 'https://x/a', startTime: new Date(now - 5000).toISOString() }], { url: 'https://y/b', filename: 'file.zip', now }), 'renamed copy counts');

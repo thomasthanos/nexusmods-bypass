@@ -316,6 +316,28 @@ test('long written feedback keeps its full inert text in a collapsed disclosure'
   assert.equal(content.querySelector('.growth-review-expand').textContent, 'Read full review');
 });
 
+test('store polling keeps an expanded review and its keyboard focus in place', async (t) => {
+  const { container, intervals, advance } = setup(t, (path) => path === '/store' ? store({ reviews: [review({ body: 'Long public review. '.repeat(40) })] }) : undefined);
+  await tick();
+  const content = container.querySelector('.growth-review-text');
+  content.open = true; content.querySelector('summary').focus();
+  advance(900000); [...intervals.values()][0].callback(); await tick();
+  const updated = container.querySelector('.growth-review-text');
+  assert.notEqual(updated, content, 'the store response replaced the card');
+  assert.equal(updated.open, true);
+  assert.equal(updated.querySelector('.growth-review-expand').textContent, 'Show less');
+  assert.equal(container.ownerDocument.activeElement, updated.querySelector('summary'));
+});
+
+test('acknowledging a review keeps its full text expanded', async (t) => {
+  const { container } = setup(t, (path) => path === '/store' ? store({ reviews: [review({ body: 'Long public review. '.repeat(40) })] }) : undefined);
+  await tick();
+  container.querySelector('.growth-review-text').open = true;
+  container.querySelector('[data-action="ack-review"]').click(); await tick();
+  assert.equal(container.querySelector('.growth-review-text').open, true);
+  assert.equal(container.querySelector('[data-action="ack-review"]'), null);
+});
+
 test('expanded review history survives freshness status updates and a store refresh', async (t) => {
   const reviews = reviewHistory();
   const { container, dom, intervals, advance } = setup(t, (path) => path === '/store' ? store({ reviews, new_review_count: 0 }) : undefined); await tick();

@@ -30,7 +30,10 @@ function fixture(html = '<!doctype html><body></body>', url = 'https://www.nexus
         if (message.type === 'AUTO_REPORT_PROMPT_CLAIM') reply.value = claims++ === 0;
         if (message.type === 'SETTINGS_PATCH') {
           reply.ok = !failSave;
-          if (!failSave) Object.assign(store, { nxtk_settings: { ...store.nxtk_settings, ...message.payload.patch } });
+          if (!failSave) {
+            Object.assign(store, { nxtk_settings: { ...store.nxtk_settings, ...message.payload.patch } });
+            reply.value = store.nxtk_settings;
+          } else reply.error = 'write-rejected';
         }
         return callbackOrPromise(callback, reply);
       }
@@ -105,6 +108,34 @@ async function run() {
     assert.match(f.w.document.querySelector('.nxtk-error-code').textContent, /E-[a-z0-9]{7}/);
     f.close();
   }
+  for (const failure of ['rejected', 'throws']) {
+    const f = fixture();
+    for (const file of ['src/content/errors.js', 'src/content/storage.js', 'src/content/ui.js']) script(f.w, file);
+    const patchSetting = f.w.NexusExt.Storage.patchSetting;
+    let switches = 0;
+    if (failure === 'throws') f.w.NexusExt.Storage.patchSetting = async () => { throw new Error('storage unavailable'); };
+    else f.failSave(true);
+    const error = f.w.NexusExt.Errors.create('no_nmm_link', { record: false });
+    f.w.NexusExt.UI.showError(error, { method: 'vortex', onSwitchToBrowser: () => { switches++; } });
+    const button = f.w.document.querySelector('[data-switch-browser]');
+    button.click();
+    assert.equal(button.disabled, true, 'switch stays busy while saving the download method');
+    await tick();
+    assert.ok(f.w.document.querySelector('#nxtk-error-modal'), `${failure} save keeps the error dialog available`);
+    assert.equal(button.disabled, false, 'a failed switch can be retried');
+    assert.equal(button.hasAttribute('aria-busy'), false);
+    assert.match(f.w.document.querySelector('.nxtk-error-recovery[role="alert"]').textContent, /could not be saved/);
+    assert.equal(f.w.document.querySelector('.nxtk-notice-toast'), null, 'a failed write never announces a switch');
+    assert.equal(switches, 0, 'a failed write never retries in the unchanged download mode');
+    f.failSave(false);
+    f.w.NexusExt.Storage.patchSetting = patchSetting;
+    button.click(); await tick();
+    assert.equal(f.store.nxtk_settings.NDC_downloadMethod, 1);
+    assert.equal(switches, 1, 'download retries only after the new mode is saved');
+    assert.equal(f.w.document.querySelector('#nxtk-error-modal'), null);
+    assert.match(f.w.document.querySelector('.nxtk-notice-toast').textContent, /Switched to browser downloads/);
+    f.close();
+  }
   {
     const error = { code: 'nexus_api_changed', context: 'Earlier collection failure', url: 'https://www.nexusmods.com/games/skyrim/collections/abc' };
     const f = fixture(fs.readFileSync('src/report-page/report.html', 'utf8'), `https://extension.test/report-page/report.html#${encodeURIComponent(JSON.stringify(error))}`);
@@ -142,6 +173,30 @@ async function run() {
     assert.equal(privateReports.disabled, true);
     f.close();
   }
-  console.log('Report consent/UI tests passed: one-time invitation, explicit opt-in, keyboard/accessibility, Greek copy and selected-error details.');
+  {
+    const f = fixture(fs.readFileSync('src/report-page/report.html', 'utf8'), 'https://extension.test/report-page/report.html');
+    const makePayload = (options) => ({ version: '3.1.1', browser: 'Chrome 155', errors: [], logs: [], currentError: null,
+      reference: '', summary: options.summary, note: options.note });
+    f.w.NXTK.buildReportPayload = async (_selected, options) => makePayload(options);
+    script(f.w, 'src/report-page/report.js'); await tick();
+    const preview = f.w.document.getElementById('rpPreview');
+    const note = f.w.document.getElementById('rpNote');
+    let release;
+    let copied;
+    f.w.NXTK.buildReportPayload = (_selected, options) => new Promise((resolve) => {
+      release = () => resolve(makePayload(options));
+    });
+    f.w.NXTK.copyText = async (text) => { copied = JSON.parse(text); return true; };
+    note.value = 'The report I clicked Copy for';
+    f.w.document.getElementById('rpCopy').click();
+    assert.equal(typeof release, 'function', 'copy waits for its fresh report snapshot');
+    note.value = 'A later edit while storage is still being read';
+    note.dispatchEvent(new f.w.Event('input', { bubbles: true }));
+    release(); await tick();
+    assert.equal(copied.note, 'The report I clicked Copy for', 'copy uses the requested snapshot even when a later edit supersedes its preview');
+    assert.equal(JSON.parse(preview.textContent).note, '', 'an obsolete rebuild never overwrites the newer form preview');
+    f.close();
+  }
+  console.log('Report consent/UI tests OK: one-time invitation, explicit opt-in, keyboard/accessibility, Greek copy, selected errors and copy snapshots.');
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; });

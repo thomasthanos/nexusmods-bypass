@@ -293,7 +293,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       const releasePanel = ui.panel('By release', { icon: 'release', className: 'release-panel' });
       if (!releases.items?.length) empty(releasePanel, 'No release telemetry', 'Try a wider date range or a different browser and destination.');
       else releasePanel.append(releaseList(releases.items));
-      if (releases.total > 0 && releases.items?.length) pagination(releasePanel, releases, (page) => { releasePage = page; void loadOverview(); });
+      if (releases.total > 0 || releases.page > 1) pagination(releasePanel, releases, (page) => { releasePage = page; void loadOverview(); });
       renderComparison(releasePanel, releases.items ?? [], generation);
       target.append(releasePanel);
     } catch (error) { if (isCurrent(generation)) showError(target, error, () => { void loadOverview(); }); }

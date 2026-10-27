@@ -73,7 +73,8 @@
     Object.entries(GAMES).map(([name, metadata]) => [name, metadata?.id ?? null])
   ));
 
-  const NEXUS_STATE_TYPE = /(?:^|\.)NexusDownloader(?:\+State)?$/i;
+  // Wabbajack's Nexus DTO declares both the legacy NexusDownloader name and the Nexus alias.
+  const NEXUS_STATE_TYPE = /(?:^|\.)Nexus(?:Downloader(?:\+State)?)?$/i;
   const DOWNLOADER_LABEL_PATTERN = /^[A-Za-z0-9]{1,40}$/;
 
   function cleanText(value, maxLength = 300) {
@@ -492,13 +493,16 @@
 
   const MD5_CHUNK = 4 * 1024 * 1024;
   async function md5File(file, { onProgress, signal } = {}) {
+    if (signal?.aborted) throw new Error('aborted');
     const hash = createMd5();
     for (let offset = 0; offset < file.size; offset += MD5_CHUNK) {
       if (signal?.aborted) throw new Error('aborted');
       const chunk = new Uint8Array(await file.slice(offset, offset + MD5_CHUNK).arrayBuffer());
+      if (signal?.aborted) throw new Error('aborted');
       hash.update(chunk);
       onProgress?.(Math.min(1, (offset + chunk.length) / file.size));
     }
+    if (signal?.aborted) throw new Error('aborted');
     return hash.digest();
   }
 
@@ -522,6 +526,7 @@
           }
         });
       } catch (cause) {
+        if (signal?.aborted) break;
         results.push({ name: file.name, md5: '', match: null, error: String(cause?.message || cause) });
       }
     }

@@ -726,9 +726,21 @@ window.NexusExt = window.NexusExt || {};
         setTimeout(tick, 1000);
       }
       modal.querySelector('[data-open-file-page]')?.addEventListener('click', () => close());
-      modal.querySelector('[data-switch-browser]')?.addEventListener('click', async () => {
+      modal.querySelector('[data-switch-browser]')?.addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        let saved = false;
+        try { saved = await NexusExt.Storage?.patchSetting?.('NDC_downloadMethod', 1); } catch (_) { }
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        if (!saved) {
+          const recovery = modal.querySelector('.nxtk-error-recovery');
+          recovery.setAttribute('role', 'alert');
+          recovery.textContent = NXTK.t('rpSettingFailed', null, 'The setting could not be saved. Try again.');
+          return;
+        }
         close();
-        try { await NexusExt.Storage?.patchSetting?.('NDC_downloadMethod', 1); } catch (_) { }
         showNotice({
           title: NXTK.t('noticeSwitchedToBrowserTitle', null, 'Switched to browser downloads'),
           detail: NXTK.t('noticeSwitchedToBrowserDetail', null, 'Collections now save real files to your Downloads folder. On a file page, use "Manual download" for single files. You can switch back in settings.'),

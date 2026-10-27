@@ -92,6 +92,30 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal(after.ok, true, 'sends again once the backoff is over');
   }
 
+  // Concurrent rate-limit answers may arrive in either order. The longest active wait wins.
+  {
+    const releases = [];
+    const api = NexusApi.createNexusApi({
+      now: () => 1_000_000,
+      sleep: async () => assert.fail('the active five-minute cooldown must be returned without an inline wait'),
+      storage: null,
+      request: () => releases.length < 2
+        ? new Promise((resolve) => releases.push(resolve))
+        : Promise.resolve(ok({ data: {} }))
+    });
+    const first = api.graphql({ query: 'first', retries: 0 });
+    const second = api.graphql({ query: 'second', retries: 0 });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(releases.length, 2);
+    releases[0](limited(300));
+    await first;
+    releases[1](limited(1));
+    await second;
+    const blocked = await api.graphql({ query: 'third', retries: 0 });
+    assert.equal(blocked.rateLimit.retryAfterSeconds, 300, 'a later short response cannot shorten the active cooldown');
+    assert.equal(releases.length, 2, 'no request is sent during the longer cooldown');
+  }
+
   // ---- Mutations: never retried, cached or rerouted.
   {
     const h = harness({ responses: [limited(1)] });
@@ -154,6 +178,30 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal(reads, 1, 'cache initialization is shared across different concurrent queries');
     release({});
     assert.deepEqual(await Promise.all([a, b]), ['1', '2']);
+  }
+
+  // Sharing a cache key must not also share unrelated cancellation lifetimes.
+  {
+    const requests = [];
+    const api = NexusApi.createNexusApi({ storage: null, request: (_url, _options, { signal }) => new Promise((resolve) => {
+      requests.push({ signal, resolve });
+      signal.addEventListener('abort', () => resolve({ ok: false, status: 0, text: '', error: { code: 'aborted' } }), { once: true });
+    }) });
+    const a = new AbortController();
+    const b = new AbortController();
+    const options = { query: 'lookup', cacheKey: 'shared-read', ttlMs: 10000 };
+    const first = api.graphql({ ...options, signal: a.signal });
+    const second = api.graphql({ ...options, signal: b.signal });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(requests.length, 2, 'independently cancellable callers use independent requests');
+    a.abort();
+    assert.equal((await first).error.code, 'aborted');
+    requests[1].resolve(ok({ data: { value: 42 } }));
+    assert.equal((await second).ok, true, 'disposing one caller leaves the other lookup intact');
+    assert.equal((await api.graphql(options)).source, 'cache', 'the surviving lookup populates the shared cache');
+    b.abort();
+    assert.equal((await api.graphql({ ...options, signal: b.signal })).error.code, 'aborted', 'an aborted caller does not return a cached success');
+    assert.equal(requests.length, 2);
   }
 
   // Successful actions invalidate viewer-state caches; refused actions keep valid cached data.

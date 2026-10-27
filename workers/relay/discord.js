@@ -158,8 +158,12 @@ export async function postWebhook(webhookUrl, message, {
   const started = now();
   let result = { ok: false, status: 0, attempts: 0, retryAfterMs: null, error: 'not sent' };
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const remainingMs = budgetMs - (now() - started);
+    if (remainingMs <= 0) return result;
     const controller = typeof globalThis.AbortController === 'function' ? new globalThis.AbortController() : null;
-    const timer = controller ? setTimeout(() => controller.abort(), Math.max(1000, timeoutMs)) : null;
+    // A retry shares the original deadline; giving it another full timeout can outlive the
+    // extension's request and make a successfully delivered report look like a failure.
+    const timer = controller ? setTimeout(() => controller.abort(), Math.min(remainingMs, Math.max(1, timeoutMs))) : null;
     let response = null;
     let body = null;
     let failure = '';
@@ -187,7 +191,7 @@ export async function postWebhook(webhookUrl, message, {
       result = { ok: false, status: 0, attempts: attempt, retryAfterMs: null, error: failure };
       delay = backoffMs(attempt, { random });
     }
-    if (attempt >= maxAttempts || now() - started + delay > budgetMs) return result;
+    if (attempt >= maxAttempts || now() - started + delay >= budgetMs) return result;
     await sleep(delay);
   }
   return result;

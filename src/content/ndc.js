@@ -1243,6 +1243,10 @@ window.NexusExt = window.NexusExt || {};
       const total = Math.max(1, Number(snapshot.total) || 0);
       const index = Math.min(Math.max(0, Number(snapshot.index) || 0), total);
 
+      // An attached worker job always downloads through the browser, even when the saved choice
+      // changed since it started. Stop and Pause route their commands by this method.
+      this.downloadMethod = DOWNLOAD_METHOD_BROWSER;
+      this.ui.setDownloadMethod?.(DOWNLOAD_METHOD_BROWSER);
       this.ui.startDownload(total, { resumed: true });
       this.ui.setProgress(index, total);
       this.ui.setDownloadStatus(snapshot.status);

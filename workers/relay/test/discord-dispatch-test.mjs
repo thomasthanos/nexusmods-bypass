@@ -51,6 +51,7 @@ function harness(responses) {
       calls.push({ url, init });
       const next = responses.shift();
       if (next instanceof Error) throw next;
+      clock += next.elapsedMs || 0;
       return new Response(next.body === undefined ? null : JSON.stringify(next.body), { status: next.status, headers: next.headers || {} });
     },
     sleep: async (ms) => { sleeps.push(ms); clock += ms; },
@@ -103,6 +104,39 @@ for (const bad of ['', 'not a url', 'http://discord.invalid/api/webhooks/1/token
   const result = await postWebhook(bad, {}, h.options);
   assert.deepEqual(result, { ok: false, status: 0, attempts: 0, retryAfterMs: null, error: 'invalid webhook URL' });
   assert.equal(h.calls.length, 0, 'only https webhooks are called');
+}
+{
+  // The second attempt has only 100 ms left, rather than a fresh full request timeout.
+  const h = harness([{ status: 503, elapsedMs: 750 }, { status: 200 }]);
+  const originalTimeout = globalThis.setTimeout;
+  const deadlines = [];
+  globalThis.setTimeout = (callback, ms, ...args) => {
+    deadlines.push(ms);
+    return originalTimeout(callback, ms, ...args);
+  };
+  try {
+    const result = await postWebhook(url, {}, { ...h.options, random: () => 0, budgetMs: 1100, timeoutMs: 1000 });
+    assert.equal(result.ok, true);
+    assert.deepEqual(deadlines, [1000, 100], 'every attempt is bounded by the remaining delivery budget');
+  } finally {
+    globalThis.setTimeout = originalTimeout;
+  }
+}
+{
+  const h = harness([{ status: 503 }]);
+  const result = await postWebhook(url, {}, { ...h.options, random: () => 0, budgetMs: 250 });
+  assert.equal(result.status, 503);
+  assert.equal(h.sleeps.length, 0, 'do not sleep until the deadline with no time left to retry');
+  assert.equal(h.calls.length, 1);
+}
+{
+  const h = harness([{ status: 503 }, { status: 200 }]);
+  const result = await postWebhook(url, {}, {
+    ...h.options, budgetMs: 500,
+    sleep: async () => h.options.sleep(600)
+  });
+  assert.equal(result.status, 503);
+  assert.equal(h.calls.length, 1, 'a delayed retry timer cannot start a request after the deadline');
 }
 {
   const form = new FormData();

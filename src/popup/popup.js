@@ -365,22 +365,31 @@
       switchTab(tabIds[next], { focus: true });
     });
 
+    const savedCfg = { ...cfg };
+    const settingRevisions = new Map();
+    let settingWrites = Promise.resolve();
     document.querySelectorAll('[data-key]').forEach(input => {
       const key = input.dataset.key;
       if (key in cfg) input.checked = !!cfg[key];
 
-      input.addEventListener('change', async () => {
-        const previousValue = cfg[key];
-        cfg[key] = input.checked;
-        const saved = await saveSetting(key, input.checked);
-        if (!saved) {
-          cfg[key] = previousValue;
-          input.checked = !!previousValue;
-        }
-        if (key === 'ForceEnglish') {
-          NXTK.setForceEnglish(cfg[key]);
-          applyI18n();
-        }
+      input.addEventListener('change', () => {
+        const value = input.checked;
+        const revision = (settingRevisions.get(key) || 0) + 1;
+        settingRevisions.set(key, revision);
+        cfg[key] = value;
+        // Save in click order. An older reply must not undo a newer visible choice,
+        // and a failed final write returns to the last value actually saved.
+        settingWrites = settingWrites.then(async () => {
+          if (await saveSetting(key, value)) savedCfg[key] = value;
+          if (settingRevisions.get(key) !== revision) return;
+          cfg[key] = savedCfg[key];
+          input.checked = !!cfg[key];
+          if (key === 'ForceEnglish') {
+            NXTK.setForceEnglish(cfg[key]);
+            applyI18n();
+            syncDocumentLanguage(cfg[key]);
+          }
+        });
       });
     });
 

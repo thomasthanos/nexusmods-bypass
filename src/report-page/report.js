@@ -75,9 +75,11 @@
     };
     const signature = JSON.stringify(options);
     // Copy, save and send use the exact reviewed snapshot until a form field changes.
-    if (payload && payloadInputSignature === signature) return;
+    if (payload && payloadInputSignature === signature) return payload;
     const next = await NXTK.buildReportPayload(selectedError, options);
-    if (sequence !== rebuildSequence) return;
+    // An edit may supersede this preview while storage is being read. The action
+    // that requested it still needs its own snapshot rather than an older global payload.
+    if (sequence !== rebuildSequence) return next;
     payload = next;
     payloadInputSignature = signature;
     const json = JSON.stringify(payload, null, 2);
@@ -97,6 +99,7 @@
     $('rpSummaryPreview').textContent = payload.summary;
     $('rpDescriptionPreview').textContent = payload.note;
     $('rpNoteCount').textContent = `${$('rpNote').value.length.toLocaleString()} / 2,000`;
+    return payload;
   }
 
   function scheduleRebuild() {
@@ -151,8 +154,8 @@
       const health = await NXTK.checkRelayHealth();
       if (!health.ok) { showFailure(health.reason); return; }
       status(T('rpSending', 'Sending…'));
-      await rebuild();
-      const result = await NXTK.sendReportPayload(payload);
+      const report = await rebuild();
+      const result = await NXTK.sendReportPayload(report);
       if (result.ok) {
         sent = true;
         $('rpSuccess').hidden = false;
@@ -170,8 +173,8 @@
   }
 
   async function copy() {
-    await rebuild();
-    const ok = await NXTK.copyText(JSON.stringify(payload, null, 2));
+    const report = await rebuild();
+    const ok = await NXTK.copyText(JSON.stringify(report, null, 2));
     if (!ok) {
       selectTab(true);
       $('rpPreview').focus();
@@ -185,8 +188,8 @@
     const tab = window.open('about:blank', '_blank');
     if (tab) tab.opener = null;
     try {
-      await rebuild();
-      const publicPayload = { ...payload, contact: '' };
+      const report = await rebuild();
+      const publicPayload = { ...report, contact: '' };
       const copied = await NXTK.copyText(JSON.stringify(publicPayload, null, 2));
       const result = NXTK.buildPayloadIssueUrl(publicPayload);
       if (tab) tab.location.replace(result.url);
@@ -199,8 +202,8 @@
   }
 
   async function save() {
-    await rebuild();
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const report = await rebuild();
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

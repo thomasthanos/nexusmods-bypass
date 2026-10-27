@@ -327,8 +327,10 @@ const STORAGE_HANDLERS = {
   },
 
   async DEBUG_LOG_CLEAR() {
-    await storageSetLocal(NXTK.DEBUG_LOG_KEY, []);
-    return { ok: true };
+    return enqueueStorageTask(NXTK.DEBUG_LOG_KEY, async () => {
+      await storageSetLocal(NXTK.DEBUG_LOG_KEY, []);
+      return { ok: true };
+    });
   },
 
   async NDC_HISTORY_ADD(payload) {
@@ -552,16 +554,23 @@ function findDuplicateDownload(items, { url, filename, now = Date.now(), windowM
   return null;
 }
 
-function searchRecentDownloads(now) {
-  return new Promise((resolve) => {
+async function searchRecentDownloads(now) {
+  const search = (query) => new Promise((resolve) => {
     try {
-      chrome.downloads.search({ startedAfter: new Date(now - DOWNLOAD_DEDUPE_WINDOW_MS).toISOString() }, (items) => {
+      chrome.downloads.search(query, (items) => {
         resolve(getRuntimeError() ? [] : (items || []));
       });
     } catch (_) {
       resolve([]);
     }
   });
+  // Large mods can be in progress long after the repeat-click window. Include those files too,
+  // even when a worker restart has forgotten the extension's own recent starts.
+  const results = await Promise.all([
+    search({ startedAfter: new Date(now - DOWNLOAD_DEDUPE_WINDOW_MS).toISOString() }),
+    search({ state: 'in_progress' })
+  ]);
+  return results.flat();
 }
 
 const DOWNLOAD_HANDLERS = {
@@ -1088,7 +1097,7 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   // advanceNdcJob waits for the connection on this same file instead of failing it.
   if (page.status === 0) return { ...ndcResolveFailure(connectionFailureCode(page), page), detail: connectionFailureDetail('page', page) };
   const pageIssue = classifyNexusResponse(page, page.text);
-  if (pageIssue) return { ok: false, code: pageIssue.code };
+  if (pageIssue) return ndcResolveFailure(pageIssue.code, page);
   if (page.status === 404 || page.status === 410) return ndcResolveFailure('mod_unavailable', page);
   // The mod page itself failing with a gateway error is Nexus being down, which is waited out like a
   // lost connection rather than failing every file in turn.
@@ -1109,7 +1118,7 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     timeoutMs
   );
   const generatedIssue = classifyNexusResponse(generated, generated.text);
-  if (generatedIssue) return { ok: false, code: generatedIssue.code };
+  if (generatedIssue) return ndcResolveFailure(generatedIssue.code, generated);
   if (generated.status === 404 || generated.status === 410) return ndcResolveFailure('file_not_found', generated);
   if (!generated.ok) {
     const failure = ndcResolveFailure(generated.status === 429 ? 'rate_limited' : 'generate_failed', generated);

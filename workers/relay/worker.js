@@ -37,6 +37,8 @@ const DIAGNOSTICS_EXTENSION_ORIGIN = /^(?:chrome-extension:\/\/[a-p]{32}|moz-ext
 const CORS = {
   'access-control-allow-methods': 'GET, POST, OPTIONS',
   'access-control-allow-headers': 'content-type',
+  // Extension requests use CORS; cooldown headers are otherwise hidden from response.headers.
+  'access-control-expose-headers': 'retry-after',
   'access-control-max-age': '86400'
 };
 

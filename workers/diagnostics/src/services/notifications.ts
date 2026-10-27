@@ -5,6 +5,7 @@ import { countedInstall } from '../utils/installs.ts';
 import type { ErrorReport } from '../schemas/ingest.ts';
 import { sanitizeReport, sanitizeText } from '../utils/sanitize.ts';
 import { sendDiscordReport, sendWebPush } from './delivery.ts';
+import { appBadgeCount } from './badge.ts';
 import type { DeliveryResult, PushPayload, PushTarget } from './delivery.ts';
 import type { RuleEvaluation } from './ruleEngine.ts';
 
@@ -247,8 +248,8 @@ async function issuePush(db: D1Database, issue: IssueState, input: NotificationI
   });
   if (!claim) return summary('already_claimed', trigger);
   try {
-    const badge = await db.prepare("SELECT COUNT(*) AS count FROM issues WHERE status IN ('new','investigating','regressed') AND muted=0").first<{ count: number }>();
-    const result = await dispatchPush(db, targets, pushPayload(trigger, issue, input, resolved.origin, Math.min(9999, badge?.count ?? 0)), config, now, resolved.requestTimeoutMs);
+    const badge = await appBadgeCount(db);
+    const result = await dispatchPush(db, targets, pushPayload(trigger, issue, input, resolved.origin, badge), config, now, resolved.requestTimeoutMs);
     if (result.delivered) await completePushNotification(db, claim, Math.max(now, Date.now()));
     else await releasePushNotification(db, claim);
     return result;
@@ -300,6 +301,6 @@ export async function sendTestNotification(db: D1Database, config: NotificationC
   timestamp(now);
   return dispatchPush(db, await subscriptionRows(db), {
     title: 'Diagnostics test', body: 'Web Push is connected.', tag: 'diagnostics-test',
-    data: { url: new URL('/', resolved.origin).href, issue_id: null, fingerprint: null, trigger: 'TEST' }, badge_count: 0
+    data: { url: new URL('/', resolved.origin).href, issue_id: null, fingerprint: null, trigger: 'TEST' }, badge_count: await appBadgeCount(db)
   }, config, now, resolved.requestTimeoutMs);
 }

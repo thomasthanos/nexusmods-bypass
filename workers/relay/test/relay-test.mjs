@@ -380,6 +380,8 @@ const report = (ip, body, targetEnv = env, ctx = {}) => worker.fetch(new Request
   const throttled = await report('11.0.0.2', throttledReport);
   assert.equal(throttled.status, 429);
   assert.equal(throttled.headers.get('retry-after'), '43', 'the client is told how long Discord asked for');
+  assert.equal(throttled.headers.get('access-control-expose-headers'), 'retry-after',
+    'the extension can read the upstream cooldown through its CORS response');
   assert.equal((await throttled.json()).error, 'upstream rate limited');
   assert.equal(throttled.headers.get('access-control-allow-origin'), 'chrome-extension://abc');
   globalThis.fetch = realFetch;
@@ -392,6 +394,8 @@ const report = (ip, body, targetEnv = env, ctx = {}) => worker.fetch(new Request
   const wait = Number(limited.headers.get('retry-after'));
   assert.equal(limited.status, 429);
   assert.ok(wait >= 1 && wait <= 3600, 'Retry-After ends with the counting hour');
+  assert.equal(limited.headers.get('access-control-expose-headers'), 'retry-after',
+    'the relay allowance cooldown is readable by the extension too');
 }
 {
   // KV failing on every call (daily write cap, one write per key per second): reports still go

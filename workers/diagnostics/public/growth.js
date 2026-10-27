@@ -204,7 +204,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     if (scroll) card.scrollIntoView?.({ block: 'center', behavior: 'auto' });
     card.focus({ preventScroll: true }); return true;
   }
-  function reviewCard(review) {
+  function reviewCard(review, expanded = false) {
     const card = element('article', 'growth-review'); card.dataset.reviewId = review.id; card.dataset.new = String(review.is_new === true); card.tabIndex = -1;
     const header = element('div', 'growth-review-heading'); const author = element('h3', '', text(review.author, 160) || 'Store reviewer');
     const rating = Number.isInteger(review.rating) && review.rating >= 1 && review.rating <= 5 ? review.rating : null;
@@ -218,8 +218,8 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     card.append(header, metadata);
     const body = text(review.body, 10000) || 'No written text.';
     if (body.length > 320) {
-      const content = element('details', 'growth-review-text'); const summary = element('summary');
-      const label = element('span', 'growth-review-expand', 'Read full review');
+      const content = element('details', 'growth-review-text'); content.open = expanded; const summary = element('summary');
+      const label = element('span', 'growth-review-expand', expanded ? 'Show less' : 'Read full review');
       summary.append(element('span', 'growth-review-excerpt', `${body.slice(0, 240).trimEnd()}…`), label);
       content.addEventListener('toggle', () => { label.textContent = content.open ? 'Show less' : 'Read full review'; });
       content.append(summary, element('p', 'growth-review-body', body)); card.append(content);
@@ -229,6 +229,12 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
   }
   function renderReviews() {
     if (disposed) return;
+    // Polling and acknowledgements replace cards; keep the reader's place.
+    const expandedReviews = new Set([...reviewsPanel.querySelectorAll('.growth-review-text[open]')].map((item) => item.closest('[data-review-id]').dataset.reviewId));
+    const active = reviewsPanel.contains(doc.activeElement) ? doc.activeElement : null;
+    const activeReview = active?.closest('[data-review-id]')?.dataset.reviewId;
+    const activeSummary = active?.matches('.growth-review-text > summary');
+    const activeAck = active?.matches('[data-action="ack-review"]');
     const previousHistory = reviewsPanel.querySelector('[data-review-history]');
     if (previousHistory) reviewHistoryOpen = previousHistory.open;
     const reviews = Array.isArray(store?.reviews) ? store.reviews.filter((item, index, list) => typeof item?.id === 'string' && UUID.test(item.id) && list.findIndex((other) => typeof other?.id === 'string' && other.id.toLowerCase() === item.id.toLowerCase()) === index).slice(0, 100)
@@ -243,7 +249,7 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
     for (const review of reviews) {
       const latest = latestIds.has(review.id);
       if (!latest && review.is_new === true) hiddenUnread++;
-      (latest ? list : olderList).append(reviewCard(review));
+      (latest ? list : olderList).append(reviewCard(review, expandedReviews.has(review.id)));
     }
     if (reviews.length) reviewsPanel.append(list);
     if (olderList.children.length) {
@@ -269,6 +275,11 @@ export function mountGrowth(container, { request, notify = () => {}, document: d
       const interval = Number.isFinite(store?.sync_interval_seconds) && store.sync_interval_seconds >= 60 ? ` · Checks every ${Math.round(store.sync_interval_seconds / 60)} minutes` : '';
       if (interval) check.append(doc.createTextNode(interval));
       source.append(check);
+    }
+    if (activeReview) {
+      const card = [...reviewsPanel.querySelectorAll('[data-review-id]')].find((item) => item.dataset.reviewId === activeReview);
+      const control = activeSummary ? card?.querySelector('.growth-review-text > summary') : activeAck ? card?.querySelector('[data-action="ack-review"]') : null;
+      (control ?? card)?.focus({ preventScroll: true });
     }
     const targetId = new URL(win.location.href).searchParams.get('review');
     if (targetId && UUID.test(targetId) && targetId.toLowerCase() !== focusedReview) {
