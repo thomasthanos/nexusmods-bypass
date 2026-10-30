@@ -92,8 +92,24 @@
     return new Promise((resolve) => window.addEventListener('load', resolve, { once: true }));
   }
 
+  // Firefox can run the content scripts in a loaded document that has no body (E-1vrmg48). There is no
+  // page to work on there, and startup failed on "document.body is null", so it waits for a body: one a
+  // page adds later starts the extension, and a document that never gets one leaves it idle.
+  function waitForBody() {
+    if (document.body) return Promise.resolve();
+    return new Promise((resolve) => {
+      const observer = new MutationObserver(() => {
+        if (!document.body) return;
+        observer.disconnect();
+        resolve();
+      });
+      observer.observe(document, { childList: true, subtree: true });
+    });
+  }
+
   async function waitForSafeStartup() {
     await waitForPageLoad();
+    await waitForBody();
     await NNW.waitForDomSettled({
       root: document.getElementById('mainContent') || document.body,
       quietMs: 700,

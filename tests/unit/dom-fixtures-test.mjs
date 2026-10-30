@@ -253,6 +253,40 @@ const archivedFilesDone = (async () => {
   console.log('archived files behavior OK');
 })();
 
+// --- Firefox can start the content scripts on a document with no body (E-1vrmg48) ---------------------
+// The requirements-tab handler was attached to document.body, so startup threw "document.body is null"
+// and stopped there. Startup now waits for a body, and the handler no longer needs one. Awaited by the
+// last block, which ends the run.
+const bodylessStartupDone = (async () => {
+  const w = load('mod-page-requirements.html', 'https://www.nexusmods.com/stardewvalley/mods/45538');
+  w.NexusExt.Storage = { getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: false }) };
+  for (const file of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+  const clickListeners = [];
+  const addListener = w.document.addEventListener.bind(w.document);
+  w.document.addEventListener = (type, listener, options) => {
+    if (type === 'click') clickListeners.push(options);
+    return addListener(type, listener, options);
+  };
+  const body = w.document.body;
+  body.remove();
+  assert.equal(w.document.body, null);
+  const main = fs.readFileSync(path.join(root, 'src/content/main.js'), 'utf8');
+  const waitForBody = new w.Function('document', 'MutationObserver',
+    `${main.slice(main.indexOf('  function waitForBody()'), main.indexOf('  async function waitForSafeStartup()'))}; return waitForBody;`
+  )(w.document, w.MutationObserver);
+  let bodyFound = false;
+  const waiting = waitForBody().then(() => { bodyFound = true; });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(bodyFound, false, 'with no body, startup waits');
+  await w.NexusExt.NNW.init();
+  assert.deepEqual(clickListeners, [true], 'the requirements tab is skipped from the document, which always exists');
+  w.document.documentElement.append(body);
+  await waiting;
+  assert.equal(bodyFound, true, 'a body the page adds later starts the extension');
+  w.close();
+  console.log('bodyless startup behavior OK');
+})();
+
 // --- A browser download names its mod and version (E-1u4nb29) -------------------------------------------
 // For the Mod Organizer 2 .meta the worker writes once the file has finished: without them MO2 showed no
 // description for a mod saved from its page. Awaited by the last block, which ends the run.
@@ -375,6 +409,7 @@ const browserDownloadLabelsDone = (async () => {
   assert.equal(pick({ modalFileId: '', buttonHref: `${base}?tab=files&file_id=9` }), `${base}?tab=files&file_id=9`);
   console.log('click ownership behavior OK');
   await archivedFilesDone;
+  await bodylessStartupDone;
   await browserDownloadLabelsDone;
   // nnw.js keeps page timers running; the suite is done.
   w.close();

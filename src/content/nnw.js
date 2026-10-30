@@ -2036,19 +2036,21 @@ window.NexusExt = window.NexusExt || {};
     slowDownloadTimer = null;
   }
 
+  // Listens on the document, not document.body: Firefox can start the content scripts while a page has
+  // no body yet, and startup then stopped at "document.body is null" (E-1vrmg48).
   function interceptRequirementsTab() {
-  document.body.addEventListener('click', function (event) {
-    if (!event.isTrusted || event.defaultPrevented || !cfg.SkipRequirements) return;
-    const linkElement = event.composedPath
-      ? event.composedPath().find(node =>
-          node?.tagName === 'A' &&
-          node.href?.includes('tab=requirements')
-        )
-      : event.target.closest("a[href*='tab=requirements']");
-    if (!linkElement) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    const linkHref = linkElement.href || linkElement.getAttribute('href') || '';
+    document.addEventListener('click', function (event) {
+      if (!event.isTrusted || event.defaultPrevented || !cfg.SkipRequirements) return;
+      const linkElement = event.composedPath
+        ? event.composedPath().find(node =>
+            node?.tagName === 'A' &&
+            node.href?.includes('tab=requirements')
+          )
+        : event.target.closest("a[href*='tab=requirements']");
+      if (!linkElement) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const linkHref = linkElement.href || linkElement.getAttribute('href') || '';
       let target;
       try {
         target = new URL(linkHref.replace('tab=requirements', 'tab=files'), location.href).href;
@@ -2402,7 +2404,8 @@ window.NexusExt = window.NexusExt || {};
       const found = document.querySelector(selector);
       if (found) { mo.disconnect(); clearTimeout(timer); cb(found); }
     });
-    mo.observe(document.body, { childList: true, subtree: true });
+    // The whole document: it exists even before the page has a body.
+    mo.observe(document, { childList: true, subtree: true });
     const timer = setTimeout(() => mo.disconnect(), timeoutMs);
     return () => {
       mo.disconnect();

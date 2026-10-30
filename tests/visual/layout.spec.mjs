@@ -1275,6 +1275,28 @@ test('auto-close on: a cancelled Vortex prompt keeps the tab, shows the hint, pe
   await ext.close();
 });
 
+// The handler listens on the document (E-1vrmg48), so a real click on the page must still reach it.
+test('skip requirements: a click on the requirements tab opens the files tab instead', async () => {
+  const { ext, patch } = await extensionPage();
+  await patch({ SkipRequirements: true });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('https://www.nexusmods.com/skyrimspecialedition/mods/12604');
+  // The settings button is drawn after the page code starts, so the handler is in place by then.
+  await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
+  await page.evaluate(() => {
+    const link = document.createElement('a');
+    link.id = 'requirements-tab-test';
+    link.href = '/skyrimspecialedition/mods/12604?tab=requirements';
+    link.textContent = 'Requirements';
+    document.body.prepend(link);
+  });
+  await page.locator('#requirements-tab-test').click();
+  await expect(page).toHaveURL('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files');
+  await page.close();
+  await ext.close();
+});
+
 test('settings: quick-setup presets apply and technical settings sit under Advanced', async () => {
   const { ext, patch, read } = await extensionPage();
   await patch({ NDC_downloadMethod: 0, AutoCloseTab: true, AutoStartDownload: true, SkipRequirements: true, HideDownloadPopup: true });

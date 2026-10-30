@@ -28,6 +28,8 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+- **Firefox startup on a page without a body:** Firefox can run the content scripts in a loaded Nexus document that has no `<body>`. Startup then stopped at *document.body is null* and sent an automatic report (`E-1vrmg48`), so a body the page added later never got the extension. Startup now waits for a body, and *Skip requirements* listens on the document, which always exists. A browser test checks that a real click on the requirements tab still opens the files tab.
+
 <a id="release-3-3-3"></a>
 
 ## 3.3.3 — 2026-10-27
