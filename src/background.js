@@ -1518,6 +1518,7 @@ async function advanceNdcJob(jobId) {
         // A mod that is gone is the mod's state, not a fault, so only a Cloudflare skip is worth a
         // line in the bug report.
         if (skipReason === 'cloudflare') await recordQueueItemFailure(job, item, 'cloudflare', 'skipped');
+        await waitMs(NXTK.queueItemGapMs(skipReason));
         continue;
       }
 
@@ -1576,6 +1577,7 @@ async function advanceNdcJob(jobId) {
       });
       await recordQueueItemFailure(job, item, failureCode,
         resolved.detail || (resolved.status ? `HTTP ${resolved.status}` : ''));
+      await waitMs(NXTK.queueItemGapMs(failureCode));
       continue;
     }
 
@@ -1615,6 +1617,7 @@ async function advanceNdcJob(jobId) {
         error: 'download_not_started'
       });
       await recordQueueItemFailure(job, item, 'download_not_started', cause?.message || cause);
+      await waitMs(NXTK.queueItemGapMs('download_not_started'));
       continue;
     }
 
@@ -2080,6 +2083,15 @@ async function discardAbandonedDownload(downloadId, record = null) {
     && downloadWasStartedHere(refreshed);
 }
 
+// True only when the browser answers that it has no such download: an unreadable list proves nothing.
+async function downloadRecordIsGone(downloadId) {
+  try {
+    return !await searchDownload(downloadId, { strict: true });
+  } catch (_) {
+    return false;
+  }
+}
+
 async function retireNdcDownload(downloadId, expectedPath = '') {
   if (!Number.isInteger(downloadId)) return true;
   // Nothing of this job's is left under that id: it is not cancelled, and its file is not touched.
@@ -2095,7 +2107,11 @@ async function retireNdcDownload(downloadId, expectedPath = '') {
     record = await searchDownload(downloadId);
   }
   if (record?.state === 'complete') return discardAbandonedDownload(downloadId, record);
-  if (!record) return canceled;
+  // No record left means nothing that could still run or resume. Chrome's cancel succeeds for an id it
+  // no longer knows; Firefox's fails, once the user has cleared the download from its list or a browser
+  // restart has numbered the downloads afresh, so that retirement could never finish, and every later
+  // start of the collection was refused with previous_download_not_retired.
+  if (!record) return canceled || await downloadRecordIsGone(downloadId);
   // Chrome's cancel left it resumable (see eraseResumableDownload).
   if (isResumableInterrupt(record)) return eraseResumableDownload(downloadId, record);
   if (record.state === 'in_progress' || record.paused === true || record.canResume === true) return false;
@@ -2143,15 +2159,32 @@ async function finishNdcRetirement(jobId, downloadId) {
   return true;
 }
 
-async function clearCollectionRetirements(gameId, collectionId) {
+// The download that still keeps a new run of the collection from starting, described by its state
+// for the report (never its file or address), or '' once every earlier download is retired.
+async function collectionRetirementBlocker(gameId, collectionId) {
   const jobs = await readNdcJobs();
   for (const job of Object.values(jobs)) {
     if (job.gameId !== gameId || job.collectionId !== collectionId) continue;
     const downloadId = job.retiringDownloadId;
     if (!Number.isInteger(downloadId)) continue;
-    if (!await finishNdcRetirement(job.id, downloadId)) return false;
+    if (await finishNdcRetirement(job.id, downloadId)) continue;
+    let record = null;
+    try {
+      record = await searchDownload(downloadId, { strict: true });
+    } catch (_) {
+      return 'download list unreadable';
+    }
+    if (!record) return 'no record';
+    return [
+      record.state || 'unknown state',
+      record.error ? `error ${String(record.error).replace(/[^A-Z_]/g, '').slice(0, 40)}` : '',
+      record.paused === true ? 'paused' : '',
+      record.canResume === true ? 'resumable' : '',
+      record.state === 'complete' && record.exists !== false ? 'file still there' : '',
+      downloadWasStartedHere(record) ? '' : 'started elsewhere'
+    ].filter(Boolean).join(', ');
   }
-  return true;
+  return '';
 }
 
 function recordQueueItemFailure(job, item, code, detail = '') {
@@ -2733,8 +2766,9 @@ const NDC_QUEUE_HANDLERS = {
     if (startToken?.canceled) return { stopped: true };
     await waitForNdcCollectionWork(gameId, collectionId);
     if (startToken?.canceled) return { stopped: true };
-    if (!await clearCollectionRetirements(gameId, collectionId)) {
-      throw new Error('previous_download_not_retired');
+    const retirementBlocker = await collectionRetirementBlocker(gameId, collectionId);
+    if (retirementBlocker) {
+      throw new Error(`previous_download_not_retired (${retirementBlocker})`);
     }
 
     const jobId = makeNdcJobId();

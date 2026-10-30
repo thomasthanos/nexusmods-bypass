@@ -8,6 +8,10 @@ import {
   NDC_QUEUE_HANDLERS, STORAGE_HISTORY_KEY, handleNdcDownloadTerminal
 } from './helpers/background-harness.mjs';
 
+// The wait after a file the queue did not download (NXTK.queueItemGapMs) is checked in
+// background-queue-test.mjs; here it would only slow the suite down.
+NXTK.queueItemGapMs = () => 0;
+
 // One user action, one file: the worker drops a second start for the same game+file, and a start for a
 // file the browser is already downloading (Nexus's own native download included).
 async function downloadStartsAreDeduplicated() {
@@ -1212,6 +1216,66 @@ async function stopWinsAgainstInFlightTerminalWork() {
   }
 }
 
+// Firefox's cancel fails for a download it no longer lists: one the user cleared from its list, or an
+// id a browser restart numbered afresh. Retiring such a download never finished, and starting the
+// collection again was refused with previous_download_not_retired. An unreadable list still refuses.
+async function forgottenDownloadNeverBlocksARestart() {
+  const previousDownloads = global.chrome.downloads;
+  const jobId = 'testjob-firefox-forgotten';
+  const downloadId = 915;
+  const fileId = 75;
+  const cancels = [];
+  let listUnreadable = true;
+
+  try {
+    await seedTerminalRegressionJob({ jobId, downloadId, fileId });
+    global.chrome.downloads = {
+      search: (_query, cb) => {
+        if (listUnreadable) global.chrome.runtime.lastError = { message: 'Download list unavailable' };
+        cb(listUnreadable ? undefined : []);
+        global.chrome.runtime.lastError = null;
+      },
+      cancel: (id, cb) => {
+        cancels.push(id);
+        global.chrome.runtime.lastError = { message: `Invalid download id ${id}` };
+        cb();
+        global.chrome.runtime.lastError = null;
+      }
+    };
+
+    await context.haltNdcJob(await readNdcJob(jobId), { notify: false });
+    let job = await readNdcJob(jobId);
+    assert.equal(job.status, 'stopped');
+    assert.equal(job.retiringDownloadId, downloadId, 'while the download list cannot be read, the retirement stays open');
+    assert.equal(await context.collectionRetirementBlocker('1704', `col-${fileId}`), 'download list unreadable',
+      'and a new start waits for it, saying why');
+
+    listUnreadable = false;
+    assert.equal(await context.collectionRetirementBlocker('1704', `col-${fileId}`), '',
+      'once the browser answers that it has no such download, nothing is left to retire');
+    job = await readNdcJob(jobId);
+    assert.equal(job.retiringDownloadId, undefined);
+    assert.ok(cancels.every((id) => id === downloadId) && cancels.length >= 2, 'the cancel was still asked for each time');
+
+    // What still blocks a start is named by its state, never its file: here a finished file that
+    // could not be removed.
+    await storageSetLocal(NDC_JOBS_KEY, { [jobId]: { ...job, retiringDownloadId: downloadId } });
+    global.chrome.downloads = {
+      search: (_query, cb) => cb([{ id: downloadId, state: 'complete', exists: true, filename: 'C:\\dl\\Terminal 75.7z' }]),
+      cancel: (_id, cb) => cb(),
+      removeFile: (_id, cb) => {
+        global.chrome.runtime.lastError = { message: 'Could not remove file' };
+        cb();
+        global.chrome.runtime.lastError = null;
+      }
+    };
+    assert.equal(await context.collectionRetirementBlocker('1704', `col-${fileId}`), 'complete, file still there');
+  } finally {
+    global.chrome.downloads = previousDownloads;
+    global.chrome.runtime.lastError = null;
+  }
+}
+
 async function newRegressionCoverage() {
   const failures = [];
   for (const [name, test] of [
@@ -1226,6 +1290,7 @@ async function newRegressionCoverage() {
     ['unconfirmed erase still fails without a duplicate', unconfirmedEraseStillFailsWithoutDuplicate],
     ['cancelled stuck resume is retried in Firefox', cancelledStuckResumeIsRetriedInFirefox],
     ['stop retires a stuck resumable download in Chrome', stopRetiresStuckResumableDownloadInChrome],
+    ['a download Firefox no longer lists never blocks a restart', forgottenDownloadNeverBlocksARestart],
     ['complete event requires a complete record', completeEventRequiresCompleteRecord],
     ['stop wins against terminal work', stopWinsAgainstInFlightTerminalWork]
   ]) {

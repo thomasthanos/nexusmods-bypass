@@ -9,6 +9,11 @@ import {
   handleNdcDownloadTerminal
 } from './helpers/background-harness.mjs';
 
+// The worker waits after a file it did not download before asking about the next (NXTK.queueItemGapMs).
+// These suites check what a run does, not how long it takes, so each wait is noted instead of slept.
+const queueGaps = [];
+NXTK.queueItemGapMs = (code) => { queueGaps.push(String(code || '')); return 0; };
+
 async function jobStateBehaviour() {
   const jobId = 'testjob-000001';
   await storageSetLocal(NDC_JOBS_KEY, {
@@ -191,6 +196,7 @@ async function skippedModsDoNotStopTheQueue() {
     { fileId: 13, historyId: '13', gameId: '1704', name: 'Walled.7z', pageUrl: page(13), sizeKb: 10 },
     { fileId: 14, historyId: '14', gameId: '1704', name: 'Fine.7z', pageUrl: page(14), sizeKb: 10 }
   ];
+  queueGaps.length = 0;
   await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
   await storageSetLocal(`nxtk_ndc_items:${jobId}`, items);
   await storageSetLocal(NDC_JOBS_KEY, {
@@ -254,6 +260,9 @@ async function skippedModsDoNotStopTheQueue() {
     assert.equal(jobFailureCount(job), 1, 'a skip is not counted as a failure');
     assert.equal(asked.filter((url) => url === page(11)).length, 1, 'a removed mod is asked for once, not retried');
     assert.equal(asked.filter((url) => url === page(12)).length, 1, 'so is a 404 page');
+    // Removed mods, back to back, were where Cloudflare stepped in (store review, 2026-10-30).
+    assert.deepEqual(queueGaps, ['mod_unavailable', 'mod_unavailable', 'cloudflare', 'download_not_started'],
+      'every file that was not downloaded is followed by a wait, a Cloudflare answer by its own');
 
     const skippedEvents = sent.filter((message) => message.type === 'NXT_NDC_PROGRESS' && message.itemState === 'skipped');
     assert.deepEqual(skippedEvents.map((message) => message.error), ['mod_unavailable', 'mod_unavailable', 'cloudflare']);
@@ -281,6 +290,7 @@ async function skippedModsDoNotStopTheQueue() {
 async function cloudflareStreakStopsTheQueue() {
   const jobId = 'testjob-cfstreak1';
   const limit = NXTK.CLOUDFLARE_SKIP_LIMIT;
+  queueGaps.length = 0;
   const items = Array.from({ length: limit + 3 }, (_, index) => ({
     fileId: 60 + index, historyId: String(60 + index), gameId: '1704', name: `Walled ${index}.7z`,
     pageUrl: `https://www.nexusmods.com/skyrimspecialedition/mods/${60 + index}`, sizeKb: 10
@@ -312,6 +322,7 @@ async function cloudflareStreakStopsTheQueue() {
     await advanceNdcJob(jobId);
     const job = await readNdcJob(jobId);
     assert.equal(pages, limit + 1, 'the first answer past the limit is where the run stops');
+    assert.deepEqual(queueGaps, Array(limit).fill('cloudflare'), 'each skipped answer is let lapse, and a stopped run waits no more');
     assert.equal(job.status, 'error');
     assert.equal(job.lastError, 'cloudflare', 'as a Cloudflare block the user can clear');
     assert.equal(job.skipped.length, limit, 'the files before it were skipped, not failed');

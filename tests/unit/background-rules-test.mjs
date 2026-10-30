@@ -149,6 +149,13 @@ for (const code of ['request_failed', 'page_request_failed', 'requires_login', '
 assert.equal(NXTK.queueSkipReason('cloudflare', NXTK.CLOUDFLARE_SKIP_LIMIT - 1), 'cloudflare');
 assert.equal(NXTK.queueSkipReason('cloudflare', NXTK.CLOUDFLARE_SKIP_LIMIT), '',
   'Cloudflare on file after file is no longer a skip');
+// After a file that was not downloaded the next waits, so a run of removed mods is not asked about
+// back to back; a Cloudflare answer is given longer to lapse.
+for (const code of ['mod_unavailable', 'file_not_found (HTTP 404)', 'no_download_url', '', undefined]) {
+  assert.equal(NXTK.queueItemGapMs(code), NXTK.MIN_HANDOFF_GAP_SECONDS * 1000, `${code || 'no code'}: the short gap`);
+}
+assert.equal(NXTK.queueItemGapMs('cloudflare'), 10000, 'Cloudflare: a longer one');
+assert.ok(NXTK.queueItemGapMs('cloudflare (HTTP 403)') > NXTK.queueItemGapMs('mod_unavailable'));
 
 assert.equal(isValidFileId('42'), true);
 assert.equal(isValidFileId('0'), false);

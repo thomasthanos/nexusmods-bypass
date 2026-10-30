@@ -392,6 +392,21 @@ function createHarness(choice) {
   assert.deepEqual(broken.handed, [`Mod ${limit}.7z`]);
   assert.equal(broken.outcome, 'partial');
 
+  // A file that is not handed off is followed by a wait (NXTK.queueItemGapMs): removed mods asked about
+  // back to back drew Cloudflare's check. A hand-off keeps its own pause, and the last file waits for nothing.
+  const gaps = [];
+  NXTK.queueItemGapMs = (code) => { gaps.push(code); return 1; };
+  try {
+    const spaced = await runVortexQueue(
+      Array.from({ length: 5 }, (_, index) => vortexMod(index + 1, `Mod ${index + 1}.7z`, index + 1)),
+      (mod) => ({ 1: 'mod_unavailable', 2: 'cloudflare', 4: 'no_nmm_link', 5: 'mod_unavailable' })[mod.fileId] || ''
+    );
+    assert.deepEqual(spaced.handed, ['Mod 3.7z']);
+    assert.deepEqual(gaps, ['mod_unavailable', 'cloudflare', ''], 'a skip passes its reason; a failure, none');
+  } finally {
+    delete NXTK.queueItemGapMs;
+  }
+
   // A dropped connection is waited out on the same file. Failing it and moving on failed every file
   // after it within seconds, each with its own error dialog.
   const threeMods = () => [vortexMod(1, 'One.7z', 1), vortexMod(2, 'Two.7z', 2), vortexMod(3, 'Three.7z', 3)];

@@ -721,6 +721,17 @@
     return '';
   }
 
+  // The wait before a collection run asks Nexus about the next file, after one it skipped or could not
+  // get. A download spaces out the requests of the files around it; a skip did not, so a run of gone
+  // mods (all that is left when a collection is downloaded again) asked about one after another, and
+  // Cloudflare began answering with its check: the run reported Cloudflare where the mods were removed.
+  // After a Cloudflare answer the wait is longer, so the check can lapse before the next file.
+  const CLOUDFLARE_COOLDOWN_SECONDS = 10;
+  function queueItemGapMs(code) {
+    const root = String(code || '').split(/[\s(]/, 1)[0];
+    return (root === 'cloudflare' ? CLOUDFLARE_COOLDOWN_SECONDS : MIN_HANDOFF_GAP_SECONDS) * 1000;
+  }
+
   // A size in KB as Nexus lists it, or 0 when there is none worth ordering by.
   function queueSizeKb(value) {
     const size = Number(value);
@@ -1640,6 +1651,7 @@
     CLOUDFLARE_SKIP_LIMIT,
     MAX_TRACKED_SKIPS,
     queueSkipReason,
+    queueItemGapMs,
     queueSizeKb,
     orderQueueBySize,
     escapeHtml,

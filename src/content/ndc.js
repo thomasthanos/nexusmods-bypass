@@ -1644,6 +1644,12 @@ window.NexusExt = window.NexusExt || {};
               }, 100);
             });
           }
+        } else if (!handedOff && index < mods.length - 1) {
+          // Nothing went to Vortex, so nothing spaces this file's requests from the next one's: a run
+          // of removed mods asked about them back to back until Cloudflare stepped in. A Cloudflare
+          // answer is let lapse longer (NXTK.queueItemGapMs).
+          const gapMs = NXTK.queueItemGapMs?.(skipReason) || 0;
+          if (gapMs > 0) await this.delayWithPause(gapMs);
         }
       }
 
