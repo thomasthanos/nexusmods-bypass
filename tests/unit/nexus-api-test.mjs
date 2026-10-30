@@ -478,6 +478,37 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal(recorded.length, 0, 'no false requires_login in the error log');
   }
 
+  // The session check is a real API request too: its Retry-After applies to the shared client.
+  {
+    const loggedOut = () => ({ ok: false, status: 200, text: '', error: { code: 'requires_login' } });
+    const h = harness({ responses: [loggedOut(), loggedOut(), limited(300)] });
+    assert.equal((await h.api.graphql({ query: 'collection' })).error.code, 'requires_login');
+    const blocked = await h.api.graphql({ query: 'another collection' });
+    assert.equal(blocked.error?.code, 'rate_limited', 'a Viewer 429 prevents the next operation from sending');
+    assert.equal(blocked.rateLimit.retryAfterSeconds, 300);
+    assert.equal(h.calls.length, 3, 'no request is sent during the Viewer cooldown');
+  }
+
+  // Disposing the collection while that confirmation is pending cancels the operation; a request
+  // intentionally abandoned by the user is not evidence that the Nexus session needs signing in.
+  {
+    recorded.length = 0;
+    let finishViewer;
+    let count = 0;
+    const controller = new AbortController();
+    const api = NexusApi.createNexusApi({ storage: null, request: async () => {
+      if (++count < 3) return { ok: false, status: 200, text: '', error: { code: 'requires_login' } };
+      return new Promise((resolve) => { finishViewer = resolve; });
+    } });
+    const pending = api.graphql({ query: 'collection', signal: controller.signal });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(count, 3, 'the final sign-in check is pending');
+    controller.abort();
+    finishViewer({ ok: false, status: 0, text: '', error: { code: 'aborted' } });
+    assert.equal((await pending).error.code, 'aborted', 'cancelled confirmation does not become a sign-in failure');
+    assert.equal(recorded.length, 0, 'cancelled confirmation is not recorded as an error');
+  }
+
   // ---- Both say requires_login but the viewer query says signed in: not a login problem.
   {
     recorded.length = 0;

@@ -184,6 +184,30 @@ function runParserCases({ parse, parseNxmDownloadLink, label }) {
     assert.equal(parse(answer, { mode: 'browser', fileId: '200' }), null,
       say(`${shape} naming only another file yields no link, with the fallback on`));
   }
+
+  // The file identity belongs to the entire object, including its nested link containers. A
+  // response for another version must not become this file merely because its URL is one level down.
+  for (const key of ['data', 'links', 'downloadLinks', 'html']) {
+    for (const payload of [
+      { downloadUrl: SECOND_MANUAL_URL },
+      JSON.stringify({ downloadUrl: SECOND_MANUAL_URL }),
+      `<a data-download-url='${SECOND_MANUAL_URL}'>download</a>`
+    ]) {
+      const otherFile = { fileId: 201, [key]: payload };
+      for (const allowBareCdn of [true, false]) {
+        assert.equal(parse(JSON.stringify(otherFile), { mode: 'browser', fileId: '200', allowBareCdn }), null,
+          say(`another file's nested ${key} is refused, including raw-text fallbacks`));
+        assert.equal(parse(metadataAttribute(otherFile), { mode: 'browser', fileId: '200', allowBareCdn }), null,
+          say(`another file's embedded ${key} is not recovered as global page markup`));
+      }
+      assert.equal(parse(JSON.stringify([otherFile, { fileId: 200, downloadUrl: MANUAL_URL }]), {
+        mode: 'browser', fileId: '200'
+      })?.url, MANUAL_URL, say(`a rejected nested ${key} does not hide the requested file`));
+      assert.equal(parse(JSON.stringify({ fileId: 200, [key]: payload }), {
+        mode: 'browser', fileId: '200'
+      })?.url, SECOND_MANUAL_URL, say(`nested ${key} for the requested file remains readable`));
+    }
+  }
   assert.equal(
     parse(`download (${MANUAL_URL});`, { mode: 'browser', fileId: '200' })?.url,
     MANUAL_URL,

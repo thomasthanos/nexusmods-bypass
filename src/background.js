@@ -2077,7 +2077,7 @@ function isResumableInterrupt(record) {
 async function eraseResumableDownload(downloadId, record) {
   if (!isResumableInterrupt(record) || !downloadWasStartedHere(record)) return false;
   if (!await controlDownload('erase', { id: downloadId })) return false;
-  return !await searchDownload(downloadId);
+  return downloadRecordIsGone(downloadId);
 }
 
 // Only ever a download this worker started: every id reaching here came out of our own
@@ -2106,9 +2106,10 @@ function downloadUrlPath(url) {
   return path.toLowerCase();
 }
 
-// Only a record that names a different link counts as somebody else's; one with no link to compare
-// is trusted, as before.
+// Explicit browser ownership wins even when another extension downloaded the same Nexus file.
+// Otherwise a different link identifies a reused id; a record with neither remains trusted as before.
 function isSomeoneElsesDownload(record, expectedPath) {
+  if (!downloadWasStartedHere(record)) return true;
   const recordPath = downloadUrlPath(record?.url);
   return !!expectedPath && !!recordPath && recordPath !== expectedPath;
 }
@@ -2140,7 +2141,7 @@ async function downloadRecordIsGone(downloadId) {
 async function retireNdcDownload(downloadId, expectedPath = '') {
   if (!Number.isInteger(downloadId)) return true;
   // Nothing of this job's is left under that id: it is not cancelled, and its file is not touched.
-  if (expectedPath && isSomeoneElsesDownload(await searchDownload(downloadId), expectedPath)) return true;
+  if (isSomeoneElsesDownload(await searchDownload(downloadId), expectedPath)) return true;
   const canceled = await cancelDownload(downloadId);
   let record = await searchDownload(downloadId);
   for (let attempt = 1;
@@ -2288,8 +2289,7 @@ async function retainLiveDownload(jobId, downloadId, { recheck = false } = {}) {
 async function applyNdcDownloadTerminal(job, downloadId, state, error) {
   // Firefox after a restart: the id names somebody else's download now. That record is never
   // counted, resumed, cancelled or deleted, and this job's own download is treated as lost.
-  const reused = !!job.activeDownloadPath
-    && isSomeoneElsesDownload(await searchDownload(downloadId), job.activeDownloadPath);
+  const reused = isSomeoneElsesDownload(await searchDownload(downloadId), job.activeDownloadPath);
   if (reused) {
     state = 'interrupted';
     error = 'download-record-missing';

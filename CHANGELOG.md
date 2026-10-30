@@ -17,6 +17,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-3-3-5"><kbd> 3.3.5 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-4"><kbd> 3.3.4 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-3"><kbd> 3.3.3 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-2"><kbd> 3.3.2 </kbd></a>&ensp;·&ensp;
@@ -28,6 +29,17 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 <a id="unreleased"></a>
 
 ## Unreleased
+
+<a id="release-3-3-5"></a>
+
+## 3.3.5 — 2026-10-30
+
+- **Download identity in nested metadata:** a link nested under JSON or HTML metadata for another file no longer becomes a fallback for the requested file. The parser keeps the file ownership of each nested object while checking its links.
+- **Leaving a mod page during link resolution:** unresolved single-file attempts are invalidated when the page changes or is hidden for navigation. A late signed Vortex or browser link no longer launches a download from the page the user already left. Deliberate clicks for different files on the same page remain independent.
+- **API cancellation and cooldowns:** cancelling while the final sign-in confirmation is pending now stops cleanly without reporting a misleading sign-in failure. HTTP 429 responses from that confirmation now extend the shared API cooldown, so the next query respects its `Retry-After`.
+- **Queue restart after Stop:** removing an old download's entry is not enough to start another run if the browser cannot confirm that the entry is gone. An unreadable follow-up download list keeps the retirement barrier; a later readable list can release it normally.
+- **Downloads owned by another extension:** even when its Nexus host and file path match, a download explicitly owned by a different extension is not adopted as this extension's completed file or cancelled by Stop. This also protects older saved queues that have no stored download path.
+- **Imported archive names:** Greek, Japanese, Korean and other Unicode letters are preserved when matching local archives to a collection. Previously, names such as `Άλφα-1234.7z` and `Βήτα-1234.7z` both became `1234`, so importing one could mark both downloaded and skip a missing file. Canonically equivalent spellings of an accented name now match as well.
 
 <a id="release-3-3-4"></a>
 

@@ -1312,6 +1312,45 @@ async function forgottenDownloadNeverBlocksARestart() {
   }
 }
 
+// An erase callback can succeed while the follow-up browser lookup fails. That is not evidence
+// that the resumable record is gone, so Stop must keep its retirement barrier until a readable lookup.
+async function failedEraseConfirmationKeepsRetirement() {
+  const previousDownloads = global.chrome.downloads;
+  const jobId = 'testjob-erase-confirm-unreadable';
+  const downloadId = 916;
+  let eraseCalled = false;
+  let readable = false;
+  const record = {
+    id: downloadId, state: 'interrupted', canResume: true,
+    byExtensionId: 'test-extension-id', error: 'NETWORK_FAILED'
+  };
+  try {
+    await seedTerminalRegressionJob({ jobId, downloadId, fileId: 76 });
+    global.chrome.downloads = {
+      search: (_query, callback) => {
+        if (eraseCalled && !readable) global.chrome.runtime.lastError = { message: 'Download list unavailable' };
+        callback(eraseCalled && !readable ? undefined : eraseCalled ? [] : [record]);
+        global.chrome.runtime.lastError = null;
+      },
+      cancel: finishCallback,
+      erase: (_query, callback) => { eraseCalled = true; callback([downloadId]); }
+    };
+    await context.haltNdcJob(await readNdcJob(jobId), { notify: false });
+    let job = await readNdcJob(jobId);
+    assert.equal(eraseCalled, true, 'the resumable attempt is asked to close');
+    assert.equal(job.retiringDownloadId, downloadId,
+      'an unreadable follow-up lookup cannot confirm that erase removed the old download');
+    readable = true;
+    assert.equal(await context.collectionRetirementBlocker('1704', 'col-76'), '',
+      'a later readable empty result releases the retirement barrier');
+    job = await readNdcJob(jobId);
+    assert.equal(job.retiringDownloadId, undefined);
+  } finally {
+    global.chrome.downloads = previousDownloads;
+    global.chrome.runtime.lastError = null;
+  }
+}
+
 async function newRegressionCoverage() {
   const failures = [];
   for (const [name, test] of [
@@ -1556,6 +1595,29 @@ async function reusedDownloadIdIsNeverTrusted() {
     assert.equal(job.status, 'stopped');
     assert.ok(!canceled.includes(9) && !removed.includes(9), 'Stop never cancels or deletes somebody else\'s download');
     assert.equal(job.retiringDownloadId, undefined, 'and has nothing left to retire');
+
+    // Another extension can download the same Nexus file. Its explicit ownership wins over a
+    // matching path, including for a legacy job that saved no activeDownloadPath.
+    for (const [offset, activeDownloadPath] of [ourPath, undefined].entries()) {
+      const foreignCompleteId = 10 + offset * 2;
+      const foreignRunningId = foreignCompleteId + 1;
+      records.set(foreignCompleteId, {
+        id: foreignCompleteId, state: 'complete', url: ours, byExtensionId: 'some-other-extension',
+        exists: true, fileSize: 4000000, totalBytes: 4000000, bytesReceived: 4000000
+      });
+      await seed({ activeDownloadId: foreignCompleteId, activeDownloadPath });
+      await handleNdcDownloadTerminal(foreignCompleteId, 'complete', null);
+      job = await readNdcJob(jobId);
+      assert.equal(job.completed, 0, 'another extension\'s same-file download is not counted as ours');
+      assert.ok(!canceled.includes(foreignCompleteId) && !removed.includes(foreignCompleteId), 'its terminal event cannot mutate that download');
+
+      records.set(foreignRunningId, { id: foreignRunningId, state: 'in_progress', url: ours, byExtensionId: 'some-other-extension' });
+      await seed({ activeDownloadId: foreignRunningId, activeDownloadPath });
+      await NDC_QUEUE_HANDLERS.NDC_QUEUE_STOP({ jobId }, { tab: { id: 7 } });
+      job = await readNdcJob(jobId);
+      assert.ok(!canceled.includes(foreignRunningId) && !removed.includes(foreignRunningId), 'Stop respects another extension\'s explicit ownership');
+      assert.equal(job.retiringDownloadId, undefined, 'a foreign record cannot block the queue retirement');
+    }
 
     // The job's own download, under its own id, is still stopped as before.
     records.set(50, { id: 50, state: 'in_progress', url: `${ours}?md5=a&expires=1` });
@@ -1917,6 +1979,7 @@ Promise.resolve()
   .then(badFilesAreNotLeftBehind)
   .then(resumingDownloadsAreNotAbandoned)
   .then(newRegressionCoverage)
+  .then(failedEraseConfirmationKeepsRetirement)
   .then(terminalSideEffectsFinishBeforeTheNextDownload)
   .then(abandonedFilesAreRemoved)
   .then(downloadStartsAreDeduplicated)

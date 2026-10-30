@@ -29,6 +29,7 @@ window.NexusExt = window.NexusExt || {};
   let fallbackWatchdogTimer = null;
   let fallbackWatchdogDeadline = 0;
   let downloadAttemptSequence = 0;
+  let downloadNavigationSequence = 0;
   let nativeFallbackKey = '';
   let nativeFallbackIsNMM = null;
   let nativeFallbackAutoStartPending = false;
@@ -536,7 +537,10 @@ window.NexusExt = window.NexusExt || {};
   function invalidateDownloadAttempts() {
     cancelScheduledTabClose();
     downloadAttemptSequence += 1;
+    downloadNavigationSequence += 1;
   }
+
+  globalThis.addEventListener?.('pagehide', invalidateDownloadAttempts);
 
   function waitForDomSettled({ root = document.getElementById('mainContent') || document.body, quietMs = 500, timeoutMs = 4000 } = {}) {
     return new Promise((resolve) => {
@@ -1197,9 +1201,10 @@ window.NexusExt = window.NexusExt || {};
     return name.slice(0, 300);
   }
 
-  async function startManagedFileDownload(url, fileId) {
+  async function startManagedFileDownload(url, fileId, isCurrentPage = () => true) {
     try {
       const settings = await NexusExt.Storage.getSettings();
+      if (!isCurrentPage()) return false;
       const reply = await NexusExt.Storage.sendDownloadCommand('DOWNLOAD_START', {
         url,
         folder: settings.DownloadFolder ?? '',
@@ -1509,6 +1514,12 @@ window.NexusExt = window.NexusExt || {};
     } = options;
     const automaticRoute = isNMM && !button && closeTabAfterStart;
     const attemptId = beginDownloadAttempt();
+    // Separate the page lifetime from individual clicks: different files may be requested together,
+    // while every pending lookup from a page that was left must stop before handing its link off.
+    const navigationId = downloadNavigationSequence;
+    const navigationKey = location.origin + location.pathname + location.search;
+    const isCurrentPage = () => navigationId === downloadNavigationSequence
+      && navigationKey === location.origin + location.pathname + location.search;
     try {
       const page = new URL(href || location.href, location.href);
       lastRunContext = { filePageUrl: NXTK.isSafeNexusPageUrl(page.href) ? page.href : '', method: isNMM ? 'vortex' : 'browser' };
@@ -1559,6 +1570,11 @@ window.NexusExt = window.NexusExt || {};
     } catch (cause) {
       result = { url: null, error: Errors.fromException(cause, { context: 'Resolving download link' }) };
     }
+    if (!isCurrentPage()) {
+      statusToast?.dismiss();
+      restoreButtonState(button);
+      return false;
+    }
     let error = result?.error || (!result?.url ? Errors.create(isNMM ? 'no_nmm_link' : 'no_download_url') : null);
     if (error) {
       error = Errors.normalize(error);
@@ -1600,9 +1616,15 @@ window.NexusExt = window.NexusExt || {};
     try {
       finalUrl = result.viaRoute ? fileRouteFor(result.url, fileId) : await normalizeDownloadUrl(result.url, isNMM);
     } catch (cause) {
+      if (!isCurrentPage()) return false;
       handleError(button, Errors.fromException(cause, { context: 'Validating download link' }), {
         onRetry: () => runDownload(options)
       });
+      return false;
+    }
+    if (!isCurrentPage()) {
+      statusToast?.dismiss();
+      restoreButtonState(button);
       return false;
     }
     if (!finalUrl) {
@@ -1662,7 +1684,8 @@ window.NexusExt = window.NexusExt || {};
           if (button._nxtkSentAttempt === attemptId && button.isConnected) restoreButtonState(button);
         }, SENT_STATE_MS);
       }
-    } else if (!await startManagedFileDownload(finalUrl, fileId)) {
+    } else if (!await startManagedFileDownload(finalUrl, fileId, isCurrentPage)) {
+      if (!isCurrentPage()) return false;
       handleError(button, Errors.create('request_failed', {
         context: 'Starting browser download',
         technicalMessage: 'chrome.downloads did not start the resolved file'

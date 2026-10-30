@@ -881,6 +881,62 @@ async function leavingPageTests() {
     'a page restored from the back-forward cache reports failures again');
 }
 
+// Direct signed links have the same navigation lifetime as native routes: an old file page's
+// pending lookup must not start a download or open Vortex after the user changes page.
+async function staleSignedDownloadTests() {
+  for (const changeUrlBeforeNavigationEvent of [false, true]) {
+    for (const isNMM of [true, false]) {
+      const h = createHarness({ sectionGameId: '130', pages: [{ body: JSON.stringify({ url: isNMM ? VORTEX_URL : MANUAL_URL }) }] });
+      h.hooks.setConfig({ AutoCloseTab: false, ShowAlertsOnError: false });
+      const downloads = [];
+      h.context.NexusExt.Storage.getSettings = async () => ({});
+      h.context.NexusExt.Storage.sendDownloadCommand = async (...args) => { downloads.push(args); return { ok: true }; };
+      h.context.NXTK.waitForProtocolHandoff = async () => true;
+      h.context.NXTK.bumpTotalDownloads = () => {};
+      h.context.NXTK.recordVortexOpenEvent = () => {};
+      h.state.pages[0].beforeReply = () => {
+        if (changeUrlBeforeNavigationEvent) h.context.location.pathname = '/newvegas/mods/101';
+        else h.hooks.invalidateDownloadAttempts();
+      };
+      assert.equal(await h.hooks.runDownload({ fileId: '200', isNMM }), false, 'an obsolete lookup cannot start');
+      assert.equal(h.navigations.length, 0, 'an obsolete signed link cannot open Vortex');
+      assert.equal(downloads.length, 0, 'an obsolete signed link cannot start a managed download');
+      assert.equal(h.recorded.length, 0, 'leaving the page is not a download error');
+    }
+  }
+
+  const settingsPending = createHarness({ sectionGameId: '130', pages: [{ body: JSON.stringify({ url: MANUAL_URL }) }] });
+  settingsPending.hooks.setConfig({ ShowAlertsOnError: false });
+  let resolveSettings;
+  let commands = 0;
+  settingsPending.context.NexusExt.Storage.getSettings = () => new Promise((resolve) => { resolveSettings = resolve; });
+  settingsPending.context.NexusExt.Storage.sendDownloadCommand = async () => { commands++; return { ok: true }; };
+  const pending = settingsPending.hooks.runDownload({ fileId: '200', isNMM: false });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(typeof resolveSettings, 'function', 'the managed download is waiting for its settings');
+  settingsPending.hooks.invalidateDownloadAttempts();
+  resolveSettings({});
+  assert.equal(await pending, false);
+  assert.equal(commands, 0, 'navigation during the settings lookup cannot send the download command');
+  assert.equal(settingsPending.recorded.length, 0);
+
+  // A second deliberate click does not dispose the page or cancel the first file's signed link.
+  const concurrent = createHarness({ sectionGameId: '130', pages: [
+    { body: JSON.stringify({ url: VORTEX_URL }) },
+    { body: JSON.stringify({ url: VORTEX_URL.replace('/files/200?', '/files/201?') }) }
+  ] });
+  concurrent.hooks.setConfig({ AutoCloseTab: false, ShowAlertsOnError: false });
+  concurrent.context.NXTK.waitForProtocolHandoff = async () => true;
+  concurrent.context.NXTK.bumpTotalDownloads = () => {};
+  concurrent.context.NXTK.recordVortexOpenEvent = () => {};
+  const starts = await Promise.all([
+    concurrent.hooks.runDownload({ fileId: '200', isNMM: true }),
+    concurrent.hooks.runDownload({ fileId: '201', isNMM: true })
+  ]);
+  assert.deepEqual(starts, [true, true], 'both requested files may start on the current page');
+  assert.equal(concurrent.navigations.length, 2);
+}
+
 function modPageDetectionTests() {
   const cases = [
     ['https://www.nexusmods.com/newvegas/mods/100', true, 'a mod page is handled'],
@@ -910,6 +966,7 @@ Promise.resolve()
   .then(unreadableRouteBoundaries)
   .then(readableVortexRouteTests)
   .then(oneShotNativeVortexTests)
+  .then(staleSignedDownloadTests)
   .then(leavingPageTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {
