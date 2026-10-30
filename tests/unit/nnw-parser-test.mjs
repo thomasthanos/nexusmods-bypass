@@ -577,6 +577,36 @@ async function fileUidTests() {
     `${page}&file_id=2394&nmm=1`, 'and replaced when it names another file');
 }
 
+// E-0jjutro (3.3.2, Firefox 159, 2026-10-29): the generator answered an empty list, and the route the file
+// page links to answered with an HTML page holding that route again. Whether the route sent the request on
+// (to the file page, as a click on it does) is part of the report, by kind only.
+async function routeSentBackToThePageTests() {
+  const UID = String(4205 * 2 ** 32 + 31008);
+  const route = `https://www.nexusmods.com/api/files/${UID}/download?nmm=1`;
+  const filePage = 'https://www.nexusmods.com/readyornot/mods/4212?tab=files&file_id=31008&nmm=1';
+  const pageWithRoute = `<!doctype html><html><body><mod-download-modal file='${JSON.stringify({ uid: Number(UID), vortexDownloadUrl: route })}'></mod-download-modal></body></html>`;
+  const harness = createHarness({
+    href: 'https://www.nexusmods.com/readyornot/mods/4212',
+    sectionGameId: '4205',
+    pages: [{ body: '[]' }, { body: pageWithRoute }, { body: pageWithRoute, finalUrl: filePage }]
+  });
+  const result = await harness.api.getDownloadUrl({ fileId: '31008', isNMM: true, href: filePage, record: false });
+  assert.equal(result.error?.code, 'no_nmm_link');
+  assert.equal(result.error.technicalMessage, 'steps: generator HTTP 200: empty JSON list; no link in it'
+    + ' | page HTTP 200: HTML page; a usable link was in it (download route)'
+    + ' | API route HTTP 200: HTML page; a usable link was in it (download route); sent on to file page');
+  assert.doesNotMatch(result.error.technicalMessage, new RegExp(`${UID}|31008|4212|readyornot|api/files`), 'with no address in it');
+
+  // A route that answers from its own address says nothing more.
+  const stayed = createHarness({
+    href: 'https://www.nexusmods.com/readyornot/mods/4212',
+    sectionGameId: '4205',
+    pages: [{ body: '[]' }, { body: pageWithRoute }, { body: '<!doctype html><html><body></body></html>' }]
+  });
+  const quiet = await stayed.api.getDownloadUrl({ fileId: '31008', isNMM: true, href: filePage, record: false });
+  assert.match(quiet.error.technicalMessage, / \| API route HTTP 200: HTML page; no link in it$/);
+}
+
 // Issue #30 (3.1.8, Helium on Chrome 155): "API route network_error | generator HTTP 200: JSON {url}; web
 // link outside Nexus where Vortex needs nxm | page HTTP 200: HTML page; a usable link was in it | API route
 // network_error". The route a Vortex click loads failed to fetch within milliseconds while Nexus answered
@@ -747,6 +777,7 @@ Promise.resolve()
   .then(missingLinkTrailTests)
   .then(fileUidTests)
   .then(unreadableRouteTests)
+  .then(routeSentBackToThePageTests)
   .then(unreadableRouteBoundaries)
   .then(leavingPageTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))

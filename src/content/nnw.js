@@ -671,9 +671,13 @@ window.NexusExt = window.NexusExt || {};
     const noteFailure = (step, response) => {
       trail.push(`${step} ${response?.error?.code || 'failed'}${response?.status ? ` HTTP ${response.status}` : ''}`);
     };
-    const noteAnswer = (step, response, nmm) => {
+    const noteAnswer = (step, response, nmm, askedUrl = '') => {
       const shape = DownloadParser.explainMissingLink(response?.text, { mode: nmm ? 'vortex' : 'browser', fileId, baseUrl: location.href });
-      trail.push(`${step} HTTP ${response?.status || 200}: ${shape}`);
+      // A download route that answers from another address was sent on: where to, by kind only.
+      const sentOn = askedUrl && response?.finalUrl && response.finalUrl !== askedUrl
+        ? `; sent on to ${DownloadParser.linkKind(response.finalUrl)}`
+        : '';
+      trail.push(`${step} HTTP ${response?.status || 200}: ${shape}${sentOn}`);
     };
     // Another readable Nexus response makes native navigation worth trying for a click. It does not
     // establish why the route's fetch failed: a redirect or a transient connection fault can do that.
@@ -832,7 +836,7 @@ window.NexusExt = window.NexusExt || {};
         if (!isNMM) return { url: extracted.url };
       }
 
-      noteAnswer('API route', response, isNMM);
+      noteAnswer('API route', response, isNMM, apiUrl);
       return { url: null, error: Errors.create(isNMM ? 'no_nmm_link' : 'no_download_url', { record: false }) };
     };
 

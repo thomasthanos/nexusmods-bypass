@@ -141,6 +141,17 @@ function workerEdgeCases(Parser) {
       'JSON {vortexDownloadUrl}; a usable link was in it (file page)'],
     ['<!doctype html><html><body><h3 id="Notice1-title">Premium members only</h3></body></html>', vortex, 'HTML page; premium notice; no link in it'],
     ['<!doctype html><html><body><h3 id="Notice1-title">File quarantined: virus scan</h3></body></html>', browser, 'HTML page; file-safety notice; no link in it'],
+    // What else can stand between a file page and its link (2026-10-30: the generator answering an empty
+    // list for some files): a check a person completes, a form to a download route, a self-reloading page.
+    ['<!doctype html><html><body><div class="cf-turnstile" data-sitekey="0x4AAAA-secret"></div></body></html>', vortex, 'HTML page; captcha widget; no link in it'],
+    ['<!doctype html><html><head><script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script></head><body></body></html>', browser, 'HTML page; captcha widget; no link in it'],
+    ['<!doctype html><html><body><div class="g-recaptcha"></div></body></html>', browser, 'HTML page; captcha widget; no link in it'],
+    ['<!doctype html><html><body><form method="post" action="/api/files/858993459400/download?nmm=1"><button>Slow download</button></form></body></html>', vortex,
+      'HTML page; download form (POST); no link in it'],
+    ['<!doctype html><html><body><form action="/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl"></form></body></html>', browser,
+      'HTML page; download form (GET); no link in it'],
+    ['<!doctype html><html><body><form method="post" action="/search"></form></body></html>', browser, 'HTML page; no link in it'],
+    ['<!doctype html><html><head><meta http-equiv="refresh" content="5"></head><body></body></html>', browser, 'HTML page; self-reloading page; no link in it'],
     // The first kind that fits wins: an adult-content notice that also says "disabled" stays adult content.
     ['<!doctype html><html><body><h3 id="Notice1-title">Adult content disabled</h3></body></html>', browser, 'HTML page; adult-content notice; no link in it'],
     ['', browser, 'empty body; no link in it'],
@@ -156,11 +167,18 @@ function workerEdgeCases(Parser) {
     [JSON.stringify({ vortexDownloadUrl: 'https://www.nexusmods.com/api/files/858993459400/download?nmm=1&key=secret' }), vortex],
     [JSON.stringify({ url: VORTEX_URL }), vortex],
     [JSON.stringify({ fileId: 200, downloadUrl: MANUAL_URL }), browser],
-    ['<!doctype html><html><body><h3 id="Notice1-title">Premium members only for jane</h3></body></html>', vortex]
+    ['<!doctype html><html><body><h3 id="Notice1-title">Premium members only for jane</h3></body></html>', vortex],
+    ['<!doctype html><html><body><div class="cf-turnstile" data-sitekey="0x4AAAA-secret"></div><form method="post" action="/api/files/858993459400/download?nmm=1&key=secret"></form></body></html>', vortex]
   ]) {
     assert.doesNotMatch(Parser.explainMissingLink(text, options), /858993459400|api\/files|nexusmods\.com|nexus-cdn|secret|newvegas|members|jane|\b200\b/,
       `nothing of the answer itself: ${text.slice(0, 50)}`);
   }
+
+  // linkKind names a link by kind for the page's reports (where a download route sent a request on).
+  assert.equal(Parser.linkKind('https://www.nexusmods.com/newvegas/mods/100?tab=files&file_id=200&nmm=1'), 'file page');
+  assert.equal(Parser.linkKind('https://www.nexusmods.com/api/files/858993459400/download?nmm=1'), 'download route');
+  assert.equal(Parser.linkKind('https://www.nexusmods.com/newvegas/mods/100'), 'Nexus page');
+  assert.equal(Parser.linkKind('https://example.com/elsewhere'), 'other link');
 
   assert.equal(Parser.isSignedNxmLink(VORTEX_URL), true, 'a signed handoff link is recognised');
   assert.equal(Parser.isSignedNxmLink(VORTEX_URL.replace(/&/g, '&amp;')), true, 'also when it arrives encoded');

@@ -408,6 +408,12 @@
   // The kind of site notice a page shows in place of a mod, by its fixed Nexus title. Only the kind is
   // reported, never the notice's text.
   const NOTICE_TITLE = /<h3\b[^>]*\bid=["']Notice\d+-title["'][^>]*>([^<]{1,80})<\/h3>/i;
+  // What else can stand between a file page and its link, read from markup only: a check a person has to
+  // complete (Cloudflare Turnstile, reCAPTCHA, hCaptcha), a form that submits to a download route or to
+  // the link generator, and a page that reloads itself.
+  const CAPTCHA_WIDGET = /challenges\.cloudflare\.com\/turnstile|\bclass=["'][^"']*\b(?:cf-turnstile|g-recaptcha|h-captcha)\b/i;
+  const DOWNLOAD_FORM = /<form\b[^>]*\baction=["'][^"']*(?:\/api\/files\/|GenerateDownloadUrl)[^"']*["'][^>]*>/i;
+  const META_REFRESH = /<meta\b[^>]*\bhttp-equiv=["']?refresh\b/i;
   // Fixed kinds only: the notice's own words never reach a report. A plain "site notice" said nothing
   // about why a file page had no link.
   const NOTICE_KINDS = Object.freeze([
@@ -467,6 +473,10 @@
       const title = NOTICE_TITLE.exec(body)?.[1] || '';
       if (title) parts.push(NOTICE_KINDS.find(([pattern]) => pattern.test(title))?.[1] || 'site notice');
       if (/\bid=["']slowDownloadButton["']/i.test(body)) parts.push('slow-download button');
+      if (CAPTCHA_WIDGET.test(body)) parts.push('captcha widget');
+      const form = DOWNLOAD_FORM.exec(body)?.[0];
+      if (form) parts.push(`download form (${/\bmethod=["']?post\b/i.test(form) ? 'POST' : 'GET'})`);
+      if (META_REFRESH.test(body)) parts.push('self-reloading page');
       return parts.join('; ');
     }
     return 'plain text body';
@@ -489,6 +499,7 @@
     decodeLinkText,
     explainMissingLink,
     findDownloadLink,
+    linkKind,
     findSignedNxmLink,
     isSignedNxmLink,
     normalizeFileId,
