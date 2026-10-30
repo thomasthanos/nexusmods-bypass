@@ -260,6 +260,12 @@
   "errContextInvalidFix": {
     "message": "Laden Sie diese Nexus-Mods-Seite neu und versuchen Sie es erneut."
   },
+  "errPreviousDownloadNotRetiredMsg": {
+    "message": "Ein vorheriger Download verhindert weiterhin den Start dieser Sammlung."
+  },
+  "errPreviousDownloadNotRetiredFix": {
+    "message": "Prüfe die Download-Liste deines Browsers, stoppe alle vorherigen Übertragungen und versuche dann erneut, diese Sammlung herunterzuladen."
+  },
   "errRequestFailedMsg": {
     "message": "Die Download-Anfrage ist fehlgeschlagen."
   },

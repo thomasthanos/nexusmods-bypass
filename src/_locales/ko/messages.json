@@ -260,6 +260,12 @@
   "errContextInvalidFix": {
     "message": "이 Nexus Mods 페이지를 새로고침한 뒤 다시 시도하세요."
   },
+  "errPreviousDownloadNotRetiredMsg": {
+    "message": "이전 다운로드 때문에 이 컬렉션을 아직 시작할 수 없습니다."
+  },
+  "errPreviousDownloadNotRetiredFix": {
+    "message": "브라우저의 다운로드 목록을 확인하고 이전 전송을 중지한 다음 이 컬렉션의 다운로드를 다시 시도하세요."
+  },
   "errRequestFailedMsg": {
     "message": "다운로드 요청에 실패했습니다."
   },

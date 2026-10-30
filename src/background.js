@@ -983,7 +983,7 @@ function classifyNexusResponse(response, text) {
   });
 }
 
-async function fetchNdcResponse(url, options, timeoutMs) {
+async function fetchNdcResponse(url, options, timeoutMs, { probeDownload = false } = {}) {
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
   const timeout = NXTK.normalizeSetting('RequestTimeout', Number(timeoutMs) || NXTK.DEFAULTS.RequestTimeout);
   let timedOut = false;
@@ -991,16 +991,26 @@ async function fetchNdcResponse(url, options, timeoutMs) {
   const startedAt = Date.now();
   try {
     const response = await fetch(url, { ...options, signal: controller?.signal || options?.signal });
-    const text = await response.text();
-    return {
+    const result = {
       ok: response.ok,
       status: response.status || 0,
-      text,
       url: response.url || url,
       retryAfter: response.headers?.get?.('Retry-After') || '',
       cfMitigated: response.headers?.get?.('Cf-Mitigated') || '',
       contentType: response.headers?.get?.('Content-Type') || ''
     };
+    if (probeDownload) {
+      const fileUrl = ndcBrowserFileUrl(result.url);
+      const isDocument = DOCUMENT_MIME_PATTERN.test(result.contentType);
+      // Following the route may already have reached the archive. Inspect headers, then cancel
+      // this probe instead of buffering a mod into worker memory before downloading it again.
+      if (!NXTK.validateDownloadTarget(result.url, { method: 1 }).ok
+        || (result.contentType && !isDocument) || (result.ok && fileUrl && !isDocument)) {
+        void response.body?.cancel().catch(() => undefined);
+        return { ...result, text: '', fileUrl: result.ok && !isDocument ? fileUrl : '' };
+      }
+    }
+    return { ...result, text: await response.text() };
   } catch (cause) {
     return {
       ok: false,
@@ -1103,6 +1113,16 @@ function ndcResolveFailure(code, response) {
   };
 }
 
+// Browser downloads need a file, rather than an otherwise trusted Nexus page or resolver route.
+function ndcBrowserFileUrl(url) {
+  const verdict = NXTK.validateDownloadTarget(url, { method: 1 });
+  if (!verdict.ok) return '';
+  const parsed = new URL(verdict.url);
+  if (/(^|\.)nexus-cdn\.com\.?$/i.test(parsed.hostname)) return verdict.url;
+  if (/^\/api\/files\//i.test(parsed.pathname) || parsed.searchParams.has('file_id')) return '';
+  return NXTK.downloadNameFromUrl(verdict.url) ? verdict.url : '';
+}
+
 async function resolveNdcBrowserUrl(item, timeoutMs) {
   const page = await fetchNdcResponse(item.pageUrl, {
     method: 'GET',
@@ -1143,27 +1163,52 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   }
 
   // Scoped to this file, so a response that lists several files cannot hand back another one's link.
-  const found = DOWNLOAD_PARSER.findDownloadLink(generated.text, { mode: 'browser', fileId: item.fileId });
-  // The parser applies the same rules; they are checked again because this is the last stop before
-  // the URL reaches chrome.downloads.
-  const verdict = NXTK.validateDownloadTarget(found?.url, { method: 1 });
-  if (!verdict.ok) {
-    // What both answers looked like, never their content, so a report says why there was no link.
-    const shape = (response) => DOWNLOAD_PARSER.explainMissingLink(response.text, { mode: 'browser', fileId: item.fileId });
-    // The deck tab writes the ad-timer cookie for the queue only while "Hide ads and Premium panels" is
-    // on; without it Nexus can hold the link back, which looks the same as no link (see nnw.js).
-    const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-    return {
-      ok: false,
-      code: 'no_download_url',
-      detail: [
-        `generator HTTP ${generated.status}: ${found ? `link refused (${verdict.detail})` : shape(generated)}`,
-        `page HTTP ${page.status}: ${shape(page)}`,
-        settings?.HidePremiumUpsells === false ? 'ad timer cookie off' : ''
-      ].filter(Boolean).join(' | ')
-    };
+  const options = { mode: 'browser', fileId: item.fileId, gameId: item.gameId, baseUrl: item.pageUrl };
+  const found = DOWNLOAD_PARSER.findDownloadLink(generated.text, options);
+  const direct = ndcBrowserFileUrl(found?.url)
+    || ndcBrowserFileUrl(DOWNLOAD_PARSER.findDownloadLink(page.text, options)?.url);
+  if (direct) return { ok: true, url: direct };
+
+  // Some accounts receive [] from the generator while their page still carries the file's download
+  // route. Only a same-file, same-game route from that page/response may be probed, never downloaded
+  // as the archive itself. A self-reference or another HTML page cannot start an endless lookup.
+  let route = DOWNLOAD_PARSER.findDownloadRoute(generated.text, options)
+    || DOWNLOAD_PARSER.findDownloadRoute(page.text, options);
+  const visited = new Set();
+  const routeDetails = [];
+  for (let step = 0; step < 2 && route && !visited.has(route.url); step += 1) {
+    visited.add(route.url);
+    const response = await fetchNdcResponse(route.url, { method: 'GET', credentials: 'include' }, timeoutMs, { probeDownload: true });
+    routeDetails.push(`route HTTP ${response.status}: ${DOWNLOAD_PARSER.explainMissingLink(response.text, options)}`);
+    if (response.status === 0) {
+      routeDetails.push(connectionFailureDetail('route', response));
+      break;
+    }
+    const issue = classifyNexusResponse(response, response.text);
+    if (issue) return ndcResolveFailure(issue.code, response);
+    if (response.status === 404 || response.status === 410) return ndcResolveFailure('file_not_found', response);
+    if (!response.ok) return ndcResolveFailure(response.status === 429 ? 'rate_limited' : 'generate_failed', response);
+    if (response.fileUrl) return { ok: true, url: response.fileUrl };
+    const fileUrl = ndcBrowserFileUrl(DOWNLOAD_PARSER.findDownloadLink(response.text, options)?.url);
+    if (fileUrl) return { ok: true, url: fileUrl };
+    route = DOWNLOAD_PARSER.findDownloadRoute(response.text, options);
   }
-  return { ok: true, url: verdict.url };
+
+  // What both answers looked like, never their content, so a report says why there was no link.
+  const shape = (response) => DOWNLOAD_PARSER.explainMissingLink(response.text, { mode: 'browser', fileId: item.fileId });
+  // The deck tab writes the ad-timer cookie for the queue only while "Hide ads and Premium panels" is
+  // on; without it Nexus can hold the link back, which looks the same as no link (see nnw.js).
+  const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+  return {
+    ok: false,
+    code: 'no_download_url',
+    detail: [
+      `generator HTTP ${generated.status}: ${shape(generated)}`,
+      `page HTTP ${page.status}: ${shape(page)}`,
+      ...routeDetails,
+      settings?.HidePremiumUpsells === false ? 'ad timer cookie off' : ''
+    ].filter(Boolean).join(' | ')
+  };
 }
 
 async function ndcDownloadRequest(job, item, url) {
@@ -3195,7 +3240,7 @@ const TRUSTED_SENDER_URL = /^https:\/\/(?:[\w-]+\.)*nexusmods\.com\//i;
 // Answers, not faults: pausing or stopping when no queue is running is a normal
 // thing for a reader to do and must not fill the error log.
 // Answers the caller handles itself, not faults: nothing to act on, or a limit the user has reached.
-const EXPECTED_HANDLER_OUTCOMES = new Set(['job-not-found', 'history-too-large']);
+const EXPECTED_HANDLER_OUTCOMES = new Set(['job-not-found', 'history-too-large', 'previous_download_not_retired']);
 
 function isTrustedSender(sender) {
   if (!sender || sender.id !== chrome.runtime.id) return false;
@@ -3296,7 +3341,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .then((value) => sendResponse({ ok: true, value, error: null }))
       .catch((cause) => {
         const message = String(cause?.message || cause || 'storage-mutation-failed');
-        if (!EXPECTED_HANDLER_OUTCOMES.has(message)) recordBackgroundError(msg.type, message);
+        // A pending retirement is an intentional safety refusal; its optional state detail is
+        // returned to the caller without turning the refusal into a critical extension crash.
+        if (!EXPECTED_HANDLER_OUTCOMES.has(message.split(' (', 1)[0])) recordBackgroundError(msg.type, message);
         sendResponse({ ok: false, value: null, error: message });
       });
     return true;

@@ -222,7 +222,7 @@ export function severityOf(p) {
 // Version age and fault type are independent: an older client's failure is not claimed to be fixed.
 const WARNING_CODES = new Set(['nexus_page_changed', 'nexus_api_changed', 'network_error', 'timeout',
   'NETWORK_FAILED', 'NETWORK_TIMEOUT', 'NETWORK_DISCONNECTED', 'NETWORK_SERVER_DOWN',
-  'server_error', 'requires_login', 'cloudflare', 'rate_limited', 'access_denied']);
+  'server_error', 'requires_login', 'cloudflare', 'rate_limited', 'access_denied', 'previous_download_not_retired']);
 function classificationOf(p, relayVersion = '') {
   if (!/^\d+\.\d+\.\d+$/.test(relayVersion)) {
     return { level: WARNING_CODES.has(p.error?.causeCode || p.error?.code) ? 'warning' : 'error', client: 'unknown' };
@@ -304,6 +304,7 @@ const AUTO_ERROR_COPY = {
   offline: ['No internet connection', 'Reconnect to the internet, then retry.'],
   network_error: ['Nexus request could not complete', 'The browser could not complete the request or read the response. The cause may be a connection problem, a blocked request or an unreadable redirect. See the technical cause below.'],
   request_failed: ['Download request failed', 'The request could not be completed. Retry; if it keeps happening, send a bug report from Help & Bugs.'],
+  previous_download_not_retired: ['Previous download needs attention', 'A previous download is preventing the collection from starting. Check the browser Downloads list, stop any previous transfer, then retry the collection.'],
   server_error: ['Nexus is having trouble', 'Nexus returned a server error. Wait a little, then retry.'],
   access_denied: ['Download access denied', 'Check your Nexus account permissions and the file page before retrying.'],
   file_not_found: ['File no longer available', 'The file may have been removed or the link may be outdated. Check the mod page for another version.'],

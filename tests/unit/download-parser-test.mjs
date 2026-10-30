@@ -274,6 +274,33 @@ function readsFileUids(Parser) {
 }
 
 const Parser = workerRunsEveryCase();
+{
+  const gameId = 1704;
+  const fileId = 200;
+  const uid = gameId * 2 ** 32 + fileId;
+  const route = `https://www.nexusmods.com/api/files/${uid}/download`;
+  const options = { fileId, gameId, mode: 'browser', baseUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/1' };
+  assert.equal(Parser.downloadRouteFor(route, options), route);
+  assert.equal(Parser.downloadRouteFor(`/api/files/${uid}/download`, options), route);
+  assert.equal(Parser.downloadRouteFor('/api/files/200?game=1704', options), 'https://www.nexusmods.com/api/files/200?game=1704');
+  for (const wrong of [
+    `/api/files/${1151 * 2 ** 32 + fileId}/download`, `/api/files/${uid + 1}/download`,
+    '/api/files/200', `${route}?game=1151`, `${route}?game=1704&game=1151`,
+    `${route}?nmm=1`, `${route}?nmm=0&nmm=1`, `${route}?nmm=10`, `${route}#other`,
+    `${route}/extra`, route.replace('www.nexusmods.com', 'next.nexusmods.com'),
+    route.replace('www.nexusmods.com', 'evil.example'), route.replace('https:', 'http:'),
+    route.replace('www.', 'user@www.'), 'https://premium-files.nexus-cdn.com/a.zip'
+  ]) assert.equal(Parser.downloadRouteFor(wrong, options), null, `untrusted resolver: ${wrong}`);
+  assert.equal(Parser.downloadRouteFor(`${route}?nmm=1`, { ...options, mode: 'vortex' }), `${route}?nmm=1`);
+  const html = `<mod-file-download file='${JSON.stringify({ fileId, downloadUrl: route })}'></mod-file-download>`;
+  assert.equal(Parser.findDownloadRoute(html, options)?.url, route);
+  assert.equal(Parser.findDownloadRoute(JSON.stringify([{ fileId: 201, downloadUrl: route }, { fileId, downloadUrl: route }]), options)?.url, route);
+  assert.equal(Parser.findDownloadRoute(JSON.stringify({ fileId: 201, downloadUrl: route }), options), null);
+  assert.equal(Parser.findDownloadRoute(JSON.stringify({ fileId, vortexDownloadUrl: `${route}?nmm=1` }), options), null);
+  assert.equal(Parser.findDownloadRoute(JSON.stringify({ fileId, vortexDownloadUrl: `${route}?nmm=1` }), { ...options, mode: 'vortex' })?.url, `${route}?nmm=1`);
+  assert.equal(Parser.findDownloadRoute(JSON.stringify({ fileId, downloadUrl: 'https://premium-files.nexus-cdn.com/a.zip' }), options), null);
+  assert.equal(Parser.findDownloadRoute(VORTEX_URL, { ...options, mode: 'vortex' }), null, 'a signed nxm link is not an HTTP resolver');
+}
 workerEdgeCases(Parser);
 readsFileUids(Parser);
 failsClosedWithoutShared();

@@ -119,6 +119,8 @@ assert.equal(extendedJson.diagnostics.logs.length, 1);
 assert.doesNotMatch(JSON.stringify(extendedJson), /PRIVATE|private@example/);
 assert.equal(discordMessage({ ...auto, error: { code: 'nexus_page_changed' } }, 'warning').embeds[0].color, 0xe8b339);
 assert.match(discordMessage({ ...auto, error: { code: 'nexus_page_changed' } }, 'warning').embeds[0].title, /warning/i);
+assert.equal(discordMessage({ ...auto, error: { code: 'previous_download_not_retired' } }, 'busy').embeds[0].color, 0xe8b339,
+  'a previous download awaiting retirement is an actionable warning');
 for (const causeCode of ['NETWORK_FAILED', 'NETWORK_TIMEOUT', 'NETWORK_DISCONNECTED', 'NETWORK_SERVER_DOWN']) {
   const embed = discordMessage({ ...auto, error: { code: 'queue_item_failed', causeCode } }, 'network').embeds[0];
   assert.equal(embed.color, 0xe8b339, `${causeCode} is a network warning, not an extension error`);

@@ -260,6 +260,12 @@
   "errContextInvalidFix": {
     "message": "Bu Nexus Mods sayfasını yenileyip tekrar deneyin."
   },
+  "errPreviousDownloadNotRetiredMsg": {
+    "message": "Önceki bir indirme, bu koleksiyonun başlatılmasını hâlâ engelliyor."
+  },
+  "errPreviousDownloadNotRetiredFix": {
+    "message": "Tarayıcınızın İndirilenler listesini kontrol edin, önceki aktarımları durdurun ve bu koleksiyonu indirmeyi yeniden deneyin."
+  },
   "errRequestFailedMsg": {
     "message": "İndirme isteği başarısız oldu."
   },

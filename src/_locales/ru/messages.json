@@ -260,6 +260,12 @@
   "errContextInvalidFix": {
     "message": "Обновите эту страницу Nexus Mods и повторите попытку."
   },
+  "errPreviousDownloadNotRetiredMsg": {
+    "message": "Предыдущая загрузка всё ещё мешает начать загрузку этой коллекции."
+  },
+  "errPreviousDownloadNotRetiredFix": {
+    "message": "Проверьте список загрузок браузера, остановите предыдущие передачи и повторите загрузку этой коллекции."
+  },
   "errRequestFailedMsg": {
     "message": "Не удалось выполнить запрос на скачивание."
   },

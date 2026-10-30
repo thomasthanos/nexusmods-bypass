@@ -1203,6 +1203,7 @@ function failureTextTests() {
     ['empty_file', /empty file/i],
     ['not_a_file', /page instead of the file/i],
     ['download_not_started', /refused to start/i],
+    ['previous_download_not_retired', /previous download.*Downloads list.*retry this collection/i],
     ['cloudflare', /./],
     ['requires_login', /./],
     ['mod_unavailable', /./]

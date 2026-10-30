@@ -40,6 +40,8 @@ window.NexusExt = window.NexusExt || {};
   const CLOUDFLARE_FALLBACK_TTL_MS = 5 * 60 * 1000;
   const FALLBACK_WATCHDOG_MS = 12000;
   const FALLBACK_WATCHDOG_MAX_MS = 3 * 60 * 1000;
+  const NATIVE_VORTEX_ATTEMPT_KEY = 'nxtk_native_vortex_attempt';
+  const NATIVE_VORTEX_ATTEMPT_TTL_MS = 5 * 60 * 1000;
 
   const LOG_BADGE = 'background:#d98f40;color:#191106;font-weight:700;padding:1px 6px;border-radius:3px';
   const LOG_STYLES = {
@@ -660,8 +662,8 @@ window.NexusExt = window.NexusExt || {};
     prefetchedStatus = 0,
     prefetchedError = null,
     signal = null,
-    // A click's Vortex download may end by opening the file's download route the way the click
-    // itself would have (see routeOutcome); nothing else can, since it may leave the page.
+    // The caller may permit native route navigation for a click or a guarded single-file automatic
+    // start. A collection never grants it, since navigation would leave its queue behind.
     canOpenRoute = false,
     trail = []
   } = {}) {
@@ -684,6 +686,8 @@ window.NexusExt = window.NexusExt || {};
     let nexusAnswered = false;
     // A Vortex download's API route that a fetch could not read at all (see resolveApiFileUrl).
     let unreadableRoute = null;
+    // Firefox can read the route as HTML while the page still carries only the same native route.
+    let readableRoute = null;
 
     let isApiFileHref = false;
     try {
@@ -696,6 +700,8 @@ window.NexusExt = window.NexusExt || {};
     const canonicalFilePage = `${location.origin}${location.pathname}?tab=files&file_id=${encodeURIComponent(fileId || '')}`;
     const filePageUrl = isApiFileHref ? canonicalFilePage : (href || canonicalFilePage);
     let resolvedGameId = normalizeGameId(gameId) || getGameId(filePageUrl);
+    // Response metadata can help the generator, but cannot change which game's native route may open.
+    const routeGameId = resolvedGameId;
     const gameDomain = getGameDomainFromUrl(filePageUrl) || getGameDomainFromUrl(location.href);
     refreshAdTimerCookie();
     const endpoint = new URL('/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl', filePageUrl).href;
@@ -792,9 +798,13 @@ window.NexusExt = window.NexusExt || {};
     };
 
     const resolveApiFileUrl = async (url) => {
-      let apiUrl = new URL(url, location.href).href;
-      if (isNMM && !apiUrl.includes('nmm=1')) {
-        apiUrl += apiUrl.includes('?') ? '&nmm=1' : '?nmm=1';
+      const parsedApiUrl = new URL(url, location.href);
+      if (isNMM) parsedApiUrl.searchParams.set('nmm', '1');
+      const apiUrl = parsedApiUrl.href;
+      if (isNMM && !DownloadParser.downloadRouteFor(apiUrl, {
+        fileId, gameId: routeGameId, mode: 'vortex', baseUrl: location.href
+      })) {
+        return { url: null, error: Errors.create('no_nmm_link', { context: 'Checking the Nexus download route', record: false }) };
       }
       // The file page links to the route that was clicked: asked again, it fails the same way.
       if (unreadableRoute && new URL(apiUrl).pathname === new URL(unreadableRoute.url).pathname) {
@@ -835,21 +845,30 @@ window.NexusExt = window.NexusExt || {};
         if (isNMM && nxmUrl) return { url: nxmUrl };
         if (!isNMM) return { url: extracted.url };
       }
+      const native = isNMM && DownloadParser.findDownloadRoute(response.text, {
+        fileId, gameId: routeGameId, mode: 'vortex', baseUrl: location.href
+      });
+      if (native && /<[A-Za-z!][^>]*>/.test(response.text || '') && fileRouteFor(native.url, fileId, routeGameId)) {
+        readableRoute ||= { url: apiUrl };
+      }
 
       noteAnswer('API route', response, isNMM, apiUrl);
       return { url: null, error: Errors.create(isNMM ? 'no_nmm_link' : 'no_download_url', { record: false }) };
     };
 
-    // The route could not be read but another Nexus request succeeded. A click can open the route as
-    // the click itself would have, letting the browser follow redirects it may not fetch. Anything
-    // else gets "no Vortex link" instead of a lost connection, which a collection run would wait out
-    // for minutes on a route that answers the same way every time.
+    // A verified native route can still be useful when fetch reads only a page pointing back to it,
+    // or cannot read it while another Nexus request succeeds. Only the caller may permit navigation.
+    // An unreadable route becomes "no Vortex link" for a collection rather than a connection retry.
     const routeOutcome = () => {
-      if (!unreadableRoute || !nexusAnswered || signal?.aborted) return null;
+      const nativeRoute = unreadableRoute || readableRoute;
+      if (!nativeRoute || !nexusAnswered || signal?.aborted) return null;
       if (canOpenRoute) {
-        NXTK.queueDebugEntry?.('debug', 'Download API route cannot be read by a fetch; opening it as the click would have.');
-        return { url: unreadableRoute.url, viaRoute: true };
+        const trusted = fileRouteFor(nativeRoute.url, fileId, routeGameId);
+        if (!trusted) return null;
+        NXTK.queueDebugEntry?.('debug', 'No signed Vortex link resolved; opening the verified download route as the click would have.');
+        return { url: trusted, viaRoute: true };
       }
+      if (!unreadableRoute) return null;
       return {
         url: null,
         error: Errors.create('no_nmm_link', {
@@ -879,8 +898,7 @@ window.NexusExt = window.NexusExt || {};
       const quickNxm = parseNxmDownloadLink(quick?.url, fileId);
       if (quickNxm) return { url: quickNxm };
       if (isTerminalVortexError(quick?.error)) return { url: null, error: quick.error };
-      // A clicked route that could not be read is opened now: that is what the click itself does, and
-      // quicker than loading the whole file page to look for another way.
+      // A permitted native route can open now rather than fetching the same file page again.
       const opened = canOpenRoute ? routeOutcome() : null;
       if (opened) return opened;
 
@@ -902,7 +920,9 @@ window.NexusExt = window.NexusExt || {};
         if (link) return { url: link };
         noteAnswer('page', firstResponse, true);
 
-        const extracted = parseDownloadURLFromResponse(firstResponse.text, { mode: 'vortex', fileId });
+        const extracted = DownloadParser.findDownloadRoute(firstResponse.text, {
+          mode: 'vortex', fileId, gameId: routeGameId, baseUrl: location.href
+        }) || parseDownloadURLFromResponse(firstResponse.text, { mode: 'vortex', fileId });
         if (extracted?.url) {
           const nxmUrl = parseNxmDownloadLink(extracted.url, fileId);
           if (nxmUrl) return { url: nxmUrl };
@@ -1033,14 +1053,39 @@ window.NexusExt = window.NexusExt || {};
 
   // A download route a click loads (/api/files/<uid>/download on this site) when it names this file,
   // else null. Opened, the browser follows it to Vortex as it does for Nexus's own button.
-  function fileRouteFor(url, fileId) {
+  function fileRouteFor(url, fileId, gameId = getGameId()) {
+    const expectedGame = normalizeGameId(gameId);
+    return expectedGame
+      ? DownloadParser.downloadRouteFor(url, { fileId, gameId: expectedGame, mode: 'vortex', baseUrl: location.href })
+      : null;
+  }
+
+  // This survives a native route returning to the same page. It carries only public file identity,
+  // never the signed route, and a storage failure disables automatic route navigation.
+  function nativeVortexAttempt(fileId) {
     try {
-      const parsed = new URL(url, location.href);
-      const id = toFileId(parsed.pathname.match(/^\/api\/files\/(\d+)(?:\/download)?\/?$/)?.[1]);
-      if (!id || parsed.origin !== location.origin || !NXTK.isSafeNexusPageUrl(parsed.href)) return null;
-      return !fileId || id === toFileId(fileId) ? parsed.href : null;
+      const domain = getGameDomainFromUrl();
+      const id = toFileId(fileId);
+      if (!domain || !id) return { available: false, attempted: false };
+      const key = `${domain}:${id}`;
+      const storageKey = `${NATIVE_VORTEX_ATTEMPT_KEY}:${key}`;
+      const saved = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
+      const age = Date.now() - Number(saved?.at);
+      return { available: true, key, storageKey, attempted: saved?.key === key && age >= 0 && age < NATIVE_VORTEX_ATTEMPT_TTL_MS };
     } catch (_) {
-      return null;
+      return { available: false, attempted: false };
+    }
+  }
+
+  function rememberNativeVortexAttempt(fileId) {
+    const state = nativeVortexAttempt(fileId);
+    if (!state.available || state.attempted) return false;
+    try {
+      const marker = JSON.stringify({ key: state.key, at: Date.now() });
+      sessionStorage.setItem(state.storageKey, marker);
+      return sessionStorage.getItem(state.storageKey) === marker;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -1462,6 +1507,7 @@ window.NexusExt = window.NexusExt || {};
       openFilePageOnNoUrl = false,
       closeTabAfterStart = false
     } = options;
+    const automaticRoute = isNMM && !button && closeTabAfterStart;
     const attemptId = beginDownloadAttempt();
     try {
       const page = new URL(href || location.href, location.href);
@@ -1505,9 +1551,11 @@ window.NexusExt = window.NexusExt || {};
 
     let result;
     try {
-      // Only a click may end by opening the file's download route: an automatic start that did could be
-      // brought back to this page by it, and start again.
-      result = await getDownloadUrl({ fileId, gameId: getGameId(), isNMM, href, canOpenRoute: isNMM && !!button });
+      // Automatic starts may try the native route once per file in this tab. The durable marker is
+      // written before navigating, so a route returning here cannot start another automatic loop.
+      const autoRoute = automaticRoute ? nativeVortexAttempt(fileId) : null;
+      result = await getDownloadUrl({ fileId, gameId: getGameId(), isNMM, href,
+        canOpenRoute: isNMM && (!!button || (autoRoute?.available && !autoRoute.attempted)) });
     } catch (cause) {
       result = { url: null, error: Errors.fromException(cause, { context: 'Resolving download link' }) };
     }
@@ -1539,6 +1587,11 @@ window.NexusExt = window.NexusExt || {};
       }
       handleError(button, error, { onRetry: () => runDownload(options) });
       releaseToNativeControl(button, fileId, error, isNMM);
+      return false;
+    }
+    if (result.viaRoute && attemptId !== downloadAttemptSequence) {
+      statusToast?.dismiss();
+      restoreButtonState(button);
       return false;
     }
 
@@ -1584,6 +1637,11 @@ window.NexusExt = window.NexusExt || {};
     }
     if (isNMM) {
       if (result.viaRoute) Logger.info('Vortex hand-off: opening the download route as the click would have; Nexus sends it on to Vortex');
+      if (result.viaRoute && automaticRoute && !rememberNativeVortexAttempt(fileId)) {
+        allowNativeDownload(fileId, true);
+        statusToast?.dismiss();
+        return false;
+      }
       try {
         location.assign(finalUrl);
       } catch (cause) {
@@ -2107,6 +2165,11 @@ window.NexusExt = window.NexusExt || {};
       return;
     }
     const isNMM = wantsVortexHandoff(params);
+    if (isNMM && nativeVortexAttempt(fileId).attempted) {
+      allowNativeDownload(fileId, true);
+      Logger.info('The native Vortex route returned to this file; leaving its controls ready for a manual retry.');
+      return;
+    }
     // Handing a link to Vortex asks the browser to open another program, then counts down to close this tab
     // behind a "Keep open" button. Neither should happen in a tab nobody is looking at, so it waits to be shown.
     if (isNMM && !await waitUntilShown(autoStartKey)) return;

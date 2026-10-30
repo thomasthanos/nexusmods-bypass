@@ -50,6 +50,80 @@ const nnwWith = (gameId, roots = null) => ({ getGameId: () => gameId, getSearchR
 const isCollectionRoute = (path) => /\/collections\/[^/]+/.test(path);
 const ids = (result) => Object.fromEntries(result.checks.map((entry) => [entry.id, entry.ok]));
 
+async function scheduledShellTests() {
+  function harness() {
+    let now = 0;
+    let timerId = 0;
+    const timers = new Map();
+    const errors = [];
+    const shell = () => ({
+      ...fakeDoc({ title: 'Nexus Mods', present: ['quick-search', 'create-draft-mod-modal', 'upload-modal-button'] }),
+      readyState: 'complete',
+      body: { textContent: 'Nexus navigation and account controls. '.repeat(10),
+        getElementsByTagName: () => ['QUICK-SEARCH', 'CREATE-DRAFT-MOD-MODAL', 'UPLOAD-MODAL-BUTTON'].map((tagName) => ({ tagName })) }
+    });
+    const isolated = vm.createContext({
+      console, URL, URLSearchParams, Date, Math, Promise,
+      location: at('/skyrimspecialedition/mods/987'),
+      document: shell(),
+      setTimeout: (callback, delay) => { const id = ++timerId; timers.set(id, { callback, at: now + delay }); return id; },
+      clearTimeout: (id) => timers.delete(id),
+      sessionStorage: { getItem: () => '[]', setItem() {} },
+      chrome: { runtime: {}, storage: { local: { get: (_key, callback) => callback({}), set: (_values, callback) => callback?.() } } },
+      NXTK: { recordError: (error) => errors.push(error) },
+      NexusExt: { Auth: unreadable, NNW: nnwWith('1704') }
+    });
+    isolated.window = isolated;
+    vm.runInContext(fs.readFileSync('src/content/page-check.js', 'utf8'), isolated);
+    const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+    const advance = async (until) => {
+      await flush();
+      while (true) {
+        const next = [...timers].filter(([, timer]) => timer.at <= until).sort((a, b) => a[1].at - b[1].at)[0];
+        if (!next) break;
+        now = next[1].at;
+        timers.delete(next[0]);
+        next[1].callback();
+        await flush();
+      }
+      now = until;
+    };
+    return { isolated, errors, advance, checker: isolated.NexusExt.PageCheck };
+  }
+
+  // E-0wu48au: Firefox rendered Nexus's navigation/custom elements before the mod's own content.
+  // A complete document and a quiet DOM do not prove hydration has finished.
+  const late = harness();
+  assert.equal(late.checker.pageShape(late.isolated.document),
+    'shape: unknown app; main none; h1 none; components quick-search, create-draft-mod-modal, upload-modal-button; e2e none; text some; title nexus');
+  late.checker.schedule();
+  await late.advance(9000);
+  assert.equal(late.errors.length, 0, 'a shell with no main or heading gets one bounded recovery check');
+  late.isolated.document = fakeDoc({ ids: { section: {} }, title: 'A mod at Nexus Mods' });
+  await late.advance(15000);
+  assert.equal(late.errors.length, 0, 'late mod content is checked again before reporting a site change');
+  assert.ok(late.checker.lastResult().checks.every((entry) => entry.ok));
+
+  const persistent = harness();
+  persistent.checker.schedule();
+  await persistent.advance(15000);
+  assert.equal(persistent.errors.length, 1, 'a permanently empty Nexus shell still reports the missing content');
+  assert.match(persistent.errors[0].technicalMessage, /missing: page content region/);
+
+  const navigated = harness();
+  navigated.checker.schedule();
+  await navigated.advance(9000);
+  navigated.isolated.location = at('/users/123');
+  await navigated.advance(15000);
+  assert.equal(navigated.errors.length, 0, 'an old route cannot report during its extra shell check');
+
+  const changed = harness();
+  changed.isolated.NexusExt.NNW = nnwWith('');
+  changed.checker.schedule();
+  await changed.advance(9000);
+  assert.equal(changed.errors.length, 1, 'a page missing other required structure keeps the normal reporting deadline');
+}
+
 // Pages the extension does not act on are not checked at all.
 assert.equal(PageCheck.runChecks({ doc: fakeDoc(), loc: at('/users/123'), auth: signedIn, nnw: nnwWith('1') }), null);
 
@@ -167,6 +241,7 @@ assert.notEqual(chunksA, PageCheck.detectBuild(fakeDoc({ scripts: ['/_next/stati
 assert.equal(PageCheck.detectBuild(fakeDoc({ scripts: ['https://ads.example/x.js'] })), '', 'no build is invented');
 
 (async () => {
+  await scheduledShellTests();
   // A new build is remembered with the one before it, so a report can say when Nexus deployed.
   let record = await PageCheck.rememberBuild('build-1', 1000);
   assert.equal(record.id, 'build-1');

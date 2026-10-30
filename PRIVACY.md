@@ -29,7 +29,7 @@ A short list of the last few actions the extension took is also kept, so that a 
 what led up to a fault. That list is held in memory only, is capped at eight short entries, and is
 gone as soon as the page is closed or reloaded. It is never written to storage.
 
-All of this data is stored in local browser extension storage.
+Settings, download history and report queues are stored in local browser extension storage. A single-file automatic Vortex route attempt also keeps the public game/file identifiers and a timestamp in that Nexus tab's session storage. This five-minute guard prevents a route returning to the file page from starting a reload loop. It contains no signed URL, token or account information and disappears when the tab's session ends.
 
 ## Network activity
 

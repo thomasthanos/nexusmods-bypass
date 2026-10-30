@@ -17,6 +17,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-3-3-4"><kbd> 3.3.4 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-3"><kbd> 3.3.3 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-2"><kbd> 3.3.2 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-1"><kbd> 3.3.1 </kbd></a>&ensp;·&ensp;
@@ -28,6 +29,14 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+<a id="release-3-3-4"></a>
+
+## 3.3.4 — 2026-10-30
+
+- **Download routes that returned no link:** when the generator returns an empty list, Vortex clicks can use the verified Nexus route for the requested game and file. Single-file automatic Vortex starts can attempt that route once per file for five minutes in the tab; returning to the page leaves native controls available instead of causing a reload loop. Collection browser downloads can probe up to two verified routes, accept only an actual file destination and cancel binary probe bodies without buffering the mod.
+- **Queue restart messages:** a previous download that cannot yet be retired still prevents a replacement run. This expected refusal now has recovery advice in all 13 languages and no longer creates a critical background-crash report. Browser antivirus/security blocks remain terminal and are never automatically retried.
+- **Slow-rendering mod pages:** when only Nexus's shell is visible, the page checker allows one additional six-second render check. Persistent missing content still reports a failure.
+- **Report relay:** deployed the current relay with baseline 3.3.4, preserving existing secrets, KV and the diagnostics service binding. Earlier GitHub jobs had skipped Worker deployment because the repository token was unset, leaving the live relay at 3.3.2. Health and extension CORS checks passed after deployment.
 - **Firefox startup on a page without a body:** Firefox can run the content scripts in a loaded Nexus document that has no `<body>`. Startup then stopped at *document.body is null* and sent an automatic report (`E-1vrmg48`), so a body the page added later never got the extension. Startup now waits for a body, and *Skip requirements* listens on the document, which always exists. A browser test checks that a real click on the requirements tab still opens the files tab.
 - **Cloudflare errors on removed collection mods:** a collection run that skipped a file, or could not get one, asked Nexus about the next file at once. A download spaces those requests out, but a skip did not. Downloading a collection again leaves mostly the mods that were removed from Nexus, so the run asked about them back to back, and Cloudflare began answering with its check: the run reported Cloudflare where the mods were simply gone (two store reviews). Both queues now wait 2 seconds after such a file, and 10 seconds after a Cloudflare answer, so its check can lapse before the next file.
 - **A collection that would not start again (Firefox):** Stop cancels the download in progress and starting the collection again waits until that is done. Firefox refuses to cancel a download it no longer lists, because the user cleared it from its list or a browser restart numbered the downloads afresh. That download could never be retired, and every later start of the collection failed with `previous_download_not_retired`. A download the browser confirms it no longer has now counts as retired; an unreadable download list still blocks. The error now names the state of the download that blocks a start (for example *complete, file still there*), never its file, so a report says why.

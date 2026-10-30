@@ -150,9 +150,9 @@ async function expectedOutcomesStayOutOfTheLog() {
   await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
   assert.equal(messageListeners.length, 1, 'the worker registers exactly one message listener');
 
-  const send = (type) => new Promise((resolve) => {
+  const send = (type, payload = {}) => new Promise((resolve) => {
     const handled = messageListeners[0](
-      { type, payload: { gameId: 'g1', collectionId: 'c1' } },
+      { type, payload: { gameId: 'g1', collectionId: 'c1', ...payload } },
       { id: 'test-extension-id', url: 'https://www.nexusmods.com/skyrimspecialedition/collections/abc', tab: { id: 7 } },
       resolve
     );
@@ -168,6 +168,38 @@ async function expectedOutcomesStayOutOfTheLog() {
   await new Promise((resolve) => setTimeout(resolve, 10));
   const log = await storageGetLocal(NXTK.ERROR_LOG_KEY, []);
   assert.equal(log.length, 0, `nothing was logged (found ${log.length})`);
+
+  const savedDownloads = global.chrome.downloads;
+  const jobId = 'testjob-retirement-answer';
+  try {
+    await storageSetLocal(NDC_JOBS_KEY, {
+      [jobId]: { id: jobId, gameId: 'g1', collectionId: 'c1', status: 'stopped', itemCount: 1,
+        retiringDownloadId: 918, createdAt: Date.now(), updatedAt: Date.now() }
+    });
+    global.chrome.downloads = {
+      search: (_query, callback) => callback([{ id: 918, state: 'complete', exists: true }]),
+      cancel: (_id, callback) => callback(),
+      removeFile: (_id, callback) => {
+        global.chrome.runtime.lastError = { message: 'File cannot be removed' };
+        callback();
+        global.chrome.runtime.lastError = null;
+      }
+    };
+    const blocked = await send('NDC_QUEUE_START', { items: [{ fileId: 42, gameId: '1704', name: 'Wanted.7z',
+      pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/42' }] });
+    assert.equal(blocked.ok, false, 'a new run still cannot replace an unretired download');
+    assert.equal(blocked.error, 'previous_download_not_retired (complete, file still there)',
+      'the caller keeps the reason it must wait');
+    await context.__writeQueues.get(NXTK.ERROR_LOG_KEY);
+    assert.equal((await storageGetLocal(NXTK.ERROR_LOG_KEY, [])).length, 0,
+      'the intentional safety refusal is not reported as a critical background crash');
+    assert.equal((await storageGetLocal(NDC_JOBS_KEY, {}))[jobId].retiringDownloadId, 918,
+      'the refusal keeps ownership of the unretired file');
+  } finally {
+    global.chrome.downloads = savedDownloads;
+    global.chrome.runtime.lastError = null;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+  }
 
   const failing = await send('NDC_HISTORY_ADD');
   assert.equal(failing.ok, false);

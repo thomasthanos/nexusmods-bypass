@@ -312,6 +312,14 @@
     "message": "Refresh this Nexus Mods page, then retry.",
     "description": "Recovery advice for errContextInvalidMsg."
   },
+  "errPreviousDownloadNotRetiredMsg": {
+    "message": "A previous download is still preventing this collection from starting.",
+    "description": "A previous browser download has not retired, so another collection run cannot start."
+  },
+  "errPreviousDownloadNotRetiredFix": {
+    "message": "Check your browser's Downloads list, stop any previous transfer, then retry this collection.",
+    "description": "Recovery advice when a previous download is still blocking a collection run."
+  },
   "errRequestFailedMsg": {
     "message": "The download request failed.",
     "description": "Error message: generic fallback."

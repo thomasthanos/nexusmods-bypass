@@ -155,6 +155,11 @@ window.NexusExt = window.NexusExt || {};
       recovery: 'Retry the download. If it keeps happening, report the issue.',
       retryable: true
     },
+    previous_download_not_retired: {
+      userMessage: 'A previous download is still preventing this collection from starting.',
+      recovery: "Check your browser's Downloads list, stop any previous transfer, then retry this collection.",
+      retryable: true
+    },
     save_failed: {
       userMessage: 'The browser could not save the file: the disk may be full, or the download folder cannot be written to.',
       recovery: 'Free up disk space or pick another download folder in settings, then start the download again. Files already downloaded are kept.',

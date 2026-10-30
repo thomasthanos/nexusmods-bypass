@@ -154,6 +154,16 @@ window.NexusExt = window.NexusExt || {};
 
   const failuresOf = (result) => (result?.checks || []).filter((entry) => !entry.ok);
 
+  // Nexus can have a complete, quiet document containing its header/modals before the mod renders.
+  // This is only evidence to wait once more, never evidence that a persistently missing page is OK.
+  function hasOnlyModShell(result, doc = document) {
+    const failed = failuresOf(result);
+    return result?.page === 'mod' && failed.length === 1 && failed[0].id === 'mod-section'
+      && /nexus/i.test(String(doc.title || ''))
+      && !doc.querySelector?.('main, h1')
+      && !!doc.querySelector?.('quick-search, create-draft-mod-modal, upload-modal-button');
+  }
+
   // The Nexus deploy the page came from, when the page says. Next.js pages name their build; failing
   // that, the set of hashed script chunks changes with every deploy, so a digest of it stands in.
   function detectBuild(doc = document) {
@@ -378,6 +388,13 @@ window.NexusExt = window.NexusExt || {};
       let result = runChecks();
       if (failuresOf(result).length) {
         await wait(RECHECK_MS);
+        if (stale()) return;
+        result = runChecks();
+      }
+      if (hasOnlyModShell(result)) {
+        await wait(RECHECK_MS);
+        if (stale()) return;
+        await window.NexusExt.NNW?.waitForDomSettled?.().catch?.(() => undefined);
         if (stale()) return;
         result = runChecks();
       }

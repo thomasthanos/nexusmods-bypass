@@ -18,10 +18,16 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 
 ## Current deployment
 
+Updated on 2026-10-30 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev with the current 3.3.4 relay. Production version `2e94be1e-8249-4bb2-8da9-8af9fafa0dd7` serves 100% of traffic, uploaded through the Cloudflare API from the locally validated Wrangler bundle. `RELAY_EXTENSION_VERSION` is 3.3.4; the existing webhook secret, KV namespace, allowed origins, recipient and diagnostics service binding were inherited and read back unchanged. No secret value was read or replaced.
+
+The GitHub release jobs had published extension 3.3.3 while the relay deploy jobs skipped because `CLOUDFLARE_API_TOKEN` was unset. The live relay therefore continued classifying 3.3.3 clients against its 3.3.2 baseline. This deployment corrects that mismatch and includes the current retry deadline and CORS exposure of `Retry-After`. Health returned HTTP 200 with `ok: true, configured: true`; extension report preflight returned HTTP 204 with the expected origin and exposed cooldown header. These checks sent no report or notification.
+
+### Previous 3.3.2 deployment
+
 Updated on 2026-10-25 at https://nexusmods-bypass-relay.mariosthanos3.workers.dev with the 3.3.2 Worker,
 deployed by hand with Wrangler from `diagnostics/` as release-gate.yml would (its deploy jobs skip while the
 repository has no `CLOUDFLARE_API_TOKEN` secret). Production version `3c34c5ae-cbe3-4081-9a90-e985edc1356a`
-serves 100% of traffic, built from `relay/worker.js` at
+served 100% of traffic, built from `relay/worker.js` at
 <a href="https://github.com/thomasthanos/nexusmods-bypass/commit/85ad408a0157e6033014e5918bdfa20fefbed618"><kbd><code>85ad408</code></kbd></a>
 (release 3.3.2, `RELAY_EXTENSION_VERSION` 3.3.2). It replaced `985d392e-7b4f-40c0-b4b3-a20ad9efcbc9` (2026-10-24).
 The `DIAGNOSTICS` binding reaches the diagnostics Worker version `05fc660d-8a19-465b-9cc1-4c1d293632a2`,

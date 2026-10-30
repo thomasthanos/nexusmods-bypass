@@ -54,6 +54,7 @@ function createHarness({
   responses = [],
   // With pages, requests go through the real errors.js and response classifier and are answered from this list.
   pages = null,
+  sessionStorage = undefined,
   // The URL class the page sees, for a browser whose parser differs from Node's.
   url = URL
 } = {}) {
@@ -61,6 +62,7 @@ function createHarness({
   const calls = [];
   const recorded = [];
   const listeners = {};
+  const navigations = [];
   const state = {
     sectionGameId,
     dataGameIds: [...dataGameIds],
@@ -72,7 +74,13 @@ function createHarness({
   const document = {
     body: {},
     cookie: '',
-    documentElement: {},
+    title: 'Example mod',
+    hidden: false,
+    documentElement: (() => {
+      const attributes = new Map();
+      return { getAttribute: (key) => attributes.get(key), setAttribute: (key, value) => attributes.set(key, value), removeAttribute: (key) => attributes.delete(key) };
+    })(),
+    querySelector: () => null,
     createElement: (name) => {
       assert.equal(name, 'textarea');
       return createTextarea();
@@ -113,7 +121,8 @@ function createHarness({
   const fetch = async (url, options = {}) => {
     calls.push({ url: String(url), options });
     if (!state.pages.length) throw new Error(`Unexpected request: ${url}`);
-    const { status = 200, body = '', failure, finalUrl } = state.pages.shift();
+    const { status = 200, body = '', failure, finalUrl, beforeReply } = state.pages.shift();
+    beforeReply?.();
     if (failure) throw failure;
     return {
       ok: status >= 200 && status < 300,
@@ -148,14 +157,16 @@ function createHarness({
     clearTimeout,
     console,
     document,
+    sessionStorage,
     fetch,
     navigator: { onLine: true },
     location: {
       href: parsedLocation.href,
       origin: parsedLocation.origin,
       pathname: parsedLocation.pathname,
+      search: parsedLocation.search,
       hostname: parsedLocation.hostname,
-      assign: () => {}
+      assign: (url) => { navigations.push(url); }
     },
     setInterval,
     setTimeout,
@@ -175,10 +186,14 @@ function createHarness({
     ? ['src/lib/shared.js', 'src/lib/selectors.js', 'src/lib/response-classifier.js', 'src/lib/download-url-parser.js', 'src/content/errors.js', SOURCE_FILE]
     : ['src/lib/shared.js', 'src/lib/selectors.js', 'src/lib/download-url-parser.js', SOURCE_FILE];
   for (const file of files) {
-    vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
+    const source = fs.readFileSync(file, 'utf8');
+    const tested = file === SOURCE_FILE ? source.replace('window.NexusExt.NNW = {',
+      'window.__nnwTest = { autoStartDownload, runDownload, nativeVortexAttempt, shouldPassThroughToNative, invalidateDownloadAttempts, setConfig: value => { cfg = value; } }; window.NexusExt.NNW = {') : source;
+    vm.runInNewContext(tested, context, { filename: file });
   }
   const fire = (type) => (listeners[type] || []).forEach((listener) => listener({ type }));
-  return { api: context.NexusExt.NNW, errors: context.NexusExt.Errors, calls, state, recorded, fire };
+  return { api: context.NexusExt.NNW, errors: context.NexusExt.Errors, calls, state, recorded, fire,
+    hooks: context.__nnwTest, context, navigations };
 }
 
 // Discord reports from 3.1.1: an unreadable /api/files redirect stopped the flow before the
@@ -736,6 +751,120 @@ async function unreadableRouteBoundaries() {
   assert.equal(browser.viaRoute, undefined, 'browser downloads keep using the validated file URL');
 }
 
+// Firefox reports E-0jjutro: fetch reads the route as HTML, but the returned page still names only
+// that route. A manual click may let the browser handle it; repeated automatic navigation must not.
+async function readableVortexRouteTests() {
+  const fileId = '31008';
+  const gameId = 4205;
+  const uid = String(gameId * 2 ** 32 + Number(fileId));
+  const page = 'https://www.nexusmods.com/readyornot/mods/4212';
+  const filePage = `${page}?tab=files&file_id=${fileId}&nmm=1`;
+  const route = `https://www.nexusmods.com/api/files/${uid}/download?nmm=1`;
+  const markup = (link = route, id = uid) => `<!doctype html><html><body><mod-download-modal file='${JSON.stringify({ uid: Number(id), vortexDownloadUrl: link })}'></mod-download-modal></body></html>`;
+  const make = (pages, sectionGameId = String(gameId)) => createHarness({ href: page, sectionGameId, pages });
+  const options = { fileId, isNMM: true, href: filePage, canOpenRoute: true, record: false };
+
+  const clicked = make([{ body: '[]' }, { body: markup() }, { body: markup(), finalUrl: filePage }]);
+  const result = await clicked.api.getDownloadUrl(options);
+  assert.deepEqual({ ...result }, { url: route, viaRoute: true }, 'a readable same-file route remains available to a manual click');
+  assert.equal(clicked.calls.length, 3, 'the signed link is searched for before the native route is handed back');
+
+  const direct = make([{ body: markup(), finalUrl: filePage }, { body: '[]' }]);
+  assert.deepEqual({ ...await direct.api.getDownloadUrl({ ...options, href: route }) }, { url: route, viaRoute: true },
+    'a clicked API route can be handed to the browser after its readable HTML and empty generator');
+  assert.equal(direct.calls.length, 2, 'the same redirect is not fetched repeatedly');
+
+  const automatic = make([{ body: '[]' }, { body: markup() }, { body: markup() }]);
+  const stopped = await automatic.api.getDownloadUrl({ ...options, canOpenRoute: false });
+  assert.equal(stopped.url, null, 'automatic and collection starts cannot create a native-navigation loop');
+  assert.equal(stopped.error?.code, 'no_nmm_link');
+
+  for (const [link, id] of [
+    [`https://www.nexusmods.com/api/files/${gameId * 2 ** 32 + Number(fileId) + 1}/download?nmm=1`, String(gameId * 2 ** 32 + Number(fileId) + 1)],
+    [`https://www.nexusmods.com/api/files/${(gameId + 1) * 2 ** 32 + Number(fileId)}/download?nmm=1`, String((gameId + 1) * 2 ** 32 + Number(fileId))],
+    [`https://untrusted.example/api/files/${uid}/download?nmm=1`, uid]
+  ]) {
+    const wrong = make([{ body: '[]' }, { body: markup(link, id) }, { body: markup(link, id) }]);
+    const rejected = await wrong.api.getDownloadUrl(options);
+    assert.equal(rejected.url, null, 'a different file, game, or site cannot become a native route');
+    assert.equal(rejected.viaRoute, undefined);
+  }
+  const unknownGame = make([{ body: '[]' }, { body: markup() }, { body: markup() }], '');
+  assert.equal((await unknownGame.api.getDownloadUrl(options)).viaRoute, undefined,
+    'an encoded route is not navigated when its game cannot be verified');
+  const signedWithoutPageGame = `nxm://readyornot/mods/4212/files/${fileId}?key=signed&expires=9999999999&user_id=1`;
+  const unknownGameDirect = make([{ body: signedWithoutPageGame }], '');
+  const signedResult = await unknownGameDirect.api.getDownloadUrl({ ...options, href: route });
+  assert.equal(signedResult.url, signedWithoutPageGame,
+    'an unknown page game does not prevent reading a same-file API route for a signed Vortex link');
+  assert.equal(signedResult.viaRoute, undefined, 'reading the API route does not grant native route navigation');
+  assert.equal(unknownGameDirect.calls.length, 1, 'the signed route response needs no generator fallback');
+  const otherGameId = gameId + 1;
+  const otherUid = String(otherGameId * 2 ** 32 + Number(fileId));
+  const otherRoute = `https://www.nexusmods.com/api/files/${otherUid}/download?nmm=1`;
+  const conflicting = make([{ body: '[]' }, { body: `${markup(otherRoute, otherUid)}<div data-game-id="${otherGameId}"></div>` }]);
+  assert.equal((await conflicting.api.getDownloadUrl(options)).url, null,
+    'conflicting response metadata cannot authorize another game\'s route');
+
+  for (const status of [401, 403, 404, 429]) {
+    const denied = make([{ body: '[]' }, { body: markup() }, { status }]);
+    const blocked = await denied.api.getDownloadUrl(options);
+    assert.equal(blocked.url, null, `HTTP ${status} on the route remains terminal`);
+    assert.equal(blocked.viaRoute, undefined);
+  }
+}
+
+async function oneShotNativeVortexTests() {
+  const fileId = '31008';
+  const uid = String(4205 * 2 ** 32 + Number(fileId));
+  const page = `https://www.nexusmods.com/readyornot/mods/4212?tab=files&file_id=${fileId}&nmm=1`;
+  const route = `https://www.nexusmods.com/api/files/${uid}/download?nmm=1`;
+  const body = `<mod-download-modal file='${JSON.stringify({ uid: Number(uid), vortexDownloadUrl: route })}'></mod-download-modal>`;
+  const data = new Map();
+  const storage = { getItem: key => data.get(key) || null, setItem: (key, value) => data.set(key, value) };
+  const replies = () => [{ body: '[]' }, { body }, { body, finalUrl: page }];
+  const make = (pages, sessionStorage = storage) => {
+    const h = createHarness({ href: page, sectionGameId: '4205', pages, sessionStorage });
+    h.hooks.setConfig({ AutoStartDownload: true, AutoCloseTab: false, ShowAlertsOnError: false });
+    h.context.NXTK.waitForProtocolHandoff = async () => false;
+    h.context.NXTK.bumpTotalDownloads = () => {};
+    h.context.NXTK.recordVortexOpenEvent = () => {};
+    return h;
+  };
+  const first = make(replies());
+  await first.hooks.autoStartDownload();
+  assert.deepEqual(first.navigations, [route], 'a single-file automatic start may hand its verified route to the browser once');
+  assert.equal(first.recorded.length, 0, 'a native route handoff is not recorded as a missing link');
+  assert.equal(first.hooks.nativeVortexAttempt(fileId).attempted, true);
+  assert.equal(first.hooks.nativeVortexAttempt('31009').attempted, false, 'the marker is scoped to this game and file');
+  assert.doesNotMatch([...data.values()].join(''), /https:|api\/files|nmm=|key=|expires=/, 'no URL or signed parameters enter the marker');
+
+  const returned = make([]);
+  await returned.hooks.autoStartDownload();
+  assert.equal(returned.calls.length, 0, 'returning or reloading the same file cannot repeat the automatic requests');
+  assert.equal(returned.navigations.length, 0, 'the returned route cannot cause a navigation loop');
+  assert.equal(returned.hooks.shouldPassThroughToNative(fileId, true), true, 'the page\'s manual Vortex controls remain usable');
+
+  const [markerKey, markerText] = [...data.entries()][0];
+  const marker = JSON.parse(markerText);
+  data.set(markerKey, JSON.stringify({ ...marker, at: Date.now() - 5 * 60 * 1000 - 1 }));
+  const expired = make(replies());
+  await expired.hooks.autoStartDownload();
+  assert.deepEqual(expired.navigations, [route], 'the one-shot marker expires rather than disabling the file permanently');
+
+  const noRead = make(replies(), { getItem: () => { throw new Error('storage denied'); } });
+  await noRead.hooks.autoStartDownload();
+  assert.equal(noRead.navigations.length, 0, 'unavailable session storage disables automatic route navigation');
+  const noWrite = make(replies(), { getItem: () => null, setItem: () => { throw new Error('quota'); } });
+  await noWrite.hooks.autoStartDownload();
+  assert.equal(noWrite.navigations.length, 0, 'the marker must be durably saved before automatic route navigation');
+  assert.equal(noWrite.hooks.shouldPassThroughToNative(fileId, true), true);
+  const obsolete = make(replies(), { getItem: () => null, setItem: () => assert.fail('a stale attempt must not save a navigation marker') });
+  obsolete.state.pages[2].beforeReply = () => obsolete.hooks.invalidateDownloadAttempts();
+  await obsolete.hooks.autoStartDownload();
+  assert.equal(obsolete.navigations.length, 0, 'navigation away while the route was being resolved cancels the old native handoff');
+}
+
 // E-0fk41cm: "Failed to fetch after 4580ms … page hidden". A tab that is closed or navigated drops its
 // requests with the same TypeError a dead connection gives; that is the page going away, not a fault.
 async function leavingPageTests() {
@@ -779,6 +908,8 @@ Promise.resolve()
   .then(unreadableRouteTests)
   .then(routeSentBackToThePageTests)
   .then(unreadableRouteBoundaries)
+  .then(readableVortexRouteTests)
+  .then(oneShotNativeVortexTests)
   .then(leavingPageTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {

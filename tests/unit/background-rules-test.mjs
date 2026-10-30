@@ -514,6 +514,69 @@ async function workerResolvesTheRequestedFile() {
   }
 }
 
+async function queuedBrowserRoutesResolveToFiles() {
+  const savedFetch = context.fetch;
+  const item = { fileId: 42, gameId: '1704', name: 'Wanted.7z',
+    pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/42' };
+  const route = `https://www.nexusmods.com/api/files/${1704 * 2 ** 32 + 42}/download`;
+  const wanted = 'https://premium-files.nexus-cdn.com/1704/42/wanted.7z?key=k&expires=1';
+  const markup = (url) => `<mod-file-download file='${JSON.stringify({ id: 42, downloadUrl: url })}'></mod-file-download>`;
+  const signedIn = '<a href="/auth/sign_out">Log out</a>';
+  try {
+    for (const test of [
+      { name: 'the empty generator falls back to the page route', finalUrl: wanted, contentType: 'application/octet-stream', binary: true, expected: { ok: true, url: wanted }, cancel: 1 },
+      { name: 'the route returns JSON with the real file', body: JSON.stringify({ url: wanted }), expected: { ok: true, url: wanted } },
+      { name: 'a route in generated JSON is resolved too', generated: JSON.stringify({ url: route }), finalUrl: wanted, contentType: 'application/octet-stream', binary: true, expected: { ok: true, url: wanted }, cancel: 1 },
+      { name: 'a direct file on the page needs no route', page: markup(wanted), calls: 2, expected: { ok: true, url: wanted } },
+      { name: 'a self-referencing HTML route is never the file', body: markup(route), expected: { ok: false, code: 'no_download_url' } },
+      { name: 'another file route is not requested', page: markup(route.replace(String(1704 * 2 ** 32 + 42), String(1704 * 2 ** 32 + 43))), calls: 2, expected: { ok: false, code: 'no_download_url' } },
+      { name: 'another game route is not requested', page: markup(route.replace(String(1704 * 2 ** 32 + 42), String(1151 * 2 ** 32 + 42))), calls: 2, expected: { ok: false, code: 'no_download_url' } },
+      { name: 'a Vortex route is not requested for browser files', page: markup(`${route}?nmm=1`), calls: 2, expected: { ok: false, code: 'no_download_url' } },
+      { name: 'an external route is not requested', page: markup(route.replace('www.nexusmods.com', 'evil.example')), calls: 2, expected: { ok: false, code: 'no_download_url' } },
+      { name: 'route throttling retains its Retry-After', status: 429, retryAfter: '123', expected: { ok: false, code: 'rate_limited', status: 429, retryAfter: '123' } },
+      { name: 'the route requires a login', finalUrl: 'https://users.nexusmods.com/auth/sign_in', body: '<html>Sign in</html>', contentType: 'text/html', expected: { ok: false, code: 'requires_login' } },
+      { name: 'the route requires a browser check', status: 403, body: '<title>Just a moment...</title>', contentType: 'text/html', expected: { ok: false, code: 'cloudflare' } },
+      { name: 'the route names a removed file', status: 404, expected: { ok: false, code: 'file_not_found', status: 404 } },
+      { name: 'a redirected file page is never the archive', finalUrl: `${item.pageUrl}?file_id=42`, body: signedIn + '<html>No file</html>', contentType: 'text/html', expected: { ok: false, code: 'no_download_url' } },
+      { name: 'an unsafe final file host is never accepted', finalUrl: 'https://evil.example/wanted.7z', contentType: 'application/octet-stream', binary: true, cancel: 1, expected: { ok: false, code: 'no_download_url' } },
+      { name: 'an HTML response from a CDN is not an archive', finalUrl: wanted, body: '<html>No file</html>', contentType: 'text/html', expected: { ok: false, code: 'no_download_url' } },
+      { name: 'an aborted route cannot become a file', abort: true, expected: { ok: false, code: 'no_download_url' } },
+      { name: 'a generated Nexus page is not a file', page: signedIn, generated: JSON.stringify({ url: `${item.pageUrl}?file_id=42` }), calls: 2, expected: { ok: false, code: 'no_download_url' } },
+      { name: 'a generated Nexus archive is still a file', generated: JSON.stringify({ url: 'https://files.nexusmods.com/wanted.7z' }), calls: 2, expected: { ok: true, url: 'https://files.nexusmods.com/wanted.7z' } }
+    ]) {
+      const asked = [];
+      let canceled = 0;
+      context.fetch = async (url, options) => {
+        asked.push({ url: String(url), options });
+        const generated = String(url).includes('GenerateDownloadUrl');
+        const probing = String(url) === route;
+        if (probing && test.abort) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+        const status = probing ? test.status || 200 : 200;
+        return {
+          ok: status >= 200 && status < 300, status, url: probing ? test.finalUrl || route : String(url),
+          headers: { get: (name) => probing
+            ? ({ 'content-type': test.contentType || 'application/json', 'retry-after': test.retryAfter || '' })[name.toLowerCase()] || '' : '' },
+          text: async () => {
+            if (probing && test.binary) throw new Error('must not buffer the archive body');
+            return probing ? test.body || '' : generated ? test.generated || '[]' : test.page || markup(route);
+          },
+          body: { cancel: async () => { canceled += 1; } }
+        };
+      };
+      const result = await context.resolveNdcBrowserUrl(item, 30000);
+      assert.deepEqual(Object.fromEntries(Object.keys(test.expected).map((key) => [key, result[key]])), test.expected, test.name);
+      assert.equal(asked.length, test.calls || 3, `${test.name}: requests stay bounded`);
+      assert.equal(canceled, test.cancel || 0, `${test.name}: archive bodies are canceled before download`);
+      if (asked.length > 2) {
+        assert.equal(asked[2].options.credentials, 'include');
+        assert.equal(asked[2].options.headers?.['X-Requested-With'], undefined, 'the route is fetched as a browser click, without AJAX fragment headers');
+      }
+    }
+  } finally {
+    context.fetch = savedFetch;
+  }
+}
+
 // Settings reach storage inside their bounds whoever writes them; a value of the wrong type is
 // still refused outright.
 async function settingsPatchIsNormalized() {
@@ -626,6 +689,7 @@ async function bundleLoadsAreTargetedAndQuiet() {
 }
 
 Promise.resolve()
+  .then(queuedBrowserRoutesResolveToFiles)
   .then(downloadNameFromLink)
   .then(transferSizeVerdicts)
   .then(staleRecordsAreNotJudged)

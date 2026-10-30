@@ -260,6 +260,12 @@
   "errContextInvalidFix": {
     "message": "请刷新此 Nexus Mods 页面后重试。"
   },
+  "errPreviousDownloadNotRetiredMsg": {
+    "message": "之前的下载仍在阻止此合集开始下载。"
+  },
+  "errPreviousDownloadNotRetiredFix": {
+    "message": "请检查浏览器的下载列表，停止之前的传输，然后重试下载此合集。"
+  },
   "errRequestFailedMsg": {
     "message": "下载请求失败。"
   },

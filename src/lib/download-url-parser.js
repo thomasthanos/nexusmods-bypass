@@ -66,6 +66,38 @@
   }
   const toFileId = normalizeFileId;
 
+  // A resolver is an intermediate Nexus request, never proof that its response is a file. Keep
+  // its identity checks separate from the broader set of hosts allowed to serve real downloads.
+  function downloadRouteFor(value, { fileId = '', gameId = '', mode = 'browser', baseUrl = DEFAULT_BASE_URL } = {}) {
+    const expectedFile = toFileId(fileId);
+    const shared = globalThis.NXTK;
+    if (!expectedFile || typeof shared?.isSafeNexusPageUrl !== 'function') return null;
+    try {
+      const base = new URL(baseUrl);
+      const candidate = cleanCandidate(value);
+      if (!candidate || candidate.length > MAX_URL_CHARS || /[\s\u0000-\u001f\u007f]/.test(candidate)) return null;
+      const route = new URL(candidate, base);
+      if (!shared.isSafeNexusPageUrl(base.href) || !shared.isSafeNexusPageUrl(route.href)
+        || route.origin !== base.origin || route.hash) return null;
+      const id = /^\/api\/files\/(\d{1,16})(?:\/download)?\/?$/.exec(route.pathname)?.[1];
+      if (!id || toFileId(id) !== expectedFile) return null;
+      const encodedGame = Number(id) >= UID_FACTOR ? Math.floor(Number(id) / UID_FACTOR) : 0;
+      const expectedGame = gameId === '' || gameId == null ? 0 : Number(gameId);
+      if (expectedGame && (!Number.isSafeInteger(expectedGame) || expectedGame < 1)) return null;
+      if (gameId !== '' && gameId != null && !expectedGame) return null;
+      const queryGames = [...route.searchParams.getAll('game'), ...route.searchParams.getAll('game_id')];
+      if (queryGames.some(game => !/^\d+$/.test(game) || !Number.isSafeInteger(Number(game)) || Number(game) < 1)) return null;
+      const claimedGames = [expectedGame, encodedGame, ...queryGames.map(Number)].filter(Boolean);
+      if (new Set(claimedGames).size > 1 || (expectedGame && !encodedGame && !queryGames.length)) return null;
+      const nmm = route.searchParams.getAll('nmm');
+      if (nmm.length > 1 || nmm.some(value => !['0', '1'].includes(value))) return null;
+      if (mode === 'browser' && nmm.includes('1')) return null;
+      return route.href;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // Resolved by hand rather than by an HTML parser: the text is untrusted, and only the few
   // entities a link can carry matter here. Anything unknown or out of range is left as written.
   function decodeEntities(text) {
@@ -179,6 +211,7 @@
     return {
       vortex: given.mode === 'vortex' || given.isNMM === true,
       fileId: toFileId(given.fileId),
+      gameId: given.gameId ?? '',
       allowBareCdn: given.allowBareCdn !== false,
       baseUrl
     };
@@ -214,6 +247,10 @@
       const candidate = cleanCandidate(value);
       if (!candidate) return '';
       if (candidate.length > MAX_URL_CHARS) return refuse('link too long');
+      if (settings.routeOnly) return downloadRouteFor(candidate, {
+        fileId: settings.fileId, gameId: settings.gameId,
+        mode: settings.vortex ? 'vortex' : 'browser', baseUrl: settings.baseUrl
+      }) || '';
       if (/^nxm:/i.test(candidate)) {
         if (!settings.vortex) return refuse('nxm link where the browser needs the file');
         const problem = nxmProblem(candidate);
@@ -383,7 +420,7 @@
       return fromJson(text, depth)
         || fromFileAttributes(text, depth)
         || fromMarkup(text)
-        || (settings.vortex ? fromNxm(text) : (settings.allowBareCdn && !namesOtherFiles ? fromBareCdn(text) : null));
+        || (settings.routeOnly ? null : settings.vortex ? fromNxm(text) : (settings.allowBareCdn && !namesOtherFiles ? fromBareCdn(text) : null));
     }
 
     // Read as it came first, then once more with entities and escapes resolved.
@@ -403,6 +440,10 @@
   // Vortex handoff, or { mode: 'vortex' | 'browser', fileId, allowBareCdn, baseUrl }.
   function findDownloadLink(text, options = false) {
     return createSearch(readOptions(options))(text);
+  }
+
+  function findDownloadRoute(text, options = {}) {
+    return createSearch({ ...readOptions(options), routeOnly: true, allowBareCdn: false })(text);
   }
 
   // The kind of site notice a page shows in place of a mod, by its fixed Nexus title. Only the kind is
@@ -497,8 +538,10 @@
   globalThis.NXTKDownloadParser = Object.freeze({
     MAX_INPUT_CHARS,
     decodeLinkText,
+    downloadRouteFor,
     explainMissingLink,
     findDownloadLink,
+    findDownloadRoute,
     linkKind,
     findSignedNxmLink,
     isSignedNxmLink,

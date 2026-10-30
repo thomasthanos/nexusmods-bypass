@@ -622,6 +622,42 @@ async function seedTerminalRegressionJob({ jobId, downloadId, fileId }) {
   return item;
 }
 
+async function browserSecurityBlockIsNeverRetried() {
+  const savedDownloads = global.chrome.downloads;
+  const jobId = 'testjob-security-block';
+  const downloadId = 919;
+  let starts = 0;
+  let resumes = 0;
+  try {
+    await seedTerminalRegressionJob({ jobId, downloadId, fileId: 79 });
+    await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+    global.chrome.downloads = {
+      search: (_query, callback) => callback([{ id: downloadId, state: 'interrupted', error: 'FILE_VIRUS_INFECTED',
+        paused: false, canResume: false, exists: false }]),
+      cancel: (_id, callback) => callback(),
+      download: (_request, callback) => { starts += 1; callback(920); },
+      resume: (_id, callback) => { resumes += 1; callback(); }
+    };
+    await handleNdcDownloadTerminal(downloadId, 'interrupted', 'FILE_VIRUS_INFECTED');
+    await advanceNdcJob(jobId);
+    const job = await readNdcJob(jobId);
+    assert.equal(starts, 0, 'a virus-blocked file is never downloaded again automatically');
+    assert.equal(resumes, 0, 'the extension does not resume a security-blocked transfer');
+    assert.equal(job.transferAttempts, 0);
+    assert.equal(job.completed, 0);
+    assert.equal(job.status, 'partial', 'the browser protection is reported as a failed file');
+    assert.match(job.failed[0].code, /^FILE_VIRUS_INFECTED \[blocked\]$/);
+    const log = await storageGetLocal(NXTK.ERROR_LOG_KEY, []);
+    assert.equal(log.length, 1);
+    assert.equal(log[0].code, 'queue_item_failed', 'a protection decision is not an extension crash');
+    assert.equal(log[0].causeCode, 'FILE_VIRUS_INFECTED', 'the browser decision remains available for the safety explanation');
+  } finally {
+    global.chrome.downloads = savedDownloads;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+    await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+  }
+}
+
 // A recovered transfer produces a real complete event while the interrupted event is still being
 // confirmed. Both events go through handleNdcDownloadTerminal in production, so the regression test
 // must overlap those real handler calls rather than invoke applyNdcDownloadTerminal one after another.
@@ -1870,6 +1906,7 @@ async function restartAdoptsADownloadStartedBeforeTheWorkerStopped() {
 }
 
 Promise.resolve()
+  .then(browserSecurityBlockIsNeverRetried)
   .then(failedSingleDownloadsCanBeRetried)
   .then(mo2MetaBesideCollectionFile)
   .then(singleDownloadGetsMo2Meta)
