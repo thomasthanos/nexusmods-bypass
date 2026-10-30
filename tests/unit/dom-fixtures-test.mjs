@@ -321,6 +321,136 @@ const browserDownloadLabelsDone = (async () => {
   console.log('browser download labels OK');
 })();
 
+// --- Nexus's resumable downloads (beta, files over 500 MB; seen live 2026-10-30) ---------------------------
+// "Slow download" on a large file opens a Standard-or-Resumable chooser, and a running resumable download
+// offers "direct download". Nexus's mod-file-download is mimicked: a shadow root with one delegated
+// listener (as React's), the chooser drawn into the card's floating-ui-root. The pages are left open (their
+// observers outlive a closed window), and the run's exit ends them. Awaited by the last block.
+const resumableDownloadsDone = (async () => {
+  const CARD = '<div id="download-section"><div id="upsell-cards"><div class="rounded-lg p-6"><div><div>Free</div>'
+    + '<div>Slow download. Wait more.</div><div>Throttled downloads (3MB/s)</div><div>Delay before each download</div></div>'
+    + '<button type="button" class="nxm-button">Slow download</button></div></div></div><div id="floating-ui-root"></div>';
+  const CHOOSER = '<div role="dialog"><div class="nxm-modal-content scrollbar"><div class="nxm-modal-header">'
+    + '<h2>Download this large file without losing progress</h2><button aria-label="Close" class="nxm-modal-close-button"><svg></svg></button></div>'
+    + '<div class="nxm-modal-body"><p>This file is over 500MB. Use resumable downloads so you can pause, track progress, and recover if your connection drops.</p></div>'
+    + '<div class="nxm-modal-footer"><button type="button" class="nxm-button"><span>Standard download</span></button>'
+    + '<button type="button" class="nxm-button"><span><span>Resumable download</span><span>Beta</span></span></button></div></div></div>';
+  const PROGRESS = '<div class="space-y-6"><div class="rounded bg-surface-low p-6 text-center"><div class="flex flex-col items-center gap-y-3">'
+    + '<p>Downloading: <strong>8.02%</strong></p><div class="h-4"><div style="width: 8.02%;"></div></div>'
+    + '<p>Please keep this page open, use the pause button to save your progress.</p>'
+    + '<div class="flex justify-center gap-x-3"><button type="button"><span>Pause</span></button><button type="button"><span>Cancel</span></button></div></div>'
+    + '<p>Prefer a <button class="nxm-link">direct download</button> instead?</p></div></div><div id="floating-ui-root"></div>';
+
+  async function filePage(fileId, { settings = {}, picker = true, progress = false, fallback = false } = {}) {
+    const modPage = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604';
+    const w = load('file-page-signed-in.html', `${modPage}?tab=files&file_id=${fileId}`);
+    w.document.querySelector('mod-file-download').remove();
+    w.document.querySelector('.download-card').remove();
+    // Nexus asks only where the browser can write to a file it picks; Firefox cannot.
+    if (picker) w.showSaveFilePicker = () => Promise.reject(new Error('not in tests'));
+    if (fallback) {
+      w.sessionStorage.setItem('nxtk_cloudflare_native_fallback', JSON.stringify({
+        modPage, fileId, isNMM: false, autoStartPending: true, expiresAt: Date.now() + 60000
+      }));
+    }
+    const fetched = [];
+    w.fetch = (url, init) => {
+      fetched.push(`${url} ${init?.body || ''}`);
+      return new Promise(() => {});
+    };
+    w.NexusExt.Storage = {
+      getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: false, ...settings }),
+      sendDownloadCommand: async () => ({ ok: true, value: {} })
+    };
+    const host = w.document.createElement('mod-file-download');
+    const attributes = { 'file-id': fileId, 'filesize-bytes': String(2 * 1024 ** 3), 'is-managed-download-enabled': 'true',
+      'is-nmm-download': 'false', 'user-is-logged-in': 'true' };
+    for (const [name, value] of Object.entries(attributes)) host.setAttribute(name, value);
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = progress ? PROGRESS : CARD;
+    const nexus = { standard: 0, resumable: 0, paused: 0, direct: 0 };
+    const closeChooser = () => shadow.querySelector('[role="dialog"]')?.remove();
+    shadow.addEventListener('click', (event) => {
+      const button = event.target.closest('button');
+      const label = button?.textContent.trim() || '';
+      // By place, not label: the extension relabels the button while its download starts.
+      if (button?.closest('#upsell-cards')) shadow.getElementById('floating-ui-root').innerHTML = CHOOSER;
+      else if (button?.getAttribute('aria-label') === 'Close') closeChooser();
+      else if (label === 'Standard download') { nexus.standard++; closeChooser(); }
+      else if (label.startsWith('Resumable download')) { nexus.resumable++; closeChooser(); }
+      else if (label === 'Pause') nexus.paused++;
+      else if (label === 'direct download') nexus.direct++;
+    });
+    w.document.getElementById('section').append(host);
+    for (const file of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+    await w.NexusExt.NNW.init();
+    await new Promise((r) => setTimeout(r, 50));
+    const click = (label) => {
+      const button = typeof label === 'string'
+        ? Array.from(shadow.querySelectorAll('button')).find((b) => b.textContent.trim().startsWith(label))
+        : label;
+      assert.ok(button, `the card shows ${label}`);
+      button.dispatchEvent(new w.MouseEvent('click', { bubbles: true, composed: true, cancelable: true, button: 0 }));
+      return button;
+    };
+    const requested = () => fetched.filter((f) => f.includes(`fid=${fileId}`) || f.includes(`file_id=${fileId}`)).length;
+    return { nexus, click, requested, chooserOpen: () => !!shadow.querySelector('[role="dialog"]') };
+  }
+
+  // The chooser is Nexus's: the slow-download click opens it, and its Standard download is the extension's.
+  {
+    const { nexus, click, requested, chooserOpen } = await filePage('900001');
+    const slow = click('Slow download');
+    assert.ok(chooserOpen(), 'on a large file Nexus asks standard or resumable');
+    assert.equal(requested(), 0, 'and nothing starts before the answer');
+    click('Standard download');
+    assert.equal(nexus.standard, 0, 'Standard download is the extension\'s, not also Nexus\'s');
+    assert.ok(!chooserOpen(), 'the chooser closes');
+    await waitForState(() => requested() === 1, 'Standard download starts the file through the extension');
+    assert.notEqual(slow.textContent.trim(), 'Slow download', 'the card\'s button shows the progress');
+    click(slow);
+    click('Resumable download');
+    assert.equal(nexus.resumable, 1, 'Resumable download stays with Nexus');
+    await new Promise((r) => setTimeout(r, 100));
+    assert.equal(requested(), 1, 'and the extension starts nothing for it');
+  }
+
+  // "Prefer a direct download instead?": Nexus's download is paused, the extension starts the file.
+  {
+    const { nexus, click, requested } = await filePage('900002', { progress: true });
+    click('direct download');
+    assert.equal(nexus.direct, 0, 'the direct download is the extension\'s');
+    assert.equal(nexus.paused, 1, 'Nexus\'s resumable download is paused, not left running beside it');
+    await waitForState(() => requested() === 1, 'the extension starts the file');
+  }
+
+  // Without a file picker (Firefox) Nexus never asks: the slow-download click is the extension's as before.
+  {
+    const { click, requested, chooserOpen } = await filePage('900003', { picker: false });
+    click('Slow download');
+    assert.ok(!chooserOpen(), 'no chooser');
+    await waitForState(() => requested() === 1, 'the extension starts the file');
+  }
+
+  // An automatic start leaves a file alone while Nexus shows its own resumable download for it.
+  {
+    const { requested } = await filePage('900004', { progress: true, settings: { AutoStartDownload: true } });
+    await new Promise((r) => setTimeout(r, 600));
+    assert.equal(requested(), 0, 'no second download beside Nexus\'s');
+    const idle = await filePage('900005', { settings: { AutoStartDownload: true } });
+    await waitForState(() => idle.requested() === 1, 'with no resumable download, the automatic start runs');
+  }
+
+  // The Cloudflare fallback clicks "Slow download" for the user, and answers the chooser with Standard.
+  {
+    const { nexus, requested } = await filePage('900006', { fallback: true });
+    await waitForState(() => nexus.standard === 1, 'the fallback answers Standard download');
+    assert.equal(nexus.resumable, 0);
+    assert.equal(requested(), 0, 'and leaves the download to Nexus');
+  }
+  console.log('resumable downloads behavior OK');
+})();
+
 // --- One owner per click (live test 2.10.1: SkyUI SDK downloaded twice; the requirements modal fetched
 // the MAIN file twice). The real nnw.js runs in the page; Nexus's own handlers are stand-ins. ---------
 (async () => {
@@ -411,6 +541,7 @@ const browserDownloadLabelsDone = (async () => {
   await archivedFilesDone;
   await bodylessStartupDone;
   await browserDownloadLabelsDone;
+  await resumableDownloadsDone;
   // nnw.js keeps page timers running; the suite is done.
   w.close();
   process.exit(process.exitCode || 0);

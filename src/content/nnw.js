@@ -329,6 +329,93 @@ window.NexusExt = window.NexusExt || {};
     return '';
   }
 
+  // Nexus's resumable downloads (beta). For a file over 500 MB, in a browser that can write to a file it
+  // picks (showSaveFilePicker), "Slow download" asks "Standard download" or "Resumable download" instead
+  // of starting. These are the checks Nexus's mod-file-download makes before it asks.
+  const RESUMABLE_MIN_BYTES = 524288000;
+  function offersResumableChoice(host) {
+    if (host?.tagName !== 'MOD-FILE-DOWNLOAD') return false;
+    if (host.getAttribute('is-managed-download-enabled') !== 'true'
+      || host.getAttribute('is-nmm-download') === 'true'
+      || host.getAttribute('user-is-logged-in') !== 'true') return false;
+    return Number(host.getAttribute('filesize-bytes')) > RESUMABLE_MIN_BYTES && 'showSaveFilePicker' in window;
+  }
+
+  const CHOOSER_DIALOG_SELECTOR = '[role="dialog"], .nxm-modal-content';
+
+  // The answer a button in that chooser gives: 'standard', 'resumable' or '' (not one of its answers).
+  function largeFileChoiceOf(control) {
+    if (control?.tagName !== 'BUTTON') return '';
+    const dialog = control.closest?.(CHOOSER_DIALOG_SELECTOR);
+    if (!dialog || !textIs(controlLabel(dialog), 'largeFileChooser', ['resumable download'])) return '';
+    const label = controlLabel(control);
+    if (textIs(label, 'resumableDownload', ['resumable download'])) return 'resumable';
+    if (textIs(label, 'standardDownload', ['standard download'])) return 'standard';
+    return '';
+  }
+
+  // "Prefer a direct download instead?" under a resumable download's progress.
+  function isDirectDownloadControl(control) {
+    return control?.tagName === 'BUTTON' && !control.closest?.(CHOOSER_DIALOG_SELECTOR)
+      && textIs(controlLabel(control), 'directDownload', ['direct download']);
+  }
+
+  function cardButtons(host) {
+    // Nexus may portal a dialog out of the card, into its page-wide shadow root.
+    const roots = [host?.shadowRoot, document.getElementById('next-shadow-root')?.shadowRoot].filter(Boolean);
+    return roots.flatMap((root) => Array.from(root.querySelectorAll('button')));
+  }
+
+  // True while the card shows Nexus's own resumable download: running (here or in another tab),
+  // paused, or left from an earlier visit to be resumed.
+  function nexusResumableShown(host) {
+    return Array.from(host?.shadowRoot?.querySelectorAll('button') || []).some((button) =>
+      textIs(controlLabel(button), 'resumableInProgress', ['pause', 'pausing', 'resume download'])
+      || isDirectDownloadControl(button));
+  }
+
+  // The extension took the chooser's answer before Nexus saw it, so Nexus would leave the dialog open.
+  function closeLargeFileChooser(control) {
+    const dialog = control?.closest?.(CHOOSER_DIALOG_SELECTOR);
+    const close = dialog?.querySelector?.('.nxm-modal-close-button, button[aria-label="Close"]');
+    if (close) close.click();
+    else dialog?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+  }
+
+  // Paused, not cancelled: the file does not come down twice at once, and Resume picks it up again.
+  function pauseNexusResumable(host) {
+    const pause = Array.from(host?.shadowRoot?.querySelectorAll('button') || [])
+      .find((button) => !button.disabled && textIs(controlLabel(button), 'pauseDownload', ['pause']));
+    pause?.click();
+    return !!pause;
+  }
+
+  // The Cloudflare fallback clicks "Slow download" itself; on a large file Nexus then asks. A run that met
+  // Cloudflare wants the file as that click always gave it, so the fallback answers Standard download.
+  function answerLargeFileChooser(host, deadline = Date.now() + 3000) {
+    const standard = cardButtons(host).find((button) => largeFileChoiceOf(button) === 'standard');
+    if (standard) {
+      Logger.info('Large file: choosing Standard download for the native fallback.');
+      standard.click();
+      return;
+    }
+    if (Date.now() < deadline) setTimeout(() => answerLargeFileChooser(host, deadline), 100);
+  }
+
+  // An automatic start beside Nexus's own resumable download would fetch the whole file a second time.
+  // Nexus draws the card only after it has looked for one, so this waits a little for the card.
+  async function nexusResumableDownloadFor(fileId, timeoutMs = 3000) {
+    const host = getCurrentNativeDownloadHost(fileId, false);
+    if (!offersResumableChoice(host)) return false;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (nexusResumableShown(host)) return true;
+      if (host.shadowRoot && findSlowDownloadButtons(host.shadowRoot, { includeBound: true }).length) return false;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return false;
+  }
+
   function getCurrentFileId() {
     try {
       const fileId = new URLSearchParams(location.search).get('file_id') || '';
@@ -1812,10 +1899,49 @@ window.NexusExt = window.NexusExt || {};
       const slowButton = path.find((node) => node?.tagName === 'BUTTON'
         && (boundSlowButtons.has(node) || node.id === 'slowDownloadButton'));
       if (!slowButton) return;
+      // On a large file this button opens Nexus's standard-or-resumable chooser; its answer is taken below.
+      if (offersResumableChoice(path.find((node) => node?.tagName === 'MOD-FILE-DOWNLOAD'))) {
+        Logger.info('Large file: leaving the standard-or-resumable choice to Nexus.');
+        return;
+      }
       handleSlowDownloadClick(slowButton, event)
         .catch((cause) => handleError(
           slowButton,
           Errors.fromException(cause, { context: 'Starting slow download' })
+        ));
+    }, true);
+
+    // The chooser's Standard download, and "direct download" under a resumable download's progress, ask
+    // for the plain download the slow-download button gives, so the extension starts it the same way.
+    // Resumable download, Pause, Resume and Cancel stay with Nexus.
+    window.addEventListener('click', (event) => {
+      if (!isFilePage() || isNativeFallbackActive()) return;
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+      const host = path.find((node) => node?.tagName === 'MOD-FILE-DOWNLOAD');
+      const control = host && path.find((node) => node?.tagName === 'BUTTON');
+      const choice = largeFileChoiceOf(control) || (isDirectDownloadControl(control) ? 'direct' : '');
+      if (!choice) return;
+      const fileId = fileIdFromNode(host) || getCurrentFileId();
+      if (choice === 'resumable') {
+        Logger.info(`File ${fileId}: resumable download chosen; Nexus downloads it in this tab.`);
+        return;
+      }
+      if (!fileId || shouldPassThroughToNative(fileId, false)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      let button = null;
+      if (choice === 'standard') {
+        closeLargeFileChooser(control);
+        // The card's own button shows the progress, as it does for a small file.
+        button = host.shadowRoot ? findSlowDownloadButtons(host.shadowRoot, { includeBound: true })[0] || null : null;
+      } else if (pauseNexusResumable(host)) {
+        Logger.info(`File ${fileId}: paused Nexus's resumable download for a direct download.`);
+      }
+      runDownload({ button, fileId, isNMM: false, href: location.href })
+        .catch((cause) => handleError(
+          button,
+          Errors.fromException(cause, { context: 'Starting standard download' })
         ));
     }, true);
 
@@ -1997,6 +2123,8 @@ window.NexusExt = window.NexusExt || {};
         return;
       }
       button.click();
+      const card = button.getRootNode?.()?.host || host;
+      if (offersResumableChoice(card)) answerLargeFileChooser(card);
     }).catch((cause) => {
       nativeFallbackAutoStarted = false;
       setStoredCloudflareAutoStartPending(true);
@@ -2173,6 +2301,10 @@ window.NexusExt = window.NexusExt || {};
     // Handing a link to Vortex asks the browser to open another program, then counts down to close this tab
     // behind a "Keep open" button. Neither should happen in a tab nobody is looking at, so it waits to be shown.
     if (isNMM && !await waitUntilShown(autoStartKey)) return;
+    if (!isNMM && await nexusResumableDownloadFor(fileId)) {
+      Logger.info(`No download started: Nexus shows its own resumable download for file ${fileId}.`);
+      return;
+    }
     Logger.debug('Auto-start: fileId', fileId, 'isNMM', isNMM);
     await new Promise(r => setTimeout(r, 200));
     Logger.info(`Auto ${isNMM ? 'NMM' : 'manual'}: starting download`);

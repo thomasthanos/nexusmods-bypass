@@ -73,7 +73,15 @@
     ]),
     slowCardHint: Object.freeze([
       'wait more', 'delay before each download', 'throttled downloads'
-    ])
+    ]),
+    // Nexus's resumable downloads (beta, files over 500 MB). Nexus shows these in English only.
+    largeFileChooser: Object.freeze(['resumable download']),
+    standardDownload: Object.freeze(['standard download']),
+    resumableDownload: Object.freeze(['resumable download']),
+    directDownload: Object.freeze(['direct download']),
+    // Buttons that only show while Nexus's own resumable download runs, is paused or can be resumed.
+    resumableInProgress: Object.freeze(['pause', 'pausing', 'resume download']),
+    pauseDownload: Object.freeze(['pause'])
   });
 
   /** @param {unknown} value */

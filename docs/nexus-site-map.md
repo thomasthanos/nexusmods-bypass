@@ -64,6 +64,8 @@ Identifiers you can rely on:
 | `.bg-surface-low.w-full.space-y-3.rounded-lg.p-4.mt-4` | `main.js` legacy host | Old collection layout | **High** (Tailwind utility chain) | Same as above. Keep only as a fallback |
 | `mod-file-download[file-id]` | `nnw.js` | Web component on the files tab, carrying the file id | Medium | v2 `modFiles(modId, gameId)` gives the full file list |
 | `#slowDownloadButton` | `nnw.js` | Slow-download button | Medium | none (download flow; out of scope) |
+| `mod-file-download[filesize-bytes][is-managed-download-enabled][is-nmm-download][user-is-logged-in]` | `nnw.js` `offersResumableChoice` | Whether *Slow download* opens Nexus's standard-or-resumable chooser instead of starting (over 500 MB, and `showSaveFilePicker` must exist) | Medium | none (download flow; out of scope) |
+| Chooser `[role="dialog"]`/`.nxm-modal-content` with *Standard download* / *Resumable download*; *Pause*, *Resume Download*, *direct download* buttons on the progress panel | `nnw.js` `largeFileChoiceOf`, `isDirectDownloadControl`, `nexusResumableShown` | Resumable downloads (beta). Labels are English-only on Nexus; kept in `selectors.js` `TEXT` | High (beta UI) | none |
 | `.accordion-downloads`, `h3[id^="…"]` | `nnw.js` | File groups on the files tab | High | v2 `modFiles{ category, primary }` |
 | `[data-game-id]`, `[game-id]` | `nnw.js getGameId` | Numeric game id | Medium | v2 `game(domainName){ id }`. Cache it per domain; it never changes |
 | `#section .wrap > #featured`, `.bg-nexus-premium-gradient` | `nnw.js` | Ad/upsell hiding | High | none (cosmetic) |
