@@ -2617,5 +2617,57 @@
   },
   "setShortAutoErrorReports": {
     "message": "Off until you choose. Send sampled technical errors."
+  },
+  "rdTitle": {
+    "message": "Resumable download",
+    "description": "Heading of the extension panel that replaces Nexus Mods' resumable-download panel on a large file."
+  },
+  "rdStateEarlier": {
+    "message": "Unfinished download from an earlier visit",
+    "description": "Resumable-download panel: Nexus kept a partly downloaded file from an earlier visit to the page."
+  },
+  "rdStateResuming": {
+    "message": "Resuming your download…",
+    "description": "Resumable-download panel: the extension pressed Resume on a download left from an earlier visit."
+  },
+  "rdStateStarting": {
+    "message": "Starting…",
+    "description": "Resumable-download panel: Nexus is getting the download ready."
+  },
+  "rdStateReconnecting": {
+    "message": "Connection lost, reconnecting…",
+    "description": "Resumable-download panel: the connection dropped and Nexus is retrying."
+  },
+  "rdStatePausing": {
+    "message": "Pausing…",
+    "description": "Resumable-download panel: Pause was pressed and Nexus is stopping the download."
+  },
+  "rdStateFinalising": {
+    "message": "Saving the file…",
+    "description": "Resumable-download panel: every byte is in and Nexus is saving the file."
+  },
+  "rdStateComplete": {
+    "message": "Download complete",
+    "description": "Resumable-download panel: the file is saved."
+  },
+  "rdStateOtherTab": {
+    "message": "Running in another tab. Switch to it to pause or cancel.",
+    "description": "Resumable-download panel: the same download is running in another browser tab."
+  },
+  "rdHintKeepOpen": {
+    "message": "Keep this tab open. Closing it pauses the download.",
+    "description": "Resumable-download panel: hint under the progress bar."
+  },
+  "rdBtnPause": {
+    "message": "Pause",
+    "description": "Resumable-download panel button: pause the download (progress is kept)."
+  },
+  "rdBtnResume": {
+    "message": "Resume",
+    "description": "Resumable-download panel button: continue a paused or earlier download."
+  },
+  "rdBtnDirect": {
+    "message": "Direct download instead",
+    "description": "Resumable-download panel link: stop using the resumable download and download the file directly."
   }
 }

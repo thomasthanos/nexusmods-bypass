@@ -2433,5 +2433,44 @@
   },
   "setShortAutoErrorReports": {
     "message": "Off until you choose. Send sampled technical errors."
+  },
+  "rdTitle": {
+    "message": "Wznawialne pobieranie"
+  },
+  "rdStateEarlier": {
+    "message": "Niedokończone pobieranie z poprzedniej wizyty"
+  },
+  "rdStateResuming": {
+    "message": "Wznawianie pobierania…"
+  },
+  "rdStateStarting": {
+    "message": "Uruchamianie…"
+  },
+  "rdStateReconnecting": {
+    "message": "Utracono połączenie, ponowne łączenie…"
+  },
+  "rdStatePausing": {
+    "message": "Wstrzymywanie…"
+  },
+  "rdStateFinalising": {
+    "message": "Zapisywanie pliku…"
+  },
+  "rdStateComplete": {
+    "message": "Pobieranie zakończone"
+  },
+  "rdStateOtherTab": {
+    "message": "Trwa w innej karcie. Przejdź do niej, aby wstrzymać lub anulować."
+  },
+  "rdHintKeepOpen": {
+    "message": "Nie zamykaj tej karty. Zamknięcie wstrzyma pobieranie."
+  },
+  "rdBtnPause": {
+    "message": "Wstrzymaj"
+  },
+  "rdBtnResume": {
+    "message": "Wznów"
+  },
+  "rdBtnDirect": {
+    "message": "Zamiast tego pobierz bezpośrednio"
   }
 }

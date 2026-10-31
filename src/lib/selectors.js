@@ -81,7 +81,21 @@
     directDownload: Object.freeze(['direct download']),
     // Buttons that only show while Nexus's own resumable download runs, is paused or can be resumed.
     resumableInProgress: Object.freeze(['pause', 'pausing', 'resume download']),
-    pauseDownload: Object.freeze(['pause'])
+    pauseDownload: Object.freeze(['pause']),
+    resumeDownload: Object.freeze(['resume download']),
+    cancelDownload: Object.freeze(['cancel']),
+    // What the download panel says in each state, checked in the order nnw.js lists them.
+    panelError: Object.freeze(['something went wrong']),
+    panelOtherTab: Object.freeze(['running in another tab']),
+    panelEarlier: Object.freeze(['previous session']),
+    panelStarting: Object.freeze(['will start in', 'preparing']),
+    panelFinalising: Object.freeze(['finalising download', 'finalizing download']),
+    panelComplete: Object.freeze(['download complete']),
+    panelStandard: Object.freeze(['your download is starting']),
+    panelReconnecting: Object.freeze(['reconnecting']),
+    panelPausing: Object.freeze(['pausing']),
+    panelPaused: Object.freeze(['download paused']),
+    panelDownloading: Object.freeze(['downloading:'])
   });
 
   /** @param {unknown} value */

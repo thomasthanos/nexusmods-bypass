@@ -2265,5 +2265,44 @@
   },
   "setShortAutoErrorReports": {
     "message": "Off until you choose. Send sampled technical errors."
+  },
+  "rdTitle": {
+    "message": "Fortsetzbarer Download"
+  },
+  "rdStateEarlier": {
+    "message": "Unvollständiger Download von einem früheren Besuch"
+  },
+  "rdStateResuming": {
+    "message": "Download wird fortgesetzt…"
+  },
+  "rdStateStarting": {
+    "message": "Wird gestartet…"
+  },
+  "rdStateReconnecting": {
+    "message": "Verbindung verloren, neuer Versuch…"
+  },
+  "rdStatePausing": {
+    "message": "Wird pausiert…"
+  },
+  "rdStateFinalising": {
+    "message": "Datei wird gespeichert…"
+  },
+  "rdStateComplete": {
+    "message": "Download abgeschlossen"
+  },
+  "rdStateOtherTab": {
+    "message": "Läuft in einem anderen Tab. Wechsle dorthin, um zu pausieren oder abzubrechen."
+  },
+  "rdHintKeepOpen": {
+    "message": "Lass diesen Tab geöffnet. Beim Schließen wird der Download pausiert."
+  },
+  "rdBtnPause": {
+    "message": "Pausieren"
+  },
+  "rdBtnResume": {
+    "message": "Fortsetzen"
+  },
+  "rdBtnDirect": {
+    "message": "Stattdessen direkt herunterladen"
   }
 }

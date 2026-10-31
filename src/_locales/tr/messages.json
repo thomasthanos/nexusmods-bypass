@@ -2265,5 +2265,44 @@
   },
   "setShortAutoErrorReports": {
     "message": "Off until you choose. Send sampled technical errors."
+  },
+  "rdTitle": {
+    "message": "Devam ettirilebilir indirme"
+  },
+  "rdStateEarlier": {
+    "message": "Önceki ziyaretten kalan yarım indirme"
+  },
+  "rdStateResuming": {
+    "message": "İndirme devam ettiriliyor…"
+  },
+  "rdStateStarting": {
+    "message": "Başlatılıyor…"
+  },
+  "rdStateReconnecting": {
+    "message": "Bağlantı koptu, yeniden bağlanılıyor…"
+  },
+  "rdStatePausing": {
+    "message": "Duraklatılıyor…"
+  },
+  "rdStateFinalising": {
+    "message": "Dosya kaydediliyor…"
+  },
+  "rdStateComplete": {
+    "message": "İndirme tamamlandı"
+  },
+  "rdStateOtherTab": {
+    "message": "Başka bir sekmede sürüyor. Duraklatmak veya iptal etmek için o sekmeye geçin."
+  },
+  "rdHintKeepOpen": {
+    "message": "Bu sekmeyi açık tutun. Kapatırsanız indirme duraklatılır."
+  },
+  "rdBtnPause": {
+    "message": "Duraklat"
+  },
+  "rdBtnResume": {
+    "message": "Devam et"
+  },
+  "rdBtnDirect": {
+    "message": "Bunun yerine doğrudan indir"
   }
 }

@@ -2265,5 +2265,44 @@
   },
   "setShortAutoErrorReports": {
     "message": "Off until you choose. Send sampled technical errors."
+  },
+  "rdTitle": {
+    "message": "Download retomável"
+  },
+  "rdStateEarlier": {
+    "message": "Download inacabado de uma visita anterior"
+  },
+  "rdStateResuming": {
+    "message": "Retomando o download…"
+  },
+  "rdStateStarting": {
+    "message": "Iniciando…"
+  },
+  "rdStateReconnecting": {
+    "message": "Conexão perdida, reconectando…"
+  },
+  "rdStatePausing": {
+    "message": "Pausando…"
+  },
+  "rdStateFinalising": {
+    "message": "Salvando o arquivo…"
+  },
+  "rdStateComplete": {
+    "message": "Download concluído"
+  },
+  "rdStateOtherTab": {
+    "message": "Em andamento em outra aba. Mude para ela para pausar ou cancelar."
+  },
+  "rdHintKeepOpen": {
+    "message": "Mantenha esta aba aberta. Fechá-la pausa o download."
+  },
+  "rdBtnPause": {
+    "message": "Pausar"
+  },
+  "rdBtnResume": {
+    "message": "Retomar"
+  },
+  "rdBtnDirect": {
+    "message": "Baixar direto em vez disso"
   }
 }

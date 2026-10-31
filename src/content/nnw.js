@@ -360,18 +360,51 @@ window.NexusExt = window.NexusExt || {};
       && textIs(controlLabel(control), 'directDownload', ['direct download']);
   }
 
+  // The extension's own panel, drawn in the card in place of Nexus's (see syncResumableCards).
+  const RD_CARD_CLASS = 'nxtk-rd';
+
+  // Nexus's buttons on a card, the extension's panel left out. Nexus may portal a dialog out of the card,
+  // into its page-wide shadow root.
   function cardButtons(host) {
-    // Nexus may portal a dialog out of the card, into its page-wide shadow root.
     const roots = [host?.shadowRoot, document.getElementById('next-shadow-root')?.shadowRoot].filter(Boolean);
-    return roots.flatMap((root) => Array.from(root.querySelectorAll('button')));
+    return roots.flatMap((root) => Array.from(root.querySelectorAll('button')))
+      .filter((button) => !button.closest(`.${RD_CARD_CLASS}`));
   }
 
-  // True while the card shows Nexus's own resumable download: running (here or in another tab),
-  // paused, or left from an earlier visit to be resumed.
+  function nexusCardButton(host, key) {
+    return cardButtons(host).find((button) => !button.disabled && !button.closest(CHOOSER_DIALOG_SELECTOR)
+      && textIs(controlLabel(button), key, []));
+  }
+
+  // The panel Nexus draws in place of the Free/Premium cards once a download is under way: the part of
+  // #download-section that is not the file's name, a sign-in banner or the cards.
+  const PANEL_STATES = [
+    ['error', 'panelError'], ['other-tab', 'panelOtherTab'], ['earlier', 'panelEarlier'], ['starting', 'panelStarting'],
+    ['finalising', 'panelFinalising'], ['complete', 'panelComplete'], ['standard', 'panelStandard'],
+    ['reconnecting', 'panelReconnecting'], ['pausing', 'panelPausing'], ['paused', 'panelPaused'],
+    ['downloading', 'panelDownloading']
+  ];
+  function readNexusPanel(element) {
+    const text = normalizeText(element?.textContent);
+    const state = text ? PANEL_STATES.find(([, key]) => textIs(text, key, []))?.[0] || '' : '';
+    return { state, percent: text.match(/(\d{1,3}(?:\.\d+)?)\s*%/)?.[1] || '' };
+  }
+  function nexusPanelOf(host) {
+    const section = host?.shadowRoot?.querySelector('#download-section');
+    for (const child of section?.children || []) {
+      if (child.classList.contains(RD_CARD_CLASS)) continue;
+      const read = readNexusPanel(child);
+      if (read.state) return { panel: child, ...read };
+    }
+    return null;
+  }
+
+  // Nexus's own download is under way, about to start, paused, or left from an earlier visit to resume.
+  const NEXUS_BUSY_STATES = new Set(['other-tab', 'earlier', 'starting', 'finalising', 'reconnecting', 'pausing', 'paused', 'downloading']);
   function nexusResumableShown(host) {
-    return Array.from(host?.shadowRoot?.querySelectorAll('button') || []).some((button) =>
-      textIs(controlLabel(button), 'resumableInProgress', ['pause', 'pausing', 'resume download'])
-      || isDirectDownloadControl(button));
+    return NEXUS_BUSY_STATES.has(nexusPanelOf(host)?.state)
+      || cardButtons(host).some((button) => isDirectDownloadControl(button)
+        || textIs(controlLabel(button), 'resumableInProgress', ['pause', 'pausing', 'resume download']));
   }
 
   // The extension took the chooser's answer before Nexus saw it, so Nexus would leave the dialog open.
@@ -384,10 +417,29 @@ window.NexusExt = window.NexusExt || {};
 
   // Paused, not cancelled: the file does not come down twice at once, and Resume picks it up again.
   function pauseNexusResumable(host) {
-    const pause = Array.from(host?.shadowRoot?.querySelectorAll('button') || [])
-      .find((button) => !button.disabled && textIs(controlLabel(button), 'pauseDownload', ['pause']));
+    const pause = nexusCardButton(host, 'pauseDownload');
     pause?.click();
     return !!pause;
+  }
+
+  // "direct download" asks for the plain download the slow-download button gives.
+  function startDirectInstead(host, fileId) {
+    if (pauseNexusResumable(host)) Logger.info(`File ${fileId}: paused Nexus's resumable download for a direct download.`);
+    return runDownload({ button: null, fileId, isNMM: false, href: location.href })
+      .catch((cause) => handleError(null, Errors.fromException(cause, { context: 'Starting direct download' })));
+  }
+
+  // Nexus waits timeout-seconds before a free download starts. The extension starts its own downloads
+  // without that wait, and a resumable one goes the same way. The card reads its attributes only when it
+  // draws, so a change of one it watches (eligible-for-free-trial) makes it draw again, ending as it was.
+  function skipNexusCountdown(host) {
+    if (host.getAttribute('timeout-seconds') === '0') return;
+    host.setAttribute('timeout-seconds', '0');
+    const trial = host.getAttribute('eligible-for-free-trial');
+    host.setAttribute('eligible-for-free-trial', trial === 'true' ? 'false' : 'true');
+    if (trial === null) host.removeAttribute('eligible-for-free-trial');
+    else host.setAttribute('eligible-for-free-trial', trial);
+    Logger.info('Large file: skipping Nexus\'s countdown before its download starts.');
   }
 
   // The Cloudflare fallback clicks "Slow download" itself; on a large file Nexus then asks. A run that met
@@ -1810,7 +1862,7 @@ window.NexusExt = window.NexusExt || {};
       return null;
     };
 
-    const OWN_UI_SELECTOR = '.nxtk-close-toast, .nxtk-modal-backdrop, .nxtk-modal, #nxtk-extension-root, #nxtk-dropdown-portal, #nxtk-settings-fab';
+    const OWN_UI_SELECTOR = `.nxtk-close-toast, .nxtk-modal-backdrop, .nxtk-modal, #nxtk-extension-root, #nxtk-dropdown-portal, #nxtk-settings-fab, .${RD_CARD_CLASS}`;
     const IGNORE_ANCESTORS = 'nav, .nav, .pagination, .comment-container, .comment-content, .forum-post, .header-nav, .search-results, .nxtk-deck';
     const DOWNLOAD_HREF_PATTERNS = ['/Core/Libs/Common/', 'tab=files&file_id=', 'file_id=', 'ModRequirementsPopUp', '/api/files/'];
     const isDownloadHref = (href) => DOWNLOAD_HREF_PATTERNS.some(p => href.includes(p));
@@ -1918,6 +1970,8 @@ window.NexusExt = window.NexusExt || {};
       if (!isFilePage() || isNativeFallbackActive()) return;
       if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+      // The extension's own panel handles its buttons itself.
+      if (path.some((node) => node?.classList?.contains?.(RD_CARD_CLASS))) return;
       const host = path.find((node) => node?.tagName === 'MOD-FILE-DOWNLOAD');
       const control = host && path.find((node) => node?.tagName === 'BUTTON');
       const choice = largeFileChoiceOf(control) || (isDirectDownloadControl(control) ? 'direct' : '');
@@ -1930,14 +1984,13 @@ window.NexusExt = window.NexusExt || {};
       if (!fileId || shouldPassThroughToNative(fileId, false)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      let button = null;
-      if (choice === 'standard') {
-        closeLargeFileChooser(control);
-        // The card's own button shows the progress, as it does for a small file.
-        button = host.shadowRoot ? findSlowDownloadButtons(host.shadowRoot, { includeBound: true })[0] || null : null;
-      } else if (pauseNexusResumable(host)) {
-        Logger.info(`File ${fileId}: paused Nexus's resumable download for a direct download.`);
+      if (choice === 'direct') {
+        startDirectInstead(host, fileId);
+        return;
       }
+      closeLargeFileChooser(control);
+      // The card's own button shows the progress, as it does for a small file.
+      const button = host.shadowRoot ? findSlowDownloadButtons(host.shadowRoot, { includeBound: true })[0] || null : null;
       runDownload({ button, fileId, isNMM: false, href: location.href })
         .catch((cause) => handleError(
           button,
@@ -2159,6 +2212,7 @@ window.NexusExt = window.NexusExt || {};
   const boundSlowButtons = new WeakSet();
 
   function setupSlowDownloadIntercept() {
+    syncResumableCards();
     if (isNativeFallbackActive()) {
       startNativeFallbackIfReady();
       return;
@@ -2175,6 +2229,192 @@ window.NexusExt = window.NexusExt || {};
       }
     }
   }
+
+  // Nexus's resumable downloads, in the extension's look. On a large file's card Nexus's panel (progress,
+  // Pause/Resume/Cancel, "direct download") is hidden and the extension's panel stands in its place; its
+  // buttons press Nexus's, which keeps the download Nexus's own. A state the extension does not draw (an
+  // error, with Recover and Restart) shows Nexus's panel again. Each card's shadow root is watched by its own
+  // observer: the page-wide one cannot see inside it.
+  const resumableCards = new WeakMap();
+
+  function syncResumableCards() {
+    for (const root of getSearchRoots(document)) {
+      for (const host of root.querySelectorAll('mod-file-download')) {
+        if (resumableCards.has(host) || !host.shadowRoot || !offersResumableChoice(host)) continue;
+        const entry = { card: null, parts: null, key: '', autoResumed: false, scheduled: false };
+        resumableCards.set(host, entry);
+        skipNexusCountdown(host);
+        if (typeof MutationObserver === 'function') {
+          new MutationObserver(() => {
+            if (entry.scheduled) return;
+            entry.scheduled = true;
+            setTimeout(() => renderResumableCard(host, entry), 30);
+          }).observe(host.shadowRoot, { childList: true, subtree: true, characterData: true });
+        }
+        renderResumableCard(host, entry);
+      }
+    }
+  }
+
+  const RD_DRAWN_STATES = new Set(['earlier', 'starting', 'downloading', 'reconnecting', 'pausing', 'paused', 'finalising', 'complete', 'other-tab']);
+  const RD_HINT_STATES = new Set(['starting', 'downloading', 'reconnecting', 'pausing', 'finalising']);
+  const RD_DIRECT_STATES = new Set(['earlier', 'downloading', 'reconnecting', 'paused']);
+
+  function renderResumableCard(host, entry) {
+    entry.scheduled = false;
+    const found = host.isConnected ? nexusPanelOf(host) : null;
+    if (!found || !RD_DRAWN_STATES.has(found.state)) {
+      entry.card?.remove();
+      entry.key = '';
+      if (found?.panel.style.display === 'none') found.panel.style.display = '';
+      return;
+    }
+    const { panel, state } = found;
+    // "You have a download in progress from a previous session": with automatic starts on, it goes on.
+    if (state === 'earlier' && cfg.AutoStartDownload && !entry.autoResumed) {
+      const resume = nexusCardButton(host, 'resumeDownload');
+      if (resume) {
+        entry.autoResumed = true;
+        Logger.info('Large file: resuming the download left from an earlier visit.');
+        resume.click();
+      }
+    }
+    if (!host.shadowRoot.querySelector('style[data-nxtk-rd]')) {
+      const style = document.createElement('style');
+      style.dataset.nxtkRd = '1';
+      style.textContent = RD_CARD_CSS;
+      host.shadowRoot.append(style);
+    }
+    if (!entry.card) buildResumableCard(host, entry);
+    if (entry.card.nextElementSibling !== panel) panel.before(entry.card);
+    if (panel.style.display !== 'none') panel.style.display = 'none';
+    updateResumableCard(host, entry, found);
+  }
+
+  function buildResumableCard(host, entry) {
+    const el = (tag, className, text = '') => {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text) node.textContent = text;
+      return node;
+    };
+    const title = NXTK.t('rdTitle', null, 'Resumable download');
+    const card = el('div', RD_CARD_CLASS);
+    card.setAttribute('role', 'group');
+    card.setAttribute('aria-label', title);
+    const head = el('div', 'nxtk-rd-head');
+    head.append(el('strong', 'nxtk-rd-title', title), el('span', 'nxtk-rd-brand', NXTK.t('appName', null, 'NexusMods Bypass')));
+    const status = el('div', 'nxtk-rd-status');
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    const stateText = el('span', 'nxtk-rd-state');
+    const percentText = el('span', 'nxtk-rd-percent');
+    status.append(stateText, percentText);
+    const bar = el('div', 'nxtk-rd-bar');
+    bar.setAttribute('role', 'progressbar');
+    bar.setAttribute('aria-valuemin', '0');
+    bar.setAttribute('aria-valuemax', '100');
+    bar.setAttribute('aria-label', title);
+    const fill = el('span');
+    bar.append(fill);
+    const hint = el('p', 'nxtk-rd-hint', NXTK.t('rdHintKeepOpen', null, 'Keep this tab open. Closing it pauses the download.'));
+    const actions = el('div', 'nxtk-rd-actions');
+    const button = (act, label, className) => {
+      const node = el('button', className, label);
+      node.type = 'button';
+      node.addEventListener('click', () => onResumableCardAction(host, act));
+      return node;
+    };
+    const buttons = {
+      resume: button('resume', NXTK.t('rdBtnResume', null, 'Resume'), 'nxtk-rd-btn is-primary'),
+      pause: button('pause', NXTK.t('rdBtnPause', null, 'Pause'), 'nxtk-rd-btn'),
+      cancel: button('cancel', NXTK.t('btnCancel', null, 'Cancel'), 'nxtk-rd-btn'),
+      direct: button('direct', NXTK.t('rdBtnDirect', null, 'Direct download instead'), 'nxtk-rd-link')
+    };
+    actions.append(buttons.resume, buttons.pause, buttons.cancel, buttons.direct);
+    card.append(head, status, bar, hint, actions);
+    entry.card = card;
+    entry.parts = { stateText, percentText, bar, fill, hint, actions, buttons };
+  }
+
+  function resumableStateLabel(state, entry) {
+    switch (state) {
+      case 'earlier': return entry.autoResumed
+        ? NXTK.t('rdStateResuming', null, 'Resuming your download…')
+        : NXTK.t('rdStateEarlier', null, 'Unfinished download from an earlier visit');
+      case 'starting': return NXTK.t('rdStateStarting', null, 'Starting…');
+      case 'downloading': return NXTK.t('statusDownloading', null, 'Downloading...');
+      case 'reconnecting': return NXTK.t('rdStateReconnecting', null, 'Connection lost, reconnecting…');
+      case 'pausing': return NXTK.t('rdStatePausing', null, 'Pausing…');
+      case 'paused': return NXTK.t('statusPaused', null, 'Paused');
+      case 'finalising': return NXTK.t('rdStateFinalising', null, 'Saving the file…');
+      case 'complete': return NXTK.t('rdStateComplete', null, 'Download complete');
+      default: return NXTK.t('rdStateOtherTab', null, 'Running in another tab. Switch to it to pause or cancel.');
+    }
+  }
+
+  // Written only when something changed: the card's own writes come back through its observer.
+  function updateResumableCard(host, entry, { state, percent }) {
+    const shown = percent || (state === 'finalising' || state === 'complete' ? '100' : '');
+    const can = {
+      resume: !!nexusCardButton(host, 'resumeDownload'),
+      pause: !!nexusCardButton(host, 'pauseDownload'),
+      cancel: !!nexusCardButton(host, 'cancelDownload'),
+      direct: RD_DIRECT_STATES.has(state)
+    };
+    const key = [state, shown, entry.autoResumed, can.resume, can.pause, can.cancel].join('|');
+    if (key === entry.key) return;
+    entry.key = key;
+    const { stateText, percentText, bar, fill, hint, actions, buttons } = entry.parts;
+    entry.card.dataset.state = state;
+    stateText.textContent = resumableStateLabel(state, entry);
+    percentText.textContent = shown ? `${shown}%` : '';
+    const value = Math.min(100, Number(shown) || 0);
+    fill.style.width = `${value}%`;
+    bar.setAttribute('aria-valuenow', String(value));
+    // Nexus names no progress before it starts or for a download from an earlier visit.
+    bar.hidden = !shown;
+    hint.hidden = !RD_HINT_STATES.has(state);
+    for (const [act, node] of Object.entries(buttons)) node.hidden = !can[act];
+    actions.hidden = !Object.values(can).some(Boolean);
+  }
+
+  function onResumableCardAction(host, act) {
+    const fileId = fileIdFromNode(host) || getCurrentFileId();
+    if (act === 'direct') {
+      if (fileId) startDirectInstead(host, fileId);
+      return;
+    }
+    const key = { resume: 'resumeDownload', pause: 'pauseDownload', cancel: 'cancelDownload' }[act];
+    const target = key && nexusCardButton(host, key);
+    if (target) target.click();
+    else Logger.warn(`Resumable download: Nexus shows no ${act} button any more.`);
+  }
+
+  // Inside the card's shadow root, where the page's extension stylesheet does not reach. The --nxtk-*
+  // colours are set on the page's :root and carry into the shadow root.
+  const RD_CARD_CSS = `
+.${RD_CARD_CLASS}{display:flex;flex-direction:column;gap:12px;padding:20px 22px;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45));border-radius:var(--nxtk-radius-md,16px);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01)),var(--nxtk-glass-tint-deep,rgba(10,12,22,.92));box-shadow:0 18px 44px rgba(0,0,0,.35),var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.35));color:var(--nxtk-text,#eceaf2);font:400 14px/1.45 "Inter",system-ui,sans-serif;text-align:left}
+.nxtk-rd-head,.nxtk-rd-status{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.nxtk-rd-title{color:var(--nxtk-text-bright,#f8f8fc);font-size:15px;font-weight:700}
+.nxtk-rd-brand{padding:3px 10px;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45));border-radius:999px;background:var(--nxtk-accent-soft,rgba(217,143,64,.18));color:var(--nxtk-accent-hover,#ecaa5a);font-size:11px;font-weight:600;letter-spacing:.3px;white-space:nowrap}
+.nxtk-rd-status{align-items:baseline}
+.nxtk-rd-percent{color:var(--nxtk-accent-hover,#ecaa5a);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.nxtk-rd-bar{height:8px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.08)}
+.nxtk-rd-bar>span{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--nxtk-accent-dim,#b87a30),var(--nxtk-accent-hover,#ecaa5a));box-shadow:var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.35));transition:width .4s var(--nxtk-ease,ease)}
+.${RD_CARD_CLASS}:is([data-state=paused],[data-state=pausing],[data-state=reconnecting]) .nxtk-rd-bar>span{background:rgba(255,255,255,.3);box-shadow:none}
+.${RD_CARD_CLASS}[data-state=complete] .nxtk-rd-bar>span{background:var(--nxtk-success,#45d672);box-shadow:none}
+.nxtk-rd-hint{margin:0;color:var(--nxtk-text-muted,rgba(236,234,242,.62));font-size:12.5px}
+.nxtk-rd-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.nxtk-rd-btn{min-height:36px;padding:9px 16px;border:1px solid var(--nxtk-border,rgba(255,255,255,.1));border-radius:var(--nxtk-radius-sm,12px);background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02)),var(--nxtk-glass-tint-soft,rgba(28,30,44,.7));color:var(--nxtk-text-bright,#f8f8fc);font:600 13px/1 "Inter",system-ui,sans-serif;cursor:pointer;transition:transform .18s,border-color .18s}
+.nxtk-rd-btn:hover{transform:translateY(-1px);border-color:var(--nxtk-border-strong,rgba(255,255,255,.18))}
+.nxtk-rd-btn.is-primary{border-color:var(--nxtk-accent-border,rgba(217,143,64,.45));background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.02)),linear-gradient(135deg,var(--nxtk-accent,#d98f40),var(--nxtk-accent-dim,#b87a30));color:#fff}
+.nxtk-rd-link{margin-left:auto;padding:0;border:0;background:none;color:var(--nxtk-text-muted,rgba(236,234,242,.62));font:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
+.nxtk-rd-link:hover{color:var(--nxtk-accent-hover,#ecaa5a)}
+.nxtk-rd-btn:focus-visible,.nxtk-rd-link:focus-visible{outline:2px solid var(--nxtk-accent-hover,#ecaa5a);outline-offset:2px}
+.${RD_CARD_CLASS} [hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){.nxtk-rd-bar>span,.nxtk-rd-btn{transition:none}}
+`;
 
   // Nexus builds and relabels the download card after load (and inside shadow roots), so the binding
   // follows DOM changes instead of a one-second poll. The safety tick stays as a slow backstop for

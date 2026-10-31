@@ -2265,5 +2265,44 @@
   },
   "setShortAutoErrorReports": {
     "message": "Αρχικά ανενεργό. Αποστολή ομαδοποιημένων τεχνικών σφαλμάτων."
+  },
+  "rdTitle": {
+    "message": "Λήψη με συνέχιση"
+  },
+  "rdStateEarlier": {
+    "message": "Ημιτελής λήψη από προηγούμενη επίσκεψη"
+  },
+  "rdStateResuming": {
+    "message": "Συνέχεια της λήψης…"
+  },
+  "rdStateStarting": {
+    "message": "Ξεκινά…"
+  },
+  "rdStateReconnecting": {
+    "message": "Η σύνδεση χάθηκε, επανασύνδεση…"
+  },
+  "rdStatePausing": {
+    "message": "Γίνεται παύση…"
+  },
+  "rdStateFinalising": {
+    "message": "Αποθήκευση του αρχείου…"
+  },
+  "rdStateComplete": {
+    "message": "Η λήψη ολοκληρώθηκε"
+  },
+  "rdStateOtherTab": {
+    "message": "Εκτελείται σε άλλη καρτέλα. Μεταβείτε σε αυτή για παύση ή ακύρωση."
+  },
+  "rdHintKeepOpen": {
+    "message": "Κρατήστε αυτή την καρτέλα ανοιχτή. Αν την κλείσετε, η λήψη μπαίνει σε παύση."
+  },
+  "rdBtnPause": {
+    "message": "Παύση"
+  },
+  "rdBtnResume": {
+    "message": "Συνέχεια"
+  },
+  "rdBtnDirect": {
+    "message": "Απευθείας λήψη αντί γι’ αυτό"
   }
 }

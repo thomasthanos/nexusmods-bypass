@@ -2181,5 +2181,44 @@
   },
   "setShortAutoErrorReports": {
     "message": "Off until you choose. Send sampled technical errors."
+  },
+  "rdTitle": {
+    "message": "再開可能なダウンロード"
+  },
+  "rdStateEarlier": {
+    "message": "前回のアクセスで未完了のダウンロード"
+  },
+  "rdStateResuming": {
+    "message": "ダウンロードを再開しています…"
+  },
+  "rdStateStarting": {
+    "message": "開始しています…"
+  },
+  "rdStateReconnecting": {
+    "message": "接続が切れました。再接続しています…"
+  },
+  "rdStatePausing": {
+    "message": "一時停止しています…"
+  },
+  "rdStateFinalising": {
+    "message": "ファイルを保存しています…"
+  },
+  "rdStateComplete": {
+    "message": "ダウンロード完了"
+  },
+  "rdStateOtherTab": {
+    "message": "別のタブで実行中です。一時停止やキャンセルはそのタブで行ってください。"
+  },
+  "rdHintKeepOpen": {
+    "message": "このタブは開いたままにしてください。閉じるとダウンロードが一時停止します。"
+  },
+  "rdBtnPause": {
+    "message": "一時停止"
+  },
+  "rdBtnResume": {
+    "message": "再開"
+  },
+  "rdBtnDirect": {
+    "message": "代わりに直接ダウンロード"
   }
 }

@@ -2433,5 +2433,44 @@
   },
   "setShortAutoErrorReports": {
     "message": "Off until you choose. Send sampled technical errors."
+  },
+  "rdTitle": {
+    "message": "Возобновляемая загрузка"
+  },
+  "rdStateEarlier": {
+    "message": "Незавершённая загрузка с прошлого посещения"
+  },
+  "rdStateResuming": {
+    "message": "Возобновление загрузки…"
+  },
+  "rdStateStarting": {
+    "message": "Запуск…"
+  },
+  "rdStateReconnecting": {
+    "message": "Соединение потеряно, переподключение…"
+  },
+  "rdStatePausing": {
+    "message": "Приостановка…"
+  },
+  "rdStateFinalising": {
+    "message": "Сохранение файла…"
+  },
+  "rdStateComplete": {
+    "message": "Загрузка завершена"
+  },
+  "rdStateOtherTab": {
+    "message": "Идёт в другой вкладке. Перейдите в неё, чтобы приостановить или отменить."
+  },
+  "rdHintKeepOpen": {
+    "message": "Не закрывайте эту вкладку: при закрытии загрузка приостановится."
+  },
+  "rdBtnPause": {
+    "message": "Пауза"
+  },
+  "rdBtnResume": {
+    "message": "Продолжить"
+  },
+  "rdBtnDirect": {
+    "message": "Скачать напрямую"
   }
 }

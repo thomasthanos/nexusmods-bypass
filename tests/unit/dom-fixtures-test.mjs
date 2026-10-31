@@ -322,26 +322,38 @@ const browserDownloadLabelsDone = (async () => {
 })();
 
 // --- Nexus's resumable downloads (beta, files over 500 MB; seen live 2026-10-30) ---------------------------
-// "Slow download" on a large file opens a Standard-or-Resumable chooser, and a running resumable download
-// offers "direct download". Nexus's mod-file-download is mimicked: a shadow root with one delegated
-// listener (as React's), the chooser drawn into the card's floating-ui-root. The pages are left open (their
-// observers outlive a closed window), and the run's exit ends them. Awaited by the last block.
+// "Slow download" on a large file opens a Standard-or-Resumable chooser, and a resumable download gets
+// its own panel (progress, Pause/Resume/Cancel, "direct download"), which the extension draws over in its
+// own look. Nexus's mod-file-download is mimicked: a shadow root with one delegated listener (as React's,
+// which never answers for a node it did not draw), the chooser in the card's floating-ui-root, the panel
+// in #download-section. The pages are left open (their observers outlive a closed window), and the run's
+// exit ends them. Awaited by the last block.
 const resumableDownloadsDone = (async () => {
-  const CARD = '<div id="download-section"><div id="upsell-cards"><div class="rounded-lg p-6"><div><div>Free</div>'
+  const FILE_ROW = '<div class="file-row"><span>HeavyRain Greek V1.0.1 - Epic Games</span><span> (1.5GB)</span></div>';
+  const CARDS = '<div id="upsell-cards"><div class="rounded-lg p-6"><div><div>Free</div>'
     + '<div>Slow download. Wait more.</div><div>Throttled downloads (3MB/s)</div><div>Delay before each download</div></div>'
-    + '<button type="button" class="nxm-button">Slow download</button></div></div></div><div id="floating-ui-root"></div>';
+    + '<button type="button" class="nxm-button">Slow download</button></div></div>';
   const CHOOSER = '<div role="dialog"><div class="nxm-modal-content scrollbar"><div class="nxm-modal-header">'
     + '<h2>Download this large file without losing progress</h2><button aria-label="Close" class="nxm-modal-close-button"><svg></svg></button></div>'
     + '<div class="nxm-modal-body"><p>This file is over 500MB. Use resumable downloads so you can pause, track progress, and recover if your connection drops.</p></div>'
     + '<div class="nxm-modal-footer"><button type="button" class="nxm-button"><span>Standard download</span></button>'
     + '<button type="button" class="nxm-button"><span><span>Resumable download</span><span>Beta</span></span></button></div></div></div>';
-  const PROGRESS = '<div class="space-y-6"><div class="rounded bg-surface-low p-6 text-center"><div class="flex flex-col items-center gap-y-3">'
-    + '<p>Downloading: <strong>8.02%</strong></p><div class="h-4"><div style="width: 8.02%;"></div></div>'
-    + '<p>Please keep this page open, use the pause button to save your progress.</p>'
-    + '<div class="flex justify-center gap-x-3"><button type="button"><span>Pause</span></button><button type="button"><span>Cancel</span></button></div></div>'
-    + '<p>Prefer a <button class="nxm-link">direct download</button> instead?</p></div></div><div id="floating-ui-root"></div>';
+  const panel = (inner, direct = true) => '<div class="space-y-6"><div class="rounded bg-surface-low p-6 text-center">'
+    + `<div class="flex flex-col items-center gap-y-3">${inner}</div>`
+    + `${direct ? '<p>Prefer a <button class="nxm-link">direct download</button> instead?</p>' : ''}</div></div>`;
+  const PANELS = {
+    cards: CARDS,
+    progress: panel('<p>Downloading: <strong>8.02%</strong></p><div class="h-4"><div style="width: 8.02%;"></div></div>'
+      + '<p>Please keep this page open, use the pause button to save your progress.</p>'
+      + '<div class="flex justify-center gap-x-3"><button type="button"><span>Pause</span></button><button type="button"><span>Cancel</span></button></div>'),
+    earlier: panel('<p>You have a download in progress from a previous session.</p>'
+      + '<div class="flex flex-row items-center gap-x-3"><button type="button">Resume Download</button><button type="button">Cancel</button></div>'),
+    preparing: panel('<p>Preparing...</p>'),
+    failed: panel('<p class="font-semibold">Something went wrong.</p><p>Your file finished downloading but couldn\'t be saved to disk.</p>'
+      + '<button type="button">Restart download</button>', false)
+  };
 
-  async function filePage(fileId, { settings = {}, picker = true, progress = false, fallback = false } = {}) {
+  async function filePage(fileId, { settings = {}, picker = true, start = 'cards', fallback = false } = {}) {
     const modPage = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604';
     const w = load('file-page-signed-in.html', `${modPage}?tab=files&file_id=${fileId}`);
     w.document.querySelector('mod-file-download').remove();
@@ -364,42 +376,65 @@ const resumableDownloadsDone = (async () => {
     };
     const host = w.document.createElement('mod-file-download');
     const attributes = { 'file-id': fileId, 'filesize-bytes': String(2 * 1024 ** 3), 'is-managed-download-enabled': 'true',
-      'is-nmm-download': 'false', 'user-is-logged-in': 'true' };
+      'is-nmm-download': 'false', 'user-is-logged-in': 'true', 'timeout-seconds': '5' };
     for (const [name, value] of Object.entries(attributes)) host.setAttribute(name, value);
     const shadow = host.attachShadow({ mode: 'open' });
-    shadow.innerHTML = progress ? PROGRESS : CARD;
-    const nexus = { standard: 0, resumable: 0, paused: 0, direct: 0 };
+    shadow.innerHTML = `<div id="download-section">${FILE_ROW}${PANELS[start]}</div><div id="floating-ui-root"></div>`;
+    // As React does on a state change: Nexus's part goes, the new one is added at the end.
+    const nexusPanel = () => shadow.querySelector('#download-section > .space-y-6, #download-section > #upsell-cards');
+    const setPanel = (name) => {
+      nexusPanel()?.remove();
+      shadow.getElementById('download-section').insertAdjacentHTML('beforeend', PANELS[name]);
+    };
+    const nexus = { standard: 0, resumable: 0, paused: 0, resumed: 0, cancelled: 0, direct: 0 };
     const closeChooser = () => shadow.querySelector('[role="dialog"]')?.remove();
     shadow.addEventListener('click', (event) => {
       const button = event.target.closest('button');
-      const label = button?.textContent.trim() || '';
+      if (!button || button.closest('.nxtk-rd')) return;
+      const label = button.textContent.trim();
       // By place, not label: the extension relabels the button while its download starts.
-      if (button?.closest('#upsell-cards')) shadow.getElementById('floating-ui-root').innerHTML = CHOOSER;
-      else if (button?.getAttribute('aria-label') === 'Close') closeChooser();
+      if (button.closest('#upsell-cards')) shadow.getElementById('floating-ui-root').innerHTML = CHOOSER;
+      else if (button.getAttribute('aria-label') === 'Close') closeChooser();
       else if (label === 'Standard download') { nexus.standard++; closeChooser(); }
       else if (label.startsWith('Resumable download')) { nexus.resumable++; closeChooser(); }
       else if (label === 'Pause') nexus.paused++;
+      else if (label === 'Resume Download') { nexus.resumed++; setPanel('preparing'); }
+      else if (label === 'Cancel') nexus.cancelled++;
       else if (label === 'direct download') nexus.direct++;
     });
     w.document.getElementById('section').append(host);
     for (const file of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
     await w.NexusExt.NNW.init();
     await new Promise((r) => setTimeout(r, 50));
-    const click = (label) => {
-      const button = typeof label === 'string'
-        ? Array.from(shadow.querySelectorAll('button')).find((b) => b.textContent.trim().startsWith(label))
-        : label;
+    const press = (button, label) => {
       assert.ok(button, `the card shows ${label}`);
       button.dispatchEvent(new w.MouseEvent('click', { bubbles: true, composed: true, cancelable: true, button: 0 }));
       return button;
     };
-    const requested = () => fetched.filter((f) => f.includes(`fid=${fileId}`) || f.includes(`file_id=${fileId}`)).length;
-    return { nexus, click, requested, chooserOpen: () => !!shadow.querySelector('[role="dialog"]') };
+    const card = () => shadow.querySelector('.nxtk-rd');
+    return {
+      host,
+      nexus,
+      card,
+      nexusPanel,
+      setPanel,
+      shadow,
+      click: (label) => press(typeof label === 'string'
+        ? Array.from(shadow.querySelectorAll('button')).find((b) => !b.closest('.nxtk-rd') && b.textContent.trim().startsWith(label))
+        : label, label),
+      // A button on the extension's own panel, as the user sees it.
+      cardClick: (label) => press(Array.from(card()?.querySelectorAll('button') || []).find((b) => !b.hidden && b.textContent === label), label),
+      cardText: (part) => card()?.querySelector(`.nxtk-rd-${part}`)?.textContent || '',
+      requested: () => fetched.filter((f) => f.includes(`fid=${fileId}`) || f.includes(`file_id=${fileId}`)).length,
+      chooserOpen: () => !!shadow.querySelector('[role="dialog"]')
+    };
   }
 
   // The chooser is Nexus's: the slow-download click opens it, and its Standard download is the extension's.
   {
-    const { nexus, click, requested, chooserOpen } = await filePage('900001');
+    const { host, nexus, card, click, requested, chooserOpen } = await filePage('900001');
+    assert.equal(host.getAttribute('timeout-seconds'), '0', 'Nexus\'s countdown before a large file starts is skipped');
+    assert.equal(card(), null, 'no panel of the extension\'s over the Free/Premium cards');
     const slow = click('Slow download');
     assert.ok(chooserOpen(), 'on a large file Nexus asks standard or resumable');
     assert.equal(requested(), 0, 'and nothing starts before the answer');
@@ -415,13 +450,25 @@ const resumableDownloadsDone = (async () => {
     assert.equal(requested(), 1, 'and the extension starts nothing for it');
   }
 
-  // "Prefer a direct download instead?": Nexus's download is paused, the extension starts the file.
+  // A running resumable download: the extension's panel in Nexus's place, its buttons pressing Nexus's.
   {
-    const { nexus, click, requested } = await filePage('900002', { progress: true });
-    click('direct download');
-    assert.equal(nexus.direct, 0, 'the direct download is the extension\'s');
-    assert.equal(nexus.paused, 1, 'Nexus\'s resumable download is paused, not left running beside it');
-    await waitForState(() => requested() === 1, 'the extension starts the file');
+    const page = await filePage('900002', { start: 'progress' });
+    await waitForState(() => page.card(), 'the extension draws its panel');
+    assert.equal(page.nexusPanel().style.display, 'none', 'Nexus\'s panel is hidden behind it');
+    assert.equal(page.card().nextElementSibling, page.nexusPanel(), 'in Nexus\'s place');
+    assert.equal(page.cardText('percent'), '8.02%');
+    assert.equal(page.cardText('state'), 'Downloading...');
+    page.cardClick('Pause');
+    assert.equal(page.nexus.paused, 1, 'Pause presses Nexus\'s own Pause');
+    page.nexusPanel().querySelector('strong').textContent = '9.50%';
+    await waitForState(() => page.cardText('percent') === '9.50%', 'the progress follows Nexus\'s');
+    page.cardClick('Direct download instead');
+    assert.equal(page.nexus.paused, 2, 'a direct download pauses Nexus\'s resumable one first');
+    assert.equal(page.nexus.direct, 0);
+    await waitForState(() => page.requested() === 1, 'and the extension starts the file');
+    page.setPanel('failed');
+    await waitForState(() => !page.card(), 'an error is left to Nexus\'s panel, with its Recover and Restart');
+    assert.notEqual(page.nexusPanel().style.display, 'none');
   }
 
   // Without a file picker (Firefox) Nexus never asks: the slow-download click is the extension's as before.
@@ -432,11 +479,21 @@ const resumableDownloadsDone = (async () => {
     await waitForState(() => requested() === 1, 'the extension starts the file');
   }
 
-  // An automatic start leaves a file alone while Nexus shows its own resumable download for it.
+  // A download left from an earlier visit: with automatic starts on it goes on by itself, and the extension
+  // does not fetch the file a second time beside it. With them off, Resume is the user's.
   {
-    const { requested } = await filePage('900004', { progress: true, settings: { AutoStartDownload: true } });
+    const auto = await filePage('900004', { start: 'earlier', settings: { AutoStartDownload: true } });
+    await waitForState(() => auto.nexus.resumed === 1, 'the earlier download is resumed');
+    await waitForState(() => auto.cardText('state') === 'Starting…', 'and the panel follows it');
     await new Promise((r) => setTimeout(r, 600));
-    assert.equal(requested(), 0, 'no second download beside Nexus\'s');
+    assert.equal(auto.nexus.resumed, 1, 'once');
+    assert.equal(auto.requested(), 0, 'no second download beside Nexus\'s');
+    const manual = await filePage('900007', { start: 'earlier' });
+    await waitForState(() => manual.card(), 'the extension draws its panel');
+    assert.equal(manual.cardText('state'), 'Unfinished download from an earlier visit');
+    assert.equal(manual.nexus.resumed, 0, 'nothing resumes by itself');
+    manual.cardClick('Resume');
+    assert.equal(manual.nexus.resumed, 1, 'Resume presses Nexus\'s Resume Download');
     const idle = await filePage('900005', { settings: { AutoStartDownload: true } });
     await waitForState(() => idle.requested() === 1, 'with no resumable download, the automatic start runs');
   }

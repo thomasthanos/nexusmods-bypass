@@ -2181,5 +2181,44 @@
   },
   "setShortAutoErrorReports": {
     "message": "Off until you choose. Send sampled technical errors."
+  },
+  "rdTitle": {
+    "message": "可续传下载"
+  },
+  "rdStateEarlier": {
+    "message": "上次访问未完成的下载"
+  },
+  "rdStateResuming": {
+    "message": "正在继续下载…"
+  },
+  "rdStateStarting": {
+    "message": "正在开始…"
+  },
+  "rdStateReconnecting": {
+    "message": "连接已断开，正在重新连接…"
+  },
+  "rdStatePausing": {
+    "message": "正在暂停…"
+  },
+  "rdStateFinalising": {
+    "message": "正在保存文件…"
+  },
+  "rdStateComplete": {
+    "message": "下载完成"
+  },
+  "rdStateOtherTab": {
+    "message": "正在另一个标签页中进行。请切换到该标签页来暂停或取消。"
+  },
+  "rdHintKeepOpen": {
+    "message": "请保持此标签页打开。关闭后下载会暂停。"
+  },
+  "rdBtnPause": {
+    "message": "暂停"
+  },
+  "rdBtnResume": {
+    "message": "继续"
+  },
+  "rdBtnDirect": {
+    "message": "改为直接下载"
   }
 }

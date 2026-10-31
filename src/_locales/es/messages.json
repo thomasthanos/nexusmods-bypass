@@ -2265,5 +2265,44 @@
   },
   "setShortAutoErrorReports": {
     "message": "Off until you choose. Send sampled technical errors."
+  },
+  "rdTitle": {
+    "message": "Descarga reanudable"
+  },
+  "rdStateEarlier": {
+    "message": "Descarga sin terminar de una visita anterior"
+  },
+  "rdStateResuming": {
+    "message": "Reanudando la descarga…"
+  },
+  "rdStateStarting": {
+    "message": "Iniciando…"
+  },
+  "rdStateReconnecting": {
+    "message": "Conexión perdida, reconectando…"
+  },
+  "rdStatePausing": {
+    "message": "Pausando…"
+  },
+  "rdStateFinalising": {
+    "message": "Guardando el archivo…"
+  },
+  "rdStateComplete": {
+    "message": "Descarga completada"
+  },
+  "rdStateOtherTab": {
+    "message": "Se está ejecutando en otra pestaña. Cambia a ella para pausar o cancelar."
+  },
+  "rdHintKeepOpen": {
+    "message": "Mantén esta pestaña abierta. Si la cierras, la descarga se pausa."
+  },
+  "rdBtnPause": {
+    "message": "Pausar"
+  },
+  "rdBtnResume": {
+    "message": "Reanudar"
+  },
+  "rdBtnDirect": {
+    "message": "Mejor una descarga directa"
   }
 }
