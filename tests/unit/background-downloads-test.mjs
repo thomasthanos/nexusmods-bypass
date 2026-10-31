@@ -1312,6 +1312,82 @@ async function forgottenDownloadNeverBlocksARestart() {
   }
 }
 
+// An erase callback can succeed while the follow-up browser lookup fails. That is not evidence
+// that the resumable record is gone, so Stop must keep its retirement barrier until a readable lookup.
+async function failedEraseConfirmationKeepsRetirement() {
+  const previousDownloads = global.chrome.downloads;
+  const jobId = 'testjob-erase-confirm-unreadable';
+  const downloadId = 916;
+  let eraseCalled = false;
+  let readable = false;
+  const record = {
+    id: downloadId, state: 'interrupted', canResume: true,
+    byExtensionId: 'test-extension-id', error: 'NETWORK_FAILED'
+  };
+  try {
+    await seedTerminalRegressionJob({ jobId, downloadId, fileId: 76 });
+    global.chrome.downloads = {
+      search: (_query, callback) => {
+        if (eraseCalled && !readable) global.chrome.runtime.lastError = { message: 'Download list unavailable' };
+        callback(eraseCalled && !readable ? undefined : eraseCalled ? [] : [record]);
+        global.chrome.runtime.lastError = null;
+      },
+      cancel: finishCallback,
+      erase: (_query, callback) => { eraseCalled = true; callback([downloadId]); }
+    };
+    await context.haltNdcJob(await readNdcJob(jobId), { notify: false });
+    let job = await readNdcJob(jobId);
+    assert.equal(eraseCalled, true, 'the resumable attempt is asked to close');
+    assert.equal(job.retiringDownloadId, downloadId,
+      'an unreadable follow-up lookup cannot confirm that erase removed the old download');
+    readable = true;
+    assert.equal(await context.collectionRetirementBlocker('1704', 'col-76'), '',
+      'a later readable empty result releases the retirement barrier');
+    job = await readNdcJob(jobId);
+    assert.equal(job.retiringDownloadId, undefined);
+  } finally {
+    global.chrome.downloads = previousDownloads;
+    global.chrome.runtime.lastError = null;
+  }
+}
+
+// Chrome can report cancel success while leaving an interrupted transfer resumable. A failed
+// follow-up search must not be mistaken for the empty list that permits a replacement run.
+async function failedCancelLookupKeepsRetirement() {
+  const previousDownloads = global.chrome.downloads;
+  const jobId = 'testjob-cancel-confirm-unreadable';
+  const downloadId = 917;
+  let readable = false;
+  const record = { id: downloadId, state: 'interrupted', canResume: true, byExtensionId: 'test-extension-id' };
+  let erased = false;
+  try {
+    await seedTerminalRegressionJob({ jobId, downloadId, fileId: 77 });
+    global.chrome.downloads = {
+      search: (_query, callback) => {
+        if (!readable) global.chrome.runtime.lastError = { message: 'Download list unavailable' };
+        callback(!readable ? undefined : erased ? [] : [record]);
+        global.chrome.runtime.lastError = null;
+      },
+      cancel: finishCallback,
+      erase: (_query, callback) => { erased = true; callback([downloadId]); }
+    };
+    await context.haltNdcJob(await readNdcJob(jobId), { notify: false });
+    let job = await readNdcJob(jobId);
+    assert.equal(job.retiringDownloadId, downloadId,
+      'a successful cancel with an unreadable list cannot prove the old transfer is no longer resumable');
+    assert.equal(await context.collectionRetirementBlocker('1704', 'col-77'), 'download list unreadable');
+    readable = true;
+    assert.equal(await context.collectionRetirementBlocker('1704', 'col-77'), '',
+      'a readable resumable record is erased before the retirement barrier is released');
+    job = await readNdcJob(jobId);
+    assert.equal(erased, true);
+    assert.equal(job.retiringDownloadId, undefined);
+  } finally {
+    global.chrome.downloads = previousDownloads;
+    global.chrome.runtime.lastError = null;
+  }
+}
+
 async function newRegressionCoverage() {
   const failures = [];
   for (const [name, test] of [
@@ -1556,6 +1632,29 @@ async function reusedDownloadIdIsNeverTrusted() {
     assert.equal(job.status, 'stopped');
     assert.ok(!canceled.includes(9) && !removed.includes(9), 'Stop never cancels or deletes somebody else\'s download');
     assert.equal(job.retiringDownloadId, undefined, 'and has nothing left to retire');
+
+    // Another extension can download the same Nexus file. Its explicit ownership wins over a
+    // matching path, including for a legacy job that saved no activeDownloadPath.
+    for (const [offset, activeDownloadPath] of [ourPath, undefined].entries()) {
+      const foreignCompleteId = 10 + offset * 2;
+      const foreignRunningId = foreignCompleteId + 1;
+      records.set(foreignCompleteId, {
+        id: foreignCompleteId, state: 'complete', url: ours, byExtensionId: 'some-other-extension',
+        exists: true, fileSize: 4000000, totalBytes: 4000000, bytesReceived: 4000000
+      });
+      await seed({ activeDownloadId: foreignCompleteId, activeDownloadPath });
+      await handleNdcDownloadTerminal(foreignCompleteId, 'complete', null);
+      job = await readNdcJob(jobId);
+      assert.equal(job.completed, 0, 'another extension\'s same-file download is not counted as ours');
+      assert.ok(!canceled.includes(foreignCompleteId) && !removed.includes(foreignCompleteId), 'its terminal event cannot mutate that download');
+
+      records.set(foreignRunningId, { id: foreignRunningId, state: 'in_progress', url: ours, byExtensionId: 'some-other-extension' });
+      await seed({ activeDownloadId: foreignRunningId, activeDownloadPath });
+      await NDC_QUEUE_HANDLERS.NDC_QUEUE_STOP({ jobId }, { tab: { id: 7 } });
+      job = await readNdcJob(jobId);
+      assert.ok(!canceled.includes(foreignRunningId) && !removed.includes(foreignRunningId), 'Stop respects another extension\'s explicit ownership');
+      assert.equal(job.retiringDownloadId, undefined, 'a foreign record cannot block the queue retirement');
+    }
 
     // The job's own download, under its own id, is still stopped as before.
     records.set(50, { id: 50, state: 'in_progress', url: `${ours}?md5=a&expires=1` });
@@ -1905,6 +2004,69 @@ async function restartAdoptsADownloadStartedBeforeTheWorkerStopped() {
   }
 }
 
+async function restartKeepsStartMarkerWhenDownloadListIsUnreadable() {
+  const savedDownloads = global.chrome.downloads;
+  const savedFetch = context.fetch;
+  const savedAlarms = global.chrome.alarms;
+  const alarms = [];
+  const jobId = 'testjob-adopt-unreadable';
+  const url = 'https://cf-files.nexus-cdn.com/1704/77/File-77.7z?md5=a&expires=1';
+  const item = { fileId: 77, gameId: '1704', name: 'File-77.7z',
+    pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/77' };
+  const marker = { startingHost: 'cf-files.nexus-cdn.com', startingPath: '/1704/77/file-77.7z',
+    startingAt: Date.now() - 2000, startingIndex: 0 };
+  const record = { id: 655, url, state: 'in_progress', byExtensionId: 'test-extension-id' };
+  let readable = false;
+  let starts = 0;
+  let requests = 0;
+  try {
+    global.chrome.alarms = { ...savedAlarms, create: (name, options) => alarms.push({ name, options }) };
+    await storageSetLocal(`nxtk_ndc_items:${jobId}`, [item]);
+    await storageSetLocal(NDC_JOBS_KEY, { [jobId]: {
+      id: jobId, tabId: 7, gameId: '1704', collectionId: 'adopt-unreadable', type: 'all',
+      itemCount: 1, index: 0, completed: 0, failed: [], skipped: [], status: 'running',
+      activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now(), ...marker
+    } });
+    global.chrome.downloads = {
+      ...(savedDownloads || {}),
+      download: (_options, callback) => { starts += 1; callback(700 + starts); },
+      search: (query, callback) => {
+        if (query.startedAfter && !readable) global.chrome.runtime.lastError = { message: 'Download list unavailable' };
+        callback(query.startedAfter && !readable ? undefined : [record]);
+        global.chrome.runtime.lastError = null;
+      }
+    };
+    context.fetch = async (target) => {
+      requests += 1;
+      return { ok: true, status: 200, url: String(target), headers: { get: () => '' },
+        text: async () => String(target).includes('GenerateDownloadUrl') ? JSON.stringify({ url }) : '<a href="/auth/sign_out">Log out</a>' };
+    };
+    await advanceNdcJob(jobId);
+    let job = await readNdcJob(jobId);
+    assert.equal(starts, 0, 'a failed recovery lookup must not start a second copy of the file already running');
+    assert.equal(requests, 0, 'nor request a new signed link while adoption is unresolved');
+    assert.equal(job.startingPath, marker.startingPath, 'the marker is retained for a later browser lookup');
+    assert.equal(job.activeDownloadId, null);
+    assert.equal(job.status, 'running');
+    assert.ok(alarms.some(({ name, options }) => name.endsWith(jobId) && options.when > Date.now()),
+      'the unresolved recovery schedules another browser lookup');
+
+    readable = true;
+    await advanceNdcJob(jobId);
+    job = await readNdcJob(jobId);
+    assert.equal(job.activeDownloadId, record.id, 'once the list is readable the original transfer is adopted');
+    assert.equal(job.startingPath, undefined);
+    assert.equal(starts, 0);
+    assert.equal(requests, 0);
+  } finally {
+    global.chrome.downloads = savedDownloads;
+    context.fetch = savedFetch;
+    global.chrome.alarms = savedAlarms;
+    global.chrome.runtime.lastError = null;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+  }
+}
+
 Promise.resolve()
   .then(browserSecurityBlockIsNeverRetried)
   .then(failedSingleDownloadsCanBeRetried)
@@ -1917,6 +2079,8 @@ Promise.resolve()
   .then(badFilesAreNotLeftBehind)
   .then(resumingDownloadsAreNotAbandoned)
   .then(newRegressionCoverage)
+  .then(failedEraseConfirmationKeepsRetirement)
+  .then(failedCancelLookupKeepsRetirement)
   .then(terminalSideEffectsFinishBeforeTheNextDownload)
   .then(abandonedFilesAreRemoved)
   .then(downloadStartsAreDeduplicated)
@@ -1925,6 +2089,7 @@ Promise.resolve()
   .then(terminalEventsSurviveAWorkerRestart)
   .then(reusedDownloadIdIsNeverTrusted)
   .then(restartAdoptsADownloadStartedBeforeTheWorkerStopped)
+  .then(restartKeepsStartMarkerWhenDownloadListIsUnreadable)
   .then(fastSingleDownloadStillGetsMo2Meta)
   .then(() => console.log('background.js download behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

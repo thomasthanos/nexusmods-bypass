@@ -399,6 +399,8 @@ async function nexusAnswersAreClassified() {
   const signedIn = '<a href="/auth/sign_out">Log out</a>';
   const passive = '<script>a.src=\'/cdn-cgi/challenge-platform/scripts/jsd/main.js\';</script>';
   const challenge = '<html><head><title>Just a moment...</title></head><body><script>window._cf_chl_opt={cvId:"3"};</script></body></html>';
+  const removed = '<h3 id="Notice42-title">Removed by author</h3>';
+  const downloadAddress = `<link rel="canonical" href="${item.pageUrl}?tab=files&amp;file_id=42&amp;nmm=1">`;
   const answer = ({ status = 200, body = '', headers = {} } = {}) => ({
     ok: status >= 200 && status < 300, status, url: '', text: async () => body,
     headers: { get: (name) => headers[name] || '' }
@@ -413,6 +415,10 @@ async function nexusAnswersAreClassified() {
       ['a _cf_chl_opt challenge inside a signed-in 200', { body: `${signedIn}<script>window._cf_chl_opt={}</script>` }, null, { ok: false, code: 'cloudflare' }],
       ['Cf-Mitigated on an empty 403', { status: 403, headers: { 'Cf-Mitigated': 'challenge' } }, null, { ok: false, code: 'cloudflare' }],
       ['Cf-Mitigated on the generator', { body: signedIn }, { status: 403, headers: { 'Cf-Mitigated': 'challenge' } }, { ok: false, code: 'cloudflare' }],
+      ['a real Cloudflare header alongside a removal notice', { status: 403, body: removed + downloadAddress, headers: { 'Cf-Mitigated': 'challenge' } }, null, { ok: false, code: 'cloudflare' }],
+      ['real challenge markup alongside a removal notice', { body: challenge + removed + downloadAddress }, null, { ok: false, code: 'cloudflare' }],
+      ['a rendered mod still offering a download beside a notice', { body: signedIn + downloadAddress + removed + '<section id="section"></section>' }, generated, { ok: true, url: link }],
+      ['an adult-content notice is not a removed mod', { body: signedIn + downloadAddress + '<h3 id="Notice42-title">Adult content disabled</h3>' }, generated, { ok: true, url: link }],
       ['a plain 403', { status: 403, body: '<html>Forbidden</html>' }, null, { ok: false, code: 'page_request_failed', status: 403 }],
       // Nexus down (a gateway error on the mod page itself) is waited out like a lost connection.
       ['a plain 503', { status: 503, body: '<html>Service Unavailable</html>' }, null, { ok: false, code: 'server_error', status: 503 }],
@@ -509,6 +515,30 @@ async function workerResolvesTheRequestedFile() {
     resolved = await context.resolveNdcBrowserUrl(item, 30000);
     assert.equal(resolved.code, 'mod_unavailable', 'a removed mod is named as such in the worker too');
     assert.deepEqual(asked, [item.pageUrl], 'without asking the generator for a link');
+
+    // A redownload's URL can remain in the canonical/share link of a removed mod. Its nmm=1
+    // parameter is not a download control and must not override the site's removal notice. The
+    // unnecessary generator request was where this case could turn into a Cloudflare report.
+    const signedIn = '<a href="/auth/sign_out">Log out</a>';
+    for (const link of [
+      `<link rel="canonical" href="${item.pageUrl}?tab=files&amp;file_id=42&amp;nmm=1">`,
+      `<a href="${item.pageUrl}?tab=files&amp;file_id=42&amp;nmm=1">Share</a>`
+    ]) {
+      const requested = [];
+      context.fetch = async (url) => {
+        requested.push(String(url));
+        const generator = String(url).includes('GenerateDownloadUrl');
+        return {
+          ok: !generator, status: generator ? 403 : 200, url: String(url),
+          text: async () => generator ? '<title>Just a moment...</title>'
+            : `${signedIn}${link}<h3 id="Notice3354-title">Removed by author</h3>`,
+          headers: { get: (name) => generator && name.toLowerCase() === 'cf-mitigated' ? 'challenge' : '' }
+        };
+      };
+      const missing = await context.resolveNdcBrowserUrl(item, 30000);
+      assert.equal(missing.code, 'mod_unavailable', 'a removed mod stays unavailable when its canonical/share URL contains nmm=1');
+      assert.deepEqual(requested, [item.pageUrl], 'a canonical/share download parameter cannot trigger the generator for a removed mod');
+    }
   } finally {
     context.fetch = previousFetch;
   }

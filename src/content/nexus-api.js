@@ -243,6 +243,9 @@ window.NexusExt = window.NexusExt || {};
         const result = await post(ROUTER_URL, JSON.stringify({ query: QUERIES.Viewer, operationName: 'Viewer', variables: {} }), {
           signal, timeoutMs: 15000, context: 'Checking sign-in'
         });
+        if (result.status === 429 || result.error?.code === 'rate_limited') {
+          noteRateLimited(result.rateLimit?.retryAfterSeconds);
+        }
         const json = result.ok ? parseJson(result.text) : null;
         const prefs = json?.data?.preferences;
         if (prefs && typeof prefs === 'object') value = { signedIn: true, adult: typeof prefs.adult === 'boolean' ? prefs.adult : null };
@@ -287,8 +290,10 @@ window.NexusExt = window.NexusExt || {};
       if (pending && pending.signal === signal) return pending.promise;
 
       const finish = async (result, source, firstAttempt) => {
+        if (signal?.aborted) return abortedResult(context);
         let final = { ...result, source };
         if (!final.ok) final = await confirmLogin(final, { signal, context });
+        if (signal?.aborted) return abortedResult(context);
         recordFinal(final, optional ? operationName || 'GraphQL' : '');
         if (final.ok && firstAttempt && !firstAttempt.ok) {
           debugNote(`${operationName || 'GraphQL'}: v2 attempt failed (${firstAttempt.error?.code || firstAttempt.status}), answered by ${source}`);
@@ -312,7 +317,13 @@ window.NexusExt = window.NexusExt || {};
             if (routerSlot.waitMs) return rateLimitedResult(routerSlot.waitMs);
             stats.fallbacks++;
             const routed = await post(ROUTER_URL, body, { signal, timeoutMs, context });
-            if (routed.ok || !result.ok || routed.status === 429 || routed.error?.code === 'rate_limited') {
+            const blocked = routed.status === 403 || ['cloudflare', 'access_denied'].includes(routed.error?.code);
+            const initialData = result.ok && parseJson(result.text)?.data;
+            const usableData = initialData && Object.values(initialData).some((value) => value != null);
+            // GraphQL can refuse content with HTTP 200 and no data. Its nominal success must not
+            // hide a definitive verification/access refusal from the session-backed endpoint.
+            if (routed.ok || !result.ok || routed.status === 429 || routed.error?.code === 'rate_limited'
+              || (blocked && !usableData)) {
               result = routed;
               source = 'router';
             }

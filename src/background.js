@@ -1241,13 +1241,15 @@ async function startNdcDownload(job, item, url) {
 const NDC_START_MARKER_MAX_AGE_MS = 10 * 60 * 1000;
 
 function searchDownloadsStartedAfter(at) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     try {
       chrome.downloads.search({ startedAfter: new Date(at).toISOString() }, (results) => {
-        resolve(getRuntimeError() ? [] : (Array.isArray(results) ? results : []));
+        const error = getRuntimeError();
+        if (error) return reject(new Error(error));
+        resolve(Array.isArray(results) ? results : []);
       });
-    } catch (_) {
-      resolve([]);
+    } catch (cause) {
+      reject(cause);
     }
   });
 }
@@ -1286,9 +1288,17 @@ async function adoptStartedNdcDownload(job, item, startIndex) {
   const startedAt = Number(job.startingAt) || 0;
   const fresh = Number(job.startingIndex) === startIndex && startedAt > 0
     && Date.now() - startedAt <= NDC_START_MARKER_MAX_AGE_MS;
-  const found = fresh
-    ? (await searchDownloadsStartedAfter(startedAt - 5000)).find((record) => isThisJobsStartedDownload(record, job)) || null
-    : null;
+  let found = null;
+  if (fresh) {
+    try {
+      found = (await searchDownloadsStartedAfter(startedAt - 5000)).find((record) => isThisJobsStartedDownload(record, job)) || null;
+    } catch (_) {
+      // An unreadable list is not an empty one. Keep the start marker until recovery can check
+      // whether the browser already has this transfer, instead of starting a duplicate beside it.
+      scheduleNdcJobAlarm(job.id, Date.now() + INTERRUPTED_RECHECK_MS);
+      return null;
+    }
+  }
   const request = found ? await ndcDownloadRequest(job, item, found.url || found.finalUrl) : null;
   const transition = await mutateNdcJobIf(job.id, idleOnItem(startIndex), (current) => {
     clearNdcStartMarker(current);
@@ -2077,7 +2087,7 @@ function isResumableInterrupt(record) {
 async function eraseResumableDownload(downloadId, record) {
   if (!isResumableInterrupt(record) || !downloadWasStartedHere(record)) return false;
   if (!await controlDownload('erase', { id: downloadId })) return false;
-  return !await searchDownload(downloadId);
+  return downloadRecordIsGone(downloadId);
 }
 
 // Only ever a download this worker started: every id reaching here came out of our own
@@ -2106,9 +2116,10 @@ function downloadUrlPath(url) {
   return path.toLowerCase();
 }
 
-// Only a record that names a different link counts as somebody else's; one with no link to compare
-// is trusted, as before.
+// Explicit browser ownership wins even when another extension downloaded the same Nexus file.
+// Otherwise a different link identifies a reused id; a record with neither remains trusted as before.
 function isSomeoneElsesDownload(record, expectedPath) {
+  if (!downloadWasStartedHere(record)) return true;
   const recordPath = downloadUrlPath(record?.url);
   return !!expectedPath && !!recordPath && recordPath !== expectedPath;
 }
@@ -2140,7 +2151,7 @@ async function downloadRecordIsGone(downloadId) {
 async function retireNdcDownload(downloadId, expectedPath = '') {
   if (!Number.isInteger(downloadId)) return true;
   // Nothing of this job's is left under that id: it is not cancelled, and its file is not touched.
-  if (expectedPath && isSomeoneElsesDownload(await searchDownload(downloadId), expectedPath)) return true;
+  if (isSomeoneElsesDownload(await searchDownload(downloadId), expectedPath)) return true;
   const canceled = await cancelDownload(downloadId);
   let record = await searchDownload(downloadId);
   for (let attempt = 1;
@@ -2156,7 +2167,9 @@ async function retireNdcDownload(downloadId, expectedPath = '') {
   // no longer knows; Firefox's fails, once the user has cleared the download from its list or a browser
   // restart has numbered the downloads afresh, so that retirement could never finish, and every later
   // start of the collection was refused with previous_download_not_retired.
-  if (!record) return canceled || await downloadRecordIsGone(downloadId);
+  // Chrome's successful cancel can leave a resumable interruption behind. If this lookup failed,
+  // only a readable empty result can prove there is nothing left to run or resume.
+  if (!record) return downloadRecordIsGone(downloadId);
   // Chrome's cancel left it resumable (see eraseResumableDownload).
   if (isResumableInterrupt(record)) return eraseResumableDownload(downloadId, record);
   if (record.state === 'in_progress' || record.paused === true || record.canResume === true) return false;
@@ -2288,8 +2301,7 @@ async function retainLiveDownload(jobId, downloadId, { recheck = false } = {}) {
 async function applyNdcDownloadTerminal(job, downloadId, state, error) {
   // Firefox after a restart: the id names somebody else's download now. That record is never
   // counted, resumed, cancelled or deleted, and this job's own download is treated as lost.
-  const reused = !!job.activeDownloadPath
-    && isSomeoneElsesDownload(await searchDownload(downloadId), job.activeDownloadPath);
+  const reused = isSomeoneElsesDownload(await searchDownload(downloadId), job.activeDownloadPath);
   if (reused) {
     state = 'interrupted';
     error = 'download-record-missing';

@@ -35,9 +35,10 @@
 
   function normalizeImportName(value) {
     return String(value || '')
+      .normalize('NFC')
       .replace(/\.[a-z0-9]{1,8}$/i, '')
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ')
       .trim();
   }
 

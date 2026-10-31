@@ -384,6 +384,45 @@ async function removedModFlowTests() {
   ], 'nothing is asked a second time');
 }
 
+// A removed mod's page can retain its requested Vortex URL in page chrome. That URL is not an
+// offer to download: the definitive site notice must stop the collection before its generator
+// request, which can otherwise be answered by Cloudflare after several such removed files.
+async function removedCollectionNoticeTests() {
+  const href = 'https://www.nexusmods.com/newvegas/mods/100?tab=files&file_id=200';
+  const notice = '<html><head><link rel="canonical" href="' + href + '&amp;nmm=1"></head><body>'
+    + '<a href="https://users.nexusmods.com/auth/sign_out">Sign out</a>'
+    + '<div id="Notice1" class="site-notice"><h3 id="Notice1-title">Removed by author</h3>'
+    + '<p>The mod you were looking for was removed by its author.</p></div></body></html>';
+  const harness = createHarness({ href, pages: [
+    { body: notice },
+    { status: 403, body: '<html><title>Just a moment...</title><form id="challenge-form"></form></html>' }
+  ] });
+  vm.runInNewContext(fs.readFileSync('src/content/ndc.js', 'utf8'), harness.context, { filename: 'src/content/ndc.js' });
+  const ndc = new harness.context.NexusExt.NDC('130', 'review-collection');
+  const result = await ndc.fetchDownloadLink({
+    fileId: 200,
+    file: { fileId: 200, name: 'Removed archive.7z', url: href, mod: { modId: 100, game: { id: 130 } } }
+  });
+  assert.equal(result.downloadUrl, '');
+  assert.equal(result.error?.code, 'mod_unavailable', 'the collection skips the removed mod rather than reporting a later Cloudflare response');
+  assert.equal(harness.calls.length, 1, 'a definitive removal notice never reaches the download generator');
+  assert.equal(harness.recorded.length, 0, 'an unavailable mod is a skip, not an extension fault');
+
+  // A real challenge still wins even when the response also contains a removal notice. The
+  // collection must never guess that a blocked page means its mod has been deleted.
+  const challenged = createHarness({ href, pages: [
+    { status: 403, body: notice.replace('</body>', '<form id="challenge-form"></form></body>') }
+  ] });
+  vm.runInNewContext(fs.readFileSync('src/content/ndc.js', 'utf8'), challenged.context, { filename: 'src/content/ndc.js' });
+  const blocked = new challenged.context.NexusExt.NDC('130', 'review-collection');
+  const blockedResult = await blocked.fetchDownloadLink({
+    fileId: 200,
+    file: { fileId: 200, name: 'Protected archive.7z', url: href, mod: { modId: 100, game: { id: 130 } } }
+  });
+  assert.equal(blockedResult.error?.code, 'cloudflare', 'a real challenge remains a verification requirement');
+  assert.equal(challenged.calls.length, 1, 'the challenge does not trigger further requests');
+}
+
 // Bug report #9: on Chrome 119 the Vortex button of masseffectlegendaryedition/mods/23 ended in "Nexus Mods
 // did not return a valid Vortex link" every time. Nexus had answered with a signed link; that browser gave
 // nxm:// URLs no host, and the check refused it.
@@ -881,6 +920,62 @@ async function leavingPageTests() {
     'a page restored from the back-forward cache reports failures again');
 }
 
+// Direct signed links have the same navigation lifetime as native routes: an old file page's
+// pending lookup must not start a download or open Vortex after the user changes page.
+async function staleSignedDownloadTests() {
+  for (const changeUrlBeforeNavigationEvent of [false, true]) {
+    for (const isNMM of [true, false]) {
+      const h = createHarness({ sectionGameId: '130', pages: [{ body: JSON.stringify({ url: isNMM ? VORTEX_URL : MANUAL_URL }) }] });
+      h.hooks.setConfig({ AutoCloseTab: false, ShowAlertsOnError: false });
+      const downloads = [];
+      h.context.NexusExt.Storage.getSettings = async () => ({});
+      h.context.NexusExt.Storage.sendDownloadCommand = async (...args) => { downloads.push(args); return { ok: true }; };
+      h.context.NXTK.waitForProtocolHandoff = async () => true;
+      h.context.NXTK.bumpTotalDownloads = () => {};
+      h.context.NXTK.recordVortexOpenEvent = () => {};
+      h.state.pages[0].beforeReply = () => {
+        if (changeUrlBeforeNavigationEvent) h.context.location.pathname = '/newvegas/mods/101';
+        else h.hooks.invalidateDownloadAttempts();
+      };
+      assert.equal(await h.hooks.runDownload({ fileId: '200', isNMM }), false, 'an obsolete lookup cannot start');
+      assert.equal(h.navigations.length, 0, 'an obsolete signed link cannot open Vortex');
+      assert.equal(downloads.length, 0, 'an obsolete signed link cannot start a managed download');
+      assert.equal(h.recorded.length, 0, 'leaving the page is not a download error');
+    }
+  }
+
+  const settingsPending = createHarness({ sectionGameId: '130', pages: [{ body: JSON.stringify({ url: MANUAL_URL }) }] });
+  settingsPending.hooks.setConfig({ ShowAlertsOnError: false });
+  let resolveSettings;
+  let commands = 0;
+  settingsPending.context.NexusExt.Storage.getSettings = () => new Promise((resolve) => { resolveSettings = resolve; });
+  settingsPending.context.NexusExt.Storage.sendDownloadCommand = async () => { commands++; return { ok: true }; };
+  const pending = settingsPending.hooks.runDownload({ fileId: '200', isNMM: false });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(typeof resolveSettings, 'function', 'the managed download is waiting for its settings');
+  settingsPending.hooks.invalidateDownloadAttempts();
+  resolveSettings({});
+  assert.equal(await pending, false);
+  assert.equal(commands, 0, 'navigation during the settings lookup cannot send the download command');
+  assert.equal(settingsPending.recorded.length, 0);
+
+  // A second deliberate click does not dispose the page or cancel the first file's signed link.
+  const concurrent = createHarness({ sectionGameId: '130', pages: [
+    { body: JSON.stringify({ url: VORTEX_URL }) },
+    { body: JSON.stringify({ url: VORTEX_URL.replace('/files/200?', '/files/201?') }) }
+  ] });
+  concurrent.hooks.setConfig({ AutoCloseTab: false, ShowAlertsOnError: false });
+  concurrent.context.NXTK.waitForProtocolHandoff = async () => true;
+  concurrent.context.NXTK.bumpTotalDownloads = () => {};
+  concurrent.context.NXTK.recordVortexOpenEvent = () => {};
+  const starts = await Promise.all([
+    concurrent.hooks.runDownload({ fileId: '200', isNMM: true }),
+    concurrent.hooks.runDownload({ fileId: '201', isNMM: true })
+  ]);
+  assert.deepEqual(starts, [true, true], 'both requested files may start on the current page');
+  assert.equal(concurrent.navigations.length, 2);
+}
+
 function modPageDetectionTests() {
   const cases = [
     ['https://www.nexusmods.com/newvegas/mods/100', true, 'a mod page is handled'],
@@ -900,6 +995,7 @@ Promise.resolve()
   .then(downloadFlowTests)
   .then(apiRouteRecoveryTests)
   .then(removedModFlowTests)
+  .then(removedCollectionNoticeTests)
   .then(legacyChromiumVortexTests)
   .then(vortexGeneratorFirstTests)
   .then(controlClassificationTests)
@@ -910,6 +1006,7 @@ Promise.resolve()
   .then(unreadableRouteBoundaries)
   .then(readableVortexRouteTests)
   .then(oneShotNativeVortexTests)
+  .then(staleSignedDownloadTests)
   .then(leavingPageTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {

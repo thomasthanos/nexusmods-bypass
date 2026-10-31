@@ -1112,6 +1112,11 @@ window.NexusExt = window.NexusExt || {};
           if (message.type === 'NXT_NDC_PROGRESS') {
             stopWaitCountdown();
             const name = message.itemName || 'Nexus file';
+            // Completed/failed events advance the worker index past that item. Names may repeat,
+            // and an adopted job has its own ordering, so only this tab's queue positions identify
+            // a file reliably. A reconnected/adopted job without that mapping keeps a label only.
+            const candidate = adopted ? null : runLog.pending[queueIndex - 1];
+            const item = candidate?.name === name ? candidate : null;
             if (message.itemState === 'started') {
               eta?.itemStarted();
               this.ui.logText(TS('logDownloading', [name], `Downloading: ${name}`));
@@ -1122,7 +1127,7 @@ window.NexusExt = window.NexusExt || {};
               // for an older worker, and never for an adopted job, whose numbering is not this tab's.
               const sizeKb = Number(message.itemSizeKb)
                 || (adopted ? 0 : Number(sizesKb[queueIndex - 1]) || 0);
-              runLog.sent.push({ name, pageUrl: runLog.pending.find((item) => item.name === name)?.pageUrl || '' });
+              runLog.sent.push({ name, pageUrl: item?.pageUrl || '' });
               this.ui.logText(sizeKb > 0
                 ? TS('logCompletedSize', [name, NXTK.formatBytes(sizeKb * 1024)], `Completed: ${name} (${NXTK.formatBytes(sizeKb * 1024)})`)
                 : TS('logCompleted', [name], `Completed: ${name}`), 'info');
@@ -1135,8 +1140,11 @@ window.NexusExt = window.NexusExt || {};
             } else if (message.itemState === 'failed') {
               eta?.spoil();
               const reason = queueErrorText(message.error);
-              const item = runLog.pending.find((entry) => entry.name === name);
-              runLog.failed.push({ name, pageUrl: item?.pageUrl || '', code: String(message.error || 'unknown').split(' ')[0], mod: runLog.mods.find((m) => m.file.name === name) || null });
+              const mod = item && runLog.mods.find((entry) => (
+                String(entry.fileId || entry.file?.fileId) === String(item.fileId)
+                && String(entry.file?.mod?.game?.id) === String(item.gameId)
+              ));
+              runLog.failed.push({ name, pageUrl: item?.pageUrl || '', code: String(message.error || 'unknown').split(' ')[0], mod: mod || null });
               this.ui.logText(TS('logFailedItem', [name, reason], `Failed: ${name} (${reason})`), 'error');
             }
             return;

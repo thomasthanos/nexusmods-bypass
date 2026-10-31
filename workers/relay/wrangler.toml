@@ -9,7 +9,7 @@ ALLOWED_ORIGINS = "chrome-extension://,moz-extension://,extension://"
 # Fixed recipient for user reports. This public Discord user ID is not a credential.
 REPORT_MENTION_USER_ID = "706932839907852389"
 # Comparison baseline for labelling older clients; update when deploying a relay for a new release.
-RELAY_EXTENSION_VERSION = "3.3.4"
+RELAY_EXTENSION_VERSION = "3.3.7"
 
 # Shared counters and auto-report fingerprints across Worker instances (eventually consistent).
 [[kv_namespaces]]

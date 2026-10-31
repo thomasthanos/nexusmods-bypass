@@ -152,6 +152,32 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal(off.calls.length, 1);
   }
 
+  // HTTP 200 is not usable collection data when GraphQL itself denied it. A definitive router
+  // refusal must then surface, while a transient router failure cannot erase usable v2 fields.
+  for (const refusal of [
+    { ok: false, status: 403, text: '', error: { code: 'cloudflare' } },
+    { ok: false, status: 403, text: '', error: { code: 'access_denied' } }
+  ]) {
+    const denied = { errors: [{ extensions: { code: 'ADULT_CONTENT_BLOCKED' } }], data: { collectionRevision: null } };
+    recorded.length = 0;
+    const h = harness({ responses: [ok(denied), refusal] });
+    const result = await h.api.graphql({ query: 'q', operationName: 'Q' });
+    assert.equal(result.ok, false, 'an empty v2 response cannot hide the router refusal');
+    assert.equal(result.source, 'router');
+    assert.equal(result.error.code, refusal.error.code);
+    assert.equal(h.calls.length, 2, 'the definitive refusal causes no further attempts');
+    assert.deepEqual(recorded.map((error) => error.code), [refusal.error.code], 'the real final refusal is recorded once');
+
+    const usable = { ...denied, data: { collectionRevision: { modFiles: [] } } };
+    const existing = harness({ responses: [ok(usable), refusal] });
+    const retained = await existing.api.graphql({ query: 'q' });
+    assert.equal(retained.ok, true, 'usable partial v2 data is preserved');
+    assert.equal(retained.source, 'v2');
+    assert.deepEqual(JSON.parse(retained.text).data, usable.data);
+    const transient = harness({ responses: [ok(denied), netFail()] });
+    assert.equal((await transient.api.graphql({ query: 'q' })).source, 'v2', 'a router outage does not replace the original GraphQL explanation');
+  }
+
   // ---- Caching: TTL, permanent published revisions (persisted), latest not permanent, in-flight dedupe.
   // A fallback is a real request too, and its 429 must block subsequent calls.
   {
@@ -476,6 +502,37 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal(r.ok, true, 'the router answer counts');
     assert.equal(h.calls[1].url, NexusApi.ROUTER_URL);
     assert.equal(recorded.length, 0, 'no false requires_login in the error log');
+  }
+
+  // The session check is a real API request too: its Retry-After applies to the shared client.
+  {
+    const loggedOut = () => ({ ok: false, status: 200, text: '', error: { code: 'requires_login' } });
+    const h = harness({ responses: [loggedOut(), loggedOut(), limited(300)] });
+    assert.equal((await h.api.graphql({ query: 'collection' })).error.code, 'requires_login');
+    const blocked = await h.api.graphql({ query: 'another collection' });
+    assert.equal(blocked.error?.code, 'rate_limited', 'a Viewer 429 prevents the next operation from sending');
+    assert.equal(blocked.rateLimit.retryAfterSeconds, 300);
+    assert.equal(h.calls.length, 3, 'no request is sent during the Viewer cooldown');
+  }
+
+  // Disposing the collection while that confirmation is pending cancels the operation; a request
+  // intentionally abandoned by the user is not evidence that the Nexus session needs signing in.
+  {
+    recorded.length = 0;
+    let finishViewer;
+    let count = 0;
+    const controller = new AbortController();
+    const api = NexusApi.createNexusApi({ storage: null, request: async () => {
+      if (++count < 3) return { ok: false, status: 200, text: '', error: { code: 'requires_login' } };
+      return new Promise((resolve) => { finishViewer = resolve; });
+    } });
+    const pending = api.graphql({ query: 'collection', signal: controller.signal });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(count, 3, 'the final sign-in check is pending');
+    controller.abort();
+    finishViewer({ ok: false, status: 0, text: '', error: { code: 'aborted' } });
+    assert.equal((await pending).error.code, 'aborted', 'cancelled confirmation does not become a sign-in failure');
+    assert.equal(recorded.length, 0, 'cancelled confirmation is not recorded as an error');
   }
 
   // ---- Both say requires_login but the viewer query says signed in: not a login problem.

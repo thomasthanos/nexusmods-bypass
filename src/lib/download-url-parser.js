@@ -280,9 +280,11 @@
     }
 
     function walkJson(value, label, depth) {
-      if (!value || typeof value !== 'object' || depth > MAX_NESTING) return null;
+      if (!value || depth > MAX_NESTING) return null;
       if (budget.nodes >= MAX_JSON_NODES) return null;
       budget.nodes += 1;
+      if (typeof value === 'string') return searchText(value, depth + 1);
+      if (typeof value !== 'object') return null;
 
       if (Array.isArray(value)) {
         const entries = settings.fileId
@@ -300,9 +302,9 @@
 
       // A link is only taken from an object that belongs to the requested file, or names no file.
       const ownId = fileIdOf(value);
-      if (settings.fileId && ownId && ownId !== settings.fileId
-        && (settings.vortex ? LINK_KEYS.vortex : LINK_KEYS.browser).some((key) => typeof value[key] === 'string')) {
+      if (settings.fileId && ownId && ownId !== settings.fileId) {
         otherFile('links only for other files');
+        return null;
       }
       if (!settings.fileId || !ownId || ownId === settings.fileId) {
         for (const key of settings.vortex ? LINK_KEYS.vortex : LINK_KEYS.browser) {
@@ -333,7 +335,7 @@
       } catch (_) {
         return null;
       }
-      return walkJson(parsed, 'json', depth);
+      return { found: walkJson(parsed, 'json', depth) };
     }
 
     function fromFileAttributes(text, depth) {
@@ -417,20 +419,31 @@
     }
 
     function runStrategies(text, depth) {
-      return fromJson(text, depth)
-        || fromFileAttributes(text, depth)
-        || fromMarkup(text)
-        || (settings.routeOnly ? null : settings.vortex ? fromNxm(text) : (settings.allowBareCdn && !namesOtherFiles ? fromBareCdn(text) : null));
+      const embedded = fromFileAttributes(text, depth);
+      if (embedded) return embedded;
+      // Metadata has already been read with its file identity. Its nested markup is attribute
+      // content, not an independent page download control that may override a rejected identity.
+      const page = text.replace(FILE_ATTRIBUTE, '');
+      return fromMarkup(page)
+        || (settings.routeOnly ? null : settings.vortex ? fromNxm(page) : (settings.allowBareCdn && !namesOtherFiles ? fromBareCdn(page) : null));
     }
 
     // Read as it came first, then once more with entities and escapes resolved.
     function searchText(text, depth) {
       if (!text || depth > MAX_NESTING) return null;
       const raw = String(text).slice(0, MAX_INPUT_CHARS);
+      // Structured JSON already tells us which file owns each link. Scanning the entire JSON as
+      // markup or bare URLs afterwards would recover links from an explicitly rejected file.
+      const json = fromJson(raw, depth);
+      if (json) return json.found;
       const found = runStrategies(raw, depth);
       if (found) return found;
-      const decoded = decodeLinkText(raw);
-      return decoded !== raw ? runStrategies(decoded, depth + 1) : null;
+      // Attribute values were decoded while reading their metadata. Decoding them again as page
+      // text would turn their entity-escaped quotes/markup into apparent unscoped controls.
+      const decoded = decodeLinkText(raw.replace(FILE_ATTRIBUTE, ''));
+      if (decoded === raw) return null;
+      const decodedJson = fromJson(decoded, depth + 1);
+      return decodedJson ? decodedJson.found : runStrategies(decoded, depth + 1);
     }
 
     return (text) => searchText(text, 0);

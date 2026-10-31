@@ -382,21 +382,23 @@
     };
   }
 
-  // The id a modlist's download history is kept under: its name, made safe. A name with no such
-  // characters (a Greek or Japanese title) used to become "wj-modlist", so all of those shared one
-  // history; it now gets a stable hash of name, author and version instead.
+  // Ordinary ASCII names retain their existing history id. A Unicode title can lose its entire
+  // identity except a year, and truncation can lose the distinguishing part of a long title, so
+  // those names keep a hash too. Canonical Unicode spellings describe the same list.
   const MODLIST_ID_UNSAFE = /[^A-Za-z0-9._-]+/g;
 
   function modlistId(list) {
-    const base = String(list?.name || '').replace(MODLIST_ID_UNSAFE, '-').replace(/^-+|-+$/g, '');
-    if (base) return `wj-${base}`.slice(0, 128);
-    const identity = [list?.name, list?.author, list?.version].map((value) => String(value ?? '')).join('\n');
+    const name = String(list?.name || '').normalize('NFC');
+    const base = name.replace(MODLIST_ID_UNSAFE, '-').replace(/^-+|-+$/g, '');
+    if (base && base.length <= 125 && !/[^\p{ASCII}]/u.test(name)) return `wj-${base}`;
+    const identity = [name, list?.author, list?.version].map((value) => String(value ?? '').normalize('NFC')).join('\n');
     if (!identity.trim()) return 'wj-modlist';
     let hash = 0x811c9dc5;
     for (let index = 0; index < identity.length; index += 1) {
       hash = Math.imul(hash ^ identity.charCodeAt(index), 0x01000193) >>> 0;
     }
-    return `wj-${hash.toString(36).padStart(7, '0')}`;
+    const suffix = hash.toString(36).padStart(7, '0');
+    return base ? `wj-${base.slice(0, 128 - 4 - suffix.length)}-${suffix}` : `wj-${suffix}`;
   }
 
   function toQueueMods(result) {

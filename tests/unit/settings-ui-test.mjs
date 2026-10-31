@@ -120,35 +120,50 @@ async function onboardingRegressionTests() {
 }
 
 async function collectionSelectionRegressionTests() {
-  const f = fixture();
-  try {
-    for (const file of ['src/content/errors.js', 'src/content/ndc.js', 'src/content/ui-collection.js']) {
-      f.w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
-    }
-    const ndc = new f.w.NexusExt.NDC('skyrimspecialedition', 'abc');
-    ndc.mods.all = [
-      { fileId: 101, file: { fileId: 101, name: 'Alpha package', uri: 'alpha-package-1.7z', size: 1024, mod: { modId: 1, name: 'Alpha' } } },
-      { fileId: 102, file: { fileId: 102, name: 'Beta package', uri: 'beta-package-2.7z', size: 1024, mod: { modId: 2, name: 'Beta' } } }
-    ];
-    ndc.mods.mandatory = ndc.mods.all;
-    const deck = f.w.NexusExt.UI.createControlDeck(ndc);
-    f.w.document.body.appendChild(deck);
-    deck.querySelector('#nxtk-select-mods').click();
-    await tick();
-    const picker = f.w.document.getElementById('nxtk-select-modal');
-    picker.querySelector('#nxtk-sel-all').click();
-    assert.equal(picker.querySelectorAll('.nxtk-mod-item.nxtk-selected').length, 2);
-    let input;
-    const click = f.w.HTMLInputElement.prototype.click;
-    f.w.HTMLInputElement.prototype.click = function () { if (this.type === 'file') input = this; else click.call(this); };
-    picker.querySelector('#nxtk-import-dl-mods').click();
-    Object.defineProperty(input, 'files', { value: [{ name: 'alpha-package-1.7z' }] });
-    input.dispatchEvent(new f.w.Event('change'));
-    const selected = [...picker.querySelectorAll('.nxtk-mod-item.nxtk-selected')].map((row) => row.dataset.fileId);
-    assert.deepEqual(selected, ['102'], 'importing downloaded archives removes already-present files from an earlier selection');
-    assert.match(f.w.document.querySelector('.nxtk-alert-modal').textContent, /Selected 1 mod/);
-    console.log('Collection downloaded-file selection regression OK');
-  } finally { f.close(); }
+  const cases = [
+    { label: 'ASCII', names: ['Alpha package', 'Beta package'], uris: ['alpha-package-1.7z', 'beta-package-2.7z'], imported: 'alpha-package-1.7z' },
+    { label: 'Greek', names: ['Άλφα', 'Βήτα'], uris: ['Άλφα-1234.7z', 'Βήτα-1234.7z'], imported: 'Άλφα-1234.7z' },
+    { label: 'Japanese/Korean', names: ['日本語', '한국어'], uris: ['日本語-1234.7z', '한국어-1234.7z'], imported: '日本語-1234.7z' },
+    { label: 'canonical Unicode', names: ['Café', 'Other'], uris: ['Cafe\u0301-1234.7z', 'Other-5678.7z'], imported: 'Café-1234.7z' }
+  ];
+  for (const entry of cases) {
+    const f = fixture();
+    try {
+      for (const file of ['src/content/errors.js', 'src/content/ndc.js', 'src/content/ui-collection.js']) {
+        f.w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+      }
+      const ndc = new f.w.NexusExt.NDC('skyrimspecialedition', 'abc');
+      ndc.mods.all = [
+        { fileId: 101, file: { fileId: 101, name: entry.names[0], uri: entry.uris[0], size: 1024, mod: { modId: 1, name: 'Alpha' } } },
+        { fileId: 102, file: { fileId: 102, name: entry.names[1], uri: entry.uris[1], size: 1024, mod: { modId: 2, name: 'Beta' } } }
+      ];
+      ndc.mods.mandatory = ndc.mods.all;
+      const deck = f.w.NexusExt.UI.createControlDeck(ndc);
+      f.w.document.body.appendChild(deck);
+      deck.querySelector('#nxtk-select-mods').click();
+      await tick();
+      const picker = f.w.document.getElementById('nxtk-select-modal');
+      picker.querySelector('#nxtk-sel-all').click();
+      assert.equal(picker.querySelectorAll('.nxtk-mod-item.nxtk-selected').length, 2);
+      let input;
+      const click = f.w.HTMLInputElement.prototype.click;
+      f.w.HTMLInputElement.prototype.click = function () { if (this.type === 'file') input = this; else click.call(this); };
+      picker.querySelector('#nxtk-import-dl-mods').click();
+      Object.defineProperty(input, 'files', { value: [{ name: entry.imported }] });
+      input.dispatchEvent(new f.w.Event('change'));
+      const selected = [...picker.querySelectorAll('.nxtk-mod-item.nxtk-selected')].map((row) => row.dataset.fileId);
+      assert.deepEqual(selected, ['102'], `${entry.label}: importing an archive removes only that file, preserving different names with the same numeric suffix`);
+      assert.match(f.w.document.querySelector('.nxtk-alert-modal').textContent, /Selected 1 mod/);
+      let historyPatch;
+      f.w.NexusExt.Storage.mergeCollectionHistory = async (payload) => { historyPatch = payload; };
+      deck.querySelector('#nxtk-import-mods').click();
+      Object.defineProperty(input, 'files', { value: [{ name: entry.imported }] });
+      input.dispatchEvent(new f.w.Event('change'));
+      await tick();
+      assert.deepEqual([...historyPatch.lists.all], [101], `${entry.label}: only the archive actually imported is marked downloaded in history`);
+    } finally { f.close(); }
+  }
+  console.log('Collection downloaded-file selection regressions OK: ASCII, Unicode identity and canonical normalization');
 }
 
 async function settingsRegressionTests() {

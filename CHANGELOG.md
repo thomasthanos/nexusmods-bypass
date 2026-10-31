@@ -17,6 +17,9 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-3-3-7"><kbd> 3.3.7 </kbd></a>&ensp;·&ensp;
+  <a href="#release-3-3-6"><kbd> 3.3.6 </kbd></a>&ensp;·&ensp;
+  <a href="#release-3-3-5"><kbd> 3.3.5 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-4"><kbd> 3.3.4 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-3"><kbd> 3.3.3 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-2"><kbd> 3.3.2 </kbd></a>&ensp;·&ensp;
@@ -31,6 +34,33 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 - **Nexus resumable downloads (beta):** for files over 500 MB, Nexus now asks whether you want a *Standard download* or a *Resumable download* (one that can pause and resume and picks up after a lost connection). The extension used to take the *Slow download* click before Nexus could ask. It now lets Nexus show the question. *Standard download* starts the file through the extension, the same way the slow-download click did, and the question closes. *Resumable download*, *Pause*, *Resume* and *Cancel* stay with Nexus. *Prefer a direct download instead?* under a running resumable download first pauses Nexus's download, which keeps its progress, and then starts the file through the extension. An automatic start does not download a file a second time while Nexus shows its own resumable download for it, and the Cloudflare fallback answers the question with *Standard download*. Firefox has no file picker for Nexus to save to, so Nexus never asks there and nothing changes.
 - **Resumable downloads in the extension's look, with no wait:** while Nexus runs a resumable download, its panel is replaced by the extension's own. The new panel shows the progress and percentage and has *Pause*, *Resume*, *Cancel* and *Direct download instead*. Its buttons press Nexus's own buttons, so the download is still the one Nexus runs. An error, with Nexus's *Recover* and *Restart*, shows Nexus's panel again. The few seconds Nexus counts down before a large file starts are skipped, as they already were for the extension's own downloads. With *Auto-start* on, a download left from an earlier visit continues by itself. The panel's text is translated into all 13 languages.
+
+<a id="release-3-3-7"></a>
+
+## 3.3.7 — 2026-10-31
+
+- **Removed collection mods reported as Cloudflare:** a removed-mod page can echo the requested `nmm=1` URL in canonical/share links. The classifier mistook that URL for a file offer, ignored the explicit site removal notice and reached the download generator; a later Cloudflare response then hid the real removal reason. Nexus's explicit replacement notice now takes priority over broad offer markers. Both collection paths stop after the page and skip the unavailable mod without a generator request. Tests reproduce the original failure and preserve actual Cloudflare challenge handling, rendered mod pages and adult-content notices. Existing pacing remains unchanged; no Cloudflare verification is bypassed.
+
+<a id="release-3-3-6"></a>
+
+## 3.3.6 — 2026-10-31
+
+- **Recovery without duplicate transfers:** when a saved download-start marker is being recovered, a failed browser download-list read now retains the marker and schedules a recheck. A later readable list can adopt the existing transfer instead of starting another copy.
+- **A readable state after Stop:** a successful cancellation callback is no longer treated as proof that an unreadable download record has disappeared. The retirement barrier remains until the browser can confirm the transfer's state.
+- **Retrying duplicate archive names:** collection summaries use queue position and file identity, rather than the archive's display name, to choose the failed file for Retry and its page link. A reconnected queue cannot fabricate a retry target from this tab's unrelated list.
+- **Separate Wabbajack histories:** titles with non-Latin letters and the same year, or long names sharing a truncated prefix, no longer collapse to the same history key. Ordinary ASCII identifiers remain unchanged and equivalent Unicode spellings match. Previously ambiguous titles receive separate keys and may need history reimport; existing stored history is not deleted or migrated.
+- **Definitive API fallback errors:** when v2 answered with an error instead of usable data, a router HTTP 403, Cloudflare verification or access-denied response is no longer replaced by the earlier HTTP 200 wrapper.
+
+<a id="release-3-3-5"></a>
+
+## 3.3.5 — 2026-10-30
+
+- **Download identity in nested metadata:** a link nested under JSON or HTML metadata for another file no longer becomes a fallback for the requested file. The parser keeps the file ownership of each nested object while checking its links.
+- **Leaving a mod page during link resolution:** unresolved single-file attempts are invalidated when the page changes or is hidden for navigation. A late signed Vortex or browser link no longer launches a download from the page the user already left. Deliberate clicks for different files on the same page remain independent.
+- **API cancellation and cooldowns:** cancelling while the final sign-in confirmation is pending now stops cleanly without reporting a misleading sign-in failure. HTTP 429 responses from that confirmation now extend the shared API cooldown, so the next query respects its `Retry-After`.
+- **Queue restart after Stop:** removing an old download's entry is not enough to start another run if the browser cannot confirm that the entry is gone. An unreadable follow-up download list keeps the retirement barrier; a later readable list can release it normally.
+- **Downloads owned by another extension:** even when its Nexus host and file path match, a download explicitly owned by a different extension is not adopted as this extension's completed file or cancelled by Stop. This also protects older saved queues that have no stored download path.
+- **Imported archive names:** Greek, Japanese, Korean and other Unicode letters are preserved when matching local archives to a collection. Previously, names such as `Άλφα-1234.7z` and `Βήτα-1234.7z` both became `1234`, so importing one could mark both downloaded and skip a missing file. Canonically equivalent spellings of an accented name now match as well.
 
 <a id="release-3-3-4"></a>
 
