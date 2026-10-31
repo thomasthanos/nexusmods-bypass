@@ -152,6 +152,32 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal(off.calls.length, 1);
   }
 
+  // HTTP 200 is not usable collection data when GraphQL itself denied it. A definitive router
+  // refusal must then surface, while a transient router failure cannot erase usable v2 fields.
+  for (const refusal of [
+    { ok: false, status: 403, text: '', error: { code: 'cloudflare' } },
+    { ok: false, status: 403, text: '', error: { code: 'access_denied' } }
+  ]) {
+    const denied = { errors: [{ extensions: { code: 'ADULT_CONTENT_BLOCKED' } }], data: { collectionRevision: null } };
+    recorded.length = 0;
+    const h = harness({ responses: [ok(denied), refusal] });
+    const result = await h.api.graphql({ query: 'q', operationName: 'Q' });
+    assert.equal(result.ok, false, 'an empty v2 response cannot hide the router refusal');
+    assert.equal(result.source, 'router');
+    assert.equal(result.error.code, refusal.error.code);
+    assert.equal(h.calls.length, 2, 'the definitive refusal causes no further attempts');
+    assert.deepEqual(recorded.map((error) => error.code), [refusal.error.code], 'the real final refusal is recorded once');
+
+    const usable = { ...denied, data: { collectionRevision: { modFiles: [] } } };
+    const existing = harness({ responses: [ok(usable), refusal] });
+    const retained = await existing.api.graphql({ query: 'q' });
+    assert.equal(retained.ok, true, 'usable partial v2 data is preserved');
+    assert.equal(retained.source, 'v2');
+    assert.deepEqual(JSON.parse(retained.text).data, usable.data);
+    const transient = harness({ responses: [ok(denied), netFail()] });
+    assert.equal((await transient.api.graphql({ query: 'q' })).source, 'v2', 'a router outage does not replace the original GraphQL explanation');
+  }
+
   // ---- Caching: TTL, permanent published revisions (persisted), latest not permanent, in-flight dedupe.
   // A fallback is a real request too, and its 429 must block subsequent calls.
   {

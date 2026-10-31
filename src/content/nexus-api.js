@@ -317,7 +317,13 @@ window.NexusExt = window.NexusExt || {};
             if (routerSlot.waitMs) return rateLimitedResult(routerSlot.waitMs);
             stats.fallbacks++;
             const routed = await post(ROUTER_URL, body, { signal, timeoutMs, context });
-            if (routed.ok || !result.ok || routed.status === 429 || routed.error?.code === 'rate_limited') {
+            const blocked = routed.status === 403 || ['cloudflare', 'access_denied'].includes(routed.error?.code);
+            const initialData = result.ok && parseJson(result.text)?.data;
+            const usableData = initialData && Object.values(initialData).some((value) => value != null);
+            // GraphQL can refuse content with HTTP 200 and no data. Its nominal success must not
+            // hide a definitive verification/access refusal from the session-backed endpoint.
+            if (routed.ok || !result.ok || routed.status === 429 || routed.error?.code === 'rate_limited'
+              || (blocked && !usableData)) {
               result = routed;
               source = 'router';
             }

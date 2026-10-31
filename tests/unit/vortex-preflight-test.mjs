@@ -787,6 +787,61 @@ function createHarness(choice) {
       assert.deepEqual(retried, [['B.7z'], 'all'], 'Retry failed queues only the failed files');
     }
 
+    // Archive names are labels, not file identities. A skipped history entry is absent from the
+    // worker's numbering, and an adopted worker job may number its items in a different order.
+    for (const { historyFirst, adopted } of [
+      { historyFirst: false, adopted: false },
+      { historyFirst: true, adopted: false },
+      { historyFirst: false, adopted: true }
+    ]) {
+      const { ndc } = createHarness('browser');
+      delete ndc.downloadBrowserQueue;
+      NXTK.createQueueEta = shared.NXTK.createQueueEta;
+      NXTK.formatBytes = shared.NXTK.formatBytes;
+      const entries = [vortexMod(101, 'Shared.7z', 1), vortexMod(102, 'Shared.7z', 2)];
+      if (historyFirst) entries.unshift(vortexMod(100, 'Already.7z', 3));
+      const history = historyFirst ? { game: { collection: { all: [100] } } } : {};
+      let listener;
+      let card;
+      let retried;
+      const savedChrome = global.chrome;
+      const savedDoc = global.document;
+      global.document = { addEventListener: () => {}, removeEventListener: () => {}, hidden: false };
+      global.chrome = { runtime: { onMessage: { addListener: (fn) => { listener = fn; }, removeListener: () => {} } } };
+      ndc.ui.setProgress = () => {};
+      ndc.ui.setTimeLeft = () => {};
+      ndc.ui.setDownloadStatus = () => {};
+      ndc.ui.incrementProgress = () => {};
+      NexusExt.Storage.sendDownloadCommand = async () => ({ ok: true, value: { jobId: 'duplicate-name-job', adopted, index: 0, total: 2, status: 'running' } });
+      NexusExt.UI.showRunSummary = (summary, options) => { card = { summary, options }; };
+      try {
+        const run = ndc.downloadBrowserQueue(entries, 'all', history);
+        for (let i = 0; i < 50 && !ndc.backgroundJobId; i += 1) await new Promise((resolve) => setTimeout(resolve, 10));
+        assert.ok(listener && ndc.backgroundJobId);
+        listener({ type: 'NXT_NDC_PROGRESS', jobId: ndc.backgroundJobId, itemState: 'complete', itemName: 'Shared.7z', index: 1 });
+        listener({ type: 'NXT_NDC_PROGRESS', jobId: ndc.backgroundJobId, itemState: 'failed', itemName: 'Shared.7z', error: 'download_not_started', index: 2 });
+        listener({ type: 'NXT_NDC_DONE', jobId: ndc.backgroundJobId, outcome: 'partial' });
+        await run;
+        const first = entries.find((mod) => mod.fileId === 101);
+        const second = entries.find((mod) => mod.fileId === 102);
+        if (adopted) {
+          assert.equal(card.summary.sent[0].pageUrl, '', 'an adopted queue with ambiguous labels cannot fabricate the completed file page');
+          assert.equal(card.summary.failed[0].mod, null, 'an adopted queue with ambiguous labels cannot fabricate a retry target');
+          assert.equal(card.options.onRetryFailed, null, 'the wrong file is never offered as a retry');
+        } else {
+          assert.equal(card.summary.sent[0].pageUrl, first.file.url);
+          assert.equal(card.summary.failed[0].pageUrl, second.file.url, 'the second identically named archive retains its own file page');
+          assert.equal(card.summary.failed[0].mod.fileId, 102, 'the failed archive is identified by queue position, with history skips excluded');
+          ndc.downloadMods = async (mods) => { retried = mods.map((mod) => mod.fileId); };
+          await card.options.onRetryFailed();
+          assert.deepEqual(retried, [102], 'Retry failed starts only the actual failed file');
+        }
+      } finally {
+        global.chrome = savedChrome;
+        global.document = savedDoc;
+      }
+    }
+
     const stale = await typedRun({ links: [link(past), link(future)], mods: [vortexMod(1, 'A.7z', 1)] });
     assert.deepEqual(stale.handed, [['A.7z', link(future)]], 'an expired link is fetched again, never sent');
     assert.ok(stale.logs.some((l) => /Link expired, fetching a new one/.test(l)));

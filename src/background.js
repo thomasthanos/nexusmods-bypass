@@ -1241,13 +1241,15 @@ async function startNdcDownload(job, item, url) {
 const NDC_START_MARKER_MAX_AGE_MS = 10 * 60 * 1000;
 
 function searchDownloadsStartedAfter(at) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     try {
       chrome.downloads.search({ startedAfter: new Date(at).toISOString() }, (results) => {
-        resolve(getRuntimeError() ? [] : (Array.isArray(results) ? results : []));
+        const error = getRuntimeError();
+        if (error) return reject(new Error(error));
+        resolve(Array.isArray(results) ? results : []);
       });
-    } catch (_) {
-      resolve([]);
+    } catch (cause) {
+      reject(cause);
     }
   });
 }
@@ -1286,9 +1288,17 @@ async function adoptStartedNdcDownload(job, item, startIndex) {
   const startedAt = Number(job.startingAt) || 0;
   const fresh = Number(job.startingIndex) === startIndex && startedAt > 0
     && Date.now() - startedAt <= NDC_START_MARKER_MAX_AGE_MS;
-  const found = fresh
-    ? (await searchDownloadsStartedAfter(startedAt - 5000)).find((record) => isThisJobsStartedDownload(record, job)) || null
-    : null;
+  let found = null;
+  if (fresh) {
+    try {
+      found = (await searchDownloadsStartedAfter(startedAt - 5000)).find((record) => isThisJobsStartedDownload(record, job)) || null;
+    } catch (_) {
+      // An unreadable list is not an empty one. Keep the start marker until recovery can check
+      // whether the browser already has this transfer, instead of starting a duplicate beside it.
+      scheduleNdcJobAlarm(job.id, Date.now() + INTERRUPTED_RECHECK_MS);
+      return null;
+    }
+  }
   const request = found ? await ndcDownloadRequest(job, item, found.url || found.finalUrl) : null;
   const transition = await mutateNdcJobIf(job.id, idleOnItem(startIndex), (current) => {
     clearNdcStartMarker(current);
@@ -2157,7 +2167,9 @@ async function retireNdcDownload(downloadId, expectedPath = '') {
   // no longer knows; Firefox's fails, once the user has cleared the download from its list or a browser
   // restart has numbered the downloads afresh, so that retirement could never finish, and every later
   // start of the collection was refused with previous_download_not_retired.
-  if (!record) return canceled || await downloadRecordIsGone(downloadId);
+  // Chrome's successful cancel can leave a resumable interruption behind. If this lookup failed,
+  // only a readable empty result can prove there is nothing left to run or resume.
+  if (!record) return downloadRecordIsGone(downloadId);
   // Chrome's cancel left it resumable (see eraseResumableDownload).
   if (isResumableInterrupt(record)) return eraseResumableDownload(downloadId, record);
   if (record.state === 'in_progress' || record.paused === true || record.canResume === true) return false;

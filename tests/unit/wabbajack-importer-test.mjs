@@ -417,6 +417,21 @@ async function rejectsCode(action, code, message) {
   assert.equal(greek, Importer.modlistId({ name: 'Ελληνική λίστα', author: 'Κάποιος', version: '1' }), 'the same list always gets the same id');
   assert.equal(Importer.modlistId({ name: 'Living Skyrim 4' }), 'wj-Living-Skyrim-4', 'an ASCII name keeps its readable id');
   assert.ok(Importer.modlistId({ name: 'x'.repeat(400) }).length <= 128);
+  for (const [first, second] of [
+    ['Άλφα 2026', 'Βήτα 2026'],
+    ['日本語 2026', '한국어 2026'],
+    ['Café', 'Caf'],
+    [`${'x'.repeat(125)} Alpha`, `${'x'.repeat(125)} Beta`]
+  ]) {
+    assert.notEqual(Importer.modlistId({ name: first }), Importer.modlistId({ name: second }),
+      'unrelated modlists retain separate download histories when their readable prefixes collide');
+  }
+  assert.equal(Importer.modlistId({ name: 'Café 2026', author: 'A', version: '1' }),
+    Importer.modlistId({ name: 'Cafe\u0301 2026', author: 'A', version: '1' }),
+    'canonical Unicode spellings keep one modlist identity');
+  const longId = Importer.modlistId({ name: 'x'.repeat(400) });
+  assert.ok(longId.length <= 128, 'hashed long names stay within the history key limit');
+  assert.match(longId, /^wj-[A-Za-z0-9._-]+$/, 'history keys remain safe readable text');
 
   // Entry data is streamed from slices of the file (xorshift noise, so deflate cannot shrink it): never one read of the whole packed entry, and the
   // inflated output is checked as it arrives.
