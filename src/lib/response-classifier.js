@@ -155,6 +155,15 @@
       return { code: 'cloudflare', reason: 'cloudflare challenge markup' };
     }
 
+    // A removed mod's page may echo the requested ?nmm=1 URL in canonical/share/sign-in links.
+    // That is not a download offer: honour Nexus's explicit replacement notice before the broad
+    // offer markers, or the caller asks the generator about a mod already known to be gone.
+    const notice = MOD_PAGE_SECTION.test(rawContent.slice(0, MAX_NOTICE_SCAN_CHARS))
+      ? '' : unavailableNotice(rawContent);
+    if (notice) {
+      return { code: 'mod_unavailable', reason: `hidden/removed mod page markup: ${notice}` };
+    }
+
     // A concrete download offer is stronger evidence than generic page chrome or prose. This also
     // prevents a harmless sign-in button in a signed-in layout from hiding a valid file link.
     if (offersAFile) return null;

@@ -384,6 +384,45 @@ async function removedModFlowTests() {
   ], 'nothing is asked a second time');
 }
 
+// A removed mod's page can retain its requested Vortex URL in page chrome. That URL is not an
+// offer to download: the definitive site notice must stop the collection before its generator
+// request, which can otherwise be answered by Cloudflare after several such removed files.
+async function removedCollectionNoticeTests() {
+  const href = 'https://www.nexusmods.com/newvegas/mods/100?tab=files&file_id=200';
+  const notice = '<html><head><link rel="canonical" href="' + href + '&amp;nmm=1"></head><body>'
+    + '<a href="https://users.nexusmods.com/auth/sign_out">Sign out</a>'
+    + '<div id="Notice1" class="site-notice"><h3 id="Notice1-title">Removed by author</h3>'
+    + '<p>The mod you were looking for was removed by its author.</p></div></body></html>';
+  const harness = createHarness({ href, pages: [
+    { body: notice },
+    { status: 403, body: '<html><title>Just a moment...</title><form id="challenge-form"></form></html>' }
+  ] });
+  vm.runInNewContext(fs.readFileSync('src/content/ndc.js', 'utf8'), harness.context, { filename: 'src/content/ndc.js' });
+  const ndc = new harness.context.NexusExt.NDC('130', 'review-collection');
+  const result = await ndc.fetchDownloadLink({
+    fileId: 200,
+    file: { fileId: 200, name: 'Removed archive.7z', url: href, mod: { modId: 100, game: { id: 130 } } }
+  });
+  assert.equal(result.downloadUrl, '');
+  assert.equal(result.error?.code, 'mod_unavailable', 'the collection skips the removed mod rather than reporting a later Cloudflare response');
+  assert.equal(harness.calls.length, 1, 'a definitive removal notice never reaches the download generator');
+  assert.equal(harness.recorded.length, 0, 'an unavailable mod is a skip, not an extension fault');
+
+  // A real challenge still wins even when the response also contains a removal notice. The
+  // collection must never guess that a blocked page means its mod has been deleted.
+  const challenged = createHarness({ href, pages: [
+    { status: 403, body: notice.replace('</body>', '<form id="challenge-form"></form></body>') }
+  ] });
+  vm.runInNewContext(fs.readFileSync('src/content/ndc.js', 'utf8'), challenged.context, { filename: 'src/content/ndc.js' });
+  const blocked = new challenged.context.NexusExt.NDC('130', 'review-collection');
+  const blockedResult = await blocked.fetchDownloadLink({
+    fileId: 200,
+    file: { fileId: 200, name: 'Protected archive.7z', url: href, mod: { modId: 100, game: { id: 130 } } }
+  });
+  assert.equal(blockedResult.error?.code, 'cloudflare', 'a real challenge remains a verification requirement');
+  assert.equal(challenged.calls.length, 1, 'the challenge does not trigger further requests');
+}
+
 // Bug report #9: on Chrome 119 the Vortex button of masseffectlegendaryedition/mods/23 ended in "Nexus Mods
 // did not return a valid Vortex link" every time. Nexus had answered with a signed link; that browser gave
 // nxm:// URLs no host, and the check refused it.
@@ -956,6 +995,7 @@ Promise.resolve()
   .then(downloadFlowTests)
   .then(apiRouteRecoveryTests)
   .then(removedModFlowTests)
+  .then(removedCollectionNoticeTests)
   .then(legacyChromiumVortexTests)
   .then(vortexGeneratorFirstTests)
   .then(controlClassificationTests)

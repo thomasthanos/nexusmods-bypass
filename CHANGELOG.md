@@ -17,6 +17,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-3-3-7"><kbd> 3.3.7 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-6"><kbd> 3.3.6 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-5"><kbd> 3.3.5 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-4"><kbd> 3.3.4 </kbd></a>&ensp;·&ensp;
@@ -30,6 +31,12 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 <a id="unreleased"></a>
 
 ## Unreleased
+
+<a id="release-3-3-7"></a>
+
+## 3.3.7 — 2026-10-31
+
+- **Removed collection mods reported as Cloudflare:** a removed-mod page can echo the requested `nmm=1` URL in canonical/share links. The classifier mistook that URL for a file offer, ignored the explicit site removal notice and reached the download generator; a later Cloudflare response then hid the real removal reason. Nexus's explicit replacement notice now takes priority over broad offer markers. Both collection paths stop after the page and skip the unavailable mod without a generator request. Tests reproduce the original failure and preserve actual Cloudflare challenge handling, rendered mod pages and adult-content notices. Existing pacing remains unchanged; no Cloudflare verification is bypassed.
 
 <a id="release-3-3-6"></a>
 

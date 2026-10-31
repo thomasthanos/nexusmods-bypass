@@ -18,6 +18,10 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 
 ## Current deployment
 
+Updated on 2026-10-31 with comparison baseline 3.3.7 through a settings-only update. The existing Worker code and every other binding were inherited unchanged. Production version `9e05073d-f58c-4cca-a5c9-1cea385155de` serves 100% of traffic (deployment `e45ca05b-d355-44d4-ab15-c589a797c543`). Settings read-back confirmed the new baseline and preserved bindings; health returned HTTP 200 with `ok: true, configured: true`. No report was sent and no secret value was read or replaced.
+
+### Previous 3.3.6 deployment
+
 Updated on 2026-10-31 with comparison baseline 3.3.6. The settings-only update retained the existing Worker code and inherited all other bindings. Production version `f110468f-cc5b-4aa1-8c19-d3cfc482f568` serves 100% of traffic (deployment `107a8ad7-bf59-4252-b5c3-707b75ea81d4`). Read-back confirmed the new baseline and unchanged remaining bindings; health returned HTTP 200 with `ok: true, configured: true`. No report was sent and no secret value was read or replaced.
 
 ### Previous 3.3.5 deployment
