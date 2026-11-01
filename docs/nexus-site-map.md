@@ -73,7 +73,8 @@ Identifiers you can rely on:
 | `mod-file-download[timeout-seconds]`, re-read when `eligible-for-free-trial` changes | `nnw.js` `skipNexusCountdown` | Setting it to 0 skips Nexus's countdown before a large file starts | Medium | none |
 | `.accordion-downloads`, `h3[id^="…"]` | `nnw.js` | File groups on the files tab | High | v2 `modFiles{ category, primary }` |
 | `[data-game-id]`, `[game-id]` | `nnw.js getGameId` | Numeric game id | Medium | v2 `game(domainName){ id }`. Cache it per domain; it never changes |
-| `#section .wrap > #featured`, `.bg-nexus-premium-gradient` | `nnw.js` | Ad/upsell hiding | High | none (cosmetic) |
+| `#section .wrap > #featured` | `nnw.js` | Ad/upsell hiding | High | none (cosmetic) |
+| Fixed ad and Premium places (`#nonPremiumBanner`, `.ads-holder`, `.bg-nexus-premium-gradient`, ad-slot ids, Tailwind chains) | `content-styles.css`, under `:root:not([data-nxtk-show-upsells])` | Hidden before the page is drawn; `nnw.js` `syncUpsellStylesheet` sets the attribute when *Hide ads and Premium panels* is off. A selector that stops matching just stops hiding | High | none (cosmetic) |
 | Ad-blocker notice: a *Continue with adblock* button in a box that also offers *Allow ads* (generated class names; drawn by a third-party script, seen 2026-11-01) | `nnw.js` `answerAdblockNotice` | Closing the notice with its own answer under *Hide ads and Premium panels*. Labels are English-only; kept in `selectors.js` `TEXT` | High | none (cosmetic) |
 | `__NEXT_DATA__`, `/_next/static/<id>/_buildManifest.js` | `page-check.js detectBuild` | Nexus deploy id for reports | Low | n/a, already the right approach |
 | Sign-out link and profile menu | `page-check.js` | Signed-in detection | Medium | v2 `user`/`preferences` with credentials (see §7, P3) |

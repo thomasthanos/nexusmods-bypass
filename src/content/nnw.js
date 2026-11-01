@@ -462,11 +462,18 @@ window.NexusExt = window.NexusExt || {};
     if (Date.now() < deadline) setTimeout(() => answerLargeFileChooser(host, deadline), 100);
   }
 
+  // The extension starts before the page has loaded; Nexus's scripts draw its download card by then.
+  function whenPageLoaded() {
+    if (document.readyState === 'complete') return Promise.resolve();
+    return new Promise((resolve) => addEventListener('load', resolve, { once: true }));
+  }
+
   // An automatic start beside Nexus's own resumable download would fetch the whole file a second time.
   // Nexus draws the card only after it has looked for one, so this waits a little for the card.
   async function nexusResumableDownloadFor(fileId, timeoutMs = 3000) {
     const host = getCurrentNativeDownloadHost(fileId, false);
     if (!offersResumableChoice(host)) return false;
+    await whenPageLoaded();
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (nexusResumableShown(host)) return true;
@@ -787,10 +794,14 @@ window.NexusExt = window.NexusExt || {};
     });
   }
 
+  // Ads and Premium panels are hidden at once, beside what the stylesheet hid before the page was drawn. The
+  // rest writes into the page's own content, so it waits for the page to settle.
   function scheduleDomEnhancements() {
     const runId = ++domEnhancementRun;
+    upsellBlocker();
     waitForDomSettled().then(() => {
       if (runId !== domEnhancementRun) return;
+      // Again, for what Nexus has drawn since in places the page-wide observer cannot see.
       upsellBlocker();
       archivedFileHandler();
       expandRequirementsSection();
@@ -2341,6 +2352,7 @@ window.NexusExt = window.NexusExt || {};
         if (resumableCards.has(host) || !host.shadowRoot) continue;
         const entry = { card: null, parts: null, key: '', autoResumed: false, scheduled: false, fileRow: null };
         resumableCards.set(host, entry);
+        hideCardUpsells(host);
         if (typeof MutationObserver === 'function') {
           new MutationObserver(() => {
             if (entry.scheduled) return;
@@ -2824,6 +2836,8 @@ window.NexusExt = window.NexusExt || {};
       Logger.info(`Large file ${fileId}: Nexus asks standard or resumable; the download waits for the answer.`);
       return;
     }
+    // A large file's card is looked at once the page has loaded, and the page may have moved on by then.
+    if (location.origin + location.pathname + location.search !== autoStartKey) return;
     Logger.debug('Auto-start: fileId', fileId, 'isNMM', isNMM);
     await new Promise(r => setTimeout(r, 200));
     Logger.info(`Auto ${isNMM ? 'NMM' : 'manual'}: starting download`);
@@ -2835,31 +2849,15 @@ window.NexusExt = window.NexusExt || {};
     });
   }
 
-  const UPSELL_SELECTORS = [
-      '#nonPremiumBanner', '#freeTrialBanner', '#ig-banner-container', '#rj-vortex',
-      '[class*="ads-bottom"]', '[class*="ads-top"]', '[class*="to-premium"]',
-      '[class*="from-premium"]',
-      '#mainContent > div.ads-holder.clearfix.ads-top',
-      '#mainContent > div.ads-holder.clearfix.ads-bottom',
-      '#mainContent > div > div.relative.next-container > div > section.flex.items-center.justify-center > div',
-      '#mainContent > div > div.relative.next-container > div > a',
-      '#mainContent > div.flex.items-center.justify-center.gap-x-4.border-y.border-stroke-subdued.bg-surface-low.py-2',
-      '#mainContent > div.hidden.items-center.justify-center.gap-x-4.border-b.border-stroke-subdued.bg-surface-low.py-2.md\\:flex',
-      '#mainContent > div.relative > div.relative.next-container.pb-20 > div.space-y-16 > div.relative.overflow-hidden.rounded-lg.border-2.border-\\[\\#FCD23F\\]',
-      '#mainContent > div.relative > div.relative.next-container.pb-20 > div.mb-6.w-full.space-y-6.border-b.border-stroke-weak.pt-4.pb-6.sm\\:mb-0.sm\\:border-none.sm\\:pb-8 > section > div.flex.flex-col.gap-2.rounded-sm.bg-surface-translucent-low.p-2\\.5.backdrop-blur-xs.xs\\:w-fit.xs\\:max-w-sm.order-4.h-fit.w-full',
-      '#filters-panel > div.mt-4.hidden.rounded-lg.border.border-creator-subdued.bg-creator-weak.bg-cover.p-4',
-      '#head > div.rj-right-tray.rj-profile-tray.rj-open > ul > li.user-profile-menu-section-top > a'
-  ];
-
-  const UPSELL_SELECTOR = (() => {
-    const joined = UPSELL_SELECTORS.join(', ');
-    try {
-      document.createDocumentFragment().querySelector(joined);
-      return joined;
-    } catch (_) {
-      return '';
-    }
-  })();
+  // Ads and Premium panels at fixed places are hidden by the stylesheet before the page is drawn
+  // (content-styles.css, under data-nxtk-show-upsells). What is left here needs a look first: a "premium" or
+  // "upsell" class on the page's own content, an ad slot's empty wrapper, the download card's shadow root.
+  function syncUpsellStylesheet() {
+    const root = document.documentElement;
+    if (!root) return;
+    if (cfg.HidePremiumUpsells) root.removeAttribute('data-nxtk-show-upsells');
+    else root.setAttribute('data-nxtk-show-upsells', '');
+  }
 
   const UPSELL_FUZZY_SELECTORS = [
     '[class*="premium"]', '[id*="premium"]', '[class*="upsell"]', '[id*="upsell"]'
@@ -2970,13 +2968,6 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function applyUpsellHiding(root) {
-    if (UPSELL_SELECTOR) {
-      collectMatches(root, UPSELL_SELECTOR).forEach((el) => hideUpsellElement(el));
-    } else {
-      for (const selector of UPSELL_SELECTORS) {
-        collectMatches(root, selector).forEach((el) => hideUpsellElement(el));
-      }
-    }
     for (const el of collectMatches(root, UPSELL_FUZZY_SELECTOR)) {
       if (!looksLikePageContent(el)) hideUpsellElement(el);
     }
@@ -2995,26 +2986,21 @@ window.NexusExt = window.NexusExt || {};
         }
       `;
 
+  // The download card's Free/Premium cards, inside its shadow root, which the stylesheet does not reach.
+  // Also called for each card as Nexus draws it (syncResumableCards): that can come after startup.
+  function hideCardUpsells(host) {
+    const shadowRoot = host?.shadowRoot;
+    if (!cfg.HidePremiumUpsells || !shadowRoot || shadowRoot.querySelector('.nxtk-shadow-style')) return;
+    const shadowStyle = document.createElement('style');
+    shadowStyle.className = 'nxtk-shadow-style';
+    shadowStyle.textContent = SHADOW_UPSELL_CSS;
+    shadowRoot.appendChild(shadowStyle);
+  }
+
   function upsellBlocker() {
     if (!cfg.HidePremiumUpsells) return;
     applyUpsellHiding(document);
-
-    document.querySelectorAll('mod-file-download').forEach((modFileDownload) => {
-      const shadowRoot = modFileDownload.shadowRoot;
-      if (!shadowRoot || shadowRoot.querySelector('.nxtk-shadow-style')) return;
-      const shadowStyle = document.createElement('style');
-      shadowStyle.className = 'nxtk-shadow-style';
-      shadowStyle.textContent = SHADOW_UPSELL_CSS;
-      shadowRoot.appendChild(shadowStyle);
-    });
-
-    const premiumBanner = globalThis.NexusSelectors?.find(document, 'premiumBanner')?.element
-      || document.querySelector('.bg-nexus-premium-gradient');
-    if (premiumBanner) {
-      hideUpsellElement(premiumBanner);
-      Logger.info('Hidden premium upsell banner');
-    }
-
+    document.querySelectorAll('mod-file-download').forEach(hideCardUpsells);
     startPremiumObserver();
   }
 
@@ -3381,6 +3367,7 @@ window.NexusExt = window.NexusExt || {};
     cfg = await NexusExt.Storage.getSettings();
     NXTK.setForceEnglish(cfg.ForceEnglish);
     NXTK.setDebugLogging?.(cfg.DebugLogs);
+    syncUpsellStylesheet();
     syncNativeFallbackState();
     if (!listenersAttached) {
       attachClickInterceptor();
@@ -3404,6 +3391,7 @@ window.NexusExt = window.NexusExt || {};
     invalidateDownloadAttempts();
     clearNativeDownloadPassthrough();
     cfg = await NexusExt.Storage.getSettings();
+    syncUpsellStylesheet();
     syncNativeFallbackState();
     cancelArchivedFooterWait?.();
     cancelArchivedFooterWait = null;
@@ -3435,6 +3423,7 @@ window.NexusExt = window.NexusExt || {};
 
     if (!cfg.AutoCloseTab) cancelScheduledTabClose();
     if (isNativeFallbackActive()) startNativeFallbackIfReady();
+    syncUpsellStylesheet();
 
     if (!cfg.HidePremiumUpsells && previousCfg.HidePremiumUpsells) {
       resetUpsellBlocker();

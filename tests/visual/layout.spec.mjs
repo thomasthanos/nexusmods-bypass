@@ -19,6 +19,7 @@ const SCREENS = [[3840, 2160], [2560, 1440], [1920, 1080], [1280, 720]];
 const ZOOMS = [1, 1.25, 1.5];
 
 async function settingsCategory(modal, name) {
+  await expect(modal).toBeVisible();
   const picker = modal.locator('#nxtk-settings-category');
   if (await picker.isVisible()) await picker.selectOption(name);
   else await modal.locator(`[data-settings-tab="${name}"]`).click();
@@ -1347,6 +1348,8 @@ for (const [width, height] of [[1280, 800], [1366, 768], [360, 800]]) {
       expect(outer.width).toBeLessThanOrEqual(961);
       expect(outer.height).toBeLessThanOrEqual(721);
       const footer = await modal.locator('.nxtk-modal-footer').boundingBox();
+      const contentHeight = await modal.locator('.nxtk-modal-scroll').evaluate((el) => el.clientHeight);
+      expect(contentHeight, 'the content needs room to read a setting and its switch').toBeGreaterThanOrEqual(80);
       await expect(modal.locator('.nxtk-settings-nav')).toBeVisible({ visible: width / zoom >= 760 });
       await expect(modal.locator('#nxtk-settings-category')).toBeVisible({ visible: width / zoom < 760 });
       await page.screenshot({ path: path.join(shotDir, `settings-basics-${width}x${height}-${zoom}.png`) });
@@ -1361,10 +1364,12 @@ for (const [width, height] of [[1280, 800], [1366, 768], [360, 800]]) {
             const target = el.type === 'checkbox' ? el.closest('.nxtk-toggle') : el;
             const r = target.getBoundingClientRect();
             const outer = el.closest('.nxtk-modal-scroll').getBoundingClientRect();
-            return { left: r.left, right: r.right, parentLeft: outer.left, parentRight: outer.right };
+            return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, parentLeft: outer.left, parentRight: outer.right, parentTop: outer.top, parentBottom: outer.bottom };
           });
           expect(bounds.left).toBeGreaterThanOrEqual(bounds.parentLeft - 1);
           expect(bounds.right).toBeLessThanOrEqual(bounds.parentRight + 1);
+          expect(bounds.top).toBeGreaterThanOrEqual(bounds.parentTop - 1);
+          expect(bounds.bottom).toBeLessThanOrEqual(bounds.parentBottom + 1);
           reached++;
         }
         expect(await modal.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
@@ -1876,12 +1881,28 @@ for (const lang of ['de', 'ru', 'el']) {
       const catalog = JSON.parse(fs.readFileSync(path.join(extensionDir, `_locales/${lang}/messages.json`), 'utf8'));
       await settingsCategory(settings, 'appearance');
       await expect(settings.locator('[data-settings-group="appearance"] h3')).toHaveText(catalog.setSectionLanguage.message);
-      for (const width of [360, 1280]) {
-        await page.setViewportSize({ width, height: 800 });
+      for (const [width, height] of [[360, 800], [1280, 800], [180, 400]]) {
+        await page.setViewportSize({ width, height });
         await settle(page);
-        await assertFits(page, '#nxtk-settings-modal .nxtk-modal', `${lang} settings ${width}`);
-        expect(await settings.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
-        await settings.locator('.nxtk-modal-scroll').evaluate((el) => { el.scrollTop = 0; });
+        for (const name of ['basics', 'downloads', 'collections', 'appearance', 'diagnostics', 'advanced']) {
+          await settingsCategory(settings, name);
+          const panel = settings.locator(`[data-settings-group="${name}"]`);
+          for (const details of await panel.locator('details').all()) {
+            if (!await details.evaluate((el) => el.open)) await details.locator('summary').click();
+          }
+          const scroll = settings.locator('.nxtk-modal-scroll');
+          expect(await scroll.evaluate((el) => el.clientHeight), `${lang} needs space to read settings`).toBeGreaterThanOrEqual(80);
+          const overflow = await scroll.evaluate((el) => {
+            const right = el.getBoundingClientRect().right;
+            return { width: el.scrollWidth - el.clientWidth, clipped: [...el.querySelectorAll('*')]
+              .filter((child) => child.getBoundingClientRect().right > right + 1 || child.scrollWidth > child.clientWidth + 1)
+              .map((child) => `${child.className}: ${child.textContent.trim().slice(0, 30)} (${child.scrollWidth - child.clientWidth}px)`) };
+          });
+          expect(overflow.width, `${lang} ${width}px ${name}: ${JSON.stringify(overflow.clipped)}`).toBeLessThanOrEqual(1);
+          await assertFits(page, '#nxtk-settings-modal .nxtk-modal', `${lang} settings ${width}`);
+          await assertFits(page, '#nxtk-settings-modal .nxtk-modal-footer', `${lang} footer ${width}`);
+        }
+        await settingsCategory(settings, 'basics');
         await page.screenshot({ path: path.join(shotDir, `compact-settings-${lang}-${width}.png`) });
       }
     } finally {

@@ -358,9 +358,11 @@ const resumableDownloadsDone = (async () => {
       + '<button type="button">Restart download</button>', false)
   };
 
-  async function filePage(fileId, { settings = {}, picker = true, start = 'cards', fallback = false, choice = false } = {}) {
+  async function filePage(fileId, { settings = {}, picker = true, start = 'cards', fallback = false, choice = false, loaded = true } = {}) {
     const modPage = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604';
     const w = load('file-page-signed-in.html', `${modPage}?tab=files&file_id=${fileId}`);
+    // A page still loading: Nexus's scripts have not drawn the card yet (it has no shadow root).
+    if (!loaded) Object.defineProperty(w.document, 'readyState', { configurable: true, value: 'interactive' });
     w.document.querySelector('mod-file-download').remove();
     w.document.querySelector('.download-card').remove();
     // Nexus asks only where the browser can write to a file it picks; Firefox cannot.
@@ -386,8 +388,7 @@ const resumableDownloadsDone = (async () => {
       'is-nmm-download': 'false', 'user-is-logged-in': 'true', 'timeout-seconds': '5',
       filename: 'HeavyRain Greek V1.0.1 - Epic Games', filesize: '1.5GB' };
     for (const [name, value] of Object.entries(attributes)) host.setAttribute(name, value);
-    const shadow = host.attachShadow({ mode: 'open' });
-    shadow.innerHTML = `<div id="download-section">${FILE_ROW}${PANELS[start]}</div><div id="floating-ui-root"></div>`;
+    let shadow = null;
     // As React does on a state change: Nexus's part goes, the new one is added at the end.
     const nexusPanel = () => shadow.querySelector('#download-section > .space-y-6, #download-section > #upsell-cards');
     const setPanel = (name) => {
@@ -396,20 +397,25 @@ const resumableDownloadsDone = (async () => {
     };
     const nexus = { standard: 0, resumable: 0, paused: 0, resumed: 0, cancelled: 0, direct: 0 };
     const closeChooser = () => shadow.querySelector('[role="dialog"]')?.remove();
-    shadow.addEventListener('click', (event) => {
-      const button = event.target.closest('button');
-      if (!button || button.closest('[data-nxtk-ui]')) return;
-      const label = button.textContent.trim();
-      // By place, not label: the extension relabels the button while its download starts.
-      if (button.closest('#upsell-cards')) shadow.getElementById('floating-ui-root').innerHTML = CHOOSER;
-      else if (button.getAttribute('aria-label') === 'Close') closeChooser();
-      else if (label === 'Standard download') { nexus.standard++; closeChooser(); }
-      else if (label.startsWith('Resumable download')) { nexus.resumable++; closeChooser(); }
-      else if (label === 'Pause') nexus.paused++;
-      else if (label === 'Resume Download') { nexus.resumed++; setPanel('preparing'); }
-      else if (label === 'Cancel') nexus.cancelled++;
-      else if (label === 'direct download') nexus.direct++;
-    });
+    const drawCard = () => {
+      shadow = host.attachShadow({ mode: 'open' });
+      shadow.innerHTML = `<div id="download-section">${FILE_ROW}${PANELS[start]}</div><div id="floating-ui-root"></div>`;
+      shadow.addEventListener('click', (event) => {
+        const button = event.target.closest('button');
+        if (!button || button.closest('[data-nxtk-ui]')) return;
+        const label = button.textContent.trim();
+        // By place, not label: the extension relabels the button while its download starts.
+        if (button.closest('#upsell-cards')) shadow.getElementById('floating-ui-root').innerHTML = CHOOSER;
+        else if (button.getAttribute('aria-label') === 'Close') closeChooser();
+        else if (label === 'Standard download') { nexus.standard++; closeChooser(); }
+        else if (label.startsWith('Resumable download')) { nexus.resumable++; closeChooser(); }
+        else if (label === 'Pause') nexus.paused++;
+        else if (label === 'Resume Download') { nexus.resumed++; setPanel('preparing'); }
+        else if (label === 'Cancel') nexus.cancelled++;
+        else if (label === 'direct download') nexus.direct++;
+      });
+    };
+    if (loaded) drawCard();
     w.document.getElementById('section').append(host);
     for (const file of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
     await w.NexusExt.NNW.init();
@@ -429,7 +435,13 @@ const resumableDownloadsDone = (async () => {
       ask,
       nexusPanel,
       setPanel,
-      shadow,
+      get shadow() { return shadow; },
+      // The page finishes loading: Nexus's scripts draw the card, and the load event comes.
+      finishLoading: () => {
+        drawCard();
+        Object.defineProperty(w.document, 'readyState', { configurable: true, value: 'complete' });
+        w.dispatchEvent(new w.Event('load'));
+      },
       // Nexus's own buttons, never the extension's.
       click: (label) => press(typeof label === 'string'
         ? Array.from(shadow.querySelectorAll('button')).find((b) => !b.closest('[data-nxtk-ui]') && b.textContent.trim().startsWith(label))
@@ -579,6 +591,20 @@ const resumableDownloadsDone = (async () => {
     assert.ok(!other.chooserOpen(), 'with automatic starts off and no such click, the page waits for the user');
   }
 
+  // The extension starts before the page has loaded. Until it has, Nexus's scripts have not drawn the card,
+  // so whether Nexus asks about a large file cannot be told: its automatic start waits for the page. A file
+  // Nexus asks nothing about starts at once.
+  {
+    const early = await filePage('900013', { loaded: false, settings: { AutoStartDownload: true } });
+    const small = await filePage('900014', { loaded: false, picker: false, settings: { AutoStartDownload: true } });
+    await waitForState(() => small.requested() === 1, 'a file Nexus asks nothing about starts before the page has loaded');
+    await new Promise((r) => setTimeout(r, 3500));
+    assert.equal(early.requested(), 0, 'a large file starts no standard download before its card is drawn');
+    early.finishLoading();
+    await waitForState(() => early.chooserOpen(), 'once the page has loaded, Nexus asks standard or resumable');
+    assert.equal(early.requested(), 0);
+  }
+
   // The Cloudflare fallback clicks "Slow download" for the user, and answers the chooser with Standard.
   {
     const { nexus, requested } = await filePage('900006', { fallback: true });
@@ -697,6 +723,69 @@ const adblockNoticeDone = (async () => {
   console.log('ad-blocker notice behavior OK');
 })();
 
+// --- The extension starts as soon as its scripts are in (performance review 2026-11-01) ------------------
+// It used to wait for the page's load event and then for the page to stop changing. Nexus's ads never let it
+// stop, so startup came 6-10 s after the scripts were in: a click on Manual download meanwhile went to Nexus,
+// and ads showed. Only the auto-report invitation, which asks something of the user, still waits for a
+// settled page. Awaited by the last block.
+const earlyStartDone = (async () => {
+  const w = load('file-page-signed-in.html');
+  // The load event has not come, and the page never goes quiet.
+  Object.defineProperty(w.document, 'readyState', { configurable: true, value: 'interactive' });
+  const calls = [];
+  w.NexusExt.NNW = {
+    init: async () => { calls.push('init'); },
+    onNavigate: async () => {},
+    isActionablePage: () => true,
+    waitForDomSettled: () => new Promise(() => {}),
+    Logger: { error() {}, warn() {}, info() {}, debug() {} }
+  };
+  w.NexusExt.UI = {
+    createSettingsFAB: () => { calls.push('settings button'); },
+    showAutoReportInvitation: async () => { calls.push('invitation'); },
+    closeExtensionOverlays() {},
+    cleanupOrphanedPortals() {},
+    showSettingsModal: async () => {},
+    showError() {},
+    loadBundle: async () => {}
+  };
+  w.eval(fs.readFileSync(path.join(root, 'src/content/main.js'), 'utf8'));
+  await waitForState(() => calls.includes('init') && calls.includes('settings button'),
+    'the extension starts before the page has loaded or gone quiet');
+  await new Promise((r) => setTimeout(r, 200));
+  assert.ok(!calls.includes('invitation'), 'the auto-report invitation still waits for a settled page');
+  console.log('early start behavior OK');
+})();
+
+// --- Ads and Premium panels hidden by the stylesheet (performance review 2026-11-01) ---------------------
+// The browser applies the extension's stylesheet before the page is first drawn, so the fixed ad and Premium
+// selectors hide there, with no script and no flash. With "Hide ads and Premium panels" off, the extension
+// marks the page and they show. Awaited by the last block.
+const stylesheetHidingDone = (async () => {
+  const w = load('file-page-signed-in.html');
+  const style = w.document.createElement('style');
+  style.textContent = fs.readFileSync(path.join(root, 'src/content/content-styles.css'), 'utf8');
+  w.document.head.append(style);
+  w.document.getElementById('mainContent').insertAdjacentHTML('afterbegin', '<div id="nonPremiumBanner">Go Premium</div>'
+    + '<div class="ads-holder clearfix ads-top"><div data-testid="ad-top"></div></div>'
+    + '<div class="bg-nexus-premium-gradient">Premium</div><section class="page"><h1>Example mod</h1></section>');
+  const shown = (selector) => w.getComputedStyle(w.document.querySelector(selector)).display !== 'none';
+  const upsells = ['#nonPremiumBanner', '.ads-holder', '[data-testid="ad-top"]', '.bg-nexus-premium-gradient'];
+  for (const selector of upsells) assert.ok(!shown(selector), `${selector} is hidden before any script runs`);
+  assert.ok(shown('section.page'), 'the page\'s own content is not');
+
+  let settings = { ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: false, HidePremiumUpsells: false };
+  w.NexusExt.Storage = { getSettings: async () => settings, sendDownloadCommand: async () => ({ ok: true, value: {} }) };
+  w.fetch = () => new Promise(() => {});
+  for (const name of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, name), 'utf8'));
+  await w.NexusExt.NNW.init();
+  for (const selector of upsells) assert.ok(shown(selector), `with the setting off, ${selector} shows`);
+  settings = { ...settings, HidePremiumUpsells: true };
+  w.NexusExt.NNW.updateConfig(settings);
+  for (const selector of upsells) assert.ok(!shown(selector), `switched on, ${selector} is hidden again`);
+  console.log('stylesheet hiding behavior OK');
+})();
+
 // --- One owner per click (live test 2.10.1: SkyUI SDK downloaded twice; the requirements modal fetched
 // the MAIN file twice). The real nnw.js runs in the page; Nexus's own handlers are stand-ins. ---------
 (async () => {
@@ -790,6 +879,8 @@ const adblockNoticeDone = (async () => {
   await resumableDownloadsDone;
   await largeFileLinksDone;
   await adblockNoticeDone;
+  await earlyStartDone;
+  await stylesheetHidingDone;
   // nnw.js keeps page timers running; the suite is done.
   w.close();
   process.exit(process.exitCode || 0);

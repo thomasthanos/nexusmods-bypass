@@ -1416,7 +1416,7 @@ a.nxtk-settings-report { text-decoration: none; }
 #nxtk-settings-modal .nxtk-modal-header { flex-wrap: nowrap; gap: 12px; margin-bottom: 0; padding-bottom: 16px; }
 #nxtk-settings-modal .nxtk-modal-header > div { flex: 1; min-width: 0; }
 #nxtk-settings-modal .nxtk-settings-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-#nxtk-settings-modal .nxtk-modal-title { font-size: 20px; }
+#nxtk-settings-modal .nxtk-modal-title { font-size: 20px; overflow-wrap: anywhere; }
 #nxtk-settings-modal .nxtk-modal-subtitle { margin-top: 4px; font-size: 13px; }
 #nxtk-settings-modal .nxtk-modal-close { flex: none; }
 #nxtk-settings-modal .nxtk-settings-layout { display: flex; flex: 1; min-height: 0; gap: 24px; padding-top: 20px; }
@@ -1439,7 +1439,7 @@ a.nxtk-settings-report { text-decoration: none; }
 }
 #nxtk-settings-modal .nxtk-settings-section { min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
 #nxtk-settings-modal .nxtk-settings-section::before { display: none; }
-#nxtk-settings-modal .nxtk-settings-section-title { margin: 0 0 16px; font-size: 17px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--nxtk-text-bright); }
+#nxtk-settings-modal .nxtk-settings-section-title { margin: 0 0 16px; font-size: 17px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--nxtk-text-bright); overflow-wrap: anywhere; }
 #nxtk-settings-modal .nxtk-settings-presets { margin-bottom: 20px; }
 #nxtk-settings-modal .nxtk-settings-presets .nxtk-settings-section-title { font-size: 13px; color: var(--nxtk-text-muted); margin-bottom: 8px; }
 #nxtk-settings-modal .nxtk-setting-row {
@@ -1625,6 +1625,23 @@ a.nxtk-settings-report { text-decoration: none; }
   #nxtk-settings-modal .nxtk-modal-sm { height: min(720px, calc(100dvh - 16px)); max-height: calc(100dvh - 16px); padding: 12px; }
   #nxtk-settings-modal .nxtk-modal-footer { gap: 6px; }
 }
+/* At high zoom, keep the controls readable by shortening the surrounding chrome. */
+@media (max-height: 480px) {
+  #nxtk-settings-modal .nxtk-modal-sm { padding: 12px; }
+  #nxtk-settings-modal .nxtk-modal-header { gap: 8px; padding-bottom: 8px; }
+  #nxtk-settings-modal .nxtk-modal-title { font-size: 16px; line-height: 1.25; }
+  #nxtk-settings-modal .nxtk-modal-subtitle,
+  #nxtk-settings-modal .nxtk-settings-version-tag { display: none; }
+  #nxtk-settings-modal .nxtk-settings-category-picker { padding-top: 8px; gap: 0; }
+  #nxtk-settings-modal .nxtk-settings-category-picker label {
+    position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
+  #nxtk-settings-modal .nxtk-settings-layout { padding-top: 12px; }
+  #nxtk-settings-modal .nxtk-modal-footer { flex-wrap: nowrap; padding-top: 8px; margin-top: 8px; }
+  #nxtk-settings-modal .nxtk-modal-footer .nxtk-btn { min-width: 0; min-height: 36px; padding: 6px 8px; }
+  #nxtk-settings-modal .nxtk-modal-footer [data-reset] { flex: 1 1 0; }
+}
 @media (prefers-reduced-motion: reduce) {
   #nxtk-settings-modal .nxtk-modal,
   #nxtk-settings-modal .nxtk-setting-help,
@@ -1635,6 +1652,36 @@ a.nxtk-settings-report { text-decoration: none; }
 }
 
 .nxtk-hidden { display: none !important; }
+
+/* "Hide ads and Premium panels" (on by default): ads and Premium panels at fixed places, hidden before the
+   page is first drawn, with no script and no flash. With the setting off, nnw.js marks the page with
+   data-nxtk-show-upsells and they show. What needs a look at its content first (any "premium" or "upsell"
+   class, an ad slot's empty wrapper, the download card's shadow root) is left to nnw.js (applyUpsellHiding).
+   Separate rules: one selector a browser cannot read would drop every other selector in its rule. */
+:root:not([data-nxtk-show-upsells]) #nonPremiumBanner,
+:root:not([data-nxtk-show-upsells]) #freeTrialBanner,
+:root:not([data-nxtk-show-upsells]) #ig-banner-container,
+:root:not([data-nxtk-show-upsells]) #rj-vortex,
+:root:not([data-nxtk-show-upsells]) .ads-holder,
+:root:not([data-nxtk-show-upsells]) .bg-nexus-premium-gradient,
+:root:not([data-nxtk-show-upsells]) [class*="premium-gradient"],
+:root:not([data-nxtk-show-upsells]) [class*="ads-bottom"],
+:root:not([data-nxtk-show-upsells]) [class*="ads-top"],
+:root:not([data-nxtk-show-upsells]) [class*="to-premium"],
+:root:not([data-nxtk-show-upsells]) [class*="from-premium"],
+:root:not([data-nxtk-show-upsells]) [data-testid^="ad-"],
+:root:not([data-nxtk-show-upsells]) [id^="standard_iab_"],
+:root:not([data-nxtk-show-upsells]) [id^="google_ads_iframe_"],
+:root:not([data-nxtk-show-upsells]) [class*="pw-standardIAB-tag"],
+:root:not([data-nxtk-show-upsells]) [class*="pw-tag"] { display: none !important; }
+:root:not([data-nxtk-show-upsells]) #mainContent > div > div.relative.next-container > div > section.flex.items-center.justify-center > div,
+:root:not([data-nxtk-show-upsells]) #mainContent > div > div.relative.next-container > div > a,
+:root:not([data-nxtk-show-upsells]) #mainContent > div.flex.items-center.justify-center.gap-x-4.border-y.border-stroke-subdued.bg-surface-low.py-2,
+:root:not([data-nxtk-show-upsells]) #filters-panel > div.mt-4.hidden.rounded-lg.border.border-creator-subdued.bg-creator-weak.bg-cover.p-4,
+:root:not([data-nxtk-show-upsells]) #head > div.rj-right-tray.rj-profile-tray.rj-open > ul > li.user-profile-menu-section-top > a { display: none !important; }
+:root:not([data-nxtk-show-upsells]) #mainContent > div.hidden.items-center.justify-center.gap-x-4.border-b.border-stroke-subdued.bg-surface-low.py-2.md\:flex { display: none !important; }
+:root:not([data-nxtk-show-upsells]) #mainContent > div.relative > div.relative.next-container.pb-20 > div.space-y-16 > div.relative.overflow-hidden.rounded-lg.border-2.border-\[\#FCD23F\] { display: none !important; }
+:root:not([data-nxtk-show-upsells]) #mainContent > div.relative > div.relative.next-container.pb-20 > div.mb-6.w-full.space-y-6.border-b.border-stroke-weak.pt-4.pb-6.sm\:mb-0.sm\:border-none.sm\:pb-8 > section > div.flex.flex-col.gap-2.rounded-sm.bg-surface-translucent-low.p-2\.5.backdrop-blur-xs.xs\:w-fit.xs\:max-w-sm.order-4.h-fit.w-full { display: none !important; }
 
 .nxtk-upsell-hidden,
 .nxtk-ad-hidden {

@@ -417,11 +417,15 @@
     return !!target.closest?.('[id^="nxtk-"], .nxtk-deck, .nxtk-modal-backdrop, #nxtk-dropdown-portal');
   }
 
+  // Startup does not wait for the page to load or go quiet. Nexus's ads keep it changing, so that wait held
+  // the click handlers, the automatic start and the hiding of ads back by 6-10 s, and a click on a download
+  // meanwhile went to Nexus. What writes into the page's own content waits for it there (nnw.js, the deck).
   async function bootstrap() {
-    await waitForSafeStartup();
+    await waitForBody();
     await NNW.init();
     UI.createSettingsFAB();
-    UI.showAutoReportInvitation?.().catch(() => undefined);
+    // It asks something of the user, so not while the page is still being built.
+    waitForSafeStartup().then(() => UI.showAutoReportInvitation?.()).catch(() => undefined);
     bootstrapDone = true;
 
     window.NexusExt.PageCheck?.configure({

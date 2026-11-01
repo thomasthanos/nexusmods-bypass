@@ -31,7 +31,6 @@
     loginLink: Object.freeze(['a[href*="users.nexusmods.com/auth/sign_in"]', 'a[href*="/auth/sign_in"]']),
     downloadControl: Object.freeze(['#slowDownloadButton', '[data-download-url]', 'mod-file-download']),
     slowDownloadButton: Object.freeze(['#slowDownloadButton', 'button[data-nxtk-slow-bound]']),
-    premiumBanner: Object.freeze(['.bg-nexus-premium-gradient', '[class*="premium-gradient"]']),
     collectionColumn: Object.freeze(['#mainContent .next-container', '#mainContent [class*="container"]', 'main']),
     collectionFeatured: Object.freeze(['#section .wrap > #featured', '#featured']),
     // The Vortex / mod-manager control on a file card, by id, before any text check.
