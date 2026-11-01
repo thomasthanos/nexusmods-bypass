@@ -338,6 +338,34 @@ async function cloudflareStreakStopsTheQueue() {
   }
 }
 
+// QA on 2026-11-01: Pause at 10/53, reload, Resume, Stop at 35/53: the summary said 25 downloaded. A page
+// that attaches to a running job starts its summary from what the job did before, not from nothing.
+async function attachingPageGetsTheOutcomesSoFar() {
+  const jobId = 'testjob-attach-outcomes';
+  const item = (fileId, name) => ({ fileId, historyId: `1704:${fileId}`, gameId: '1704', name,
+    pageUrl: `https://www.nexusmods.com/skyrimspecialedition/mods/${fileId}?tab=files&file_id=${fileId}`, sizeKb: 1 });
+  const items = [item(1, 'One.7z'), item(2, 'Two.7z'), item(3, 'Three.7z'), item(4, 'Four.7z'), item(5, 'Five.7z')];
+  await storageSetLocal(`nxtk_ndc_items:${jobId}`, items);
+  await storageSetLocal(NDC_JOBS_KEY, {
+    [jobId]: {
+      id: jobId, tabId: 7, gameId: '1704', collectionId: 'reloaded', type: 'all', itemCount: items.length,
+      index: 4, completed: 2, failed: [{ fileId: 2, code: 'file_not_found' }],
+      skipped: [{ fileId: 3, name: 'Three.7z', pageUrl: items[2].pageUrl, reason: 'mod_unavailable' }],
+      status: 'paused', activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now()
+    }
+  });
+  try {
+    const attached = await NDC_QUEUE_HANDLERS.NDC_QUEUE_ATTACH({ gameId: '1704', collectionId: 'reloaded' }, { tab: { id: 7 } });
+    assert.deepEqual([...attached.sent].map((entry) => entry.name), ['One.7z', 'Four.7z'], 'the files it downloaded before the reload');
+    assert.equal(attached.sent[0].pageUrl, items[0].pageUrl);
+    assert.deepEqual([...attached.failed].map((entry) => [entry.name, entry.code]), [['Two.7z', 'file_not_found']]);
+    assert.equal(attached.type, 'all');
+  } finally {
+    await storageSetLocal(NDC_JOBS_KEY, {});
+    await storageSetLocal(`nxtk_ndc_items:${jobId}`, null);
+  }
+}
+
 // A modlist deck cannot be reattached after a reload, so the popup lists every run the worker still
 // holds. Finished runs are left out, and a run with no name falls back to its collection.
 async function activeQueuesAreListed() {
@@ -1173,6 +1201,7 @@ Promise.resolve()
   .then(restartWaitsForAnInFlightStart)
   .then(resumeConsumesAMissedTerminal)
   .then(activeQueuesAreListed)
+  .then(attachingPageGetsTheOutcomesSoFar)
   .then(vortexSentHistoryIsAccepted)
   .then(largeHistoryFitsTheQuota)
   .then(concurrentResumesStartOneDownload)

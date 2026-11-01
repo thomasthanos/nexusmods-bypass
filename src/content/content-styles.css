@@ -2425,3 +2425,230 @@ a.nxtk-settings-report { text-decoration: none; }
 .nxtk-report-invitation button:focus-visible, .nxtk-report-invitation a:focus-visible { outline: 3px solid #f8f8fc; outline-offset: 3px; }
 .nxtk-report-invitation .nxtk-report-invitation-privacy { display: inline-flex; align-items: center; min-height: 28px; color: var(--nxtk-text); text-decoration: underline; margin-top: 6px; }
 .nxtk-report-invitation-feedback:not(:empty) { color: var(--nxtk-error, #ffb4ab); margin-top: 8px; }
+
+/* Custom UI theme for Nexus Mods download starting & status panel */
+#download-section .bg-surface-low,
+.space-y-6 > .bg-surface-low,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold),
+#mainContent .rounded.bg-surface-low:has(a[href*="nexus-cdn"]),
+.tabcontent .rounded.bg-surface-low {
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 14px;
+  padding: 22px 26px !important;
+  border: 1px solid var(--nxtk-border, rgba(255, 255, 255, 0.1)) !important;
+  border-radius: var(--nxtk-radius-md, 16px) !important;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(217, 143, 64, 0.14), transparent 65%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)),
+    var(--nxtk-glass-tint-deep, rgba(10, 12, 22, 0.94)) !important;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+    0 16px 40px rgba(0, 0, 0, 0.38),
+    var(--nxtk-accent-glow, 0 0 24px rgba(217, 143, 64, 0.2)) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  color: var(--nxtk-text, #eceaf2) !important;
+  font: 400 14px/1.5 "Inter", system-ui, sans-serif !important;
+  text-align: center !important;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+#download-section .bg-surface-low:hover,
+.space-y-6 > .bg-surface-low:hover,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold):hover,
+#mainContent .rounded.bg-surface-low:has(a[href*="nexus-cdn"]):hover,
+.tabcontent .rounded.bg-surface-low:hover {
+  border-color: var(--nxtk-accent-border, rgba(217, 143, 64, 0.45)) !important;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.16),
+    0 20px 48px rgba(0, 0, 0, 0.45),
+    var(--nxtk-accent-glow, 0 0 28px rgba(217, 143, 64, 0.3)) !important;
+}
+
+#download-section .bg-surface-low::after,
+.space-y-6 > .bg-surface-low::after,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold)::after,
+#mainContent .rounded.bg-surface-low:has(a[href*="nexus-cdn"])::after,
+.tabcontent .rounded.bg-surface-low::after {
+  content: "NexusMods Bypass";
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  padding: 3px 10px;
+  border: 1px solid var(--nxtk-accent-border, rgba(217, 143, 64, 0.4));
+  border-radius: 999px;
+  background: var(--nxtk-accent-soft, rgba(217, 143, 64, 0.15));
+  color: var(--nxtk-accent-hover, #ecaa5a);
+  font: 600 11px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: .3px;
+  pointer-events: none;
+  opacity: .92;
+}
+
+#download-section .bg-surface-low .font-semibold,
+.space-y-6 > .bg-surface-low .font-semibold,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) .font-semibold,
+.tabcontent .rounded.bg-surface-low .font-semibold {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  margin: 0 0 8px !important;
+  color: var(--nxtk-text-bright, #f8f8fc) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: -.2px !important;
+  line-height: 1.35 !important;
+}
+
+#download-section .bg-surface-low .font-semibold::before,
+.space-y-6 > .bg-surface-low .font-semibold::before,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) .font-semibold::before,
+.tabcontent .rounded.bg-surface-low .font-semibold::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nxtk-accent, #d98f40);
+  box-shadow: 0 0 10px var(--nxtk-accent, #d98f40), 0 0 4px #fff;
+  animation: nxtk-pulse-dot 1.8s ease-in-out infinite;
+}
+
+#download-section .bg-surface-low p:not(.font-semibold),
+.space-y-6 > .bg-surface-low p:not(.font-semibold),
+#download-section .bg-surface-low .text-neutral-moderate,
+.space-y-6 > .bg-surface-low .text-neutral-moderate,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) p:not(.font-semibold),
+.tabcontent .rounded.bg-surface-low p:not(.font-semibold) {
+  margin: 4px 0 0 !important;
+  color: var(--nxtk-text-muted, rgba(236, 234, 242, 0.7)) !important;
+  font-size: 13.5px !important;
+  line-height: 1.5 !important;
+}
+
+#download-section .bg-surface-low a.nxm-link,
+#download-section .bg-surface-low a,
+.space-y-6 > .bg-surface-low a.nxm-link,
+.space-y-6 > .bg-surface-low a,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) a.nxm-link,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) a,
+.tabcontent .rounded.bg-surface-low a.nxm-link,
+.tabcontent .rounded.bg-surface-low a {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-left: 8px !important;
+  padding: 5px 14px !important;
+  border: 1px solid var(--nxtk-accent-border, rgba(217, 143, 64, 0.45)) !important;
+  border-radius: 999px !important;
+  background: var(--nxtk-accent-soft, rgba(217, 143, 64, 0.16)) !important;
+  color: var(--nxtk-accent-hover, #ecaa5a) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  vertical-align: middle !important;
+  transition: all .2s cubic-bezier(.32, .72, 0, 1) !important;
+}
+
+#download-section .bg-surface-low a.nxm-link:hover,
+#download-section .bg-surface-low a:hover,
+.space-y-6 > .bg-surface-low a.nxm-link:hover,
+.space-y-6 > .bg-surface-low a:hover,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) a.nxm-link:hover,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) a:hover,
+.tabcontent .rounded.bg-surface-low a.nxm-link:hover,
+.tabcontent .rounded.bg-surface-low a:hover {
+  background: rgba(217, 143, 64, 0.28) !important;
+  border-color: var(--nxtk-accent, #d98f40) !important;
+  color: #fff !important;
+  box-shadow: 0 0 16px rgba(217, 143, 64, 0.45), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+#download-section .bg-surface-low a.nxm-link:active,
+#download-section .bg-surface-low a:active,
+.space-y-6 > .bg-surface-low a.nxm-link:active,
+.space-y-6 > .bg-surface-low a:active,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) a.nxm-link:active,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) a:active,
+.tabcontent .rounded.bg-surface-low a.nxm-link:active,
+.tabcontent .rounded.bg-surface-low a:active {
+  transform: translateY(0) scale(.98) !important;
+}
+
+#download-section .bg-surface-low a:focus-visible,
+.space-y-6 > .bg-surface-low a:focus-visible,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) a:focus-visible,
+.tabcontent .rounded.bg-surface-low a:focus-visible {
+  outline: 2px solid var(--nxtk-accent-hover, #ecaa5a) !important;
+  outline-offset: 2px !important;
+}
+
+#download-section .bg-surface-low button:not(.nxm-link),
+.space-y-6 > .bg-surface-low button:not(.nxm-link),
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) button:not(.nxm-link),
+.tabcontent .rounded.bg-surface-low button:not(.nxm-link) {
+  min-height: 34px !important;
+  padding: 8px 16px !important;
+  border: 1px solid var(--nxtk-border, rgba(255, 255, 255, 0.1)) !important;
+  border-radius: var(--nxtk-radius-sm, 12px) !important;
+  background: var(--nxtk-glass-tint-soft, rgba(28, 30, 44, 0.7)) !important;
+  color: var(--nxtk-text-bright, #f8f8fc) !important;
+  font: 600 13px/1 "Inter", system-ui, sans-serif !important;
+  cursor: pointer !important;
+  transition: transform .18s, border-color .18s !important;
+}
+
+#download-section .bg-surface-low button:not(.nxm-link):hover,
+.space-y-6 > .bg-surface-low button:not(.nxm-link):hover,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) button:not(.nxm-link):hover,
+.tabcontent .rounded.bg-surface-low button:not(.nxm-link):hover {
+  transform: translateY(-1px) !important;
+  border-color: var(--nxtk-border-strong, rgba(255, 255, 255, 0.18)) !important;
+}
+
+#download-section .bg-surface-low .h-4,
+#download-section .bg-surface-low [role=progressbar],
+.space-y-6 > .bg-surface-low .h-4,
+.space-y-6 > .bg-surface-low [role=progressbar],
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) .h-4,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) [role=progressbar],
+.tabcontent .rounded.bg-surface-low .h-4,
+.tabcontent .rounded.bg-surface-low [role=progressbar] {
+  height: 8px !important;
+  overflow: hidden !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  margin: 10px 0 !important;
+}
+
+#download-section .bg-surface-low .h-4 > div,
+#download-section .bg-surface-low [role=progressbar] > *,
+.space-y-6 > .bg-surface-low .h-4 > div,
+.space-y-6 > .bg-surface-low [role=progressbar] > *,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) .h-4 > div,
+#mainContent .rounded.bg-surface-low:has(p.font-semibold) [role=progressbar] > *,
+.tabcontent .rounded.bg-surface-low .h-4 > div,
+.tabcontent .rounded.bg-surface-low [role=progressbar] > * {
+  height: 100% !important;
+  border-radius: inherit !important;
+  background: linear-gradient(90deg, var(--nxtk-accent-dim, #b87a30), var(--nxtk-accent-hover, #ecaa5a)) !important;
+  box-shadow: var(--nxtk-accent-glow, 0 0 24px rgba(217, 143, 64, 0.35)) !important;
+}
+
+@media (max-width: 560px) {
+  #download-section .bg-surface-low::after,
+  .space-y-6 > .bg-surface-low::after,
+  #mainContent .rounded.bg-surface-low:has(p.font-semibold)::after,
+  .tabcontent .rounded.bg-surface-low::after {
+    position: static;
+    display: inline-block;
+    margin-bottom: 12px;
+  }
+}

@@ -1290,10 +1290,21 @@ window.NexusExt = window.NexusExt || {};
       this.running = true;
       try {
         this.ui.logText(T('logReconnectedBackground', 'Reconnected to a collection download still running in the background.'), 'info');
+        // The card starts from what the job did before this page attached (a reload mid-run), not
+        // from nothing. Those failures cannot be retried from here: this page never had their mods.
+        const label = (entry) => ({ name: String(entry?.name || ''), pageUrl: String(entry?.pageUrl || '') });
         await this.watchBackgroundJob({
           queueProgressBase: 0,
           visibleTotal: total,
-          fallbackQueueTotal: total
+          fallbackQueueTotal: total,
+          runLog: {
+            sent: (Array.isArray(snapshot.sent) ? snapshot.sent : []).map(label),
+            failed: (Array.isArray(snapshot.failed) ? snapshot.failed : []).map((entry) => ({ ...label(entry), code: String(entry?.code || 'unknown'), mod: null })),
+            alreadyHad: [],
+            pending: [],
+            mods: [],
+            type: snapshot.type || null
+          }
         });
       } finally {
         this.running = false;

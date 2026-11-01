@@ -166,6 +166,87 @@ async function collectionSelectionRegressionTests() {
   console.log('Collection downloaded-file selection regressions OK: ASCII, Unicode identity and canonical normalization');
 }
 
+// QA on 2026-11-01: "Import downloaded mods" matched 44 of a collection's 53 files, all 53 on disk. A newer
+// Nexus file's API uri is a content address (d6/87/9c/<uuid>), not its name, so it matched by its file name
+// followed by digits only. 3.3.7 saved such a file as "<mod name>-<file id>", and a mod's name is often not
+// its file's ("…Dual Wield Normal and Power Attacks" for the file "…Dual Wield Attacks"); Nexus's own
+// name, "<file name>-<mod id>-<version>-<time>", has letters in many versions ("1-0a").
+async function importRecognizesSavedNamesTests() {
+  const f = fixture();
+  try {
+    for (const file of ['src/content/errors.js', 'src/content/ndc.js', 'src/content/ui-collection.js']) {
+      f.w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+    }
+    const ndc = new f.w.NexusExt.NDC('skyrimspecialedition', 'verolevi');
+    const mod = (fileId, name, uri, modId, modName) => ({ fileId, file: { fileId, name, uri, size: 1024, mod: { modId, name: modName } } });
+    ndc.mods.all = [
+      mod(798362, 'Vanargand Animations - Dual Wield Attacks', 'd6/87/9c/d6879c21-5ebd-4d6f-b8cc-7756784d7d65', 59737,
+        'Vanargand Animations - Dual Wield Normal and Power Attacks'),
+      mod(794557, 'Goetia Animations - Sneak Magic', '24/cf/bb/24cfbb67-3a72-43ca-9371-e1ed2be5e4f4', 68005, 'Goetia Animations'),
+      mod(51507, 'Conditional Armor Type Animations', 'Conditional Armor Type Animations-51507-1-3c-1687702364.7z', 51507, 'CATA')
+    ];
+    ndc.mods.mandatory = ndc.mods.all;
+    const deck = f.w.NexusExt.UI.createControlDeck(ndc);
+    f.w.document.body.appendChild(deck);
+    let input;
+    const click = f.w.HTMLInputElement.prototype.click;
+    f.w.HTMLInputElement.prototype.click = function () { if (this.type === 'file') input = this; else click.call(this); };
+    let historyPatch;
+    f.w.NexusExt.Storage.mergeCollectionHistory = async (payload) => { historyPatch = payload; };
+    deck.querySelector('#nxtk-import-mods').click();
+    Object.defineProperty(input, 'files', { value: [
+      { name: 'Vanargand Animations - Dual Wield Normal and Power Attacks-798362.zip' },
+      { name: 'Goetia Animations - Sneak Magic-68005-1-0a-1745000000.7z' },
+      { name: 'Conditional Armor Type Animations-51507-1-3c-1687702364.7z' },
+      { name: 'Goetia Animations - Sneak Magic-99999-1-0a-1745000000.7z' },
+      { name: 'Some Other Mod-123.zip' }
+    ].map((entry) => ({ ...entry })) });
+    input.dispatchEvent(new f.w.Event('change'));
+    await tick();
+    assert.deepEqual([...historyPatch.lists.all], [798362, 794557, 51507], 'each collection file by the name it was saved under');
+    const alert = f.w.document.querySelector('.nxtk-alert-modal').textContent;
+    assert.match(alert, /Imported 3 of 3/);
+    assert.match(alert, /2 selected files did not match/, 'another mod\'s file of the same name is not this one');
+  } finally { f.close(); }
+  console.log('Import: names 3.3.7 and Nexus give a file are recognized OK');
+}
+
+// QA on 2026-11-01: the deck's menu button had no accessible name, and a closed menu's items stayed in the
+// accessibility tree (only made transparent), where screen readers and automation still found them.
+async function deckMenuAccessibilityTests() {
+  for (const locale of ['en', 'el']) {
+    const messages = JSON.parse(fs.readFileSync(path.join(root, `src/_locales/${locale}/messages.json`), 'utf8'));
+    const say = (key) => (messages[key] || en[key])?.message;
+    const f = fixture(locale);
+    try {
+      for (const file of ['src/content/errors.js', 'src/content/ndc.js', 'src/content/ui-collection.js']) {
+        f.w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+      }
+      const ndc = new f.w.NexusExt.NDC('skyrimspecialedition', 'menus');
+      const deck = f.w.NexusExt.UI.createControlDeck(ndc);
+      f.w.document.body.appendChild(deck);
+      const toggle = deck.querySelector('#nxtk-menu-toggle');
+      assert.ok(say('ariaMoreDownloadOptions'), 'the label is a message of its own');
+      assert.equal(toggle.getAttribute('aria-label'), say('ariaMoreDownloadOptions'), `${locale}: the menu button is named`);
+      const menu = () => f.w.document.getElementById('nxtk-dl-menu');
+      assert.ok(menu().hasAttribute('inert'), `${locale}: a closed menu is out of reach`);
+      toggle.click();
+      await tick();
+      assert.ok(menu().classList.contains('nxtk-open'));
+      assert.ok(!menu().hasAttribute('inert'), 'an open one is not');
+      toggle.click();
+      await tick();
+      assert.ok(menu().hasAttribute('inert'), 'and closed again, it is out of reach again');
+      deck.querySelector('#nxtk-select-mods').click();
+      await tick();
+      const options = f.w.document.getElementById('nxtk-sel-opts-toggle');
+      assert.equal(options.getAttribute('aria-label'), say('ariaSelectionOptions'), `${locale}: the picker's options button is named`);
+      assert.ok(f.w.document.getElementById('nxtk-sel-opts-menu').hasAttribute('inert'), 'its closed menu is out of reach too');
+    } finally { f.close(); }
+  }
+  console.log('Deck menus: named buttons, closed menus out of reach (en, el) OK');
+}
+
 // The end-of-run card. A browser run's files were downloaded, not sent; and the collection's files that are
 // not on Nexus are listed, an off-site one linked to its page (never a non-web link), a bundled one with
 // where it comes from. A Vortex run's card keeps "sent" and has no such list when there is none.
@@ -393,6 +474,8 @@ async function settingsRegressionTests() {
   if (failures.length) throw new AggregateError(failures, 'Onboarding/collection selection regressions failed');
   await popupRegressionTests();
   await runSummaryTests();
+  await importRecognizesSavedNamesTests();
+  await deckMenuAccessibilityTests();
   await settingsNavigationTests();
   await settingsRegressionTests();
   const f = fixture();

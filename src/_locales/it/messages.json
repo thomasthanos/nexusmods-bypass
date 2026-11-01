@@ -2331,6 +2331,15 @@
   "rdBtnDirect": {
     "message": "Download diretto, invece"
   },
+  "rdBtnDownload": {
+    "message": "Scarica"
+  },
+  "ariaMoreDownloadOptions": {
+    "message": "Altre opzioni di download"
+  },
+  "ariaSelectionOptions": {
+    "message": "Opzioni di selezione"
+  },
   "setSectionBasics": {
     "message": "Impostazioni di base"
   },

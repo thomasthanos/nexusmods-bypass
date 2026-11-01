@@ -2331,6 +2331,15 @@
   "rdBtnDirect": {
     "message": "Απευθείας λήψη αντί γι’ αυτό"
   },
+  "rdBtnDownload": {
+    "message": "Λήψη"
+  },
+  "ariaMoreDownloadOptions": {
+    "message": "Περισσότερες επιλογές λήψης"
+  },
+  "ariaSelectionOptions": {
+    "message": "Ενέργειες επιλογής"
+  },
   "setSectionBasics": {
     "message": "Βασικά"
   },

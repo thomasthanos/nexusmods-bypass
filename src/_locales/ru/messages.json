@@ -2499,6 +2499,15 @@
   "rdBtnDirect": {
     "message": "Скачать напрямую"
   },
+  "rdBtnDownload": {
+    "message": "Скачать"
+  },
+  "ariaMoreDownloadOptions": {
+    "message": "Другие варианты загрузки"
+  },
+  "ariaSelectionOptions": {
+    "message": "Параметры выбора"
+  },
   "setSectionBasics": {
     "message": "Основные"
   },

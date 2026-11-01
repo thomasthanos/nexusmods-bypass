@@ -2247,6 +2247,15 @@
   "rdBtnDirect": {
     "message": "改为直接下载"
   },
+  "rdBtnDownload": {
+    "message": "下载"
+  },
+  "ariaMoreDownloadOptions": {
+    "message": "更多下载选项"
+  },
+  "ariaSelectionOptions": {
+    "message": "选择选项"
+  },
   "setSectionBasics": {
     "message": "基础设置"
   },

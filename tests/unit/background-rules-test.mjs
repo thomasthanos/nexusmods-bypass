@@ -52,8 +52,10 @@ assert.equal(retryAfterMilliseconds('0', 1), 30000, 'an explicit 0 still respect
 assert.equal(DOWNLOAD_CONFLICT_ACTION, 'uniquify', 'a download never overwrites what is there');
 assert.equal((source.match(/conflictAction: DOWNLOAD_CONFLICT_ACTION,/g) || []).length, 1,
   'one request builder holds the value');
-assert.equal((source.match(/chrome\.downloads\.download\(request,/g) || []).length, 2,
-  'and both download call sites use it');
+assert.equal((source.match(/chrome\.downloads\.download\(plan\.request,/g) || []).length, 1,
+  'one place starts every file download with it');
+assert.equal((source.match(/await startPlannedDownload\(plan,/g) || []).length, 2,
+  'and both download paths (a single file, a collection file) go through that place');
 
 assert.equal(buildDownloadPath('NexusMods', 'A Mod.zip'), 'NexusMods/A Mod.zip');
 assert.equal(buildDownloadPath('   ', 'A Mod.zip'), 'A Mod.zip', 'a blank folder saves to Downloads');

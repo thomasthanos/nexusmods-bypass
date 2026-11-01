@@ -2247,6 +2247,15 @@
   "rdBtnDirect": {
     "message": "代わりに直接ダウンロード"
   },
+  "rdBtnDownload": {
+    "message": "ダウンロード"
+  },
+  "ariaMoreDownloadOptions": {
+    "message": "その他のダウンロードオプション"
+  },
+  "ariaSelectionOptions": {
+    "message": "選択のオプション"
+  },
   "setSectionBasics": {
     "message": "基本"
   },

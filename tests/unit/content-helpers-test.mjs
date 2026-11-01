@@ -1480,7 +1480,9 @@ async function apiFileMetadataNavigationTests() {
     const helpers = new Function('officialApi', 'isModPage', 'currentModId', 'getGameDomainFromUrl',
       'prefetchGameIdFromApi', 'getGameId', 'archivedFileHandler', 'toFileId', 'document', `
       let apiFileList = { key: '', files: [] };
-      async ${extractFunction(nnw, 'loadApiFileList')}
+      let apiFileListLoad = null;
+      ${extractFunction(nnw, 'loadApiFileList')}
+      async ${extractFunction(nnw, 'fetchApiFileList')}
       ${extractFunction(nnw, 'apiFileIdForHeader')}
       ${extractFunction(nnw, 'fileVersionOf')}
       return { loadApiFileList, apiFileIdForHeader, fileVersionOf };

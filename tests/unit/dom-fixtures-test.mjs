@@ -358,11 +358,14 @@ const resumableDownloadsDone = (async () => {
       + '<button type="button">Restart download</button>', false)
   };
 
-  async function filePage(fileId, { settings = {}, picker = true, start = 'cards', fallback = false, choice = false, loaded = true } = {}) {
+  async function filePage(fileId, { settings = {}, picker = true, start = 'cards', fallback = false, choice = false, loaded = true,
+    stillLoading = false, portal = false, otherCard = '' } = {}) {
     const modPage = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604';
     const w = load('file-page-signed-in.html', `${modPage}?tab=files&file_id=${fileId}`);
-    // A page still loading: Nexus's scripts have not drawn the card yet (it has no shadow root).
-    if (!loaded) Object.defineProperty(w.document, 'readyState', { configurable: true, value: 'interactive' });
+    // A page still loading: Nexus's scripts have not drawn the card yet (it has no shadow root). Or, as
+    // ads can keep a page (QA 2026-11-01, still "interactive" after two minutes), they have, and the
+    // load event does not come.
+    if (!loaded || stillLoading) Object.defineProperty(w.document, 'readyState', { configurable: true, value: 'interactive' });
     w.document.querySelector('mod-file-download').remove();
     w.document.querySelector('.download-card').remove();
     // Nexus asks only where the browser can write to a file it picks; Firefox cannot.
@@ -396,26 +399,45 @@ const resumableDownloadsDone = (async () => {
       shadow.getElementById('download-section').insertAdjacentHTML('beforeend', PANELS[name]);
     };
     const nexus = { standard: 0, resumable: 0, paused: 0, resumed: 0, cancelled: 0, direct: 0 };
-    const closeChooser = () => shadow.querySelector('[role="dialog"]')?.remove();
+    // Nexus draws its question in the card's floating-ui-root or, as seen live on 2026-11-01, in the page's
+    // own #next-shadow-root, outside the card, where React answers its buttons from that root.
+    let portalShadow = null;
+    if (portal) {
+      const portalHost = w.document.createElement('div');
+      portalHost.id = 'next-shadow-root';
+      w.document.body.append(portalHost);
+      portalShadow = portalHost.attachShadow({ mode: 'open' });
+      portalShadow.innerHTML = '<div id="floating-ui-root"></div>';
+    }
+    const chooserRoot = () => portalShadow || shadow;
+    const closeChooser = () => chooserRoot().querySelector('[role="dialog"]')?.remove();
+    const answer = (event) => {
+      const button = event.target.closest('button');
+      if (!button || button.closest('[data-nxtk-ui]')) return;
+      const label = button.textContent.trim();
+      // By place, not label: the extension relabels the button while its download starts.
+      if (button.closest('#upsell-cards')) chooserRoot().getElementById('floating-ui-root').innerHTML = CHOOSER;
+      else if (button.getAttribute('aria-label') === 'Close') closeChooser();
+      else if (label === 'Standard download') { nexus.standard++; closeChooser(); }
+      else if (label.startsWith('Resumable download')) { nexus.resumable++; closeChooser(); }
+      else if (label === 'Pause') nexus.paused++;
+      else if (label === 'Resume Download') { nexus.resumed++; setPanel('preparing'); }
+      else if (label === 'Cancel') nexus.cancelled++;
+      else if (label === 'direct download') nexus.direct++;
+    };
+    portalShadow?.addEventListener('click', answer);
     const drawCard = () => {
       shadow = host.attachShadow({ mode: 'open' });
       shadow.innerHTML = `<div id="download-section">${FILE_ROW}${PANELS[start]}</div><div id="floating-ui-root"></div>`;
-      shadow.addEventListener('click', (event) => {
-        const button = event.target.closest('button');
-        if (!button || button.closest('[data-nxtk-ui]')) return;
-        const label = button.textContent.trim();
-        // By place, not label: the extension relabels the button while its download starts.
-        if (button.closest('#upsell-cards')) shadow.getElementById('floating-ui-root').innerHTML = CHOOSER;
-        else if (button.getAttribute('aria-label') === 'Close') closeChooser();
-        else if (label === 'Standard download') { nexus.standard++; closeChooser(); }
-        else if (label.startsWith('Resumable download')) { nexus.resumable++; closeChooser(); }
-        else if (label === 'Pause') nexus.paused++;
-        else if (label === 'Resume Download') { nexus.resumed++; setPanel('preparing'); }
-        else if (label === 'Cancel') nexus.cancelled++;
-        else if (label === 'direct download') nexus.direct++;
-      });
+      shadow.addEventListener('click', answer);
     };
     if (loaded) drawCard();
+    // Another file's card earlier on the page, as a mod's requirements can show one.
+    if (otherCard) {
+      const other = w.document.createElement('mod-file-download');
+      other.setAttribute('file-id', otherCard);
+      w.document.getElementById('section').append(other);
+    }
     w.document.getElementById('section').append(host);
     for (const file of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
     await w.NexusExt.NNW.init();
@@ -426,7 +448,7 @@ const resumableDownloadsDone = (async () => {
       return button;
     };
     const card = () => shadow.querySelector('.nxtk-rd');
-    const ask = () => shadow.querySelector('.nxtk-rd-ask');
+    const ask = () => chooserRoot().querySelector('.nxtk-rd-ask');
     return {
       w,
       host,
@@ -455,7 +477,9 @@ const resumableDownloadsDone = (async () => {
       askText: (part) => ask()?.querySelector(`.nxtk-rd-${part}`)?.textContent || '',
       fileRow: () => shadow.querySelector('#download-section > .nxtk-rd-file'),
       requested: () => fetched.filter((f) => f.includes(`fid=${fileId}`) || f.includes(`file_id=${fileId}`)).length,
-      chooserOpen: () => !!shadow.querySelector('[role="dialog"]')
+      chooserOpen: () => !!chooserRoot().querySelector('[role="dialog"]'),
+      // The extension's own Download button on its file line, where it hides Nexus's.
+      fileDownload: () => shadow.querySelector('#download-section > .nxtk-rd-file .nxtk-rd-file-download')
     };
   }
 
@@ -603,6 +627,54 @@ const resumableDownloadsDone = (async () => {
     early.finishLoading();
     await waitForState(() => early.chooserOpen(), 'once the page has loaded, Nexus asks standard or resumable');
     assert.equal(early.requested(), 0);
+  }
+
+  // QA on 2026-11-01, Fallout 4 mod 318, file 138909: ads kept the page "interactive" for over two minutes,
+  // and the automatic start waited for the load event all that time with only the file's name on screen.
+  // The card itself is waited for: Nexus draws its buttons once it has looked for a resumable download.
+  {
+    const stuck = await filePage('900016', { stillLoading: true, settings: { AutoStartDownload: true } });
+    await waitForState(() => stuck.chooserOpen(), 'Nexus asks standard or resumable without the page\'s load event');
+    assert.equal(stuck.requested(), 0, 'and nothing starts before the answer');
+  }
+
+  // With "Hide ads and Premium panels" on, Nexus's only button for a free account, Slow download, is in the
+  // Free/Premium cards the extension hides: the file's page showed no way to download when nothing started
+  // by itself. The extension's file line has a Download button in its place, which presses Nexus's.
+  {
+    const large = await filePage('900017');
+    await waitForState(() => large.fileDownload(), 'the file line has a Download button');
+    assert.equal(large.fileDownload().textContent, 'Download');
+    large.fileDownload().click();
+    await waitForState(() => large.chooserOpen(), 'on a large file it opens Nexus\'s question');
+    assert.equal(large.requested(), 0);
+    const small = await filePage('900018', { picker: false });
+    await waitForState(() => small.fileDownload(), 'a file Nexus asks nothing about has one too');
+    small.fileDownload().click();
+    await waitForState(() => small.requested() === 1, 'which starts it through the extension');
+    const shown = await filePage('900019', { settings: { HidePremiumUpsells: false } });
+    await waitForState(() => shown.fileRow(), 'the file line is drawn');
+    assert.equal(shown.fileDownload(), null, 'with Nexus\'s own button on show, no second one');
+    const running = await filePage('900020', { start: 'progress' });
+    await waitForState(() => running.card(), 'a download under way');
+    assert.equal(running.fileDownload(), null, 'a download under way has no Download button');
+  }
+
+  // Live on 2026-11-01 Nexus drew its question outside the card, in the page's #next-shadow-root: its Standard
+  // download went past the extension to Nexus's own download, in the browser's folder and with no .meta.
+  {
+    const page = await filePage('900021', { portal: true, otherCard: '900098' });
+    const slow = page.click('Slow download');
+    await waitForState(() => page.ask(), 'the extension draws the question there too');
+    page.askClick('Standard download');
+    assert.equal(page.nexus.standard, 0, 'Standard download is the extension\'s, not Nexus\'s');
+    await waitForState(() => page.requested() === 1, 'it starts this file through the extension');
+    page.click(slow);
+    await waitForState(() => page.ask(), 'asked again');
+    page.askClick('Resumable download');
+    assert.equal(page.nexus.resumable, 1, 'Resumable download stays with Nexus');
+    await new Promise((r) => setTimeout(r, 100));
+    assert.equal(page.requested(), 1, 'and the extension starts nothing for it');
   }
 
   // The Cloudflare fallback clicks "Slow download" for the user, and answers the chooser with Standard.
@@ -815,6 +887,37 @@ const apiFileListDone = (async () => {
   console.log('API file list behavior OK');
 })();
 
+// --- An archived file's version, for its .meta (QA 2026-11-01) --------------------------------------------
+// File 826486's .meta had no version: its page lists it nowhere, and the API's list ("1.0", category
+// ARCHIVED, checked that day) is asked for once the page has settled, after the download had started.
+const archivedVersionDone = (async () => {
+  const w = load('file-page-signed-in.html', 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=734848');
+  const commands = [];
+  let answered = false;
+  w.NexusExt.NexusApi = { shared: () => ({
+    gameId: async () => '1704',
+    modFiles: () => new Promise((resolve) => setTimeout(() => { answered = true; resolve([{ fileId: 734848, name: 'SkyUI SDK', version: '1.0', category: 'ARCHIVED' }]); }, 300))
+  }) };
+  w.fetch = async (url) => {
+    const generator = String(url).includes('GenerateDownloadUrl');
+    const body = generator ? JSON.stringify({ url: 'https://files.nexus-cdn.com/d6/87/9c/d6879c21-5ebd-4d6f-b8cc-7756784d7d65?md5=a&expires=1' }) : '';
+    return { ok: generator, status: generator ? 200 : 404, url: String(url), text: async () => body, headers: { get: () => '' } };
+  };
+  w.NexusExt.Storage = {
+    getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: true, WriteMo2Meta: true, NDC_downloadMethod: 1 }),
+    sendDownloadCommand: async (type, payload) => { commands.push({ type, payload }); return { ok: true, value: {} }; }
+  };
+  for (const file of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+  await w.NexusExt.NNW.init();
+  w.document.getElementById('slowDownloadButton').dispatchEvent(new w.MouseEvent('click', { bubbles: true, composed: true, cancelable: true, button: 0 }));
+  for (let i = 0; i < 150 && !commands.some((c) => c.type === 'DOWNLOAD_START'); i += 1) await new Promise((r) => setTimeout(r, 20));
+  const start = commands.find((c) => c.type === 'DOWNLOAD_START');
+  assert.ok(start, 'the click starts a browser download');
+  assert.ok(answered, 'after the API\'s list has answered');
+  assert.equal(start.payload.version, '1.0', 'with the version the API lists for the archived file');
+  console.log('archived file version behavior OK');
+})();
+
 // --- The settings button is placed once a scroll ends, and draws no blur (performance review 2026-11-01) ---
 // Placing it looks at what is under it; that ran on every frame of a scroll. Its blur sat behind a 98 %
 // opaque fill, unseen, and was redrawn on every frame of a scroll too. Awaited by the last block.
@@ -946,6 +1049,7 @@ const fabScrollDone = (async () => {
   await earlyStartDone;
   await stylesheetHidingDone;
   await apiFileListDone;
+  await archivedVersionDone;
   await fabScrollDone;
   // nnw.js keeps page timers running; the suite is done.
   w.close();

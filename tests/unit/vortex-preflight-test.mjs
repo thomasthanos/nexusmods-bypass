@@ -787,6 +787,39 @@ function createHarness(choice) {
       assert.deepEqual(retried, [['B.7z'], 'all'], 'Retry failed queues only the failed files');
     }
 
+    // QA on 2026-11-01: Pause at 10/53, reload, Resume, Stop at 35/53: the card said 25 downloaded. A deck
+    // that reattaches to the worker's job after a reload starts the card from what the job had done.
+    {
+      const { ndc } = createHarness('browser');
+      delete ndc.downloadBrowserQueue;
+      NXTK.createQueueEta = shared.NXTK.createQueueEta;
+      NXTK.formatBytes = shared.NXTK.formatBytes;
+      ndc.ui.setProgress = () => {}; ndc.ui.setTimeLeft = () => {}; ndc.ui.setDownloadStatus = () => {}; ndc.ui.endDownload = () => {};
+      let listener = null;
+      let card = null;
+      const savedChrome = global.chrome; const savedDoc = global.document; const savedSummary = NexusExt.UI.showRunSummary;
+      global.document = { addEventListener: () => {}, removeEventListener: () => {}, visibilityState: 'visible' };
+      global.chrome = { runtime: { onMessage: { addListener: (fn) => { listener = fn; }, removeListener: () => {} } } };
+      NexusExt.UI.showRunSummary = (summary) => { card = summary; };
+      NexusExt.Storage.sendDownloadCommand = async (command) => (command === 'NDC_QUEUE_ATTACH'
+        ? { ok: true, value: { jobId: 'job-reloaded', status: 'paused', index: 3, total: 5, type: 'all',
+          sent: [{ name: 'One.7z', pageUrl: 'https://www.nexusmods.com/g/mods/1?tab=files&file_id=1' }, { name: 'Three.7z', pageUrl: '' }],
+          failed: [{ name: 'Two.7z', pageUrl: '', code: 'file_not_found' }] } }
+        : { ok: true, value: { status: 'running', index: 3 } });
+      try {
+        const attaching = ndc.resumeBackgroundRun();
+        for (let i = 0; i < 50 && !listener; i += 1) await new Promise((r) => setTimeout(r, 10));
+        assert.ok(listener, 'the reattached deck listens for the job');
+        listener({ type: 'NXT_NDC_PROGRESS', jobId: 'job-reloaded', itemState: 'complete', itemName: 'Four.7z', index: 4, total: 5 });
+        listener({ type: 'NXT_NDC_DONE', jobId: 'job-reloaded', outcome: 'stopped' });
+        await attaching;
+      } finally {
+        global.chrome = savedChrome; global.document = savedDoc; NexusExt.UI.showRunSummary = savedSummary;
+      }
+      assert.deepEqual(card?.sent.map((entry) => entry.name), ['One.7z', 'Three.7z', 'Four.7z'], 'before and after the reload');
+      assert.deepEqual(card.failed.map((entry) => [entry.name, entry.code]), [['Two.7z', 'file_not_found']]);
+    }
+
     // A browser run's card says its files were downloaded, a Vortex run's that they were sent. A run of
     // the collection lists the collection's files that are not on Nexus, which no run downloads; a
     // picked selection (no run type) does not. The API's answer for collection 2d0gvh, 2026-11-01.

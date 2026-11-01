@@ -2247,6 +2247,15 @@
   "rdBtnDirect": {
     "message": "대신 직접 다운로드"
   },
+  "rdBtnDownload": {
+    "message": "다운로드"
+  },
+  "ariaMoreDownloadOptions": {
+    "message": "다운로드 옵션 더 보기"
+  },
+  "ariaSelectionOptions": {
+    "message": "선택 옵션"
+  },
   "setSectionBasics": {
     "message": "기본"
   },

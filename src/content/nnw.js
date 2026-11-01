@@ -462,25 +462,21 @@ window.NexusExt = window.NexusExt || {};
     if (Date.now() < deadline) setTimeout(() => answerLargeFileChooser(host, deadline), 100);
   }
 
-  // The extension starts before the page has loaded; Nexus's scripts draw its download card by then.
-  function whenPageLoaded() {
-    if (document.readyState === 'complete') return Promise.resolve();
-    return new Promise((resolve) => addEventListener('load', resolve, { once: true }));
-  }
-
-  // An automatic start beside Nexus's own resumable download would fetch the whole file a second time.
-  // Nexus draws the card only after it has looked for one, so this waits a little for the card.
-  async function nexusResumableDownloadFor(fileId, timeoutMs = 3000) {
-    const host = getCurrentNativeDownloadHost(fileId, false);
-    if (!offersResumableChoice(host)) return false;
-    await whenPageLoaded();
+  // The extension starts before the page has loaded, and Nexus draws a large file's card only once it has
+  // looked for a resumable download of it: an automatic start beside one would fetch the whole file a
+  // second time. The card itself is waited for, a bounded time, not the page's load event, which ads can
+  // hold back for minutes (QA 2026-11-01, Fallout 4 mod 318: still "interactive" after two minutes, with
+  // only the file's name on screen). 'resumable' when Nexus shows its own resumable download of the file,
+  // 'ready' once its Slow download is drawn, '' when neither came in time.
+  const LARGE_FILE_CARD_WAIT_MS = 15000;
+  async function largeFileCardState(host, timeoutMs = LARGE_FILE_CARD_WAIT_MS) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      if (nexusResumableShown(host)) return true;
-      if (host.shadowRoot && findSlowDownloadButtons(host.shadowRoot, { includeBound: true }).length) return false;
+      if (nexusResumableShown(host)) return 'resumable';
+      if (host.shadowRoot && findSlowDownloadButtons(host.shadowRoot, { includeBound: true }).length) return 'ready';
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    return false;
+    return '';
   }
 
   // Whether a large file's download is resumable is the user's answer to Nexus's question, so a start the
@@ -1396,18 +1392,6 @@ window.NexusExt = window.NexusExt || {};
     delete button._nxtkOriginalButtonState;
   }
 
-  function inferBrowserDownloadName(url, fileId) {
-    const urlName = NXTK.downloadNameFromUrl(url);
-    if (urlName) return urlName;
-    const pageTitle = String(
-      document.querySelector('h1')?.textContent
-      || document.title.split(/\s+(?:at|on)\s+Nexus Mods/i)[0]
-      || 'nexus-mod'
-    ).replace(/\s+/g, ' ').trim();
-    const idSuffix = fileId ? `-${fileId}` : '';
-    return `${pageTitle || 'nexus-mod'}${idSuffix}`;
-  }
-
   // The mod's name, for the Mod Organizer 2 .meta a browser download can get: the page heading, else the
   // title up to " at <game> Nexus" (classic) or " at Nexus Mods".
   function currentModName() {
@@ -1420,17 +1404,25 @@ window.NexusExt = window.NexusExt || {};
     try {
       const settings = await NexusExt.Storage.getSettings();
       if (!isCurrentPage()) return false;
+      // The .meta's version. The API's file list is asked for once the page has settled, and a file page's
+      // start can come first: an archived file's page lists its version nowhere else (QA 2026-11-01, file
+      // 826486's .meta had none; the API says "1.0").
+      let version = fileVersionOf(fileId);
+      if (!version && settings.WriteMo2Meta) {
+        await loadApiFileList().catch((cause) => Logger.warn('Could not read the mod\'s file list:', cause));
+        if (!isCurrentPage()) return false;
+        version = fileVersionOf(fileId);
+      }
       const reply = await NexusExt.Storage.sendDownloadCommand('DOWNLOAD_START', {
         url,
+        // The worker names the file as its link does, or leaves the name to the browser (downloadPlan).
         folder: settings.DownloadFolder ?? '',
-        filename: inferBrowserDownloadName(url, fileId),
-        fallbackExtension: '.zip',
         // The worker de-duplicates by game+file across every tab and content-script copy.
         fileId: String(fileId || ''),
         gameId: String(getGameId() || ''),
         // Labels for the Mod Organizer 2 .meta (WriteMo2Meta); the worker takes game and mod from this page.
         modName: currentModName(),
-        version: fileVersionOf(fileId)
+        version
       });
       if (reply?.ok && reply.value?.duplicate) Logger.info(`File ${fileId} is already downloading; not starting a second copy.`);
       if (reply?.ok) return true;
@@ -2043,6 +2035,19 @@ window.NexusExt = window.NexusExt || {};
         ));
     }, true);
 
+    // The card whose Slow download last opened Nexus's standard-or-resumable question. Nexus draws the
+    // question in the card or, live on 2026-11-01, in the page's own #next-shadow-root, outside every card:
+    // there a click on its Standard download has no card on its path, and went past the extension to
+    // Nexus's own download (the browser's folder, no .meta). Its answers belong to the card that asked.
+    let questionCard = null;
+    function cardOfQuestion(path) {
+      const card = path.find((node) => node?.tagName === 'MOD-FILE-DOWNLOAD');
+      if (card) return card;
+      const portal = document.getElementById('next-shadow-root');
+      if (!portal || !path.includes(portal)) return null;
+      return questionCard?.isConnected ? questionCard : getCurrentNativeDownloadHost(getCurrentFileId(), false);
+    }
+
     // The slow-download button, taken the same way: before Nexus's own listener on it can start the
     // native download alongside the extension's.
     window.addEventListener('click', (event) => {
@@ -2054,6 +2059,7 @@ window.NexusExt = window.NexusExt || {};
       // On a large file this button opens Nexus's standard-or-resumable chooser; its answer is taken below.
       const host = path.find((node) => node?.tagName === 'MOD-FILE-DOWNLOAD');
       if (offersResumableChoice(host)) {
+        questionCard = host;
         Logger.info('Large file: leaving the standard-or-resumable choice to Nexus.');
         watchForLargeFileChooser(host);
         return;
@@ -2074,7 +2080,7 @@ window.NexusExt = window.NexusExt || {};
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
       // The extension's own panel and question handle their buttons themselves.
       if (path.some((node) => node?.hasAttribute?.(RD_UI_ATTR))) return;
-      const host = path.find((node) => node?.tagName === 'MOD-FILE-DOWNLOAD');
+      const host = cardOfQuestion(path);
       const control = host && path.find((node) => node?.tagName === 'BUTTON');
       const choice = largeFileChoiceOf(control) || (isDirectDownloadControl(control) ? 'direct' : '');
       if (!choice) return;
@@ -2361,6 +2367,7 @@ window.NexusExt = window.NexusExt || {};
 
   function renderCard(host, entry) {
     entry.scheduled = false;
+    ensureRdStyle(host.shadowRoot);
     renderFileRow(host, entry);
     if (!offersResumableChoice(host)) return;
     skipNexusCountdown(host);
@@ -2421,6 +2428,30 @@ window.NexusExt = window.NexusExt || {};
     return null;
   }
 
+  // With "Hide ads and Premium panels" on, Nexus's Slow download, a free account's only button, is in the
+  // Free/Premium cards the extension hides (SHADOW_UPSELL_CSS): the file's page showed no way to download
+  // when nothing started by itself (QA 2026-11-01). The file line gets a Download button in its place that
+  // presses Nexus's, so a large file still gets Nexus's question and any other file the extension's start.
+  function hiddenSlowDownloadOf(host) {
+    if (!cfg.HidePremiumUpsells || !host.shadowRoot) return null;
+    return findSlowDownloadButtons(host.shadowRoot, { includeBound: true })
+      .find((button) => button.closest('#upsell-cards')) || null;
+  }
+
+  function syncFileRowDownload(host, line) {
+    const shown = line.querySelector('.nxtk-rd-file-download');
+    if (!hiddenSlowDownloadOf(host)) {
+      shown?.remove();
+      return;
+    }
+    if (shown) return;
+    const button = rdEl('button', 'nxtk-rd-file-download', NXTK.t('rdBtnDownload', null, 'Download'));
+    button.type = 'button';
+    // Nexus's button as it is at the click: React may have drawn it again since.
+    button.addEventListener('click', () => hiddenSlowDownloadOf(host)?.click());
+    line.append(button);
+  }
+
   function renderFileRow(host, entry) {
     const row = host.isConnected ? nexusFileRowOf(host) : null;
     if (!row) {
@@ -2432,6 +2463,7 @@ window.NexusExt = window.NexusExt || {};
       entry.fileRow = buildFileLine(host, 'nxtk-rd-file');
       entry.fileRow.setAttribute(RD_UI_ATTR, '');
     }
+    syncFileRowDownload(host, entry.fileRow);
     if (entry.fileRow.nextElementSibling !== row) row.before(entry.fileRow);
     if (row.style.display !== 'none') row.style.display = 'none';
   }
@@ -2662,7 +2694,7 @@ window.NexusExt = window.NexusExt || {};
 .nxtk-rd-btn.is-primary{border-color:var(--nxtk-accent-border,rgba(217,143,64,.45));background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.02)),linear-gradient(135deg,var(--nxtk-accent,#d98f40),var(--nxtk-accent-dim,#b87a30));color:#fff}
 .nxtk-rd-link{margin-left:auto;padding:0;border:0;background:none;color:var(--nxtk-text-muted,rgba(236,234,242,.62));font:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
 .nxtk-rd-link:hover{color:var(--nxtk-accent-hover,#ecaa5a)}
-.nxtk-rd-btn:focus-visible,.nxtk-rd-link:focus-visible{outline:2px solid var(--nxtk-accent-hover,#ecaa5a);outline-offset:2px}
+.nxtk-rd-btn:focus-visible,.nxtk-rd-link:focus-visible,.nxtk-rd-file-download:focus-visible{outline:2px solid var(--nxtk-accent-hover,#ecaa5a);outline-offset:2px}
 .${RD_CARD_CLASS} [hidden]{display:none!important}
 .nxtk-rd-file,.nxtk-rd-ask-file{display:flex;align-items:center;gap:12px;box-sizing:border-box;color:var(--nxtk-text,#eceaf2);font:400 14px/1.4 "Inter",system-ui,sans-serif;text-align:left}
 .nxtk-rd-file{width:100%;padding:12px 16px;border:1px solid var(--nxtk-border,rgba(255,255,255,.1));border-radius:var(--nxtk-radius-md,16px);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01)),var(--nxtk-glass-tint-deep,rgba(10,12,22,.92));box-shadow:0 12px 32px rgba(0,0,0,.28)}
@@ -2671,6 +2703,9 @@ window.NexusExt = window.NexusExt || {};
 .nxtk-rd-file-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .nxtk-rd-file-name{flex:1;min-width:0;overflow:hidden;color:var(--nxtk-text-bright,#f8f8fc);font-weight:600;text-overflow:ellipsis;white-space:nowrap}
 .nxtk-rd-file-size{flex-shrink:0;padding:3px 10px;border:1px solid var(--nxtk-border,rgba(255,255,255,.1));border-radius:999px;background:rgba(255,255,255,.05);color:var(--nxtk-text-muted,rgba(236,234,242,.62));font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.nxtk-rd-file-download{flex-shrink:0;margin-left:auto;padding:6px 16px;white-space:nowrap;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45));border-radius:999px;background:linear-gradient(135deg,var(--nxtk-accent,#d98f40),var(--nxtk-accent-dim,#b87a30));color:#fff;font:600 13px/1 "Inter",system-ui,sans-serif;cursor:pointer;transition:transform .18s,box-shadow .18s}
+.nxtk-rd-file-download:hover{transform:translateY(-1px);box-shadow:var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.35))}
+.nxtk-rd-file-download:active{transform:translateY(0) scale(.98)}
 [data-nxtk-ask]>.nxm-modal-backdrop{background:rgba(8,10,18,.55);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%)}
 .nxtk-rd-ask{position:relative;width:min(580px,100%);box-sizing:border-box;display:flex;flex-direction:column;gap:16px;padding:24px;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45));border-radius:var(--nxtk-radius-xl,28px);background:radial-gradient(circle at 88% -10%,rgba(217,143,64,.22),transparent 38%),radial-gradient(circle at 12% 110%,rgba(74,168,216,.1),transparent 42%),var(--nxtk-glass-tint-strong,rgba(14,16,26,.88));box-shadow:0 32px 80px -16px rgba(0,0,0,.75),var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.35));-webkit-backdrop-filter:blur(48px) saturate(180%);backdrop-filter:blur(48px) saturate(180%);color:var(--nxtk-text,#eceaf2);font:400 14px/1.5 "Inter",system-ui,sans-serif;text-align:left;animation:nxtk-rd-rise .4s var(--nxtk-ease,ease) both}
 @keyframes nxtk-rd-rise{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
@@ -2692,7 +2727,23 @@ window.NexusExt = window.NexusExt || {};
 .nxtk-rd-ask-more:hover{color:var(--nxtk-accent-hover,#ecaa5a)}
 .nxtk-rd-option:focus-visible,.nxtk-rd-close:focus-visible,.nxtk-rd-ask-more:focus-visible{outline:2px solid var(--nxtk-accent-hover,#ecaa5a);outline-offset:2px}
 @media (max-width:560px){.nxtk-rd-ask{padding:20px}.nxtk-rd-options{grid-template-columns:1fr}}
-@media (prefers-reduced-motion:reduce){.nxtk-rd-bar>span,.nxtk-rd-btn,.nxtk-rd-option,.nxtk-rd-close{transition:none}.nxtk-rd-ask{animation:none}}
+@media (prefers-reduced-motion:reduce){.nxtk-rd-bar>span,.nxtk-rd-btn,.nxtk-rd-option,.nxtk-rd-close,.nxtk-rd-file-download{transition:none}.nxtk-rd-ask{animation:none}}
+#download-section .bg-surface-low,.space-y-6>.bg-surface-low,.rounded.bg-surface-low{position:relative;isolation:isolate;box-sizing:border-box;width:100%;margin-top:14px;padding:22px 26px!important;border:1px solid var(--nxtk-border,rgba(255,255,255,.1))!important;border-radius:var(--nxtk-radius-md,16px)!important;background:radial-gradient(circle at 50% -10%,rgba(217,143,64,.14),transparent 65%),linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01)),var(--nxtk-glass-tint-deep,rgba(10,12,22,.94))!important;box-shadow:inset 0 1px 0 0 rgba(255,255,255,.12),0 16px 40px rgba(0,0,0,.38),var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.2))!important;-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);color:var(--nxtk-text,#eceaf2)!important;font:400 14px/1.5 "Inter",system-ui,sans-serif!important;text-align:center!important;transition:border-color .2s,box-shadow .2s}
+#download-section .bg-surface-low:hover,.space-y-6>.bg-surface-low:hover{border-color:var(--nxtk-accent-border,rgba(217,143,64,.45))!important;box-shadow:inset 0 1px 0 0 rgba(255,255,255,.16),0 20px 48px rgba(0,0,0,.45),var(--nxtk-accent-glow,0 0 28px rgba(217,143,64,.3))!important}
+#download-section .bg-surface-low::after,.space-y-6>.bg-surface-low::after{content:"NexusMods Bypass";position:absolute;top:14px;right:16px;padding:3px 10px;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.4));border-radius:999px;background:var(--nxtk-accent-soft,rgba(217,143,64,.15));color:var(--nxtk-accent-hover,#ecaa5a);font:600 11px/1 "Inter",system-ui,sans-serif;letter-spacing:.3px;pointer-events:none;opacity:.92}
+#download-section .bg-surface-low .font-semibold,.space-y-6>.bg-surface-low .font-semibold{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;margin:0 0 8px!important;color:var(--nxtk-text-bright,#f8f8fc)!important;font-size:16px!important;font-weight:700!important;letter-spacing:-.2px!important;line-height:1.35!important}
+#download-section .bg-surface-low .font-semibold::before,.space-y-6>.bg-surface-low .font-semibold::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--nxtk-accent,#d98f40);box-shadow:0 0 10px var(--nxtk-accent,#d98f40),0 0 4px #fff;animation:nxtk-pulse-dot 1.8s ease-in-out infinite}
+@keyframes nxtk-pulse-dot{0%,100%{opacity:.45;transform:scale(.85)}50%{opacity:1;transform:scale(1.2);box-shadow:0 0 16px var(--nxtk-accent,#d98f40),0 0 6px #fff}}
+#download-section .bg-surface-low p:not(.font-semibold),.space-y-6>.bg-surface-low p:not(.font-semibold),#download-section .bg-surface-low .text-neutral-moderate,.space-y-6>.bg-surface-low .text-neutral-moderate{margin:4px 0 0!important;color:var(--nxtk-text-muted,rgba(236,234,242,.7))!important;font-size:13.5px!important;line-height:1.5!important}
+#download-section .bg-surface-low a.nxm-link,#download-section .bg-surface-low a,.space-y-6>.bg-surface-low a.nxm-link,.space-y-6>.bg-surface-low a{display:inline-flex!important;align-items:center!important;gap:6px!important;margin-left:8px!important;padding:5px 14px!important;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45))!important;border-radius:999px!important;background:var(--nxtk-accent-soft,rgba(217,143,64,.16))!important;color:var(--nxtk-accent-hover,#ecaa5a)!important;font-size:13px!important;font-weight:600!important;text-decoration:none!important;cursor:pointer!important;box-shadow:0 2px 8px rgba(0,0,0,.2)!important;vertical-align:middle!important;transition:all .2s cubic-bezier(.32,.72,0,1)!important}
+#download-section .bg-surface-low a.nxm-link:hover,#download-section .bg-surface-low a:hover,.space-y-6>.bg-surface-low a.nxm-link:hover,.space-y-6>.bg-surface-low a:hover{background:rgba(217,143,64,.28)!important;border-color:var(--nxtk-accent,#d98f40)!important;color:#fff!important;box-shadow:0 0 16px rgba(217,143,64,.45),0 4px 12px rgba(0,0,0,.3)!important;transform:translateY(-1px)!important}
+#download-section .bg-surface-low a.nxm-link:active,#download-section .bg-surface-low a:active,.space-y-6>.bg-surface-low a.nxm-link:active,.space-y-6>.bg-surface-low a:active{transform:translateY(0) scale(.98)!important}
+#download-section .bg-surface-low a:focus-visible,.space-y-6>.bg-surface-low a:focus-visible{outline:2px solid var(--nxtk-accent-hover,#ecaa5a)!important;outline-offset:2px!important}
+#download-section .bg-surface-low button:not(.nxm-link),.space-y-6>.bg-surface-low button:not(.nxm-link){min-height:34px!important;padding:8px 16px!important;border:1px solid var(--nxtk-border,rgba(255,255,255,.1))!important;border-radius:var(--nxtk-radius-sm,12px)!important;background:var(--nxtk-glass-tint-soft,rgba(28,30,44,.7))!important;color:var(--nxtk-text-bright,#f8f8fc)!important;font:600 13px/1 "Inter",system-ui,sans-serif!important;cursor:pointer!important;transition:transform .18s,border-color .18s!important}
+#download-section .bg-surface-low button:not(.nxm-link):hover,.space-y-6>.bg-surface-low button:not(.nxm-link):hover{transform:translateY(-1px)!important;border-color:var(--nxtk-border-strong,rgba(255,255,255,.18))!important}
+#download-section .bg-surface-low .h-4,#download-section .bg-surface-low [role=progressbar],.space-y-6>.bg-surface-low .h-4,.space-y-6>.bg-surface-low [role=progressbar]{height:8px!important;overflow:hidden!important;border-radius:999px!important;background:rgba(255,255,255,.08)!important;margin:10px 0!important}
+#download-section .bg-surface-low .h-4>div,#download-section .bg-surface-low [role=progressbar]>*,.space-y-6>.bg-surface-low .h-4>div,.space-y-6>.bg-surface-low [role=progressbar]>*{height:100%!important;border-radius:inherit!important;background:linear-gradient(90deg,var(--nxtk-accent-dim,#b87a30),var(--nxtk-accent-hover,#ecaa5a))!important;box-shadow:var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.35))!important}
+@media (max-width:560px){#download-section .bg-surface-low::after,.space-y-6>.bg-surface-low::after{position:static;display:inline-block;margin-bottom:12px}}
 `;
 
   // Nexus builds and relabels the download card after load (and inside shadow roots), so the binding
@@ -2822,12 +2873,18 @@ window.NexusExt = window.NexusExt || {};
     // Handing a link to Vortex asks the browser to open another program, then counts down to close this tab
     // behind a "Keep open" button. Neither should happen in a tab nobody is looking at, so it waits to be shown.
     if (isNMM && !await waitUntilShown(autoStartKey)) return;
-    if (!isNMM && await nexusResumableDownloadFor(fileId)) {
-      Logger.info(`No download started: Nexus shows its own resumable download for file ${fileId}.`);
-      return;
-    }
-    if (!isNMM && await openLargeFileChooser(fileId)) {
-      Logger.info(`Large file ${fileId}: Nexus asks standard or resumable; the download waits for the answer.`);
+    // Whether a large file's download is resumable is the user's answer to Nexus's question: no automatic
+    // start goes around it, also when the card is not drawn in time (its own button is left to the user).
+    const largeCard = isNMM ? null : getCurrentNativeDownloadHost(fileId, false);
+    if (offersResumableChoice(largeCard)) {
+      const state = await largeFileCardState(largeCard);
+      if (state === 'resumable') {
+        Logger.info(`No download started: Nexus shows its own resumable download for file ${fileId}.`);
+      } else if (state === 'ready' && await openLargeFileChooser(fileId)) {
+        Logger.info(`Large file ${fileId}: Nexus asks standard or resumable; the download waits for the answer.`);
+      } else {
+        Logger.info(`Large file ${fileId}: Nexus drew no download button in time; nothing started, its button waits for the user.`);
+      }
       return;
     }
     // A large file's card is looked at once the page has loaded, and the page may have moved on by then.
@@ -3206,7 +3263,15 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
-  async function loadApiFileList() {
+  // One request at a time: a download waiting for a version (startManagedFileDownload) and the page's own
+  // pass share it.
+  let apiFileListLoad = null;
+  function loadApiFileList() {
+    apiFileListLoad ||= fetchApiFileList().finally(() => { apiFileListLoad = null; });
+    return apiFileListLoad;
+  }
+
+  async function fetchApiFileList() {
     const api = officialApi();
     if (!api || !isModPage()) return;
     const modId = currentModId();

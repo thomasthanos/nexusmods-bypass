@@ -2331,6 +2331,15 @@
   "rdBtnDirect": {
     "message": "Stattdessen direkt herunterladen"
   },
+  "rdBtnDownload": {
+    "message": "Herunterladen"
+  },
+  "ariaMoreDownloadOptions": {
+    "message": "Weitere Download-Optionen"
+  },
+  "ariaSelectionOptions": {
+    "message": "Auswahloptionen"
+  },
   "setSectionBasics": {
     "message": "Grundlagen"
   },

@@ -42,19 +42,36 @@
       .trim();
   }
 
+  // The names a collection file can be on disk under. Its API uri is the archive's name for an older
+  // file, and a content address for a newer one (d6/87/9c/<uuid>, seen 2026-11-01). Nexus names a newer
+  // file's archive "<file name>-<mod id>-<version>-<time>", a version with letters in it ("1-0a") too.
+  // 3.3.7 and older saved a file whose link had no name as "<mod name>-<file id>" (now the browser names
+  // it, background.js downloadPlan), and a mod's name is often not its file's.
   function normalizeModKeys(mod) {
+    const fileId = String(mod?.fileId || mod?.file?.fileId || '');
+    const modId = String(mod?.file?.mod?.modId || '');
+    const modName = normalizeImportName(mod?.file?.mod?.name);
     return {
       uri: normalizeImportName(mod?.file?.uri),
-      name: normalizeImportName(mod?.file?.name)
+      name: normalizeImportName(mod?.file?.name),
+      modId: /^\d+$/.test(modId) ? modId : '',
+      saved: modName && /^\d+$/.test(fileId) ? `${modName} ${fileId}` : ''
     };
   }
+
+  // Digits only after a name: a "(1)" copy, or Nexus's "-<mod id>-<version>-<time>" with a plain version.
+  const followedByDigits = (candidate, prefix) => candidate.startsWith(prefix)
+    && /^[0-9 ]*$/.test(candidate.slice(prefix.length));
 
   function normalizedNameMatches(candidate, keys) {
     if (!candidate) return false;
     if (keys.uri.length >= 4 && keys.uri === candidate) return true;
+    if (keys.saved && followedByDigits(candidate, keys.saved)) return true;
     if (keys.name.length < 4 || !candidate.startsWith(keys.name)) return false;
-    const suffix = candidate.slice(keys.name.length).trim();
-    return suffix === '' || /^[0-9 ]+$/.test(suffix);
+    if (followedByDigits(candidate, keys.name)) return true;
+    // Nexus's own name, by this file's mod: any version after the mod id.
+    const byMod = `${keys.name} ${keys.modId}`;
+    return !!keys.modId && candidate.startsWith(byMod) && /^(?: [\p{L}\p{N}]+)*$/u.test(candidate.slice(byMod.length));
   }
 
   const IMPORT_FILE_EXTENSIONS = NXTK.ARCHIVE_FILE_EXTENSIONS;
@@ -249,6 +266,7 @@
     }
 
     menu.classList.remove('nxtk-open');
+    menu.setAttribute('inert', '');
     openDropdownMenuSet.delete(menu);
     menu.parentElement?.classList.remove('nxtk-dropdown-active');
     findDropdownTrigger(menu)?.setAttribute('aria-expanded', 'false');
@@ -408,8 +426,12 @@
     const closeMenu = () => {
       setMenuOpen(false);
     };
+    // A closed menu is only made transparent (so it can fade), which left its items in the accessibility
+    // tree and in Tab order (QA 2026-11-01): inert takes it out of both until it opens.
     const syncExpandedState = () => {
-      button.setAttribute('aria-expanded', menu.classList.contains('nxtk-open') ? 'true' : 'false');
+      const open = menu.classList.contains('nxtk-open');
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      menu.toggleAttribute('inert', !open);
     };
 
     const toggleMenu = (e) => {
@@ -1039,7 +1061,7 @@
             <div class="nxtk-btn-split nxtk-grow">
               <button class="nxtk-btn nxtk-btn-primary nxtk-btn-wide nxtk-btn-collection" id="nxtk-dl-all">${L('deckDownloadAll', 'Download all mods')} <span class="nxtk-badge nxtk-badge-outline" id="nxtk-all-count"></span></button>
               <div class="nxtk-dropdown">
-                <button type="button" class="nxtk-btn nxtk-btn-primary nxtk-btn-icon nxtk-btn-collection nxtk-btn-collection-toggle" id="nxtk-menu-toggle">${svgIcon('chevronDown')}</button>
+                <button type="button" class="nxtk-btn nxtk-btn-primary nxtk-btn-icon nxtk-btn-collection nxtk-btn-collection-toggle" id="nxtk-menu-toggle" aria-label="${L('ariaMoreDownloadOptions', 'More download options')}">${svgIcon('chevronDown')}</button>
                 <div class="nxtk-dropdown-menu nxtk-selector-dropdown" id="nxtk-dl-menu">
                   <button class="nxtk-selector-item" id="nxtk-dl-mandatory">
                     <span class="nxtk-selector-copy">
@@ -1604,7 +1626,7 @@
         <div class="nxtk-modal-header-actions">
           <span class="nxtk-badge nxtk-badge-accent" id="nxtk-sel-count"></span>
           <div class="nxtk-dropdown">
-            <button type="button" class="nxtk-btn nxtk-btn-secondary nxtk-btn-icon" id="nxtk-sel-opts-toggle">${svgIcon('dots')}</button>
+            <button type="button" class="nxtk-btn nxtk-btn-secondary nxtk-btn-icon" id="nxtk-sel-opts-toggle" aria-label="${L('ariaSelectionOptions', 'Selection options')}">${svgIcon('dots')}</button>
             <div class="nxtk-dropdown-menu" id="nxtk-sel-opts-menu">
               <button class="nxtk-dropdown-item" id="nxtk-sel-all">${L('selSelectAll', 'Select all')} ${svgIcon('checkAll')}</button>
               <button class="nxtk-dropdown-item" id="nxtk-desel-all">${L('selDeselectAll', 'Deselect all')} ${svgIcon('close')}</button>

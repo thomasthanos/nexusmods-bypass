@@ -2696,6 +2696,15 @@
     "message": "Direct download instead",
     "description": "Resumable-download panel link: stop using the resumable download and download the file directly."
   },
+  "rdBtnDownload": {
+    "message": "Download"
+  },
+  "ariaMoreDownloadOptions": {
+    "message": "More download options"
+  },
+  "ariaSelectionOptions": {
+    "message": "Selection options"
+  },
   "setSectionBasics": {
     "message": "Basics"
   },

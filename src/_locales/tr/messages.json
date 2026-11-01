@@ -2331,6 +2331,15 @@
   "rdBtnDirect": {
     "message": "Bunun yerine doğrudan indir"
   },
+  "rdBtnDownload": {
+    "message": "İndir"
+  },
+  "ariaMoreDownloadOptions": {
+    "message": "Diğer indirme seçenekleri"
+  },
+  "ariaSelectionOptions": {
+    "message": "Seçim seçenekleri"
+  },
   "setSectionBasics": {
     "message": "Temel"
   },

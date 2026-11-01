@@ -468,43 +468,91 @@ const DOWNLOAD_CONFLICT_ACTION = 'uniquify';
 
 // Issue #34: a file the extension names is always saved in the browser's download location. With "Ask
 // where to save each file" on, Chromium then opens that folder instead of the one picked last, so on
-// Opera files meant for D:\mods landed in C:\Users\…\Downloads. With no folder set and the name already
-// in the link, the browser places the file as it places its own downloads. The extension still names
-// it for a folder, for a link without a usable name, and for a Mod Organizer 2 .meta, which can only
-// be written beside a file in that location. saveAs: false is Chromium's default, so its own setting
-// still decides there; Firefox saves without asking, as before.
-function downloadRequest(url, folder, requestedName, { writeMo2Meta = false } = {}) {
+// Opera files meant for D:\mods landed in C:\Users\…\Downloads. With no folder set, the browser places
+// the file as it places its own downloads. The extension places it for a folder, and for a Mod
+// Organizer 2 .meta, which can only be written beside a file in that location. saveAs: false is
+// Chromium's default, so its own setting still decides there; Firefox saves without asking, as before.
+//
+// The name is the one in the link. A newer Nexus file's link has none (files.nexus-cdn.com/d6/87/9c/<uuid>,
+// checked on 2026-11-01; neither the card's file-uri nor the API's uri has it any more): its name and real
+// extension come only in the answer's Content-Disposition, which the page cannot read and the browser
+// does. Such a file was named "<mod>-<file id>.zip", a 7z archive included. Now the browser names it,
+// and where the extension places it, Chromium's onDeterminingFilename moves that name into the folder.
+// Firefox has no such event: there such a file keeps the browser's name and place, and gets no .meta.
+// folder: where in the download location the file ends up ('' for the location itself), or null where
+// the browser places it.
+function downloadPlan(url, folder, { writeMo2Meta = false } = {}) {
   const request = { url, conflictAction: DOWNLOAD_CONFLICT_ACTION, saveAs: false };
-  const browserPlaces = !writeMo2Meta && !downloadSubfolder(folder) && NXTK.downloadNameFromUrl(url) === requestedName;
-  if (!browserPlaces) request.filename = buildDownloadPath(folder, requestedName);
-  return request;
-}
-
-const DOWNLOAD_EXTENSIONS = new Set(NXTK.DOWNLOAD_FILE_EXTENSIONS);
-
-function extractDownloadExtension(value) {
-  let candidate = String(value || '').trim();
-  try {
-    const parsed = new URL(candidate);
-    candidate = decodeURIComponent(parsed.pathname.split('/').pop() || '');
-  } catch (_) {
-    candidate = candidate.split(/[?#]/, 1)[0];
+  const name = NXTK.downloadNameFromUrl(url);
+  const dir = downloadSubfolder(folder);
+  if (!dir && !writeMo2Meta) return { request, name, folder: null, browserNamed: false };
+  if (name) {
+    request.filename = buildDownloadPath(folder, name);
+    return { request, name, folder: dir, browserNamed: false };
   }
-  const match = candidate.match(/\.([a-z0-9]{1,8})$/i);
-  if (!match) return '';
-  const extension = match[1].toLowerCase();
-  return DOWNLOAD_EXTENSIONS.has(extension) ? `.${extension}` : '';
+  const placeable = !!chrome.downloads?.onDeterminingFilename?.addListener;
+  return { request, name, folder: placeable ? dir : null, browserNamed: placeable };
 }
 
-function hasFileExtension(name) {
-  return !!extractDownloadExtension(name);
+// The extension's downloads whose names are not settled yet, by the link they were asked from: a file the
+// browser names and the extension places ({ folder }), or one the extension names ({ filename }). The
+// listener is attached only while a file waits to be placed, so the browser's own downloads are not held
+// up by it. Checked live on 2026-11-01: while any onDeterminingFilename listener of the extension is
+// attached, Chrome drops the filename the extension gave downloads.download (a .meta was saved as
+// "download" in the download location), so then the listener names those too.
+const pendingDownloadNames = new Map();
+const PENDING_DOWNLOAD_NAME_MAX_AGE_MS = 2 * 60 * 1000;
+
+function nameOwnDownload(item, suggest) {
+  const pending = pendingDownloadNames.get(item?.url);
+  if (!pending || item.byExtensionId !== chrome.runtime?.id) return;
+  const filename = typeof pending.filename === 'string'
+    ? pending.filename
+    : buildDownloadPath(pending.folder, String(item.filename || '').split(/[\\/]/).pop());
+  // Suggested before the listener can be detached: Chrome ignores what a removed listener suggests.
+  suggest({ filename, conflictAction: pending.conflictAction || DOWNLOAD_CONFLICT_ACTION });
+  forgetDownloadName(item.url);
 }
 
-function withFallbackExtension(name, fallbackExtension) {
-  const cleanName = String(name || '').trim();
-  if (!cleanName || hasFileExtension(cleanName)) return cleanName;
-  const extension = String(fallbackExtension || '').trim().toLowerCase();
-  return /^\.[a-z0-9]{1,8}$/.test(extension) ? cleanName + extension : cleanName;
+function syncDownloadNameListener() {
+  const event = chrome.downloads?.onDeterminingFilename;
+  if (!event?.addListener) return;
+  const placing = [...pendingDownloadNames.values()].some((entry) => typeof entry.folder === 'string');
+  if (placing && !event.hasListener?.(nameOwnDownload)) event.addListener(nameOwnDownload);
+  else if (!placing) event.removeListener?.(nameOwnDownload);
+}
+
+function expectDownloadName(url, entry) {
+  if (!chrome.downloads?.onDeterminingFilename?.addListener) return;
+  const now = Date.now();
+  for (const [key, pending] of pendingDownloadNames) {
+    if (now - pending.at > PENDING_DOWNLOAD_NAME_MAX_AGE_MS) pendingDownloadNames.delete(key);
+  }
+  pendingDownloadNames.set(url, { ...entry, at: now });
+  syncDownloadNameListener();
+}
+
+function forgetDownloadName(url) {
+  pendingDownloadNames.delete(url);
+  syncDownloadNameListener();
+}
+
+// Starts a planned download: resolves with its id, or rejects with what the browser said.
+function startPlannedDownload(plan, onStarted = () => {}) {
+  const { url, filename } = plan.request;
+  if (plan.browserNamed) expectDownloadName(url, { folder: plan.folder });
+  else if (filename) expectDownloadName(url, { filename });
+  return new Promise((resolve, reject) => {
+    chrome.downloads.download(plan.request, (id) => {
+      const error = getRuntimeError();
+      if (error || id === undefined) {
+        forgetDownloadName(url);
+        return reject(new Error(error || 'download_not_started'));
+      }
+      onStarted(id);
+      resolve(id);
+    });
+  });
 }
 
 const RETIRED_STORAGE_KEYS = ['nxtk_managed_downloads', 'nxtk_download_ui_default_reset'];
@@ -580,11 +628,8 @@ const DOWNLOAD_HANDLERS = {
     const verdict = NXTK.validateDownloadTarget(url, { method: 1 });
     if (!verdict.ok) throw new Error(`unsafe-target:${verdict.detail}`);
 
-    const requestedName = withFallbackExtension(
-      payload?.filename || 'nexus-download',
-      extractDownloadExtension(verdict.url) || payload?.fallbackExtension || '.zip'
-    );
-    const filename = buildDownloadPath(payload?.folder, requestedName);
+    // The name in the link, if it has one; one without is named by the browser (downloadPlan).
+    const urlName = NXTK.downloadNameFromUrl(verdict.url);
     const now = Date.now();
     for (const [key, entry] of recentDownloadStarts) {
       if (now - entry.at > DOWNLOAD_DEDUPE_WINDOW_MS) recentDownloadStarts.delete(key);
@@ -610,28 +655,23 @@ const DOWNLOAD_HANDLERS = {
           }
         }
       }
-      const existing = findDuplicateDownload(await searchRecentDownloads(now), { url: verdict.url, filename: requestedName, now });
-      if (existing) return { downloadId: existing.id, filename: existing.filename || filename, duplicate: true };
+      const existing = findDuplicateDownload(await searchRecentDownloads(now), { url: verdict.url, filename: urlName, now });
+      if (existing) return { downloadId: existing.id, filename: existing.filename || urlName, duplicate: true };
       const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-      const request = downloadRequest(verdict.url, payload?.folder, requestedName, { writeMo2Meta: settings?.WriteMo2Meta === true });
+      const plan = downloadPlan(verdict.url, payload?.folder, { writeMo2Meta: settings?.WriteMo2Meta === true });
       let metaSaved = () => {};
-      const downloadId = await new Promise((resolve, reject) => {
-        chrome.downloads.download(request, (id) => {
-          const error = getRuntimeError();
-          if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
-          // Before anything else runs: the file can be complete before its .meta details are saved.
-          pendingSingleMo2Meta.set(id, new Promise((done) => { metaSaved = done; }));
-          resolve(id);
-        });
+      const downloadId = await startPlannedDownload(plan, (id) => {
+        // Before anything else runs: the file can be complete before its .meta details are saved.
+        pendingSingleMo2Meta.set(id, new Promise((done) => { metaSaved = done; }));
       });
       // A .meta for Mod Organizer 2 is a convenience: if it cannot be set up, the download goes on.
       try {
-        await rememberSingleMo2Meta(downloadId, payload, sender, request.filename || '').catch((cause) => recordBackgroundError('MO2 meta', cause));
+        await rememberSingleMo2Meta(downloadId, payload, sender, plan.folder).catch((cause) => recordBackgroundError('MO2 meta', cause));
       } finally {
         pendingSingleMo2Meta.delete(downloadId);
         metaSaved();
       }
-      return { downloadId, filename: request.filename || requestedName };
+      return { downloadId, filename: plan.request.filename || urlName };
     })();
     if (fileKey) {
       entry.result = result;
@@ -1211,30 +1251,17 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   };
 }
 
-async function ndcDownloadRequest(job, item, url) {
-  // The same name a single-mod download gets: the file name in the link, else "<mod name>-<file id>".
-  // Items saved before modName existed fall back to the Nexus file name.
-  const fallbackName = item.modName ? `${item.modName}-${item.fileId}` : item.name;
-  const requestedName = withFallbackExtension(
-    NXTK.downloadNameFromUrl(url) || fallbackName || 'nexus-download',
-    extractDownloadExtension(url) || '.zip'
-  );
+// The same as a single-mod download's (downloadPlan): the name in the link, else the browser's.
+async function ndcDownloadPlan(job, url) {
   const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-  return downloadRequest(url, job.folder, requestedName, { writeMo2Meta: settings?.WriteMo2Meta === true });
+  return downloadPlan(url, job.folder, { writeMo2Meta: settings?.WriteMo2Meta === true });
 }
 
 async function startNdcDownload(job, item, url) {
-  const request = await ndcDownloadRequest(job, item, url);
-  const downloadId = await new Promise((resolve, reject) => {
-    chrome.downloads.download(request, (id) => {
-      const error = getRuntimeError();
-      if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
-      ndcDownloadJobs.set(id, job.id);
-      resolve(id);
-    });
-  });
-  // '' when the browser placed the file: where it went inside the download location is not known.
-  return { downloadId, filename: request.filename || '' };
+  const plan = await ndcDownloadPlan(job, url);
+  const downloadId = await startPlannedDownload(plan, (id) => ndcDownloadJobs.set(id, job.id));
+  // filename: '' when the browser named the file. folder: where its .meta goes, null for none.
+  return { downloadId, filename: plan.request.filename || '', folder: plan.folder };
 }
 
 // A start marker older than this is not trusted: a download that old is no longer this attempt's.
@@ -1299,13 +1326,15 @@ async function adoptStartedNdcDownload(job, item, startIndex) {
       return null;
     }
   }
-  const request = found ? await ndcDownloadRequest(job, item, found.url || found.finalUrl) : null;
+  const plan = found ? await ndcDownloadPlan(job, found.url || found.finalUrl) : null;
   const transition = await mutateNdcJobIf(job.id, idleOnItem(startIndex), (current) => {
     clearNdcStartMarker(current);
     if (!found) return;
     current.activeDownloadId = found.id;
     current.activeDownloadPath = job.startingPath;
-    current.activeFilename = request?.filename || '';
+    current.activeFilename = plan?.request.filename || '';
+    // A file the browser named was placed by a worker that has since stopped: where is not known.
+    current.activeFolder = plan && !plan.browserNamed ? plan.folder : null;
     current.rateLimitStrikes = 0;
     current.cloudflareStrikes = 0;
     current.waitingUntil = 0;
@@ -1684,6 +1713,7 @@ async function advanceNdcJob(jobId) {
         current.activeDownloadId = started.downloadId;
         current.activeDownloadPath = startedPath;
         current.activeFilename = started.filename;
+        current.activeFolder = started.folder;
         clearNdcStartMarker(current);
         current.rateLimitStrikes = 0;
         current.cloudflareStrikes = 0;
@@ -1860,24 +1890,29 @@ function releaseTextDownloadUrl(downloadId) {
 }
 
 // Opt-in (WriteMo2Meta). Saved in the file's folder under the name the file has on disk, so a
-// uniquified "(1)" copy gets a .meta of its own.
-async function writeMo2Meta(item, relativeName, archivePath) {
-  if (!item.modId || !relativeName || !archivePath) return;
+// uniquified "(1)" copy gets a .meta of its own. folder: where the extension placed the file in the
+// download location ('' for the location itself, downloadPlan); null where the browser placed it, as
+// a .meta can only be written there.
+async function writeMo2Meta(item, folder, archivePath) {
+  if (!item.modId || typeof folder !== 'string' || !archivePath) return;
   const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
   if (settings?.WriteMo2Meta !== true) return;
-  const folder = downloadFolderOf(relativeName);
   const archiveName = archivePath.split(/[\\/]/).pop();
   const text = mo2MetaText({ domain: item.domain, modId: item.modId, fileId: item.fileId, modName: item.modName, version: item.version });
   const url = textDownloadUrl(text);
+  const filename = `${folder ? `${folder}/` : ''}${archiveName}.meta`;
+  // Named by the extension also while a placed file's name is pending (see pendingDownloadNames).
+  expectDownloadName(url, { filename, conflictAction: 'overwrite' });
   await new Promise((resolve, reject) => {
     chrome.downloads.download({
       url,
-      filename: `${folder ? `${folder}/` : ''}${archiveName}.meta`,
+      filename,
       conflictAction: 'overwrite',
       saveAs: false
     }, (id) => {
       const error = getRuntimeError();
       if (error || id === undefined) {
+        forgetDownloadName(url);
         if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         return reject(new Error(error || 'download_not_started'));
       }
@@ -1885,6 +1920,13 @@ async function writeMo2Meta(item, relativeName, archivePath) {
       resolve(id);
     });
   });
+}
+
+// Where a job's current file is in the download location, for its .meta (writeMo2Meta). A job saved by
+// an older worker has only the name the extension gave the file, '' where the browser placed it.
+function activeMetaFolder(job) {
+  if (job.activeFolder !== undefined) return job.activeFolder;
+  return job.activeFilename ? downloadFolderOf(job.activeFilename) : null;
 }
 
 // E-1u4nb29: a mod saved from its page in the browser and installed with Mod Organizer 2 had no
@@ -1957,9 +1999,10 @@ function nexusModPageOf(value) {
 }
 
 // Game and mod come from the page that asked, not from the message; the name and version only label it.
-async function rememberSingleMo2Meta(downloadId, payload, sender, relativeName) {
+// folder: where the file goes in the download location, null where the browser places it (downloadPlan).
+async function rememberSingleMo2Meta(downloadId, payload, sender, folder) {
   const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-  if (settings?.WriteMo2Meta !== true) return;
+  if (settings?.WriteMo2Meta !== true || typeof folder !== 'string') return;
   const page = nexusModPageOf(sender?.url || sender?.tab?.url);
   const fileId = String(payload?.fileId ?? '');
   if (!page || !/^\d{1,12}$/.test(fileId)) return;
@@ -1968,7 +2011,7 @@ async function rememberSingleMo2Meta(downloadId, payload, sender, relativeName) 
     fileId,
     modName: String(payload?.modName || '').trim().slice(0, 300),
     version: String(payload?.version ?? '').trim().slice(0, 40),
-    relativeName
+    folder
   });
 }
 
@@ -1980,7 +2023,9 @@ async function writeSingleMo2Meta(downloadId) {
   if (!entry) return;
   await sessionRemove(key);
   const record = await searchDownload(downloadId);
-  await writeMo2Meta(entry, entry.relativeName, record?.filename);
+  // An entry an older worker saved has the name it gave the file instead of its folder.
+  const folder = typeof entry.folder === 'string' ? entry.folder : (entry.relativeName ? downloadFolderOf(entry.relativeName) : null);
+  await writeMo2Meta(entry, folder, record?.filename);
 }
 
 async function forgetSingleMo2Meta(downloadId) {
@@ -2055,6 +2100,33 @@ function jobSkipCount(job) {
 
 function jobSkippedList(job) {
   return Array.isArray(job?.skipped) ? job.skipped.slice(0, NXTK.MAX_TRACKED_SKIPS) : [];
+}
+
+// The files a job is past (before its index), for a page that attaches to it after a reload: its run
+// summary starts from these. A file not among its failures or skips was downloaded. QA on 2026-11-01:
+// Pause at 10/53, reload, Resume, Stop at 35/53 ended with "25 downloaded", the first 10 missing.
+async function ndcJobOutcomesSoFar(job) {
+  const items = (await readNdcJobItems(job)).slice(0, Math.max(0, Number(job.index) || 0));
+  const failures = Array.isArray(job.failed) ? job.failed.slice() : [];
+  const skips = jobSkippedList(job).map((entry) => String(entry.fileId));
+  const sent = [];
+  const failed = [];
+  for (const item of items) {
+    const label = { name: String(item.name || ''), pageUrl: String(item.pageUrl || '') };
+    const failure = failures.findIndex((entry) => String(entry.fileId) === String(item.fileId));
+    if (failure >= 0) {
+      failed.push({ ...label, code: String(failures[failure].code || 'unknown') });
+      failures.splice(failure, 1);
+      continue;
+    }
+    const skip = skips.indexOf(String(item.fileId));
+    if (skip >= 0) {
+      skips.splice(skip, 1);
+      continue;
+    }
+    sent.push(label);
+  }
+  return { sent, failed };
 }
 
 function jobFailureCount(job) {
@@ -2509,7 +2581,7 @@ async function applyNdcDownloadTerminal(job, downloadId, state, error) {
   job = transition.job;
   // A meta file is a convenience: if it cannot be written, the collection still carries on.
   if (outcome === 'complete') {
-    await writeMo2Meta(item, job.activeFilename, confirmedRecord?.filename).catch((cause) => recordBackgroundError('MO2 meta', cause));
+    await writeMo2Meta(item, activeMetaFolder(job), confirmedRecord?.filename).catch((cause) => recordBackgroundError('MO2 meta', cause));
   }
   if (cannotSave) {
     handledTerminalDownloads.add(downloadId);
@@ -2940,7 +3012,8 @@ const NDC_QUEUE_HANDLERS = {
       total: ndcJobItemCount(job),
       completed: job.completed,
       failedCount: jobFailureCount(job),
-      type: job.type
+      type: job.type,
+      ...await ndcJobOutcomesSoFar(job)
     };
   },
 

@@ -1720,10 +1720,10 @@ async function mo2MetaBesideCollectionFile() {
   global.chrome.downloads = { download: (options, cb) => { started.push(options); cb(started.length); } };
   try {
     await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
-    await context.writeMo2Meta(item, 'Collection/SkyUI.7z', '/Users/me/Downloads/Collection/SkyUI (1).7z');
+    await context.writeMo2Meta(item, 'Collection', '/Users/me/Downloads/Collection/SkyUI (1).7z');
     assert.equal(started.length, 0, 'nothing is written unless the setting is on');
     await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
-    await context.writeMo2Meta(item, 'Collection/SkyUI.7z', '/Users/me/Downloads/Collection/SkyUI (1).7z');
+    await context.writeMo2Meta(item, 'Collection', '/Users/me/Downloads/Collection/SkyUI (1).7z');
     assert.equal(started[0].filename, 'Collection/SkyUI (1).7z.meta', 'the meta follows the name on disk');
     assert.equal(started[0].conflictAction, 'overwrite');
     assert.match(decodeURIComponent(started[0].url), /modid=12604/);
@@ -1747,7 +1747,7 @@ async function mo2MetaInFirefox() {
   context.Blob = Blob;
   try {
     await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
-    await context.writeMo2Meta(item, 'Collection/SkyUI.7z', '/Users/me/Downloads/Collection/SkyUI.7z');
+    await context.writeMo2Meta(item, 'Collection', '/Users/me/Downloads/Collection/SkyUI.7z');
     assert.match(started[0].url, /^blob:/, 'a blob: URL, which Firefox lets an extension download');
     assert.equal(started[0].filename, 'Collection/SkyUI.7z.meta');
     assert.match(await resolveObjectURL(started[0].url).text(), /^modid=12604$/m, 'holding the .meta');
@@ -1756,7 +1756,7 @@ async function mo2MetaInFirefox() {
 
     // A download the browser refuses lets its URL go at once.
     global.chrome.downloads = { download: (options, cb) => { started.push(options); global.chrome.runtime.lastError = { message: 'refused' }; cb(undefined); global.chrome.runtime.lastError = null; } };
-    await assert.rejects(context.writeMo2Meta(item, 'Collection/SkyUI.7z', '/Users/me/Downloads/Collection/SkyUI.7z'));
+    await assert.rejects(context.writeMo2Meta(item, 'Collection', '/Users/me/Downloads/Collection/SkyUI.7z'));
     assert.equal(resolveObjectURL(started[1].url), undefined, 'a refused download keeps nothing');
   } finally {
     delete context.Blob;
@@ -1916,7 +1916,7 @@ async function browserPlacesUnnamedDownloads() {
     }
     const unnamed = 'https://cf-files.nexus-cdn.com/1704/12604/download?md5=a';
     await single('', { url: unnamed, filename: 'SkyUI-35407' });
-    assert.equal(started.at(-1).filename, 'SkyUI-35407.zip', 'a link without a usable name still gets one');
+    assert.equal(started.at(-1).filename, undefined, 'a link without the file\'s name gets none made up: the browser names it from the answer');
     await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
     await single('');
     assert.equal(started.at(-1).filename, 'SkyUI_5_2_SE-12604-5-2SE.7z', 'a Mod Organizer 2 .meta needs the file where it can be written beside it');
@@ -1940,6 +1940,126 @@ async function browserPlacesUnnamedDownloads() {
     assert.equal(N.normalizeSetting('DownloadFolder', ''), '', 'empty is stored: the browser places each file');
   } finally {
     global.chrome.downloads = savedDownloads;
+    context.__recentDownloadStarts.clear();
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
+  }
+}
+
+// QA on 2026-11-01: 31 of a collection's 53 files were 7z archives saved as "<mod>-<file id>.zip". A newer
+// Nexus file's link carries no name (files.nexus-cdn.com/d6/87/9c/<uuid>, seen that day for file 798212):
+// its name and real extension come only in the answer's Content-Disposition, which the browser reads.
+// The browser names such a file; where the extension places it (a folder, or a .meta beside it),
+// Chromium's onDeterminingFilename puts the browser's name there. Firefox has no such event, so there
+// the file keeps the browser's name and place, and gets no .meta it could not be found beside.
+async function newerNexusFilesKeepTheirOwnName() {
+  const N = context.NXTK;
+  const H = context.__DOWNLOAD_HANDLERS;
+  const savedDownloads = global.chrome.downloads;
+  const savedSession = global.chrome.storage.session;
+  const session = {};
+  global.chrome.storage.session = {
+    get: (key, cb) => cb(key in session ? { [key]: structuredClone(session[key]) } : {}),
+    set: (items, cb) => { Object.assign(session, structuredClone(items)); if (cb) cb(); },
+    remove: (key, cb) => { delete session[key]; if (cb) cb(); }
+  };
+  const uuid = 'https://files.nexus-cdn.com/d6/87/9c/d6879c21-5ebd-4d6f-b8cc-7756784d7d65?md5=a&expires=1&user_id=2&h=x';
+  const named = 'Animation Queue Fix-82395-1-0-2-1745000000.7z';
+  const started = [];
+  const onDisk = new Map();
+  const listeners = new Set();
+  const chromium = {
+    ...(savedDownloads || {}),
+    download: (options, cb) => { started.push(options); cb(1300 + started.length); },
+    search: (query, cb) => cb(onDisk.has(query?.id) ? [{ id: query.id, state: 'complete', filename: onDisk.get(query.id) }] : []),
+    onDeterminingFilename: {
+      addListener: (fn) => listeners.add(fn),
+      removeListener: (fn) => listeners.delete(fn),
+      hasListener: (fn) => listeners.has(fn)
+    }
+  };
+  // The browser has read the answer's name: what each listener suggests for it. As in Chrome (seen live on
+  // 2026-11-01), a listener removed before it suggests counts as having changed nothing.
+  const determine = (item) => {
+    const suggested = [];
+    for (const listener of [...listeners]) {
+      listener({ byExtensionId: 'test-extension-id', ...item }, (suggestion) => {
+        if (listeners.has(listener)) suggested.push(suggestion);
+      });
+    }
+    return suggested;
+  };
+  const single = (folder) => {
+    context.__recentDownloadStarts.clear();
+    return H.DOWNLOAD_START({ url: uuid, folder, filename: 'Animation Queue Fix-798212', fallbackExtension: '.zip', fileId: '798212',
+      gameId: '1704', modName: 'Animation Queue Fix', version: '1.0.2' },
+    { url: 'https://www.nexusmods.com/skyrimspecialedition/mods/82395?tab=files&file_id=798212', tab: { id: 3 } });
+  };
+  const metas = () => started.filter((options) => options.filename?.endsWith('.meta'));
+  try {
+    global.chrome.downloads = chromium;
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
+    const plain = await single('');
+    assert.deepEqual({ ...started.at(-1) }, { url: uuid, conflictAction: 'uniquify', saveAs: false }, 'no name is made up for it');
+    assert.equal(plain.filename, '');
+    assert.equal(listeners.size, 0, 'and nothing waits to place it');
+
+    await single('NexusMods');
+    assert.equal(started.at(-1).filename, undefined, 'a folder: still the browser\'s name');
+    assert.deepEqual(determine({ id: 1, url: 'https://example.com/other.zip', filename: 'other.zip', byExtensionId: undefined }), [],
+      'a download that is not this one is left alone');
+    assert.deepEqual(determine({ id: 1302, url: uuid, filename: named }).map((s) => ({ ...s })),
+      [{ filename: `NexusMods/${named}`, conflictAction: 'uniquify' }], 'the browser\'s name, in the folder');
+    assert.equal(listeners.size, 0, 'once placed, the browser\'s other downloads are not looked at');
+
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
+    const withMeta = await single('');
+    assert.deepEqual(determine({ id: withMeta.downloadId, url: uuid, filename: named }).map((s) => ({ ...s })), [{ filename: named, conflictAction: 'uniquify' }]);
+    onDisk.set(withMeta.downloadId, `C:\\Users\\me\\Downloads\\${named}`);
+    await context.writeSingleMo2Meta(withMeta.downloadId);
+    assert.deepEqual(metas().map((options) => options.filename), [`${named}.meta`], 'its .meta beside it, under its real name');
+
+    const item = { fileId: '798212', name: 'Animation Queue Fix', modName: 'Animation Queue Fix' };
+    const fromCollection = await context.startNdcDownload({ id: 'job-uuid', folder: 'Collection' }, item, uuid);
+    assert.equal(started.at(-1).filename, undefined);
+    assert.equal(fromCollection.folder, 'Collection', 'the job knows where its .meta goes');
+    assert.deepEqual(determine({ id: fromCollection.downloadId, url: uuid, filename: named }).map((s) => s.filename), [`Collection/${named}`]);
+
+    // Checked live on 2026-11-01: while any onDeterminingFilename listener of the extension is attached,
+    // Chrome drops the filename the extension gave downloads.download (a .meta was saved as "download" in
+    // the download location). So the extension's other downloads that start meanwhile are named by it.
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
+    await single('NexusMods');
+    assert.equal(listeners.size, 1, 'a file waits to be placed');
+    const olderLink = 'https://cf-files.nexus-cdn.com/1704/12604/SkyUI_5_2_SE-12604-5-2SE.7z?md5=a&expires=1';
+    context.__recentDownloadStarts.clear();
+    await H.DOWNLOAD_START({ url: olderLink, folder: 'NexusMods', fileId: '35407', gameId: '1704' },
+      { url: 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', tab: { id: 3 } });
+    assert.deepEqual(determine({ id: 2001, url: olderLink, filename: 'SkyUI_5_2_SE-12604-5-2SE.7z' }).map((s) => ({ ...s })),
+      [{ filename: 'NexusMods/SkyUI_5_2_SE-12604-5-2SE.7z', conflictAction: 'uniquify' }], 'a file with its name in its link keeps that name and folder');
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
+    await context.writeMo2Meta({ modId: '12604', fileId: '35407', domain: 'skyrimspecialedition', modName: 'SkyUI', version: '5.2' },
+      'NexusMods', 'C:\\Users\\me\\Downloads\\NexusMods\\SkyUI_5_2_SE-12604-5-2SE.7z');
+    const metaLink = metas().at(-1).url;
+    assert.deepEqual(determine({ id: 2002, url: metaLink, filename: 'download' }).map((s) => ({ ...s })),
+      [{ filename: 'NexusMods/SkyUI_5_2_SE-12604-5-2SE.7z.meta', conflictAction: 'overwrite' }], 'and a .meta its own');
+    assert.deepEqual(determine({ id: 2003, url: uuid, filename: named }).map((s) => s.filename), [`NexusMods/${named}`],
+      'the waiting file is still placed');
+    assert.equal(listeners.size, 0);
+
+    // Firefox: no onDeterminingFilename.
+    const { onDeterminingFilename, ...firefox } = chromium;
+    void onDeterminingFilename;
+    global.chrome.downloads = firefox;
+    const sessionBefore = Object.keys(session).length;
+    const inFirefox = await single('NexusMods');
+    assert.equal(started.at(-1).filename, undefined, 'Firefox names and places it as its own download');
+    assert.equal(Object.keys(session).length, sessionBefore, 'no .meta waits for a file whose place the extension does not know');
+    assert.equal(inFirefox.filename, '');
+    const collectionInFirefox = await context.startNdcDownload({ id: 'job-uuid', folder: 'Collection' }, item, uuid);
+    assert.equal(collectionInFirefox.folder, null);
+  } finally {
+    global.chrome.downloads = savedDownloads;
+    global.chrome.storage.session = savedSession;
     context.__recentDownloadStarts.clear();
     await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
   }
@@ -2106,6 +2226,7 @@ Promise.resolve()
   .then(mo2MetaInFirefox)
   .then(singleDownloadGetsMo2Meta)
   .then(browserPlacesUnnamedDownloads)
+  .then(newerNexusFilesKeepTheirOwnName)
   .then(refusedDownloadBehaviour)
   .then(sameNamedExistingFileIsNeverSwept)
   .then(typelessRunsAreStillRecorded)
