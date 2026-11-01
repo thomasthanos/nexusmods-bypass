@@ -70,6 +70,7 @@ test('only the relay contract is accepted: no installation, OS or foreign origin
 });
 
 test('relayed reports group with the same fault from the private path and never count as an installation', async (t) => {
+  t.mock.method(Date, 'now', () => Date.parse('2026-10-23T12:00:00.000Z'));
   const { post, admin } = await fixture(t);
   assert.equal((await post('/api/ingest', extension(1, 'b'.repeat(64)))).status, 202);
   for (const n of [2, 3]) assert.equal((await post('/api/ingest/automatic', relayed(n))).status, 202);

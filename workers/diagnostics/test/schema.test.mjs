@@ -118,7 +118,8 @@ test('Store/Analytics migration upgrades existing D1 schema without changing old
   const canonical = readFileSync(schemaUrl, 'utf8');
   const migration = readFileSync(new URL('../migrations/0001_store_analytics.sql', import.meta.url), 'utf8');
   const boundary = canonical.indexOf('-- Additive: safe to apply');
-  assert.ok(boundary > 0); assert.equal(canonical.slice(boundary).trim(), migration.trim());
+  const normalizedSql = (sql) => sql.replace(/\r\n/g, '\n').trim();
+  assert.ok(boundary > 0); assert.equal(normalizedSql(canonical.slice(boundary)), normalizedSql(migration));
   const db = new DatabaseSync(':memory:'); t.after(() => db.close());
   db.exec(canonical.slice(0, boundary));
   const before = db.prepare("SELECT name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name").all();

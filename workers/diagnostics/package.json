@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Private Cloudflare diagnostics API and PWA for NexusMods Bypass.",
-  "engines": { "node": ">=24.0.0" },
+  "engines": { "node": "^24.15.0 || >=26.0.0" },
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "test:browser": "node --test test/browser/*.test.mjs",
@@ -23,14 +23,14 @@
     "compare-versions": "6.1.1",
     "error-stack-parser-es": "2.0.1",
     "fast-xml-parser": "5.11.2",
-    "hono": "4.13.13",
+    "hono": "4.13.16",
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.0",
-    "jsdom": "25.0.1",
-    "@cloudflare/workers-types": "5.20261021.1",
+    "@playwright/test": "1.64.1",
+    "jsdom": "30.1.3",
+    "@cloudflare/workers-types": "5.20261101.1",
     "typescript": "7.0.2",
-    "wrangler": "4.151.3"
+    "wrangler": "4.156.0"
   }
 }

@@ -54,6 +54,9 @@ Suggestions and questions go to <a href="https://github.com/thomasthanos/nexusmo
 
 ## 🔧 Sending a pull request
 
+Use Node.js 22.22.2+ (22.x), 24.15.0+ (24.x), or 26+ for the development tools.
+The diagnostics workspace requires Node.js 24.15.0+ (24.x) or 26+.
+
 1. **Fork the repository** and create a focused branch.
 2. **Make the smallest change** that solves the problem.
 3. **Load `src/` as an unpacked extension** and exercise the affected flow.

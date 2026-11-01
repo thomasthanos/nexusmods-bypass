@@ -55,5 +55,7 @@ export default [
     }
   },
   { files: ['tools/**/*.cjs'], languageOptions: { sourceType: 'commonjs' } },
-  { files: ['tools/**/*.mjs', 'tests/**/*.mjs', 'workers/relay/test/**/*.mjs', '*.config.mjs'], languageOptions: { sourceType: 'module' } }
+  { files: ['tools/**/*.mjs', 'tests/**/*.mjs', 'workers/relay/test/**/*.mjs', '*.config.mjs'], languageOptions: { sourceType: 'module' } },
+  // Preserve the existing assignment policy when adopting ESLint 10's recommended rules.
+  { rules: { 'no-useless-assignment': 'off' } }
 ];

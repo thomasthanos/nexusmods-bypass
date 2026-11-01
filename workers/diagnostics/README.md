@@ -94,7 +94,7 @@ All four authorized phases are delivered. Supporting CSS, shared API helpers and
 
 ## Installation and local verification
 
-Use Node.js 24 or newer. The tests use Node's built-in test runner, native TypeScript stripping, and SQLite; these development APIs are never imported into the Worker. The runtime schemas use the requested libraries and standard Web APIs.
+Use Node.js 24.15.0+ within the 24.x series, or Node.js 26+. The tests use Node's built-in test runner, native TypeScript stripping, and SQLite; these development APIs are never imported into the Worker. The runtime schemas use the requested libraries and standard Web APIs.
 
 Packages install from the repository root, where one lockfile covers the extension's tooling, this Worker and the relay: `npm ci` installs all three, `npm ci -w workers/diagnostics` only this Worker's.
 
