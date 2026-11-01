@@ -200,11 +200,11 @@
   font: 600 12px/1 "SF Pro Display", "Inter", system-ui, -apple-system, sans-serif;
   letter-spacing: 0.2px;
   color: var(--nxtk-text-bright);
+  /* About 98 % opaque, so no backdrop blur: it could not be seen through the fill, and a fixed button's blur
+     is drawn again on every frame of a scroll. */
   background:
     linear-gradient(135deg, rgba(217, 143, 64, 0.85), rgba(184, 122, 48, 0.92)),
     var(--nxtk-glass-tint-strong);
-  backdrop-filter: blur(var(--nxtk-glass-blur)) saturate(var(--nxtk-glass-saturate));
-  -webkit-backdrop-filter: blur(var(--nxtk-glass-blur)) saturate(var(--nxtk-glass-saturate));
   box-shadow: var(--nxtk-rim-strong);
   transition: var(--nxtk-transition);
   user-select: none;

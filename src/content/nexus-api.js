@@ -23,6 +23,10 @@ window.NexusExt = window.NexusExt || {};
   const MAX_INLINE_WAIT_MS = 90 * 1000;
   const PERSIST_KEY = 'nxtk_api_cache';
   const PERSIST_MAX_ENTRIES = 20;
+  // Game ids are kept apart: every game page asks for one, and reading the cached collection revisions,
+  // which can run to megabytes, only to find it cost each of those pages.
+  const PERSIST_GAMES_KEY = 'nxtk_api_games';
+  const PERSIST_GAMES_MAX_ENTRIES = 200;
   const PERSIST_MAX_CHARS = 1500000;
   const BATCH_SIZE = 50;
 
@@ -108,7 +112,8 @@ window.NexusExt = window.NexusExt || {};
     const limiter = { blockedUntil: 0, strikes: 0 };
     const memory = new Map();
     const inflight = new Map();
-    let persistedPromise = null;
+    // Storage key -> promise of its entries, each read at most once per page.
+    const persisted = new Map();
     let modsCacheVersion = 0;
     const stats = { requests: 0, cacheHits: 0, fallbacks: 0, rateLimited: 0 };
 
@@ -161,13 +166,15 @@ window.NexusExt = window.NexusExt || {};
       return { ok: false, status: 0, text: '', error: NexusExt.Errors?.create?.('aborted', { context, record: false }) || { code: 'aborted' } };
     }
 
-    function loadPersisted() {
-      if (!persistedPromise) {
-        persistedPromise = Promise.resolve().then(() => storage?.get(PERSIST_KEY)).then((stored) =>
+    const persistKeyFor = (key) => (key.startsWith('game:') ? PERSIST_GAMES_KEY : PERSIST_KEY);
+
+    function loadPersisted(storageKey) {
+      if (!persisted.has(storageKey)) {
+        persisted.set(storageKey, Promise.resolve().then(() => storage?.get(storageKey)).then((stored) =>
           stored && typeof stored === 'object' && !Array.isArray(stored) ? { ...stored } : {}
-        ).catch(() => ({}));
+        ).catch(() => ({})));
       }
-      return persistedPromise;
+      return persisted.get(storageKey);
     }
 
     async function readCache(key) {
@@ -175,7 +182,7 @@ window.NexusExt = window.NexusExt || {};
       const hit = memory.get(key);
       if (hit && hit.expires > now()) return hit.text;
       if (hit) memory.delete(key);
-      const store = await loadPersisted();
+      const store = await loadPersisted(persistKeyFor(key));
       const entry = store[key];
       if (entry && typeof entry.text === 'string') {
         memory.set(key, { text: entry.text, expires: Infinity });
@@ -188,16 +195,18 @@ window.NexusExt = window.NexusExt || {};
       if (!key) return;
       memory.set(key, { text, expires: permanent ? Infinity : now() + ttlMs });
       if (!permanent || !storage || text.length > PERSIST_MAX_CHARS) return;
-      const store = await loadPersisted();
+      const storageKey = persistKeyFor(key);
+      const maxEntries = storageKey === PERSIST_GAMES_KEY ? PERSIST_GAMES_MAX_ENTRIES : PERSIST_MAX_ENTRIES;
+      const store = await loadPersisted(storageKey);
       store[key] = { text, at: now() };
       const keys = Object.keys(store).sort((a, b) => (store[a].at || 0) - (store[b].at || 0));
       let total = keys.reduce((sum, k) => sum + (store[k].text?.length || 0), 0);
-      while (keys.length > PERSIST_MAX_ENTRIES || total > PERSIST_MAX_CHARS * 2) {
+      while (keys.length > maxEntries || total > PERSIST_MAX_CHARS * 2) {
         const oldest = keys.shift();
         total -= store[oldest]?.text?.length || 0;
         delete store[oldest];
       }
-      await storage.set(PERSIST_KEY, store);
+      await storage.set(storageKey, store);
     }
 
     function post(url, body, { signal, timeoutMs, context }) {

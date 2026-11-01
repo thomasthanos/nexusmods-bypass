@@ -29,6 +29,7 @@ function harness({ responses = [], storageData = {} } = {}) {
   let clock = 1_000_000;
   const calls = [];
   const sleeps = [];
+  const reads = [];
   const store = { ...storageData };
   const queue = [...responses];
   const api = NexusApi.createNexusApi({
@@ -37,7 +38,7 @@ function harness({ responses = [], storageData = {} } = {}) {
     random: () => 0,
     referrer: () => 'https://www.nexusmods.com/',
     storage: {
-      get: async (key) => store[key],
+      get: async (key) => { reads.push(key); return store[key]; },
       set: async (key, value) => { store[key] = JSON.parse(JSON.stringify(value)); }
     },
     request: async (url, options) => {
@@ -46,7 +47,7 @@ function harness({ responses = [], storageData = {} } = {}) {
       return next || ok({ data: { ok: true } });
     }
   });
-  return { api, calls, sleeps, store, advance: (ms) => { clock += ms; } };
+  return { api, calls, sleeps, store, reads, advance: (ms) => { clock += ms; } };
 }
 
 const ok = (json) => ({ ok: true, status: 200, text: JSON.stringify(json) });
@@ -309,6 +310,23 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     release(ok({ data: { game: { id: 1151 } } }));
     assert.deepEqual([await a, await b], ['1151', '1151']);
     assert.equal(slow.calls.length, 1, 'concurrent identical reads share one request');
+  }
+
+  // ---- A game id is kept on its own (performance review 2026-11-01). Every game page asks for one, and
+  // reading it used to read every cached collection revision too, which can run to megabytes.
+  {
+    const revisions = { 'rev:abc123:4': { text: 'x'.repeat(100000), at: 1 } };
+    const h = harness({ responses: [ok({ data: { game: { id: 1704, domainName: 'skyrimspecialedition' } } })], storageData: { nxtk_api_cache: revisions } });
+    assert.equal(await h.api.gameId('skyrimspecialedition'), '1704');
+    assert.ok(!h.reads.includes('nxtk_api_cache'), 'the cached revisions are not read for a game id');
+    assert.deepEqual(h.store.nxtk_api_cache, revisions, 'nor written');
+    assert.ok(h.store.nxtk_api_games?.['game:skyrimspecialedition'], 'the game id is kept apart');
+    const reloaded = harness({ storageData: { nxtk_api_games: h.store.nxtk_api_games, nxtk_api_cache: revisions } });
+    assert.equal(await reloaded.api.gameId('skyrimspecialedition'), '1704');
+    assert.equal(reloaded.calls.length, 0, 'and survives a page reload');
+    assert.deepEqual(reloaded.reads, ['nxtk_api_games'], 'from its own key alone');
+    const fromDisk = await reloaded.api.collectionRevisionMods({ slug: 'abc123', revision: 4 });
+    assert.equal(fromDisk.source, 'cache', 'revisions are still read from theirs');
   }
 
   // ---- Batched mod details: 120 mods -> 3 requests of <= 50.

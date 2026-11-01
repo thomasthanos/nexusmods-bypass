@@ -786,6 +786,70 @@ const stylesheetHidingDone = (async () => {
   console.log('stylesheet hiding behavior OK');
 })();
 
+// --- The API's file list only where it is used (performance review 2026-11-01) ---------------------------
+// It names an archived file Nexus lists without its id, and gives the version for a Mod Organizer 2 .meta.
+// It was fetched on every mod page. Awaited by the last block.
+const apiFileListDone = (async () => {
+  const listRequests = async (url, settings = {}) => {
+    const w = load('file-page-signed-in.html', url);
+    let asked = 0;
+    w.NexusExt.NexusApi = { shared: () => ({ gameId: async () => '1704', modFiles: async () => { asked += 1; return []; } }) };
+    w.NexusExt.Storage = {
+      getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: true, ...settings }),
+      sendDownloadCommand: async () => ({ ok: true, value: {} })
+    };
+    w.fetch = () => new Promise(() => {});
+    for (const name of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, name), 'utf8'));
+    await w.NexusExt.NNW.init();
+    // The list is asked for once the page has settled (500 ms without a change).
+    await new Promise((r) => setTimeout(r, 1200));
+    return asked;
+  };
+  const modPage = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604';
+  assert.equal(await listRequests(`${modPage}?tab=files&file_id=734848`), 0, 'a file page does not ask for the list');
+  assert.equal(await listRequests(`${modPage}?tab=files&file_id=734848`, { WriteMo2Meta: true }), 1,
+    'with .meta files on it does: the version comes from it');
+  assert.equal(await listRequests(`${modPage}?tab=files&category=archived`), 1, 'the archived files list does');
+  assert.equal(await listRequests(`${modPage}?tab=files&category=archived`, { HandleArchivedFiles: false }), 0,
+    'unless the archived files get no buttons');
+  console.log('API file list behavior OK');
+})();
+
+// --- The settings button is placed once a scroll ends, and draws no blur (performance review 2026-11-01) ---
+// Placing it looks at what is under it; that ran on every frame of a scroll. Its blur sat behind a 98 %
+// opaque fill, unseen, and was redrawn on every frame of a scroll too. Awaited by the last block.
+const fabScrollDone = (async () => {
+  const css = fs.readFileSync(path.join(root, 'src/content/content-styles.css'), 'utf8');
+  const fabRule = css.slice(css.indexOf('.nxtk-settings-fab {'), css.indexOf('}', css.indexOf('.nxtk-settings-fab {')));
+  assert.ok(fabRule.length > 40, 'the button\'s rule is found');
+  assert.ok(!/backdrop-filter/.test(fabRule), 'the button has no backdrop blur');
+
+  const w = load('file-page-signed-in.html');
+  // Every browser has it; jsdom does not.
+  w.visualViewport = null;
+  w.eval(fs.readFileSync(path.join(root, 'src/content/ui.js'), 'utf8'));
+  const computed = w.getComputedStyle.bind(w);
+  let placements = 0;
+  // Each placement starts by reading the anchor's offsets.
+  w.getComputedStyle = (element, pseudo) => {
+    if (element?.classList?.contains('nxtk-fab-anchor')) placements += 1;
+    return computed(element, pseudo);
+  };
+  w.NexusExt.UI.createSettingsFAB();
+  // Past the checks while the page settles (300 ms, 1.2 s); the next is at 3 s.
+  await new Promise((r) => setTimeout(r, 1400));
+  placements = 0;
+  for (let i = 0; i < 15; i += 1) {
+    w.dispatchEvent(new w.Event('scroll'));
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  assert.equal(placements, 0, 'not while the page scrolls');
+  await waitForState(() => placements === 1, 'once the scroll has ended');
+  await new Promise((r) => setTimeout(r, 200));
+  assert.equal(placements, 1, 'once');
+  console.log('settings button scroll behavior OK');
+})();
+
 // --- One owner per click (live test 2.10.1: SkyUI SDK downloaded twice; the requirements modal fetched
 // the MAIN file twice). The real nnw.js runs in the page; Nexus's own handlers are stand-ins. ---------
 (async () => {
@@ -881,6 +945,8 @@ const stylesheetHidingDone = (async () => {
   await adblockNoticeDone;
   await earlyStartDone;
   await stylesheetHidingDone;
+  await apiFileListDone;
+  await fabScrollDone;
   // nnw.js keeps page timers running; the suite is done.
   w.close();
   process.exit(process.exitCode || 0);

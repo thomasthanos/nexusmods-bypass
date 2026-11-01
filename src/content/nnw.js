@@ -805,7 +805,7 @@ window.NexusExt = window.NexusExt || {};
       upsellBlocker();
       archivedFileHandler();
       expandRequirementsSection();
-      loadApiFileList();
+      if (apiFileListWanted()) loadApiFileList();
     }).catch((cause) => Logger.warn('Could not apply page enhancements:', cause));
   }
 
@@ -3199,6 +3199,17 @@ window.NexusExt = window.NexusExt || {};
 
   function currentModId() {
     return normalizeModPathname(location.pathname).match(/\/mods\/(\d+)$/)?.[1] || '';
+  }
+
+  // The list names an archived file Nexus lists without its id, and gives the version for a Mod Organizer 2
+  // .meta (fileVersionOf). Nothing else needs it, so other mod pages do not ask for it.
+  function apiFileListWanted() {
+    if (cfg.WriteMo2Meta) return true;
+    try {
+      return !!cfg.HandleArchivedFiles && new URL(location.href).searchParams.get('category') === 'archived';
+    } catch (_) {
+      return false;
+    }
   }
 
   async function loadApiFileList() {

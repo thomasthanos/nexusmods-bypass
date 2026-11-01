@@ -555,7 +555,14 @@ window.NexusExt = window.NexusExt || {};
         placeFab(fab);
       });
     };
-    addEventListener('scroll', schedule, { passive: true, capture: true });
+    // A scroll moves the page under the button on every frame, and placing it looks at what is under it.
+    // Where it goes matters once the page is still, so it is placed when the scroll has ended.
+    const SCROLL_SETTLE_MS = 120;
+    let scrollTimer = 0;
+    addEventListener('scroll', () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(schedule, SCROLL_SETTLE_MS);
+    }, { passive: true, capture: true });
     addEventListener('resize', schedule, { passive: true });
     visualViewport?.addEventListener('resize', schedule, { passive: true });
     // Nexus renders file cards and the deck late; a few re-checks while the page settles cover that.
