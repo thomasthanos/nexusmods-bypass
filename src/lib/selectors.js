@@ -74,6 +74,10 @@
     slowCardHint: Object.freeze([
       'wait more', 'delay before each download', 'throttled downloads'
     ]),
+    // The ad-blocker notice another script draws on Nexus pages, seen in English only: its answer that
+    // keeps the ad blocker, and the "Allow ads" it is offered beside.
+    adblockNoticeContinue: Object.freeze(['continue with adblock']),
+    adblockNoticeAllowAds: Object.freeze(['allow ads']),
     // Nexus's resumable downloads (beta, files over 500 MB). Nexus shows these in English only.
     largeFileChooser: Object.freeze(['resumable download']),
     standardDownload: Object.freeze(['standard download']),

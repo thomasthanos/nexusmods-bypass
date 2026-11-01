@@ -7,8 +7,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 let JSDOM;
+let VirtualConsole;
 try {
-  ({ JSDOM } = await import('jsdom'));
+  ({ JSDOM, VirtualConsole } = await import('jsdom'));
 } catch (_) {
   if (process.env.NXTK_REQUIRE_DOM === '1') {
     console.error('jsdom is required (run npm ci).');
@@ -20,6 +21,8 @@ try {
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const fixture = (name) => fs.readFileSync(path.join(root, 'tests', 'fixtures', name), 'utf8');
+// Where a large file's link on the Files tab leaves the file it sent the user to answer Nexus's question for.
+const LARGE_FILE_CHOICE_KEY = 'nxtk_large_file_choice';
 async function waitForState(check, message) {
   const deadline = Date.now() + 5000;
   while (!check()) {
@@ -36,8 +39,8 @@ const SCRIPTS = [
   'src/content/page-check.js'
 ];
 
-function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=734848') {
-  const dom = new JSDOM(fixture(name), { url, runScripts: 'outside-only', pretendToBeVisual: true });
+function load(name, url = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=734848', options = {}) {
+  const dom = new JSDOM(fixture(name), { url, runScripts: 'outside-only', pretendToBeVisual: true, ...options });
   const { window } = dom;
   // These synchronous snapshots represent a loaded page; jsdom's load event runs later.
   Object.defineProperty(window.document, 'readyState', { configurable: true, value: 'complete' });
@@ -333,7 +336,9 @@ const resumableDownloadsDone = (async () => {
   const CARDS = '<div id="upsell-cards"><div class="rounded-lg p-6"><div><div>Free</div>'
     + '<div>Slow download. Wait more.</div><div>Throttled downloads (3MB/s)</div><div>Delay before each download</div></div>'
     + '<button type="button" class="nxm-button">Slow download</button></div></div>';
-  const CHOOSER = '<div role="dialog"><div class="nxm-modal-content scrollbar"><div class="nxm-modal-header">'
+  // As Nexus's headlessui Dialog draws it (web-components bundle, 2026-11-01): the dialog, its backdrop, its panel.
+  const CHOOSER = '<div class="nxm-modal nxm-modal-md" role="dialog" aria-modal="true"><div class="nxm-modal-backdrop"></div>'
+    + '<div class="nxm-modal-content scrollbar"><div class="nxm-modal-header">'
     + '<h2>Download this large file without losing progress</h2><button aria-label="Close" class="nxm-modal-close-button"><svg></svg></button></div>'
     + '<div class="nxm-modal-body"><p>This file is over 500MB. Use resumable downloads so you can pause, track progress, and recover if your connection drops.</p></div>'
     + '<div class="nxm-modal-footer"><button type="button" class="nxm-button"><span>Standard download</span></button>'
@@ -353,7 +358,7 @@ const resumableDownloadsDone = (async () => {
       + '<button type="button">Restart download</button>', false)
   };
 
-  async function filePage(fileId, { settings = {}, picker = true, start = 'cards', fallback = false } = {}) {
+  async function filePage(fileId, { settings = {}, picker = true, start = 'cards', fallback = false, choice = false } = {}) {
     const modPage = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604';
     const w = load('file-page-signed-in.html', `${modPage}?tab=files&file_id=${fileId}`);
     w.document.querySelector('mod-file-download').remove();
@@ -365,6 +370,8 @@ const resumableDownloadsDone = (async () => {
         modPage, fileId, isNMM: false, autoStartPending: true, expiresAt: Date.now() + 60000
       }));
     }
+    // A large file's link elsewhere on the mod page sent the user here (see the Files tab block below).
+    if (choice) w.sessionStorage.setItem(LARGE_FILE_CHOICE_KEY, JSON.stringify({ modPage, fileId, expiresAt: Date.now() + 60000 }));
     const fetched = [];
     w.fetch = (url, init) => {
       fetched.push(`${url} ${init?.body || ''}`);
@@ -376,7 +383,8 @@ const resumableDownloadsDone = (async () => {
     };
     const host = w.document.createElement('mod-file-download');
     const attributes = { 'file-id': fileId, 'filesize-bytes': String(2 * 1024 ** 3), 'is-managed-download-enabled': 'true',
-      'is-nmm-download': 'false', 'user-is-logged-in': 'true', 'timeout-seconds': '5' };
+      'is-nmm-download': 'false', 'user-is-logged-in': 'true', 'timeout-seconds': '5',
+      filename: 'HeavyRain Greek V1.0.1 - Epic Games', filesize: '1.5GB' };
     for (const [name, value] of Object.entries(attributes)) host.setAttribute(name, value);
     const shadow = host.attachShadow({ mode: 'open' });
     shadow.innerHTML = `<div id="download-section">${FILE_ROW}${PANELS[start]}</div><div id="floating-ui-root"></div>`;
@@ -390,7 +398,7 @@ const resumableDownloadsDone = (async () => {
     const closeChooser = () => shadow.querySelector('[role="dialog"]')?.remove();
     shadow.addEventListener('click', (event) => {
       const button = event.target.closest('button');
-      if (!button || button.closest('.nxtk-rd')) return;
+      if (!button || button.closest('[data-nxtk-ui]')) return;
       const label = button.textContent.trim();
       // By place, not label: the extension relabels the button while its download starts.
       if (button.closest('#upsell-cards')) shadow.getElementById('floating-ui-root').innerHTML = CHOOSER;
@@ -412,19 +420,28 @@ const resumableDownloadsDone = (async () => {
       return button;
     };
     const card = () => shadow.querySelector('.nxtk-rd');
+    const ask = () => shadow.querySelector('.nxtk-rd-ask');
     return {
+      w,
       host,
       nexus,
       card,
+      ask,
       nexusPanel,
       setPanel,
       shadow,
+      // Nexus's own buttons, never the extension's.
       click: (label) => press(typeof label === 'string'
-        ? Array.from(shadow.querySelectorAll('button')).find((b) => !b.closest('.nxtk-rd') && b.textContent.trim().startsWith(label))
+        ? Array.from(shadow.querySelectorAll('button')).find((b) => !b.closest('[data-nxtk-ui]') && b.textContent.trim().startsWith(label))
         : label, label),
       // A button on the extension's own panel, as the user sees it.
       cardClick: (label) => press(Array.from(card()?.querySelectorAll('button') || []).find((b) => !b.hidden && b.textContent === label), label),
       cardText: (part) => card()?.querySelector(`.nxtk-rd-${part}`)?.textContent || '',
+      // The extension's question, and the file's name the extension draws.
+      askClick: (label) => press(Array.from(ask()?.querySelectorAll('button') || [])
+        .find((b) => b.textContent.trim().startsWith(label) || b.getAttribute('aria-label') === label), label),
+      askText: (part) => ask()?.querySelector(`.nxtk-rd-${part}`)?.textContent || '',
+      fileRow: () => shadow.querySelector('#download-section > .nxtk-rd-file'),
       requested: () => fetched.filter((f) => f.includes(`fid=${fileId}`) || f.includes(`file_id=${fileId}`)).length,
       chooserOpen: () => !!shadow.querySelector('[role="dialog"]')
     };
@@ -448,6 +465,53 @@ const resumableDownloadsDone = (async () => {
     assert.equal(nexus.resumable, 1, 'Resumable download stays with Nexus');
     await new Promise((r) => setTimeout(r, 100));
     assert.equal(requested(), 1, 'and the extension starts nothing for it');
+  }
+
+  // The question in the extension's look: drawn inside Nexus's dialog (which keeps its focus trap and
+  // Escape), over Nexus's hidden panel, with answers that press Nexus's own buttons.
+  {
+    const page = await filePage('900010');
+    const slow = page.click('Slow download');
+    await waitForState(() => page.ask(), 'the extension draws the question');
+    const content = page.shadow.querySelector('.nxm-modal-content');
+    assert.equal(content.style.display, 'none', 'Nexus\'s panel is hidden behind it');
+    assert.equal(page.ask().parentElement, content.parentElement, 'inside Nexus\'s dialog');
+    assert.equal(page.askText('file-name'), 'HeavyRain Greek V1.0.1 - Epic Games', 'it names the file');
+    assert.equal(page.askText('file-size'), '1.5 GB');
+    page.askClick('Standard download');
+    assert.ok(!page.chooserOpen(), 'Standard download closes the question');
+    assert.equal(page.nexus.standard, 0, 'and is the extension\'s, not also Nexus\'s');
+    await waitForState(() => page.requested() === 1, 'it starts the file through the extension');
+    page.click(slow);
+    await waitForState(() => page.ask(), 'the question is drawn again each time Nexus asks');
+    page.askClick('Resumable download');
+    assert.equal(page.nexus.resumable, 1, 'Resumable download presses Nexus\'s own, in the same click');
+    page.click(slow);
+    await waitForState(() => page.ask(), 'and once more');
+    page.askClick('Close');
+    assert.ok(!page.chooserOpen(), 'Close closes Nexus\'s dialog');
+    await new Promise((r) => setTimeout(r, 100));
+    assert.equal(page.requested(), 1, 'with nothing started');
+  }
+
+  // The file's name and size in the extension's look, in place of Nexus's line, on any file's page.
+  {
+    const page = await filePage('900011');
+    await waitForState(() => page.fileRow(), 'the extension draws the file\'s line');
+    const nexusRow = page.shadow.querySelector('.file-row');
+    assert.equal(nexusRow.style.display, 'none', 'Nexus\'s line is hidden');
+    assert.equal(page.fileRow().nextElementSibling, nexusRow, 'in its place');
+    assert.equal(page.fileRow().querySelector('.nxtk-rd-file-name').textContent, 'HeavyRain Greek V1.0.1 - Epic Games');
+    assert.equal(page.fileRow().querySelector('.nxtk-rd-file-size').textContent, '1.5 GB');
+    // As React does when it draws the line again: Nexus's new line is hidden too, with one line of the extension's.
+    const redrawn = nexusRow.cloneNode(true);
+    redrawn.style.display = '';
+    nexusRow.replaceWith(redrawn);
+    await waitForState(() => redrawn.style.display === 'none', 'a line Nexus draws again is hidden again');
+    assert.equal(page.shadow.querySelectorAll('.nxtk-rd-file').length, 1);
+    assert.equal(page.fileRow().nextElementSibling, redrawn);
+    const small = await filePage('900012', { picker: false });
+    await waitForState(() => small.fileRow(), 'a file Nexus asks nothing about gets the same line');
   }
 
   // A running resumable download: the extension's panel in Nexus's place, its buttons pressing Nexus's.
@@ -494,8 +558,25 @@ const resumableDownloadsDone = (async () => {
     assert.equal(manual.nexus.resumed, 0, 'nothing resumes by itself');
     manual.cardClick('Resume');
     assert.equal(manual.nexus.resumed, 1, 'Resume presses Nexus\'s Resume Download');
+  }
+
+  // An automatic start on a large file opens Nexus's question instead of starting a standard download
+  // unasked; the answer is the user's. A large file's link elsewhere on the mod page does the same with
+  // automatic starts off, once.
+  {
     const idle = await filePage('900005', { settings: { AutoStartDownload: true } });
-    await waitForState(() => idle.requested() === 1, 'with no resumable download, the automatic start runs');
+    await waitForState(() => idle.chooserOpen(), 'with no resumable download, the automatic start asks standard or resumable');
+    await new Promise((r) => setTimeout(r, 100));
+    assert.equal(idle.requested(), 0, 'and starts nothing before the answer');
+    idle.click('Standard download');
+    await waitForState(() => idle.requested() === 1, 'Standard download starts the file through the extension');
+    const asked = await filePage('900008', { choice: true });
+    await waitForState(() => asked.chooserOpen(), 'the link\'s click is answered here: Nexus asks');
+    assert.equal(asked.requested(), 0);
+    assert.equal(asked.w.sessionStorage.getItem(LARGE_FILE_CHOICE_KEY), null, 'once');
+    const other = await filePage('900009');
+    await new Promise((r) => setTimeout(r, 200));
+    assert.ok(!other.chooserOpen(), 'with automatic starts off and no such click, the page waits for the user');
   }
 
   // The Cloudflare fallback clicks "Slow download" for the user, and answers the chooser with Standard.
@@ -506,6 +587,114 @@ const resumableDownloadsDone = (async () => {
     assert.equal(requested(), 0, 'and leaves the download to Nexus');
   }
   console.log('resumable downloads behavior OK');
+})();
+
+// --- A large file's link on the Files tab (seen live 2026-11-01, fallout4/mods/318) ----------------------
+// Each file's header names its size in KiB (data-size). "Manual download" on a file Nexus would ask about
+// goes to the file's page, where Nexus asks standard or resumable, instead of starting a standard download
+// unasked. jsdom does not navigate; it reports each navigation it was asked for. Awaited by the last block.
+const largeFileLinksDone = (async () => {
+  const modPage = 'https://www.nexusmods.com/fallout4/mods/318';
+  let navigations = 0;
+  const virtualConsole = new VirtualConsole();
+  virtualConsole.on('jsdomError', (error) => { if (/navigation/i.test(error.message)) navigations += 1; });
+  const w = load('file-page-signed-in.html', `${modPage}?tab=files`, { virtualConsole });
+  w.document.querySelector('mod-file-download').remove();
+  w.document.querySelector('.download-card').remove();
+  w.showSaveFilePicker = () => Promise.reject(new Error('not in tests'));
+  const file = (id, kib, name) => `<dt class="file-expander-header clearfix" id="file-expander-header-${id}" data-id="${id}" data-size="${kib}">`
+    + `<p>${name}</p></dt><dd class="clearfix" data-id="${id}"><div class="tabbed-block"><ul class="accordion-downloads clearfix">`
+    + `<li><a class="nxm-button nxm-button-secondary" href="/fallout4/mods/318?tab=files&amp;file_id=${id}"><span>Manual download</span></a></li></ul></div></dd>`;
+  w.document.getElementById('section').insertAdjacentHTML('beforeend', '<div class="accordionitems"><dl class="accordion">'
+    + `${file('138745', 2484904, 'Textures - Ultra 4K Version (2.4GB)')}${file('138746', 4096, 'Readme (4MB)')}${file('138747', 512000, 'Exactly 500 MB')}`
+    + '</dl></div>');
+  const fetched = [];
+  w.fetch = (url, init) => {
+    fetched.push(`${url} ${init?.body || ''}`);
+    return new Promise(() => {});
+  };
+  w.NexusExt.Storage = {
+    getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: false }),
+    sendDownloadCommand: async () => ({ ok: true, value: {} })
+  };
+  for (const name of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, name), 'utf8'));
+  await w.NexusExt.NNW.init();
+  const requested = (id) => fetched.filter((f) => f.includes(`fid=${id}`) || f.includes(`file_id=${id}`)).length;
+  const manual = (id) => w.document.querySelector(`dd[data-id="${id}"] a`).dispatchEvent(
+    new w.MouseEvent('click', { bubbles: true, composed: true, cancelable: true, button: 0 }));
+
+  assert.equal(manual('138745'), false, 'the extension takes the large file\'s click');
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(requested('138745'), 0, 'and starts no standard download for it');
+  assert.equal(navigations, 1, 'it goes to the file\'s page instead');
+  assert.deepEqual(JSON.parse(w.sessionStorage.getItem(LARGE_FILE_CHOICE_KEY) || '{}').fileId, '138745',
+    'which then opens Nexus\'s question for that file');
+
+  manual('138746');
+  await waitForState(() => requested('138746') === 1, 'a small file starts at once, as before');
+  manual('138747');
+  await waitForState(() => requested('138747') === 1, 'so does one of exactly 500 MB, which Nexus does not ask about');
+  // Firefox has no file picker, so Nexus never asks there.
+  delete w.showSaveFilePicker;
+  w.sessionStorage.removeItem(LARGE_FILE_CHOICE_KEY);
+  manual('138745');
+  await waitForState(() => requested('138745') === 1, 'without a file picker the large file starts at once');
+  assert.equal(navigations, 1, 'with no second trip to its page');
+  console.log('large file links behavior OK');
+})();
+
+// --- The ad-blocker notice (seen live 2026-11-01) --------------------------------------------------------
+// "Disable your Adblocker and double your download speed": a script outside Nexus's own draws it with
+// generated class names, so it is known by its words. With "Hide ads and Premium panels" on it is answered
+// with its own "Continue with adblock"; "Allow ads" and the Premium offer are never pressed. Awaited by the
+// last block.
+const adblockNoticeDone = (async () => {
+  const NOTICE = '<div class="dgEhJe6g"><div class="_9r0K-Oum" style="background-color: rgb(43, 41, 49);"><div class="aI8fZlpv"><div class="_6Tt4x1jq"><div class="_1U8keQ4i">'
+    + '<img class="vAfm8xsH" alt="" src="data:,"><h3 class="_8O9Z-ltD">Disable your Adblocker and double your download speed</h3>'
+    + '<div class="_2RuuJiGc">Double your download speed from <b>1.5MB/s to 3MB/s</b> by disabling <br>your adblocker. Go premium to remove ads entirely.</div>'
+    + '<div class="_4KvUwxDm"><div class="JDeYciWM"><div class="_10qg3IuH"><div class="Frame-buoy__sc-1d4hofp-0 hOxZvH"><button class="_2Sbg_-vS f5CXro_f _9eRJjhym">Allow ads</button></div></div></div>'
+    + '<div class="JDeYciWM"><div class="_10qg3IuH"><div><button class="_2Sbg_-vS bpCSdKDu">Remove ads (go premium)</button></div></div></div></div>'
+    + '<div class="_4e8HpQ5S"><span class="bB48ietO"><button class="_4ao5eF8B" tabindex="0">Continue with adblock</button></span><span class="_6Gy4an1f">|</span>'
+    + '<span class="eX64Bioc">Need help? <a class="clSbgD5d" href="https://forms.gle/example" target="_blank" rel="noopener">Contact support</a></span></div>'
+    + '</div></div></div><button tabindex="" aria-label="Close" class="_3p_1XEZR"><svg width="768" height="768" viewBox="0 0 768 768"></svg></button></div></div>';
+  const w = load('file-page-signed-in.html');
+  w.fetch = () => new Promise(() => {});
+  w.NexusExt.Storage = {
+    getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: false }),
+    sendDownloadCommand: async () => ({ ok: true, value: {} })
+  };
+  for (const name of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, name), 'utf8'));
+  await w.NexusExt.NNW.init();
+  const pressed = [];
+  const showNotice = () => {
+    const wrap = w.document.createElement('div');
+    wrap.innerHTML = NOTICE;
+    // As the notice's own script does: an answer closes it.
+    wrap.addEventListener('click', (event) => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      pressed.push(button.textContent || button.getAttribute('aria-label'));
+      if (button.textContent === 'Continue with adblock') wrap.remove();
+    });
+    w.document.body.append(wrap);
+    return wrap;
+  };
+  // A page's own "Continue" elsewhere is not the notice's.
+  const unrelated = w.document.createElement('div');
+  unrelated.innerHTML = '<p>Continue with adblock tips in our forum</p><button>Continue with adblock</button>';
+  w.document.getElementById('mainContent').append(unrelated);
+
+  const shown = showNotice();
+  await waitForState(() => !shown.isConnected, 'the notice is answered and closes');
+  assert.deepEqual(pressed, ['Continue with adblock'], 'with its own Continue with adblock, and nothing else');
+  assert.equal(w.NXTK.DEFAULTS.HidePremiumUpsells, true, '"Hide ads and Premium panels" is on by default');
+
+  w.NexusExt.NNW.updateConfig({ ...w.NXTK.DEFAULTS, HidePremiumUpsells: false });
+  const kept = showNotice();
+  await new Promise((r) => setTimeout(r, 800));
+  assert.ok(kept.isConnected, 'with the setting off the notice is the user\'s to answer');
+  assert.equal(pressed.length, 1);
+  console.log('ad-blocker notice behavior OK');
 })();
 
 // --- One owner per click (live test 2.10.1: SkyUI SDK downloaded twice; the requirements modal fetched
@@ -599,6 +788,8 @@ const resumableDownloadsDone = (async () => {
   await bodylessStartupDone;
   await browserDownloadLabelsDone;
   await resumableDownloadsDone;
+  await largeFileLinksDone;
+  await adblockNoticeDone;
   // nnw.js keeps page timers running; the suite is done.
   w.close();
   process.exit(process.exitCode || 0);

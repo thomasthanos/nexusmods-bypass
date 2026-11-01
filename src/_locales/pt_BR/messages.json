@@ -2313,5 +2313,26 @@
   },
   "setSectionVortex": {
     "message": "Vortex"
+  },
+  "rdAskTitle": {
+    "message": "Baixar este arquivo grande"
+  },
+  "rdAskLead": {
+    "message": "Este arquivo tem mais de 500 MB. Escolha como baixá-lo."
+  },
+  "rdAskResumableHint": {
+    "message": "Você escolhe onde salvar. Dá para pausar e, se a conexão cair, o download continua de onde parou. Mantenha esta aba aberta durante o download."
+  },
+  "rdAskStandard": {
+    "message": "Download padrão"
+  },
+  "rdAskStandardHint": {
+    "message": "Seu navegador baixa o arquivo como qualquer outro, sem mais etapas. Se a conexão cair, talvez seja preciso começar de novo."
+  },
+  "rdAskBeta": {
+    "message": "Beta"
+  },
+  "rdAskLearnMore": {
+    "message": "Sobre downloads retomáveis"
   }
 }

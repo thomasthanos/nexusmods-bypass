@@ -2313,5 +2313,26 @@
   },
   "setSectionVortex": {
     "message": "Vortex"
+  },
+  "rdAskTitle": {
+    "message": "Bu büyük dosyayı indir"
+  },
+  "rdAskLead": {
+    "message": "Bu dosya 500 MB'tan büyük. Nasıl indirileceğini seçin."
+  },
+  "rdAskResumableHint": {
+    "message": "Nereye kaydedileceğini siz seçersiniz. Duraklatabilirsiniz; bağlantı koparsa kaldığı yerden devam eder. İndirme sürerken bu sekmeyi açık tutun."
+  },
+  "rdAskStandard": {
+    "message": "Standart indirme"
+  },
+  "rdAskStandardHint": {
+    "message": "Tarayıcınız onu diğer dosyalar gibi, başka adım olmadan indirir. Bağlantı koparsa baştan başlamak gerekebilir."
+  },
+  "rdAskBeta": {
+    "message": "Beta"
+  },
+  "rdAskLearnMore": {
+    "message": "Devam ettirilebilir indirmeler hakkında"
   }
 }

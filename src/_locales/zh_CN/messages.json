@@ -2229,5 +2229,26 @@
   },
   "setSectionVortex": {
     "message": "Vortex"
+  },
+  "rdAskTitle": {
+    "message": "下载这个大文件"
+  },
+  "rdAskLead": {
+    "message": "此文件超过 500 MB。请选择下载方式。"
+  },
+  "rdAskResumableHint": {
+    "message": "由你选择保存位置。可以暂停，连接中断后会从中断处继续。下载期间请保持此标签页打开。"
+  },
+  "rdAskStandard": {
+    "message": "标准下载"
+  },
+  "rdAskStandardHint": {
+    "message": "浏览器会像下载其他文件一样下载它，无需其他步骤。连接中断时可能需要重新开始。"
+  },
+  "rdAskBeta": {
+    "message": "测试版"
+  },
+  "rdAskLearnMore": {
+    "message": "了解可续传下载"
   }
 }
