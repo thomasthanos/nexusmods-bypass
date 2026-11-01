@@ -166,6 +166,67 @@ async function collectionSelectionRegressionTests() {
   console.log('Collection downloaded-file selection regressions OK: ASCII, Unicode identity and canonical normalization');
 }
 
+async function settingsNavigationTests() {
+  const f = fixture('el');
+  const { w, store, modal } = f;
+  try {
+    await w.NexusExt.UIKit.settings.open();
+    const original = modal();
+    const tabs = [...original.querySelectorAll('[role="tab"]')];
+    assert.equal(tabs.length, 6, 'six categories replace the wall of settings');
+    const select = original.querySelector('#nxtk-settings-category');
+    const visible = () => [...modal().querySelectorAll('[role="tabpanel"]')].filter((p) => !p.hidden);
+    const activate = (name) => original.querySelector(`[data-settings-tab="${name}"]`).click();
+    assert.equal(visible().length, 1);
+    assert.equal(visible()[0].dataset.settingsGroup, 'basics', 'Basics opens first');
+    assert.equal(tabs.filter((tab) => tab.tabIndex === 0).length, 1);
+    assert.equal(select.value, 'basics');
+
+    tabs[0].focus();
+    tabs[0].dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    assert.equal(visible()[0].dataset.settingsGroup, 'downloads');
+    assert.equal(w.document.activeElement, tabs[1]);
+    assert.equal(select.value, 'downloads');
+    assert.equal(original.querySelector('[data-settings-details="browser"]').open, false);
+    assert.equal(original.querySelector('[data-settings-details="vortex"]').open, false);
+    const browserDetails = original.querySelector('[data-settings-details="browser"]');
+    browserDetails.open = true;
+    const folder = original.querySelector('[data-setting="DownloadFolder"]');
+    const speed = original.querySelector('[data-setting="NDC_downloadSpeed"]');
+    const edit = (input, value) => {
+      input.value = value;
+      input.dispatchEvent(new w.Event('input', { bubbles: true }));
+    };
+    edit(folder, '  Category test  ');
+    edit(speed, '7.5');
+    activate('basics');
+    await tick();
+    assert.equal(store.nxtk_settings.DownloadFolder, 'Category test', 'switching category commits pending text');
+    assert.equal(store.nxtk_settings.NDC_downloadSpeed, 7.5, 'switching category commits pending numbers');
+    const help = original.querySelector('[data-setting-help="AutoStartDownload"]');
+    help.click();
+    activate('downloads');
+    assert.equal(browserDetails.open, true, 'subsections survive category changes');
+    assert.equal(original.querySelector('[data-setting="DownloadFolder"]'), folder, 'inputs are never replaced');
+    activate('basics');
+    assert.equal(help.getAttribute('aria-expanded'), 'true', 'open help survives category changes');
+
+    select.value = 'appearance';
+    select.dispatchEvent(new w.Event('change', { bubbles: true }));
+    assert.equal(visible()[0].dataset.settingsGroup, 'appearance', 'mobile selector uses the same category state');
+    assert.equal(tabs[3].getAttribute('aria-selected'), 'true');
+    assert.equal(visible().length, 1);
+    const language = original.querySelector('[data-setting="ForceEnglish"]');
+    language.checked = true;
+    language.dispatchEvent(new w.Event('change', { bubbles: true }));
+    await tick();
+    assert.equal(visible()[0].dataset.settingsGroup, 'appearance', 'language refresh stays in the current category');
+    assert.equal(modal().querySelector('#nxtk-settings-category').value, 'appearance');
+    assert.match(visible()[0].textContent, /Always use English/);
+  } finally { f.close(); }
+  console.log('Settings categories OK: keyboard, mobile selection, pending saves, stable controls and language state');
+}
+
 async function settingsRegressionTests() {
   const failures = [];
   const cases = [
@@ -275,6 +336,7 @@ async function settingsRegressionTests() {
   const failures = newRegressions.filter((result) => result.status === 'rejected').map((result) => result.reason);
   if (failures.length) throw new AggregateError(failures, 'Onboarding/collection selection regressions failed');
   await popupRegressionTests();
+  await settingsNavigationTests();
   await settingsRegressionTests();
   const f = fixture();
   const { w, store, modal } = f;
@@ -288,33 +350,35 @@ async function settingsRegressionTests() {
   try {
     await w.NexusExt.UIKit.settings.open();
     const groups = {
-      downloads: ['AutoStartDownload', 'AutoCloseTab', 'SkipRequirements', 'HandleArchivedFiles', 'DownloadFolder', 'WriteMo2Meta'],
+      basics: ['AutoStartDownload', 'SkipRequirements', 'ShowAlertsOnError'],
+      downloads: ['HandleArchivedFiles', 'DownloadFolder', 'WriteMo2Meta', 'AutoCloseTab', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'],
       collections: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'],
-      appearance: ['HidePremiumUpsells', 'ExpandRequirements', 'ShowAlertsOnError', 'ForceEnglish'],
-      diagnostics: ['AutoErrorReports', 'PrivateDiagnostics']
+      appearance: ['HidePremiumUpsells', 'ExpandRequirements', 'ForceEnglish'],
+      diagnostics: ['AutoErrorReports', 'PrivateDiagnostics'],
+      advanced: ['RequestTimeout', 'UseOfficialApi', 'CloudflareFallback']
     };
     for (const [group, keys] of Object.entries(groups)) {
       const section = find(`[data-settings-group="${group}"]`);
       assert.ok(section, `${group} has its own readable group`);
       assert.deepEqual([...section.querySelectorAll('[data-setting]')].map((el) => el.dataset.setting), keys);
     }
-    assert.equal(find('#nxtk-advanced-body').hidden, true);
+    assert.equal(find('[data-settings-group="advanced"]').hidden, true);
     assert.equal(modal().querySelectorAll('[data-setting]').length, 23, 'all settings appear exactly once');
     assert.equal(new Set([...modal().querySelectorAll('[data-setting]')].map((el) => el.dataset.setting)).size, 23);
     for (const input of modal().querySelectorAll('[data-setting]')) {
       assert.ok(input.labels?.length || input.getAttribute('aria-labelledby'), `${input.dataset.setting} has an accessible label`);
     }
 
-    // The footer: a bug report is an issue with its diagnostics; an idea is a new GitHub discussion.
-    const idea = find('.nxtk-modal-footer [data-suggest-idea]');
-    assert.ok(idea, 'Suggest an idea sits in the footer');
-    assert.equal(idea.closest('.nxtk-settings-github'), find('.nxtk-modal-footer [data-report-issue]').closest('.nxtk-settings-github'),
+    // Reporting belongs in Privacy & reports, leaving only reset and Done in the footer.
+    const idea = find('[data-settings-group="diagnostics"] [data-suggest-idea]');
+    assert.ok(idea, 'Suggest an idea sits in Privacy & reports');
+    assert.equal(idea.closest('.nxtk-settings-github'), find('[data-report-issue]').closest('.nxtk-settings-github'),
       'beside Report a bug');
     assert.equal(idea.getAttribute('href'), 'https://github.com/thomasthanos/nexusmods-bypass/discussions/new?category=ideas');
     assert.equal(idea.getAttribute('target'), '_blank');
     assert.match(idea.getAttribute('rel'), /noopener/);
     assert.match(idea.textContent, /Suggest an idea/);
-    assert.equal(find('.nxtk-modal-footer').children.length, 3, 'the footer keeps its three parts: reset, GitHub, Done');
+    assert.equal(find('.nxtk-modal-footer').children.length, 2, 'the footer has only reset and Done');
 
     // Help opens separately: tapping information must never change the neighbouring setting.
     const row = find('[data-key="AutoStartDownload"]');
@@ -379,7 +443,9 @@ async function settingsRegressionTests() {
 
     await w.NexusExt.UIKit.settings.open();
     const sameModal = modal();
-    find('#nxtk-advanced-toggle').click();
+    find('[data-settings-tab="downloads"]').click();
+    find('[data-settings-details="vortex"]').open = true;
+    find('[data-settings-tab="basics"]').click();
     const keptHelp = find('[data-key="AutoStartDownload"] [data-setting-help]');
     keptHelp.click();
     find('.nxtk-modal-scroll').scrollTop = 137;
@@ -389,14 +455,14 @@ async function settingsRegressionTests() {
     await tick();
     assert.equal(modal(), sameModal, 'Quick setup updates the existing dialog instead of replacing it');
     assert.equal(find('.nxtk-modal-scroll').scrollTop, 137, 'preset preserves scroll');
-    assert.equal(find('#nxtk-advanced-body').hidden, false, 'preset preserves expanded Advanced');
+    assert.equal(find('[data-settings-details="vortex"]').open, true, 'preset preserves expanded Vortex');
     assert.equal(keptHelp.getAttribute('aria-expanded'), 'true', 'preset preserves open explanations');
     assert.equal(w.document.activeElement, find('[data-preset="browser"]'), 'preset preserves keyboard focus');
     assert.equal(store.nxtk_settings.NDC_downloadMethod, 1);
     assert.equal(store.nxtk_settings.DownloadFolder, 'Pending preset folder', 'preset flushes a pending field without resetting it');
     assert.equal(find('[data-preset="browser"]').getAttribute('aria-pressed'), 'true');
     assert.equal(find('[data-setting="AutoCloseTab"]').checked, false, 'visible switches update in place');
-    assert.equal(find('#nxtk-advanced-body').hidden, false);
+    assert.equal(find('[data-settings-group="basics"]').hidden, false);
     change('RequestTimeout', '45', 'input');
     find('.nxtk-modal-footer [data-close]').click();
     await tick();
