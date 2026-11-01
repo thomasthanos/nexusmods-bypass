@@ -2220,5 +2220,26 @@
   },
   "rdBtnDirect": {
     "message": "代わりに直接ダウンロード"
+  },
+  "rdAskTitle": {
+    "message": "この大きなファイルをダウンロード"
+  },
+  "rdAskLead": {
+    "message": "このファイルは 500 MB を超えています。ダウンロード方法を選んでください。"
+  },
+  "rdAskResumableHint": {
+    "message": "保存先を選びます。一時停止でき、接続が切れても止まったところから再開します。ダウンロード中はこのタブを開いたままにしてください。"
+  },
+  "rdAskStandard": {
+    "message": "標準ダウンロード"
+  },
+  "rdAskStandardHint": {
+    "message": "ほかのファイルと同じようにブラウザーがダウンロードします。追加の手順はありません。接続が切れると最初からやり直しになることがあります。"
+  },
+  "rdAskBeta": {
+    "message": "ベータ"
+  },
+  "rdAskLearnMore": {
+    "message": "再開可能なダウンロードについて"
   }
 }

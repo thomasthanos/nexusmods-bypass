@@ -361,15 +361,21 @@ window.NexusExt = window.NexusExt || {};
       && textIs(controlLabel(control), 'directDownload', ['direct download']);
   }
 
-  // The extension's own panel, drawn in the card in place of Nexus's (see syncResumableCards).
+  // The extension's own panel, drawn in the card in place of Nexus's (see syncResumableCards). Everything
+  // the extension draws in a card (the panel, the file's line, the question) carries RD_UI_ATTR.
   const RD_CARD_CLASS = 'nxtk-rd';
+  const RD_UI_ATTR = 'data-nxtk-ui';
 
-  // Nexus's buttons on a card, the extension's panel left out. Nexus may portal a dialog out of the card,
-  // into its page-wide shadow root.
+  // The shadow roots Nexus may draw a card's parts in: the card's own, and its page-wide one, where it may
+  // portal a dialog out of the card.
+  function cardRoots(host) {
+    return [host?.shadowRoot, document.getElementById('next-shadow-root')?.shadowRoot].filter(Boolean);
+  }
+
+  // Nexus's buttons on a card, the extension's own left out.
   function cardButtons(host) {
-    const roots = [host?.shadowRoot, document.getElementById('next-shadow-root')?.shadowRoot].filter(Boolean);
-    return roots.flatMap((root) => Array.from(root.querySelectorAll('button')))
-      .filter((button) => !button.closest(`.${RD_CARD_CLASS}`));
+    return cardRoots(host).flatMap((root) => Array.from(root.querySelectorAll('button')))
+      .filter((button) => !button.closest(`[${RD_UI_ATTR}]`));
   }
 
   function nexusCardButton(host, key) {
@@ -393,7 +399,7 @@ window.NexusExt = window.NexusExt || {};
   function nexusPanelOf(host) {
     const section = host?.shadowRoot?.querySelector('#download-section');
     for (const child of section?.children || []) {
-      if (child.classList.contains(RD_CARD_CLASS)) continue;
+      if (child.hasAttribute(RD_UI_ATTR)) continue;
       const read = readNexusPanel(child);
       if (read.state) return { panel: child, ...read };
     }
@@ -411,7 +417,8 @@ window.NexusExt = window.NexusExt || {};
   // The extension took the chooser's answer before Nexus saw it, so Nexus would leave the dialog open.
   function closeLargeFileChooser(control) {
     const dialog = control?.closest?.(CHOOSER_DIALOG_SELECTOR);
-    const close = dialog?.querySelector?.('.nxm-modal-close-button, button[aria-label="Close"]');
+    const close = Array.from(dialog?.querySelectorAll?.('.nxm-modal-close-button, button[aria-label="Close"]') || [])
+      .find((button) => !button.closest(`[${RD_UI_ATTR}]`));
     if (close) close.click();
     else dialog?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
   }
@@ -467,6 +474,70 @@ window.NexusExt = window.NexusExt || {};
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     return false;
+  }
+
+  // Whether a large file's download is resumable is the user's answer to Nexus's question, so a start the
+  // user did not click on the card (an automatic one, or a link elsewhere on the mod page) presses the card's
+  // "Slow download", which opens the question (the click is left to Nexus, see attachClickInterceptor).
+  async function openLargeFileChooser(fileId, timeoutMs = 3000) {
+    const host = getCurrentNativeDownloadHost(fileId, false);
+    if (!offersResumableChoice(host) || !host.shadowRoot) return false;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const slow = findSlowDownloadButtons(host.shadowRoot, { includeBound: true }).find((button) => !button.disabled);
+      if (slow) {
+        slow.click();
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return false;
+  }
+
+  // A large file's link elsewhere on the mod page (the Files tab's "Manual download", its requirements
+  // window) would start a standard download before Nexus could ask. The click goes to the file's page
+  // instead, and the question opens there once (see autoStartDownload). Its size is the one Nexus lists:
+  // the card's filesize-bytes, or the Files tab header's data-size, in KiB.
+  const LARGE_FILE_CHOICE_KEY = 'nxtk_large_file_choice';
+  const LARGE_FILE_CHOICE_TTL_MS = 2 * 60 * 1000;
+
+  function listedFileBytes(fileId) {
+    for (const root of getSearchRoots(document)) {
+      const card = root.querySelector(`mod-file-download[file-id="${fileId}"][filesize-bytes]`);
+      if (card) return Number(card.getAttribute('filesize-bytes')) || 0;
+    }
+    const header = document.querySelector(`dt.file-expander-header[data-id="${fileId}"][data-size]`);
+    return (Number(header?.dataset.size) || 0) * 1024;
+  }
+
+  // The checks of offersResumableChoice that can be made before the file's page is open.
+  function sendToLargeFileChoice(fileId) {
+    const id = toFileId(fileId);
+    if (!id || !('showSaveFilePicker' in window) || !Auth?.isSignedIn?.(document)) return false;
+    if (!(listedFileBytes(id) > RESUMABLE_MIN_BYTES)) return false;
+    const modPage = getModPagePath();
+    const target = modPage && `${modPage}?tab=files&file_id=${id}`;
+    if (!target || !NXTK.isSafeNexusPageUrl(target)) return false;
+    try {
+      sessionStorage.setItem(LARGE_FILE_CHOICE_KEY, JSON.stringify({ modPage, fileId: id, expiresAt: Date.now() + LARGE_FILE_CHOICE_TTL_MS }));
+    } catch (_) {
+      return false;
+    }
+    Logger.info(`Large file ${id}: opening its page, where Nexus asks standard or resumable.`);
+    location.assign(target);
+    return true;
+  }
+
+  // Whether a large file's link sent the user to this file's page; a marker is read once.
+  function takeLargeFileChoice(fileId) {
+    try {
+      const marker = JSON.parse(sessionStorage.getItem(LARGE_FILE_CHOICE_KEY) || 'null');
+      if (!marker) return false;
+      sessionStorage.removeItem(LARGE_FILE_CHOICE_KEY);
+      return marker.fileId === String(fileId) && marker.modPage === getModPagePath() && marker.expiresAt > Date.now();
+    } catch (_) {
+      return false;
+    }
   }
 
   function getCurrentFileId() {
@@ -1867,6 +1938,7 @@ window.NexusExt = window.NexusExt || {};
 
   function attachClickInterceptor() {
     async function handleDownload(btn, fileId, isNMM, href) {
+      if (!isNMM && sendToLargeFileChoice(fileId)) return;
       return runDownload({
         button: btn,
         fileId,
@@ -1885,7 +1957,7 @@ window.NexusExt = window.NexusExt || {};
       return null;
     };
 
-    const OWN_UI_SELECTOR = `.nxtk-close-toast, .nxtk-modal-backdrop, .nxtk-modal, #nxtk-extension-root, #nxtk-dropdown-portal, #nxtk-settings-fab, .${RD_CARD_CLASS}`;
+    const OWN_UI_SELECTOR = `.nxtk-close-toast, .nxtk-modal-backdrop, .nxtk-modal, #nxtk-extension-root, #nxtk-dropdown-portal, #nxtk-settings-fab, [${RD_UI_ATTR}]`;
     const IGNORE_ANCESTORS = 'nav, .nav, .pagination, .comment-container, .comment-content, .forum-post, .header-nav, .search-results, .nxtk-deck';
     const DOWNLOAD_HREF_PATTERNS = ['/Core/Libs/Common/', 'tab=files&file_id=', 'file_id=', 'ModRequirementsPopUp', '/api/files/'];
     const isDownloadHref = (href) => DOWNLOAD_HREF_PATTERNS.some(p => href.includes(p));
@@ -1975,8 +2047,10 @@ window.NexusExt = window.NexusExt || {};
         && (boundSlowButtons.has(node) || node.id === 'slowDownloadButton'));
       if (!slowButton) return;
       // On a large file this button opens Nexus's standard-or-resumable chooser; its answer is taken below.
-      if (offersResumableChoice(path.find((node) => node?.tagName === 'MOD-FILE-DOWNLOAD'))) {
+      const host = path.find((node) => node?.tagName === 'MOD-FILE-DOWNLOAD');
+      if (offersResumableChoice(host)) {
         Logger.info('Large file: leaving the standard-or-resumable choice to Nexus.');
+        watchForLargeFileChooser(host);
         return;
       }
       handleSlowDownloadClick(slowButton, event)
@@ -1993,8 +2067,8 @@ window.NexusExt = window.NexusExt || {};
       if (!isFilePage() || isNativeFallbackActive()) return;
       if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
-      // The extension's own panel handles its buttons itself.
-      if (path.some((node) => node?.classList?.contains?.(RD_CARD_CLASS))) return;
+      // The extension's own panel and question handle their buttons themselves.
+      if (path.some((node) => node?.hasAttribute?.(RD_UI_ATTR))) return;
       const host = path.find((node) => node?.tagName === 'MOD-FILE-DOWNLOAD');
       const control = host && path.find((node) => node?.tagName === 'BUTTON');
       const choice = largeFileChoiceOf(control) || (isDirectDownloadControl(control) ? 'direct' : '');
@@ -2256,27 +2330,185 @@ window.NexusExt = window.NexusExt || {};
   // Nexus's resumable downloads, in the extension's look. On a large file's card Nexus's panel (progress,
   // Pause/Resume/Cancel, "direct download") is hidden and the extension's panel stands in its place; its
   // buttons press Nexus's, which keeps the download Nexus's own. A state the extension does not draw (an
-  // error, with Recover and Restart) shows Nexus's panel again. Each card's shadow root is watched by its own
-  // observer: the page-wide one cannot see inside it.
+  // error, with Recover and Restart) shows Nexus's panel again. Every card also gets the file's line in the
+  // extension's look, and a large file's card its standard-or-resumable question. Each card's shadow root is
+  // watched by its own observer: the page-wide one cannot see inside it.
   const resumableCards = new WeakMap();
 
   function syncResumableCards() {
     for (const root of getSearchRoots(document)) {
       for (const host of root.querySelectorAll('mod-file-download')) {
-        if (resumableCards.has(host) || !host.shadowRoot || !offersResumableChoice(host)) continue;
-        const entry = { card: null, parts: null, key: '', autoResumed: false, scheduled: false };
+        if (resumableCards.has(host) || !host.shadowRoot) continue;
+        const entry = { card: null, parts: null, key: '', autoResumed: false, scheduled: false, fileRow: null };
         resumableCards.set(host, entry);
-        skipNexusCountdown(host);
         if (typeof MutationObserver === 'function') {
           new MutationObserver(() => {
             if (entry.scheduled) return;
             entry.scheduled = true;
-            setTimeout(() => renderResumableCard(host, entry), 30);
+            setTimeout(() => renderCard(host, entry), 30);
           }).observe(host.shadowRoot, { childList: true, subtree: true, characterData: true });
         }
-        renderResumableCard(host, entry);
+        renderCard(host, entry);
       }
     }
+  }
+
+  function renderCard(host, entry) {
+    entry.scheduled = false;
+    renderFileRow(host, entry);
+    if (!offersResumableChoice(host)) return;
+    skipNexusCountdown(host);
+    renderLargeFileChooser(host);
+    renderResumableCard(host, entry);
+  }
+
+  // What the extension draws in a card is styled from one sheet in each shadow root it is drawn in; the
+  // page's extension stylesheet does not reach inside.
+  function ensureRdStyle(root) {
+    if (!root || root.querySelector('style[data-nxtk-rd]')) return;
+    const style = document.createElement('style');
+    style.dataset.nxtkRd = '1';
+    style.textContent = RD_CARD_CSS;
+    root.append(style);
+  }
+
+  function rdEl(tag, className, text = '') {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+  }
+
+  function rdFileIcon() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h4');
+    svg.append(path);
+    return svg;
+  }
+
+  // The file's name and its size as Nexus writes it ("753.6MB" reads "753.6 MB"), from the card's attributes.
+  function buildFileLine(host, className) {
+    const line = rdEl('div', className);
+    const icon = rdEl('span', 'nxtk-rd-file-icon');
+    icon.append(rdFileIcon());
+    // A long name is cut short to fit; the whole of it shows on hover.
+    const name = rdEl('span', 'nxtk-rd-file-name', host.getAttribute('filename') || '');
+    name.title = name.textContent;
+    line.append(icon, name);
+    const size = String(host.getAttribute('filesize') || '').trim().replace(/^([\d.,]+)\s*([KMGT]?B)$/i, '$1 $2');
+    if (size) line.append(rdEl('span', 'nxtk-rd-file-size', size));
+    return line;
+  }
+
+  // Nexus's line above the download options names the file: the part of #download-section whose text
+  // starts with the card's filename. It is hidden, not removed, so React keeps its own.
+  function nexusFileRowOf(host) {
+    const name = normalizeText(host.getAttribute('filename'));
+    if (!name) return null;
+    for (const child of host.shadowRoot?.querySelector('#download-section')?.children || []) {
+      if (child.hasAttribute(RD_UI_ATTR) || child.id === 'upsell-cards') continue;
+      if (normalizeText(child.textContent).startsWith(name)) return child;
+    }
+    return null;
+  }
+
+  function renderFileRow(host, entry) {
+    const row = host.isConnected ? nexusFileRowOf(host) : null;
+    if (!row) {
+      entry.fileRow?.remove();
+      return;
+    }
+    ensureRdStyle(host.shadowRoot);
+    if (!entry.fileRow) {
+      entry.fileRow = buildFileLine(host, 'nxtk-rd-file');
+      entry.fileRow.setAttribute(RD_UI_ATTR, '');
+    }
+    if (entry.fileRow.nextElementSibling !== row) row.before(entry.fileRow);
+    if (row.style.display !== 'none') row.style.display = 'none';
+  }
+
+  // Nexus's standard-or-resumable question, in the extension's look. The extension's panel is drawn inside
+  // Nexus's dialog, beside Nexus's hidden panel, so the dialog keeps its focus trap and Escape. Each answer
+  // presses Nexus's own button in the same click, which keeps the gesture Nexus's file picker needs.
+  const RESUMABLE_HELP_URL = 'https://help.nexusmods.com/article/170-resumable-downloads';
+
+  function nexusChooserOf(host) {
+    for (const root of cardRoots(host)) {
+      for (const content of root.querySelectorAll('.nxm-modal-content')) {
+        if (!content.closest(`[${RD_UI_ATTR}]`) && textIs(controlLabel(content), 'largeFileChooser', ['resumable download'])) return content;
+      }
+    }
+    return null;
+  }
+
+  function renderLargeFileChooser(host) {
+    const content = nexusChooserOf(host);
+    const dialog = content?.parentElement;
+    if (!dialog) return;
+    if (content.style.display !== 'none') content.style.display = 'none';
+    if (Array.from(dialog.children).some((child) => child.classList.contains('nxtk-rd-ask'))) return;
+    ensureRdStyle(dialog.getRootNode());
+    dialog.setAttribute('data-nxtk-ask', '');
+    const { ask, first } = buildLargeFileChooser(host);
+    content.after(ask);
+    first.focus({ preventScroll: true });
+  }
+
+  // The question may be drawn outside the card (see cardRoots), where the card's observer does not see it.
+  function watchForLargeFileChooser(host) {
+    for (const delay of [0, 80, 250, 600]) setTimeout(() => renderLargeFileChooser(host), delay);
+  }
+
+  function buildLargeFileChooser(host) {
+    // Nexus's dialog as it is at the click: React may have drawn its panel again since.
+    const press = (find, what) => {
+      const content = nexusChooserOf(host);
+      const target = content && find(content);
+      if (target) target.click();
+      else Logger.warn(`Large file: Nexus's question shows no ${what} button any more.`);
+    };
+    const answer = (choice) => press((content) => Array.from(content.querySelectorAll('button'))
+      .find((button) => largeFileChoiceOf(button) === choice), choice);
+    const title = NXTK.t('rdAskTitle', null, 'Download this large file');
+    const ask = rdEl('div', 'nxtk-rd-ask');
+    ask.setAttribute(RD_UI_ATTR, '');
+    ask.setAttribute('role', 'group');
+    ask.setAttribute('aria-label', title);
+    const head = rdEl('div', 'nxtk-rd-head');
+    const heading = rdEl('div', 'nxtk-rd-ask-heading');
+    heading.append(rdEl('strong', 'nxtk-rd-ask-title', title), rdEl('span', 'nxtk-rd-brand', NXTK.t('appName', null, 'NexusMods Bypass')));
+    const close = rdEl('button', 'nxtk-rd-close', '×');
+    close.type = 'button';
+    close.setAttribute('aria-label', NXTK.t('ariaClose', null, 'Close'));
+    close.addEventListener('click', () => press((content) => content.querySelector('.nxm-modal-close-button, button[aria-label="Close"]'), 'close'));
+    head.append(heading, close);
+    const option = (choice, label, hint, className) => {
+      const button = rdEl('button', className);
+      button.type = 'button';
+      const name = rdEl('span', 'nxtk-rd-option-title', label);
+      if (choice === 'resumable') name.append(rdEl('span', 'nxtk-rd-pill', NXTK.t('rdAskBeta', null, 'Beta')));
+      button.append(name, rdEl('span', 'nxtk-rd-option-hint', hint));
+      button.addEventListener('click', () => answer(choice));
+      return button;
+    };
+    const resumable = option('resumable', NXTK.t('rdTitle', null, 'Resumable download'),
+      NXTK.t('rdAskResumableHint', null, 'Choose where to save it. You can pause it, and a lost connection picks up where it stopped. Keep this tab open while it downloads.'),
+      'nxtk-rd-option is-primary');
+    const standard = option('standard', NXTK.t('rdAskStandard', null, 'Standard download'),
+      NXTK.t('rdAskStandardHint', null, 'Your browser downloads it like any other file, with no more steps. A lost connection can mean starting again.'),
+      'nxtk-rd-option');
+    const options = rdEl('div', 'nxtk-rd-options');
+    options.append(resumable, standard);
+    const more = rdEl('a', 'nxtk-rd-ask-more', NXTK.t('rdAskLearnMore', null, 'About resumable downloads'));
+    more.href = RESUMABLE_HELP_URL;
+    more.target = '_blank';
+    more.rel = 'noopener noreferrer';
+    ask.append(head, buildFileLine(host, 'nxtk-rd-ask-file'),
+      rdEl('p', 'nxtk-rd-ask-lead', NXTK.t('rdAskLead', null, 'This file is over 500 MB. Choose how to download it.')), options, more);
+    return { ask, first: resumable };
   }
 
   const RD_DRAWN_STATES = new Set(['earlier', 'starting', 'downloading', 'reconnecting', 'pausing', 'paused', 'finalising', 'complete', 'other-tab']);
@@ -2284,7 +2516,6 @@ window.NexusExt = window.NexusExt || {};
   const RD_DIRECT_STATES = new Set(['earlier', 'downloading', 'reconnecting', 'paused']);
 
   function renderResumableCard(host, entry) {
-    entry.scheduled = false;
     const found = host.isConnected ? nexusPanelOf(host) : null;
     if (!found || !RD_DRAWN_STATES.has(found.state)) {
       entry.card?.remove();
@@ -2302,12 +2533,7 @@ window.NexusExt = window.NexusExt || {};
         resume.click();
       }
     }
-    if (!host.shadowRoot.querySelector('style[data-nxtk-rd]')) {
-      const style = document.createElement('style');
-      style.dataset.nxtkRd = '1';
-      style.textContent = RD_CARD_CSS;
-      host.shadowRoot.append(style);
-    }
+    ensureRdStyle(host.shadowRoot);
     if (!entry.card) buildResumableCard(host, entry);
     if (entry.card.nextElementSibling !== panel) panel.before(entry.card);
     if (panel.style.display !== 'none') panel.style.display = 'none';
@@ -2315,14 +2541,10 @@ window.NexusExt = window.NexusExt || {};
   }
 
   function buildResumableCard(host, entry) {
-    const el = (tag, className, text = '') => {
-      const node = document.createElement(tag);
-      if (className) node.className = className;
-      if (text) node.textContent = text;
-      return node;
-    };
+    const el = rdEl;
     const title = NXTK.t('rdTitle', null, 'Resumable download');
     const card = el('div', RD_CARD_CLASS);
+    card.setAttribute(RD_UI_ATTR, '');
     card.setAttribute('role', 'group');
     card.setAttribute('aria-label', title);
     const head = el('div', 'nxtk-rd-head');
@@ -2436,7 +2658,35 @@ window.NexusExt = window.NexusExt || {};
 .nxtk-rd-link:hover{color:var(--nxtk-accent-hover,#ecaa5a)}
 .nxtk-rd-btn:focus-visible,.nxtk-rd-link:focus-visible{outline:2px solid var(--nxtk-accent-hover,#ecaa5a);outline-offset:2px}
 .${RD_CARD_CLASS} [hidden]{display:none!important}
-@media (prefers-reduced-motion:reduce){.nxtk-rd-bar>span,.nxtk-rd-btn{transition:none}}
+.nxtk-rd-file,.nxtk-rd-ask-file{display:flex;align-items:center;gap:12px;box-sizing:border-box;color:var(--nxtk-text,#eceaf2);font:400 14px/1.4 "Inter",system-ui,sans-serif;text-align:left}
+.nxtk-rd-file{width:100%;padding:12px 16px;border:1px solid var(--nxtk-border,rgba(255,255,255,.1));border-radius:var(--nxtk-radius-md,16px);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01)),var(--nxtk-glass-tint-deep,rgba(10,12,22,.92));box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.nxtk-rd-ask-file{padding:12px 14px;border:1px solid var(--nxtk-border,rgba(255,255,255,.1));border-radius:var(--nxtk-radius-sm,12px);background:rgba(0,0,0,.28)}
+.nxtk-rd-file-icon{flex-shrink:0;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45));border-radius:var(--nxtk-radius-sm,12px);background:var(--nxtk-accent-soft,rgba(217,143,64,.18));color:var(--nxtk-accent-hover,#ecaa5a);box-shadow:var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.35))}
+.nxtk-rd-file-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nxtk-rd-file-name{flex:1;min-width:0;overflow:hidden;color:var(--nxtk-text-bright,#f8f8fc);font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+.nxtk-rd-file-size{flex-shrink:0;padding:3px 10px;border:1px solid var(--nxtk-border,rgba(255,255,255,.1));border-radius:999px;background:rgba(255,255,255,.05);color:var(--nxtk-text-muted,rgba(236,234,242,.62));font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+[data-nxtk-ask]>.nxm-modal-backdrop{background:rgba(8,10,18,.55);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%)}
+.nxtk-rd-ask{position:relative;width:min(580px,100%);box-sizing:border-box;display:flex;flex-direction:column;gap:16px;padding:24px;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45));border-radius:var(--nxtk-radius-xl,28px);background:radial-gradient(circle at 88% -10%,rgba(217,143,64,.22),transparent 38%),radial-gradient(circle at 12% 110%,rgba(74,168,216,.1),transparent 42%),var(--nxtk-glass-tint-strong,rgba(14,16,26,.88));box-shadow:0 32px 80px -16px rgba(0,0,0,.75),var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.35));-webkit-backdrop-filter:blur(48px) saturate(180%);backdrop-filter:blur(48px) saturate(180%);color:var(--nxtk-text,#eceaf2);font:400 14px/1.5 "Inter",system-ui,sans-serif;text-align:left;animation:nxtk-rd-rise .4s var(--nxtk-ease,ease) both}
+@keyframes nxtk-rd-rise{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+.nxtk-rd-ask .nxtk-rd-head{align-items:flex-start;padding-bottom:16px;border-bottom:1px solid var(--nxtk-border,rgba(255,255,255,.1))}
+.nxtk-rd-ask-heading{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.nxtk-rd-ask-title{color:var(--nxtk-text-bright,#f8f8fc);font-size:19px;font-weight:700;line-height:1.25;letter-spacing:-.3px}
+.nxtk-rd-close{flex-shrink:0;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid var(--nxtk-border,rgba(255,255,255,.1));border-radius:50%;background:rgba(255,255,255,.04);color:var(--nxtk-text-dim,#8a8a9a);font:700 22px/1 "Inter",system-ui,sans-serif;cursor:pointer;transition:transform .18s,color .18s,background .18s,border-color .18s}
+.nxtk-rd-close:hover{transform:rotate(90deg);border-color:var(--nxtk-danger,#ff5560);background:var(--nxtk-danger-soft,rgba(255,85,96,.18));color:var(--nxtk-danger,#ff5560)}
+.nxtk-rd-ask-lead{margin:0;color:var(--nxtk-text-muted,rgba(236,234,242,.62))}
+.nxtk-rd-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.nxtk-rd-option{display:flex;flex-direction:column;gap:6px;padding:16px;border:1px solid var(--nxtk-border,rgba(255,255,255,.1));border-radius:var(--nxtk-radius-md,16px);background:var(--nxtk-glass-tint-soft,rgba(28,30,44,.7));color:var(--nxtk-text,#eceaf2);font:inherit;text-align:left;cursor:pointer;transition:transform .18s,border-color .18s,box-shadow .18s}
+.nxtk-rd-option:hover{transform:translateY(-2px);border-color:var(--nxtk-border-strong,rgba(255,255,255,.18));box-shadow:0 10px 24px -8px rgba(0,0,0,.5)}
+.nxtk-rd-option.is-primary{border-color:var(--nxtk-accent-border,rgba(217,143,64,.45));background:linear-gradient(135deg,rgba(217,143,64,.2),rgba(217,143,64,.06)),var(--nxtk-glass-tint,rgba(18,20,32,.78))}
+.nxtk-rd-option.is-primary:hover{border-color:var(--nxtk-accent,#d98f40);box-shadow:0 10px 24px -8px rgba(0,0,0,.5),var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.35))}
+.nxtk-rd-option-title{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--nxtk-text-bright,#f8f8fc);font-size:14.5px;font-weight:600}
+.nxtk-rd-option-hint{color:var(--nxtk-text-muted,rgba(236,234,242,.62));font-size:12.5px;line-height:1.45}
+.nxtk-rd-pill{padding:2px 8px;border:1px solid rgba(92,188,255,.35);border-radius:999px;background:var(--nxtk-info-soft,rgba(92,188,255,.18));color:var(--nxtk-info,#5cbcff);font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+.nxtk-rd-ask-more{align-self:flex-start;color:var(--nxtk-text-muted,rgba(236,234,242,.62));font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+.nxtk-rd-ask-more:hover{color:var(--nxtk-accent-hover,#ecaa5a)}
+.nxtk-rd-option:focus-visible,.nxtk-rd-close:focus-visible,.nxtk-rd-ask-more:focus-visible{outline:2px solid var(--nxtk-accent-hover,#ecaa5a);outline-offset:2px}
+@media (max-width:560px){.nxtk-rd-ask{padding:20px}.nxtk-rd-options{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.nxtk-rd-bar>span,.nxtk-rd-btn,.nxtk-rd-option,.nxtk-rd-close{transition:none}.nxtk-rd-ask{animation:none}}
 `;
 
   // Nexus builds and relabels the download card after load (and inside shadow roots), so the binding
@@ -2537,11 +2787,13 @@ window.NexusExt = window.NexusExt || {};
   }
 
   async function autoStartDownload() {
-    if (!cfg.AutoStartDownload) return;
     if (isCloudflareChallengeDocument()) return;
-    if (!isModPage()) return;
     const params = new URLSearchParams(location.search);
     const fileId = params.get('file_id');
+    // A large file's link elsewhere on the mod page sent the user here, to answer Nexus's question.
+    const choiceAsked = !!fileId && takeLargeFileChoice(fileId);
+    if (!cfg.AutoStartDownload && !choiceAsked) return;
+    if (!isModPage()) return;
     if (!fileId) return;
     if (isNativeFallbackActive()) {
       startNativeFallbackIfReady();
@@ -2566,6 +2818,10 @@ window.NexusExt = window.NexusExt || {};
     if (isNMM && !await waitUntilShown(autoStartKey)) return;
     if (!isNMM && await nexusResumableDownloadFor(fileId)) {
       Logger.info(`No download started: Nexus shows its own resumable download for file ${fileId}.`);
+      return;
+    }
+    if (!isNMM && await openLargeFileChooser(fileId)) {
+      Logger.info(`Large file ${fileId}: Nexus asks standard or resumable; the download waits for the answer.`);
       return;
     }
     Logger.debug('Auto-start: fileId', fileId, 'isNMM', isNMM);
@@ -2686,6 +2942,33 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
+  // The ad-blocker notice ("Disable your Adblocker and double your download speed"). The script that draws
+  // it names its classes anew, so it is known by its words: a "Continue with adblock" button in a box that
+  // also offers "Allow ads". It is answered with that button, which closes it the way the notice expects.
+  const ADBLOCK_NOTICE_MAX_DEPTH = 8;
+  const answeredAdblockNotices = new WeakSet();
+
+  function isAdblockNoticeAnswer(button) {
+    if (!textIs(controlLabel(button), 'adblockNoticeContinue', ['continue with adblock'])) return false;
+    let box = button.parentElement;
+    for (let depth = 0; box && depth < ADBLOCK_NOTICE_MAX_DEPTH; depth += 1) {
+      if (AD_WRAPPER_STOP_TAGS.has(box.tagName) || box.id === 'mainContent') return false;
+      if (Array.from(box.querySelectorAll('button'))
+        .some((other) => textIs(controlLabel(other), 'adblockNoticeAllowAds', ['allow ads']))) return true;
+      box = box.parentElement;
+    }
+    return false;
+  }
+
+  function answerAdblockNotice(root) {
+    for (const button of collectMatches(root, 'button')) {
+      if (answeredAdblockNotices.has(button) || !isAdblockNoticeAnswer(button)) continue;
+      answeredAdblockNotices.add(button);
+      Logger.info('Answered the ad-blocker notice with "Continue with adblock".');
+      button.click();
+    }
+  }
+
   function applyUpsellHiding(root) {
     if (UPSELL_SELECTOR) {
       collectMatches(root, UPSELL_SELECTOR).forEach((el) => hideUpsellElement(el));
@@ -2698,6 +2981,7 @@ window.NexusExt = window.NexusExt || {};
       if (!looksLikePageContent(el)) hideUpsellElement(el);
     }
     hideAdSlots(root);
+    answerAdblockNotice(root);
   }
 
   const SHADOW_UPSELL_CSS = `

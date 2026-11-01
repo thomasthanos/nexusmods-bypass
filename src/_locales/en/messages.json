@@ -2669,5 +2669,33 @@
   "rdBtnDirect": {
     "message": "Direct download instead",
     "description": "Resumable-download panel link: stop using the resumable download and download the file directly."
+  },
+  "rdAskTitle": {
+    "message": "Download this large file",
+    "description": "Heading of the extension dialog that replaces Nexus Mods' standard-or-resumable question for a file over 500 MB."
+  },
+  "rdAskLead": {
+    "message": "This file is over 500 MB. Choose how to download it.",
+    "description": "Large-file dialog: line under the file name."
+  },
+  "rdAskResumableHint": {
+    "message": "Choose where to save it. You can pause it, and a lost connection picks up where it stopped. Keep this tab open while it downloads.",
+    "description": "Large-file dialog: what a resumable download does. The option's title is rdTitle."
+  },
+  "rdAskStandard": {
+    "message": "Standard download",
+    "description": "Large-file dialog option: a plain browser download through the extension."
+  },
+  "rdAskStandardHint": {
+    "message": "Your browser downloads it like any other file, with no more steps. A lost connection can mean starting again.",
+    "description": "Large-file dialog: what a standard download does."
+  },
+  "rdAskBeta": {
+    "message": "Beta",
+    "description": "Large-file dialog: tag beside the resumable option; Nexus Mods calls the feature a beta."
+  },
+  "rdAskLearnMore": {
+    "message": "About resumable downloads",
+    "description": "Large-file dialog link to Nexus Mods' help article on resumable downloads."
   }
 }

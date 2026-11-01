@@ -2304,5 +2304,26 @@
   },
   "rdBtnDirect": {
     "message": "Stattdessen direkt herunterladen"
+  },
+  "rdAskTitle": {
+    "message": "Diese große Datei herunterladen"
+  },
+  "rdAskLead": {
+    "message": "Diese Datei ist größer als 500 MB. Wähle, wie du sie herunterladen möchtest."
+  },
+  "rdAskResumableHint": {
+    "message": "Du wählst, wo die Datei gespeichert wird. Du kannst pausieren, und nach einem Verbindungsabbruch geht es dort weiter, wo es aufgehört hat. Lass diesen Tab während des Downloads geöffnet."
+  },
+  "rdAskStandard": {
+    "message": "Standard-Download"
+  },
+  "rdAskStandardHint": {
+    "message": "Dein Browser lädt sie wie jede andere Datei herunter, ohne weitere Schritte. Nach einem Verbindungsabbruch musst du eventuell von vorn beginnen."
+  },
+  "rdAskBeta": {
+    "message": "Beta"
+  },
+  "rdAskLearnMore": {
+    "message": "Mehr über fortsetzbare Downloads"
   }
 }

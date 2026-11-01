@@ -2304,5 +2304,26 @@
   },
   "rdBtnDirect": {
     "message": "Téléchargement direct à la place"
+  },
+  "rdAskTitle": {
+    "message": "Télécharger ce gros fichier"
+  },
+  "rdAskLead": {
+    "message": "Ce fichier dépasse 500 Mo. Choisissez comment le télécharger."
+  },
+  "rdAskResumableHint": {
+    "message": "Vous choisissez où l'enregistrer. Vous pouvez le mettre en pause, et après une coupure de connexion il reprend là où il s'était arrêté. Gardez cet onglet ouvert pendant le téléchargement."
+  },
+  "rdAskStandard": {
+    "message": "Téléchargement standard"
+  },
+  "rdAskStandardHint": {
+    "message": "Votre navigateur le télécharge comme n'importe quel autre fichier, sans autre étape. Une coupure de connexion peut obliger à tout recommencer."
+  },
+  "rdAskBeta": {
+    "message": "Bêta"
+  },
+  "rdAskLearnMore": {
+    "message": "À propos des téléchargements reprenables"
   }
 }

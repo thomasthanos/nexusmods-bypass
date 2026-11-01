@@ -2472,5 +2472,26 @@
   },
   "rdBtnDirect": {
     "message": "Zamiast tego pobierz bezpośrednio"
+  },
+  "rdAskTitle": {
+    "message": "Pobierz ten duży plik"
+  },
+  "rdAskLead": {
+    "message": "Ten plik ma ponad 500 MB. Wybierz, jak go pobrać."
+  },
+  "rdAskResumableHint": {
+    "message": "Wybierasz, gdzie go zapisać. Możesz wstrzymać pobieranie, a po zerwaniu połączenia wznowi się ono od miejsca, w którym się zatrzymało. Nie zamykaj tej karty podczas pobierania."
+  },
+  "rdAskStandard": {
+    "message": "Zwykłe pobieranie"
+  },
+  "rdAskStandardHint": {
+    "message": "Przeglądarka pobiera go jak każdy inny plik, bez dodatkowych kroków. Po zerwaniu połączenia może być trzeba zacząć od nowa."
+  },
+  "rdAskBeta": {
+    "message": "Beta"
+  },
+  "rdAskLearnMore": {
+    "message": "O wznawialnym pobieraniu"
   }
 }

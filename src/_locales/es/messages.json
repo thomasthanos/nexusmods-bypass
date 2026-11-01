@@ -2304,5 +2304,26 @@
   },
   "rdBtnDirect": {
     "message": "Mejor una descarga directa"
+  },
+  "rdAskTitle": {
+    "message": "Descargar este archivo grande"
+  },
+  "rdAskLead": {
+    "message": "Este archivo supera los 500 MB. Elige cómo descargarlo."
+  },
+  "rdAskResumableHint": {
+    "message": "Eliges dónde guardarlo. Puedes pausarlo y, si se corta la conexión, sigue donde se quedó. Mantén esta pestaña abierta mientras se descarga."
+  },
+  "rdAskStandard": {
+    "message": "Descarga estándar"
+  },
+  "rdAskStandardHint": {
+    "message": "Tu navegador lo descarga como cualquier otro archivo, sin más pasos. Si se corta la conexión, puede que tengas que empezar de nuevo."
+  },
+  "rdAskBeta": {
+    "message": "Beta"
+  },
+  "rdAskLearnMore": {
+    "message": "Sobre las descargas reanudables"
   }
 }
