@@ -1524,7 +1524,8 @@ a.nxtk-settings-report { text-decoration: none; }
   outline-offset: 3px;
 }
 #nxtk-settings-modal .nxtk-setting-row-field .nxtk-setting-label { align-items: flex-start; flex-wrap: wrap; }
-#nxtk-settings-modal .nxtk-setting-row-field .nxtk-setting-copy { flex: 1 1 0; min-width: 0; }
+/* Put the field on its own line before its label loses room for text and help. */
+#nxtk-settings-modal .nxtk-setting-row-field .nxtk-setting-copy { flex: 1 1 160px; min-width: 0; }
 #nxtk-settings-modal .nxtk-setting-field {
   flex: 0 1 auto; min-width: 0; max-width: 100%; margin-left: auto; padding-top: 3px;
 }
@@ -1586,6 +1587,7 @@ a.nxtk-settings-report { text-decoration: none; }
 #nxtk-settings-modal .nxtk-settings-details summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 2px; list-style: none; color: var(--nxtk-text-bright); font-size: 14px; font-weight: 600; cursor: pointer; }
 #nxtk-settings-modal .nxtk-settings-details summary::-webkit-details-marker { display: none; }
 #nxtk-settings-modal .nxtk-settings-details summary svg { width: 16px; height: 16px; flex: none; fill: currentColor; }
+#nxtk-settings-modal .nxtk-settings-details summary span { min-width: 0; overflow-wrap: anywhere; }
 #nxtk-settings-modal .nxtk-settings-details[open] summary svg { transform: rotate(90deg); }
 #nxtk-settings-modal .nxtk-settings-details > .nxtk-settings-rows { padding: 8px 0 8px 26px; }
 #nxtk-settings-modal .nxtk-settings-github { justify-content: flex-start; flex-wrap: wrap; margin-top: 20px; }

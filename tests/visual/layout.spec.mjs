@@ -1907,6 +1907,7 @@ for (const lang of ['de', 'ru', 'el']) {
               .map((child) => `${child.className}: ${child.textContent.trim().slice(0, 30)} (${child.scrollWidth - child.clientWidth}px)`) };
           });
           expect(overflow.width, `${lang} ${width}px ${name}: ${JSON.stringify(overflow.clipped)}`).toBeLessThanOrEqual(1);
+          expect(overflow.clipped, `${lang} ${width}px ${name} settings text and controls fit`).toEqual([]);
           await assertFits(page, '#nxtk-settings-modal .nxtk-modal', `${lang} settings ${width}`);
           await assertFits(page, '#nxtk-settings-modal .nxtk-modal-footer', `${lang} footer ${width}`);
         }
