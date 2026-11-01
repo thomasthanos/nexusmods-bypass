@@ -102,7 +102,19 @@ test('late collection content waits for mounting instead of declaring a page cha
   await page.close();
 });
 
-test('download API fetch failure recovers through the generator without reporting a failed download', async () => {
+// The content script's own read of a file's Vortex page (…?tab=files&file_id=<id>&nmm=1). A navigation to
+// that page still gets the fixture document.
+async function routeVortexPage(page, fileId, answer) {
+  await page.route((url) => url.searchParams.get('file_id') === String(fileId) && url.searchParams.get('nmm') === '1',
+    (route) => (route.request().isNavigationRequest() ? route.fallback() : answer(route)));
+}
+
+// Where Nexus puts a signed-in visitor's Vortex link: the card's download-url.
+const vortexCardPage = (fileId, nxm) => '<!doctype html><html><body><section id="section">'
+  + `<mod-file-download file-id="${fileId}" user-is-logged-in="true" download-url="${nxm.replaceAll('&', '&amp;')}"></mod-file-download>`
+  + '</section></body></html>';
+
+test('download API fetch failure recovers through the file page without reporting a failed download', async () => {
   const worker = await serviceWorker(context);
   await worker.evaluate(async () => {
     await globalThis.chrome.storage.local.set({ nxtk_settings: { AutoErrorReports: false } });
@@ -111,9 +123,7 @@ test('download API fetch failure recovers through the generator without reportin
   await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
   await page.route('**/api/files/**', route => route.abort('failed'));
   const signed = 'nxm://newvegas/mods/100/files/200?key=test&expires=2000000000&user_id=7';
-  await page.route('**/Core/Libs/Common/Managers/Downloads**', route => route.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify({ url: signed })
-  }));
+  await routeVortexPage(page, 200, route => route.fulfill({ status: 200, contentType: 'text/html', body: vortexCardPage(200, signed) }));
   const recovered = await worker.evaluate(async () => {
     const [tab] = await globalThis.chrome.tabs.query({ url: 'https://www.nexusmods.com/newvegas/mods/100?tab=files' });
     const [result] = await globalThis.chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
@@ -176,7 +186,7 @@ test('Vortex: a download route a fetch cannot read is opened the way the click o
 });
 
 for (const [status, code] of [[200, ''], [403, 'access_denied'], [404, 'file_not_found']]) {
-  test(`Vortex: classic #30 button preserves generator HTTP ${status}`, async () => {
+  test(`Vortex: classic #30 button keeps the Vortex page's HTTP ${status}`, async () => {
     const { ext, patch, read } = await extensionPage();
     let page;
     try {
@@ -188,6 +198,7 @@ for (const [status, code] of [[200, ''], [403, 'access_denied'], [404, 'file_not
       const opened = [];
       const generated = [];
       let routeFetches = 0;
+      let pageFetches = 0;
       await page.route(pageUrl, route => route.fulfill({ status: 200, contentType: 'text/html',
         body: fixture('visual-mod-page.html').replace('data-game-id="1704"', 'data-game-id="9719"') }));
       await page.route('https://api.nexusmods.com/v2/graphql', route => {
@@ -204,10 +215,17 @@ for (const [status, code] of [[200, ''], [403, 'access_denied'], [404, 'file_not
         opened.push(route.request().url());
         return route.abort('aborted');
       });
+      // A Vortex link is never asked of the generator: it answers with a browser link at best.
       await page.route('**/Core/Libs/Common/Managers/Downloads**', route => {
         generated.push(Object.fromEntries(new URLSearchParams(route.request().postData())));
-        return route.fulfill({ status, contentType: 'application/json', body: status === 200
-          ? JSON.stringify({ url: 'https://cf-files.nexus-cdn.com/thebloodofdawnwalker/224/Mod.zip?md5=x&expires=2000000000' }) : '' });
+        return route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ url: 'https://cf-files.nexus-cdn.com/thebloodofdawnwalker/224/Mod.zip?md5=x&expires=2000000000' }) });
+      });
+      // The file's Vortex page, answered with a page that has no link (200) or refused (403, 404).
+      await routeVortexPage(page, 3357, route => {
+        pageFetches += 1;
+        return route.fulfill({ status, contentType: 'text/html',
+          body: status === 200 ? '<!doctype html><html><body><section id="section"><p>Files</p></section></body></html>' : '' });
       });
       await page.goto(pageUrl);
       await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
@@ -231,7 +249,8 @@ for (const [status, code] of [[200, ''], [403, 'access_denied'], [404, 'file_not
         await expect(page.locator('.nxtk-status-toast[role="status"]').filter({ hasText: 'Sent to Vortex' })).toHaveCount(0);
       }
       expect(routeFetches).toBe(1);
-      expect(generated).toEqual([{ fid: '3357', game_id: '9719', nmm: '1' }]);
+      expect(pageFetches).toBe(1);
+      expect(generated).toEqual([]);
       expect(page.url()).toBe(pageUrl);
       expect(page.isClosed()).toBe(false);
     } finally {
@@ -841,10 +860,10 @@ test('popup raised actions retain keyboard focus and reduced-motion press feedba
 test('Vortex button without href skips the requirements modal and says it is sending; modal Close and Escape reach Nexus', async () => {
   const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files', 1280, 800, 1);
   await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
-  // Hold the link request so the in-between state can be seen.
-  await page.route('**/Core/Libs/Common/Managers/Downloads**', async (route) => {
+  // Hold the file's Vortex page so the in-between state can be seen.
+  await routeVortexPage(page, 35407, async (route) => {
     await new Promise((r) => setTimeout(r, 3000));
-    await route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
+    await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Files</title>' });
   });
   await page.evaluate(() => {
     const host = document.createElement('mod-file-download');
@@ -1208,12 +1227,10 @@ test('single-file Auto NMM path (?file_id=…&nmm=1, no button) shows the Vortex
   await page.setViewportSize({ width: 1280, height: 800 });
   const expires = Math.floor(Date.now() / 1000) + 3600;
   const nxm = `nxm://skyrimspecialedition/mods/12604/files/35410?key=abc&expires=${expires}&user_id=1`;
-  const answer = (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: nxm }) });
-  await page.route('**/Core/Libs/Common/Managers/Downloads**', async (route) => {
+  await routeVortexPage(page, 35410, async (route) => {
     await new Promise((r) => setTimeout(r, 800));
-    return answer(route);
+    return route.fulfill({ status: 200, contentType: 'text/html', body: vortexCardPage(35410, nxm) });
   });
-  await page.route('**/api/files/**', answer);
   await page.goto('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=35410&nmm=1');
   const toast = page.locator('.nxtk-status-toast[role="status"]');
   await expect(toast, 'the auto-start path announces the hand-off').toContainText(/Sending to Vortex/, { timeout: 15000 });
@@ -1247,9 +1264,7 @@ async function extensionPage() {
 async function autoNmmRun(page) {
   const expires = Math.floor(Date.now() / 1000) + 3600;
   const nxm = `nxm://skyrimspecialedition/mods/12604/files/35410?key=abc&expires=${expires}&user_id=1`;
-  const answer = (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: nxm }) });
-  await page.route('**/Core/Libs/Common/Managers/Downloads**', answer);
-  await page.route('**/api/files/**', answer);
+  await routeVortexPage(page, 35410, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: vortexCardPage(35410, nxm) }));
   await page.goto('https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=35410&nmm=1');
 }
 
@@ -1926,12 +1941,14 @@ test('rapid double and triple clicks on a Vortex button start one attempt includ
   await expect(page.locator('#nxtk-settings-fab')).toBeVisible({ timeout: 20000 });
   const hits = [];
   const slow = async (route) => {
-    hits.push(new URL(route.request().url()).pathname.startsWith('/api/files/') ? 'api' : 'generator');
+    const url = new URL(route.request().url());
+    hits.push(url.pathname.startsWith('/api/files/') ? 'api' : url.searchParams.get('nmm') === '1' ? 'page' : 'generator');
     await new Promise((r) => setTimeout(r, 1500));
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{"url":""}' });
   };
   await page.route('**/Core/Libs/Common/Managers/Downloads**', slow);
   await page.route('**/api/files/**', slow);
+  await routeVortexPage(page, 35409, slow);
   await page.evaluate(() => {
     const host = document.createElement('mod-file-download');
     host.setAttribute('file', JSON.stringify({ id: 35409 }));
@@ -1948,7 +1965,7 @@ test('rapid double and triple clicks on a Vortex button start one attempt includ
   await button.click({ delay: 0 });
   expect(await page.locator('.nxtk-status-toast').count(), 'at most one status toast').toBeLessThanOrEqual(1);
   await expect(page.locator('[data-retry]').first()).toBeVisible({ timeout: 15000 });
-  expect(hits, 'one API call and one fallback, regardless of the click burst').toEqual(['api', 'generator']);
+  expect(hits, 'one API call and one fallback, regardless of the click burst').toEqual(['api', 'page']);
   await expect(page.locator('.nxtk-modal-backdrop'), 'one error dialog, not a stack').toHaveCount(1);
   await dismissDialogs(page);
   await page.close();

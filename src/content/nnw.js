@@ -923,11 +923,11 @@ window.NexusExt = window.NexusExt || {};
       return { url: null, error: Errors.create('invalid_response', { context: 'Reading download link', record: false }) };
     }
     const canonicalFilePage = `${location.origin}${location.pathname}?tab=files&file_id=${encodeURIComponent(fileId || '')}`;
+    const vortexFilePage = `${canonicalFilePage}&nmm=1`;
     const filePageUrl = isApiFileHref ? canonicalFilePage : (href || canonicalFilePage);
     let resolvedGameId = normalizeGameId(gameId) || getGameId(filePageUrl);
     // Response metadata can help the generator, but cannot change which game's native route may open.
     const routeGameId = resolvedGameId;
-    const gameDomain = getGameDomainFromUrl(filePageUrl) || getGameDomainFromUrl(location.href);
     refreshAdTimerCookie();
     const endpoint = new URL('/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl', filePageUrl).href;
     const headers = {
@@ -983,17 +983,27 @@ window.NexusExt = window.NexusExt || {};
       return response;
     };
 
-    const fetchGeneratedDownloadUrl = async (nmm = false) => {
+    const NO_GAME_NUMBER = 'generator not asked: no game number';
+    // A browser download's link. Vortex links come from the file page only (see the isNMM path below).
+    // The generator takes the game's number only: checked on 2026-11-01, it answers [] to a game named by
+    // its domain, as it does a signed-out visitor, so the domain is never sent. With no number known, the
+    // official API is asked for one; failing that the generator waits until the file page has given one.
+    const fetchGeneratedDownloadUrl = async () => {
       if (!fileId) return { url: null, text: '', error: Errors.create('missing_file', { record: false }) };
       if (signal?.aborted) return { url: null, error: Errors.create('aborted', { record: false }) };
+      if (!resolvedGameId) resolvedGameId = normalizeGameId(await prefetchGameIdFromApi(filePageUrl));
+      if (!resolvedGameId) {
+        if (!trail.includes(NO_GAME_NUMBER)) trail.push(NO_GAME_NUMBER);
+        return { url: null, text: '', error: null, needsGameId: true };
+      }
 
-      const body = `fid=${encodeURIComponent(fileId)}&game_id=${encodeURIComponent(resolvedGameId || gameDomain)}${nmm ? '&nmm=1' : ''}`;
+      const body = `fid=${encodeURIComponent(fileId)}&game_id=${encodeURIComponent(resolvedGameId)}`;
       const response = await Errors.request(endpoint, {
         method: 'POST',
         credentials: 'include',
         headers,
         body
-      }, requestOptions(nmm ? 'Generating Vortex download link' : 'Generating download link'));
+      }, requestOptions('Generating download link'));
       nexusAnswered ||= response.ok;
 
       if (!response.ok) {
@@ -1008,16 +1018,8 @@ window.NexusExt = window.NexusExt || {};
         rememberGameId(responseGameId, filePageUrl);
       }
 
-      if (nmm) {
-        const nxmUrl = parseNxmDownloadLink(response.text, fileId);
-        if (nxmUrl) return { url: nxmUrl, text: response.text, error: null };
-      }
-
-      const extracted = parseDownloadURLFromResponse(response.text, {
-        mode: nmm ? 'vortex' : 'browser',
-        fileId
-      });
-      if (!(nmm ? parseNxmDownloadLink(extracted?.url, fileId) : extracted?.url)) noteAnswer('generator', response, nmm);
+      const extracted = parseDownloadURLFromResponse(response.text, { mode: 'browser', fileId });
+      if (!extracted?.url) noteAnswer('generator', response, false);
       if (extracted?.url) return { url: extracted.url, text: response.text, error: null };
       return { url: null, text: response.text, error: null };
     };
@@ -1111,25 +1113,23 @@ window.NexusExt = window.NexusExt || {};
       // works. Never fall back around authentication, verification, rate limits or cancellation.
       const recoverable = ['network_error', 'timeout', 'server_error', 'invalid_response', 'no_download_url', 'no_nmm_link'];
       if (!fileId || signal?.aborted || !recoverable.includes(result.error?.code)) return result;
-      NXTK.queueDebugEntry?.('debug', `Download API route failed (${result.error.code}); trying the download generator.`);
-      href = filePageUrl;
+      NXTK.queueDebugEntry?.('debug', `Download API route failed (${result.error.code}); ${isNMM ? 'reading the file page' : 'trying the download generator'}.`);
+      href = isNMM ? vortexFilePage : filePageUrl;
     }
 
-    if (isNMM && href) {
-      // The site's own Vortex button asks GenerateDownloadUrl for the nxm link; that small POST answers in
-      // well under a second, where loading the whole file page first took several. So it goes first, and
-      // the page is read only when it gives nothing.
-      const quick = await fetchGeneratedDownloadUrl(true);
-      const quickNxm = parseNxmDownloadLink(quick?.url, fileId);
-      if (quickNxm) return { url: quickNxm };
-      if (isTerminalVortexError(quick?.error)) return { url: null, error: quick.error };
-      // A permitted native route can open now rather than fetching the same file page again.
+    if (isNMM) {
+      // The Vortex link is on the file page only: Nexus's own Vortex button reads it from the page's
+      // <mod-file-download download-url> and never asks the generator. Checked on 2026-11-01, the generator
+      // answers nmm=1 with [] for a signed-out visitor and with a browser link for a signed-in one, never
+      // an nxm:// link, so asking it first cost a request per file and drew a browser link Nexus counts.
+      const vortexPage = href || vortexFilePage;
+      // A permitted native route that another Nexus answer already proved can open without the page.
       const opened = canOpenRoute ? routeOutcome() : null;
       if (opened) return opened;
 
       // Asked with X-Requested-With, Nexus answers a mod page with the tab fragment, which has no nxm
       // link. The download page a click opens carries it in <mod-file-download download-url>.
-      const firstResponse = await fetchText(href, { ajax: false, context: 'Loading Vortex download page' });
+      const firstResponse = await fetchText(vortexPage, { ajax: false, context: 'Loading Vortex download page' });
       let latestError = firstResponse.error;
       Logger.info('Fetching NMM download URL');
       if (!firstResponse.ok) noteFailure('page', firstResponse);
@@ -1159,7 +1159,7 @@ window.NexusExt = window.NexusExt || {};
           }
         }
 
-        if (/ModRequirementsPopUp/.test(href)) {
+        if (/ModRequirementsPopUp/.test(vortexPage)) {
           const downloadHrefMatch = firstResponse.text.match(/href=["']([^"']*?(?:file_id|\/api\/files\/)[^"']*?)["']/i);
           if (downloadHrefMatch) {
             const downloadPageUrl = new URL(decodeDownloadUrlValue(downloadHrefMatch[1]), location.href).href;
@@ -1183,15 +1183,7 @@ window.NexusExt = window.NexusExt || {};
       }
 
       if (isTerminalVortexError(latestError)) return { url: null, error: latestError };
-      return routeOutcome() || { url: null, error: latestError || quick?.error || Errors.create('no_nmm_link', { record: false }) };
-    }
-
-    if (isNMM) {
-      const generated = await fetchGeneratedDownloadUrl(true);
-      const generatedNxm = parseNxmDownloadLink(generated?.url, fileId);
-      return generatedNxm
-        ? { url: generatedNxm }
-        : { url: null, error: generated?.error || Errors.create('no_nmm_link', { record: false }) };
+      return routeOutcome() || { url: null, error: latestError || Errors.create('no_nmm_link', { record: false }) };
     }
 
     const fetchFilePageFallback = async () => {
@@ -1223,7 +1215,7 @@ window.NexusExt = window.NexusExt || {};
 
     const attemptFetch = async (attempt, didPageFallback = false, lastError = null) => {
       if (signal?.aborted) return { url: null, error: Errors.create('aborted', { record: false }) };
-      const generated = await fetchGeneratedDownloadUrl(false);
+      const generated = await fetchGeneratedDownloadUrl();
       if (generated?.url) {
         Logger.info('Manual download URL found from GenerateDownloadUrl');
         return { url: generated.url };
@@ -1237,6 +1229,8 @@ window.NexusExt = window.NexusExt || {};
         if (fallbackResult.url) return fallbackResult;
         latestError = fallbackResult.error || latestError;
         if (latestError && Errors.isBlocking(latestError)) return { url: null, error: latestError };
+        // The page gave the game's number the generator was waiting for.
+        if (generated?.needsGameId && resolvedGameId) return attemptFetch(attempt + 1, true, latestError);
       }
 
       if (attempt < 2 && (!latestError || latestError.retryable)) {

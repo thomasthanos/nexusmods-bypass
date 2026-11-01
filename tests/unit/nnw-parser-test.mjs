@@ -207,12 +207,17 @@ async function apiRouteRecoveryTests() {
       { body: JSON.stringify({ url: link }) }
     ] });
     const result = await h.api.getDownloadUrl({ isNMM, href });
-    assert.equal(result.url, link, 'the generator recovers an unreadable API route');
-    assert.equal(h.calls.length, 2, 'one route attempt and one generator attempt');
-    const body = new URLSearchParams(h.calls[1].options.body);
-    assert.equal(body.get('fid'), '200', 'the clicked file is recovered from the API path');
-    assert.equal(body.get('game_id'), '130');
-    assert.equal(body.get('nmm'), isNMM ? '1' : null);
+    assert.equal(result.url, link, `the ${isNMM ? 'file\'s Vortex page' : 'generator'} recovers an unreadable API route`);
+    assert.equal(h.calls.length, 2, 'one route attempt and one more request');
+    if (isNMM) {
+      // Vortex links are on the file page only, so that page is read, for the file the API path names.
+      assert.equal(h.calls[1].url, 'https://www.nexusmods.com/newvegas/mods/100?tab=files&file_id=200&nmm=1');
+    } else {
+      const body = new URLSearchParams(h.calls[1].options.body);
+      assert.equal(body.get('fid'), '200', 'the clicked file is recovered from the API path');
+      assert.equal(body.get('game_id'), '130');
+      assert.equal(body.get('nmm'), null);
+    }
     assert.equal(h.recorded.length, 0, 'a successful fallback creates no error report');
   }
   for (const status of [401, 403, 404, 429]) {
@@ -278,7 +283,7 @@ async function downloadFlowTests() {
     const harness = createHarness({ sectionGameId: '130', responses: [response(bothUrls)] });
     const result = await harness.api.getDownloadUrl({ fileId: '200', isNMM: true });
     assert.equal(result.url, VORTEX_URL, 'Vortex flow must select the signed NXM URL');
-    assert.equal(new URLSearchParams(harness.calls[0].options.body).get('nmm'), '1');
+    assert.match(harness.calls[0].url, /[?&]file_id=200&nmm=1$/, 'read from the file\'s Vortex page, not the generator');
   }
 
   {
@@ -294,16 +299,32 @@ async function downloadFlowTests() {
     );
   }
 
+  // The generator takes the game's number only. Checked on 2026-11-01, it answers [] to a game named by
+  // its domain (game_id=readyornot), the same as to a signed-out visitor, and another game's number gives
+  // that game's file. With no number on the page, the file page is read for one before the generator is
+  // asked; the domain is never sent.
+  const generatorGames = (harness) => harness.calls
+    .filter((call) => String(call.url).includes('GenerateDownloadUrl') && call.options?.body)
+    .map((call) => new URLSearchParams(call.options.body).get('game_id'));
+  const pageNaming = (gameId) => response(`<!doctype html><html><body><section id="section" data-game-id="${gameId}"></section></body></html>`);
   {
     const harness = createHarness({
-      responses: [response(JSON.stringify({ downloadUrl: MANUAL_URL }))]
+      responses: [pageNaming('130'), response(JSON.stringify({ downloadUrl: MANUAL_URL }))]
     });
-    await harness.api.getDownloadUrl({ fileId: '200', isNMM: false });
-    assert.equal(
-      new URLSearchParams(harness.calls[0].options.body).get('game_id'),
-      'newvegas',
-      'legacy pages must fall back to the game-domain slug'
-    );
+    const result = await harness.api.getDownloadUrl({ fileId: '200', isNMM: false });
+    assert.equal(result.url, MANUAL_URL, 'a page with no game number still downloads');
+    assert.match(String(harness.calls[0].url), /[?&]file_id=200$/, 'once the file page has given the number');
+    assert.deepEqual(generatorGames(harness), ['130'], 'the generator is asked with the number, never the domain');
+  }
+
+  {
+    const harness = createHarness({
+      responses: [response('<!doctype html><html><body><h1>Example</h1></body></html>')]
+    });
+    const result = await harness.api.getDownloadUrl({ fileId: '200', isNMM: false });
+    assert.deepEqual(generatorGames(harness), [], 'with no number anywhere the generator is not asked at all');
+    assert.equal(result.error?.code, 'no_download_url');
+    assert.match(result.error.technicalMessage, /generator not asked: no game number/, 'and the report says why');
   }
 
   {
@@ -312,30 +333,23 @@ async function downloadFlowTests() {
         'window.first = { gameId: 130 };',
         'window.second = { gameId: 999 };'
       ],
-      responses: [response(JSON.stringify({ downloadUrl: MANUAL_URL }))]
+      responses: [pageNaming('130'), response(JSON.stringify({ downloadUrl: MANUAL_URL }))]
     });
     await harness.api.getDownloadUrl({ fileId: '200', isNMM: false });
-    assert.equal(
-      new URLSearchParams(harness.calls[0].options.body).get('game_id'),
-      'newvegas',
-      'conflicting script IDs must be ignored in favor of the canonical game slug'
-    );
+    assert.deepEqual(generatorGames(harness), ['130'], 'conflicting script IDs are ignored for the file page\'s own number');
   }
 
   {
     const harness = createHarness({
-      responses: [response(JSON.stringify({ downloadUrl: MANUAL_URL }))]
+      responses: [pageNaming('130'), response(JSON.stringify({ downloadUrl: MANUAL_URL }))]
     });
     await harness.api.getDownloadUrl({
       fileId: '200',
       isNMM: false,
       href: 'https://www.nexusmods.com/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl'
     });
-    assert.equal(
-      new URLSearchParams(harness.calls[0].options.body).get('game_id'),
-      'newvegas',
-      '/Core resolver URLs must inherit the canonical page slug, never send Core as the game ID'
-    );
+    assert.ok(generatorGames(harness).every((game) => /^\d+$/.test(game)),
+      '/Core resolver URLs never send Core, or the domain, as the game ID');
   }
 
   {
@@ -369,6 +383,7 @@ async function removedModFlowTests() {
     + '</div></body></html>';
   const harness = createHarness({
     href,
+    sectionGameId: '8172',
     // What the generator says without a link is not known for this case; any linkless answer will do.
     pages: [{ body: JSON.stringify({ url: '' }) }, { body: removedPage }]
   });
@@ -433,40 +448,14 @@ async function legacyChromiumVortexTests() {
     href,
     url: LegacyChromiumURL,
     responses: [
-      response(JSON.stringify({ url: link })),
-      response('<html><body><div id="mainContent">Slow download</div></body></html>', { finalUrl: href })
+      response(`<html><body><mod-file-download file-id="12218" user-is-logged-in="true" download-url="${link.replace(/&/g, '&amp;')}"></mod-file-download></body></html>`, { finalUrl: href })
     ]
   });
 
   const result = await harness.api.getDownloadUrl({ fileId: '12218', isNMM: true, href });
   assert.equal(result.error, undefined, 'no error is reported');
-  assert.equal(result.url, link, 'the signed link Nexus generated is handed to Vortex');
-  assert.equal(new URLSearchParams(harness.calls[0].options.body).get('nmm'), '1');
-}
-
-// Live report (SkyUI 12604): the Vortex hand-off waited seconds for the whole file page before asking for
-// the link. The generator is asked first, and the page is not loaded at all when it answers.
-async function vortexGeneratorFirstTests() {
-  const href = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files&file_id=35407&nmm=1';
-  const link = 'nxm://skyrimspecialedition/mods/12604/files/35407?key=k&expires=2000000000&user_id=7';
-  const quick = createHarness({ href, responses: [response(JSON.stringify({ url: link }))] });
-  const result = await quick.api.getDownloadUrl({ fileId: '35407', isNMM: true, href });
-  assert.equal(result.url, link);
-  assert.deepEqual(quick.calls.map((call) => call.url),
-    ['https://www.nexusmods.com/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl'],
-    'one small POST, no file-page load');
-
-  // No link from the generator: the page is still read, and the generator is not asked twice.
-  const fallback = createHarness({
-    href,
-    responses: [
-      response(JSON.stringify({ url: '' })),
-      response(`<html><body><a href="${link}">x</a></body></html>`, { finalUrl: href })
-    ]
-  });
-  const second = await fallback.api.getDownloadUrl({ fileId: '35407', isNMM: true, href });
-  assert.equal(second.url, link, 'the page fallback still finds the link');
-  assert.equal(fallback.calls.length, 2, 'generator once, page once');
+  assert.equal(result.url, link, 'the signed link on the file page is handed to Vortex');
+  assert.equal(harness.calls.length, 1, 'read from the file page alone');
 }
 
 // Discord reports from 3.1.4 (Opera, Edge, Chrome): "no Vortex link" arrived with no context and no
@@ -477,7 +466,6 @@ async function missingLinkTrailTests() {
   const vortex = createHarness({
     href,
     responses: [
-      response('{"url":""}'),
       response('<!doctype html><html><body><button id="slowDownloadButton">Slow download</button></body></html>', { finalUrl: href })
     ]
   });
@@ -485,21 +473,19 @@ async function missingLinkTrailTests() {
   assert.equal(result.error.code, 'no_nmm_link');
   assert.equal(result.error.context, 'Finding the Vortex link', 'the report says which action it was');
   assert.equal(result.error.technicalMessage,
-    'steps: generator HTTP 200: JSON {url}; url empty; no link in it'
-    + ' | page HTTP 200: HTML page; slow-download button; no link in it',
-    'and what the generator and the page answered');
+    'steps: page HTTP 200: HTML page; slow-download button; no link in it',
+    'and what the page answered');
   assert.equal(vortex.recorded.length, 1, 'recorded once');
   assert.equal(vortex.recorded[0].technicalMessage, result.error.technicalMessage, 'with the steps in the log');
 
   const refused = createHarness({
     href,
     responses: [
-      response('{"url":"nxm://skyrimspecialedition/mods/12604/files/35407?key=k&expires=2000000000"}'),
-      response('<!doctype html><html><body></body></html>', { finalUrl: href })
+      response('<!doctype html><html><body><a href="nxm://skyrimspecialedition/mods/12604/files/35407?key=k&amp;expires=2000000000">Vortex</a></body></html>', { finalUrl: href })
     ]
   });
   const unsigned = await refused.api.getDownloadUrl({ fileId: '35407', isNMM: true, href });
-  assert.match(unsigned.error.technicalMessage, /generator HTTP 200: JSON \{url\}; unsigned nxm link \(no user_id\)/,
+  assert.match(unsigned.error.technicalMessage, /page HTTP 200: HTML page; unsigned nxm link \(no user_id\)/,
     'a link that came back without its signature says so');
   assert.doesNotMatch(unsigned.error.technicalMessage, /nxm:\/\/|key=|2000000000/, 'without the link itself');
 
@@ -508,14 +494,14 @@ async function missingLinkTrailTests() {
   // 3.1.8 reports could not be told apart. The report says when the cookie was off.
   const noTimer = createHarness({
     href,
-    responses: [response('[]'), response('<!doctype html><html><body></body></html>', { finalUrl: href })]
+    responses: [response('<!doctype html><html><body></body></html>', { finalUrl: href })]
   });
   noTimer.api.updateConfig({ HidePremiumUpsells: false });
   const held = await noTimer.api.getDownloadUrl({ fileId: '35407', isNMM: true, href });
-  assert.match(held.error.technicalMessage, /^steps: generator HTTP 200: empty JSON list; no link in it \| page HTTP 200: HTML page; no link in it \| ad timer cookie off$/);
+  assert.match(held.error.technicalMessage, /^steps: page HTTP 200: HTML page; no link in it \| ad timer cookie off$/);
   const withTimer = createHarness({
     href,
-    responses: [response('[]'), response('<!doctype html><html><body></body></html>', { finalUrl: href })]
+    responses: [response('<!doctype html><html><body></body></html>', { finalUrl: href })]
   });
   withTimer.api.updateConfig({ HidePremiumUpsells: true });
   assert.doesNotMatch((await withTimer.api.getDownloadUrl({ fileId: '35407', isNMM: true, href })).error.technicalMessage, /ad timer/,
@@ -524,6 +510,7 @@ async function missingLinkTrailTests() {
   // A browser download whose generator POST fails while the page loads: the request, not the
   // connection, is what failed, and the time it took says how.
   const blocked = createHarness({
+    sectionGameId: '130',
     pages: [
       { failure: new TypeError('Failed to fetch') },
       { body: '<!doctype html><html><body><h1>Example</h1></body></html>' },
@@ -595,29 +582,28 @@ async function fileUidTests() {
     { failure: new TypeError('Failed to fetch') },
     { body: JSON.stringify({ url: nxm(2394) }) }
   ] });
-  const viaGenerator = await recovered.api.getDownloadUrl({ fileId: UID, isNMM: true, href });
-  assert.equal(viaGenerator.url, nxm(2394));
-  assert.equal(new URLSearchParams(recovered.calls[1].options.body).get('fid'), '2394', 'the generator is asked for the file id');
+  const viaPage = await recovered.api.getDownloadUrl({ fileId: UID, isNMM: true, href });
+  assert.equal(viaPage.url, nxm(2394));
+  assert.equal(recovered.calls[1].url, `${page}&file_id=2394&nmm=1`, 'the Vortex page of the uid\'s file is read');
 
   const fromPath = createHarness({ href: page, sectionGameId: '2304', pages: [
     { failure: new TypeError('Failed to fetch') },
     { body: JSON.stringify({ url: nxm(2394) }) }
   ] });
   await fromPath.api.getDownloadUrl({ isNMM: true, href });
-  assert.equal(new URLSearchParams(fromPath.calls[1].options.body).get('fid'), '2394', 'also when the id comes from the route');
+  assert.equal(fromPath.calls[1].url, `${page}&file_id=2394&nmm=1`, 'also when the id comes from the route');
 
   // E-0jjutro: "page HTTP 200: plain text body". Asked with X-Requested-With, Nexus answers a mod page
   // with the tab fragment, which has no nxm link; the download page a click opens carries it in
   // <mod-file-download download-url>. The generator is no help here: the site never asks it for nmm=1.
   const filePage = `${page}&file_id=2394&nmm=1`;
   const loaded = createHarness({ href: filePage, sectionGameId: '2304', responses: [
-    response('[]'),
     response(`<!doctype html><html><body><mod-file-download file-id="2394" is-nmm-download="true" download-url="${nxm(2394).replace(/&/g, '&amp;')}"></mod-file-download></body></html>`, { finalUrl: filePage })
   ] });
   const fromPage = await loaded.api.getDownloadUrl({ fileId: '2394', isNMM: true, href: filePage });
   assert.equal(fromPage.url, nxm(2394));
-  assert.equal(loaded.calls[1].url, filePage);
-  assert.equal(loaded.calls[1].options.headers?.['X-Requested-With'], undefined, 'the page is loaded the way a click loads it');
+  assert.equal(loaded.calls[0].url, filePage);
+  assert.equal(loaded.calls[0].options.headers?.['X-Requested-With'], undefined, 'the page is loaded the way a click loads it');
 
   const api = scoped.api;
   const el = (tagName, attrs) => ({ nodeType: 1, tagName, id: '', dataset: {}, getAttribute: (n) => attrs[n] ?? null });
@@ -642,12 +628,11 @@ async function routeSentBackToThePageTests() {
   const harness = createHarness({
     href: 'https://www.nexusmods.com/readyornot/mods/4212',
     sectionGameId: '4205',
-    pages: [{ body: '[]' }, { body: pageWithRoute }, { body: pageWithRoute, finalUrl: filePage }]
+    pages: [{ body: pageWithRoute }, { body: pageWithRoute, finalUrl: filePage }]
   });
   const result = await harness.api.getDownloadUrl({ fileId: '31008', isNMM: true, href: filePage, record: false });
   assert.equal(result.error?.code, 'no_nmm_link');
-  assert.equal(result.error.technicalMessage, 'steps: generator HTTP 200: empty JSON list; no link in it'
-    + ' | page HTTP 200: HTML page; a usable link was in it (download route)'
+  assert.equal(result.error.technicalMessage, 'steps: page HTTP 200: HTML page; a usable link was in it (download route)'
     + ' | API route HTTP 200: HTML page; a usable link was in it (download route); sent on to file page');
   assert.doesNotMatch(result.error.technicalMessage, new RegExp(`${UID}|31008|4212|readyornot|api/files`), 'with no address in it');
 
@@ -655,7 +640,7 @@ async function routeSentBackToThePageTests() {
   const stayed = createHarness({
     href: 'https://www.nexusmods.com/readyornot/mods/4212',
     sectionGameId: '4205',
-    pages: [{ body: '[]' }, { body: pageWithRoute }, { body: '<!doctype html><html><body></body></html>' }]
+    pages: [{ body: pageWithRoute }, { body: '<!doctype html><html><body></body></html>' }]
   });
   const quiet = await stayed.api.getDownloadUrl({ fileId: '31008', isNMM: true, href: filePage, record: false });
   assert.match(quiet.error.technicalMessage, / \| API route HTTP 200: HTML page; no link in it$/);
@@ -676,18 +661,43 @@ async function answeredFilePageTests() {
   const run = (isNMM, pages) => createHarness({ href: 'https://www.nexusmods.com/readyornot/mods/4212', sectionGameId: '4205', pages })
     .api.getDownloadUrl({ fileId: '29928', isNMM, href: `${filePage}${isNMM ? '&nmm=1' : ''}`, record: false });
 
-  for (const isNMM of [true, false]) {
-    const result = await run(isNMM, [{ body: '[]' }, { body: page(signedOutCard(isNMM)) }, { body: '[]' }, { body: page(signedOutCard(isNMM)) }]);
-    assert.equal(result.error?.code, 'requires_login', `${isNMM ? 'Vortex' : 'browser'}: a signed-out visitor is asked to sign in`);
-  }
-  const webLink = JSON.stringify({ url: 'https://files.nexus-cdn.com/4205/4212/file.zip?md5=x&expires=1' });
+  // The Vortex flow reads the file page only; a browser download asks the generator ([] signed out) first.
+  assert.equal((await run(true, [{ body: page(signedOutCard(true)) }])).error?.code, 'requires_login',
+    'Vortex: a signed-out visitor is asked to sign in');
+  assert.equal((await run(false, [{ body: '[]' }, { body: page(signedOutCard(false)) }])).error?.code, 'requires_login',
+    'browser: a signed-out visitor is asked to sign in');
   for (const [label, body, code] of [
     ['a file the mod no longer has', notice('Error', 'Object not found.'), 'file_not_found'],
     ['a file under moderation', notice('File under moderation', 'Being checked.'), 'moderation_hold']
   ]) {
-    assert.equal((await run(true, [{ body: webLink }, { body: page(body) }])).error?.code, code, `Vortex: ${label}`);
+    assert.equal((await run(true, [{ body: page(body) }])).error?.code, code, `Vortex: ${label}`);
     assert.equal((await run(false, [{ body: '[]' }, { body: page(body) }, { body: '[]' }, { body: page(body) }])).error?.code, code, `browser: ${label}`);
   }
+}
+
+// The Vortex link is read from the file page only. Nexus's own Vortex button takes it from the page's card
+// (<mod-file-download download-url>) and never asks the generator, which, checked on 2026-11-01, answers
+// nmm=1 with [] for a signed-out visitor and with a browser download link for a signed-in one: never an
+// nxm:// link. Asking it first cost a request per file and drew a browser link Nexus counts. (The
+// generator had been asked first since a live SkyUI report, when it still answered nmm=1 with the link.)
+async function vortexReadsThePageTests() {
+  const filePage = 'https://www.nexusmods.com/readyornot/mods/4212?tab=files&file_id=29928&nmm=1';
+  const nxm = 'nxm://readyornot/mods/4212/files/29928?key=abcDEF_123&amp;expires=4102444800&amp;user_id=42';
+  const card = `<mod-file-download file-id="29928" user-is-logged-in="true" is-nmm-download="true" download-url="${nxm}"></mod-file-download>`;
+  const page = `<!doctype html><html><body><section id="section" data-game-id="4205">${card}</section></body></html>`;
+  const generatorAsked = (h) => h.calls.filter((call) => String(call.url).includes('GenerateDownloadUrl')).length;
+
+  const clicked = createHarness({ href: 'https://www.nexusmods.com/readyornot/mods/4212', sectionGameId: '4205', pages: [{ body: page }] });
+  const result = await clicked.api.getDownloadUrl({ fileId: '29928', isNMM: true, href: filePage, record: false });
+  assert.match(result.url || '', /^nxm:\/\/readyornot\/mods\/4212\/files\/29928\?/, 'the link on the page\'s card');
+  assert.equal(generatorAsked(clicked), 0, 'with no generator request');
+  assert.equal(clicked.calls.length, 1, 'one request: the page');
+
+  // With no address to start from, the file's Vortex page is read.
+  const unnamed = createHarness({ href: 'https://www.nexusmods.com/readyornot/mods/4212', sectionGameId: '4205', pages: [{ body: page }] });
+  assert.match((await unnamed.api.getDownloadUrl({ fileId: '29928', isNMM: true, record: false })).url || '', /^nxm:/);
+  assert.equal(generatorAsked(unnamed), 0);
+  assert.match(String(unnamed.calls[0]?.url), /[?&]file_id=29928&nmm=1$/, 'the Vortex page, nmm=1 included');
 }
 
 // Issue #30 (3.1.8, Helium on Chrome 155): "API route network_error | generator HTTP 200: JSON {url}; web
@@ -704,20 +714,20 @@ async function unreadableRouteTests() {
   const pageWithRoute = () => ({ body: `<!doctype html><html><body><mod-download-modal file='${JSON.stringify({ uid: Number(UID), vortexDownloadUrl: route })}'></mod-download-modal></body></html>` });
   const harness = (pages) => createHarness({ href: page, sectionGameId: '9719', pages });
 
-  // A click: once the generator has answered, the route is opened as the click itself would have opened
-  // it, without loading the file page first.
-  const click = harness([unreadable(), webLink()]);
+  // A click: once the file page has answered (pointing back at the same route), the route is opened as the
+  // click itself would have opened it, and is not fetched a second time.
+  const click = harness([unreadable(), pageWithRoute()]);
   const opened = await click.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, canOpenRoute: true });
   assert.deepEqual({ ...opened }, { url: route, viaRoute: true });
-  assert.equal(click.calls.length, 2, 'the route and the generator, no file page');
+  assert.equal(click.calls.length, 2, 'the route and the file page');
   // A click on a file page link finds the route on that page.
-  const fromPage = harness([webLink(), pageWithRoute(), unreadable()]);
+  const fromPage = harness([pageWithRoute(), unreadable()]);
   const filePage = `${page}?tab=files&file_id=3357&nmm=1`;
   assert.deepEqual({ ...await fromPage.api.getDownloadUrl({ fileId: '3357', isNMM: true, href: filePage, canOpenRoute: true }) },
     { url: route, viaRoute: true });
 
-  // The page answering is enough to tell, when the generator got no answer either.
-  const pageOnly = harness([unreadable(), unreadable(), pageWithRoute()]);
+  // A page that answers with something else is enough to tell, too.
+  const pageOnly = harness([unreadable(), webLink()]);
   assert.equal((await pageOnly.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, canOpenRoute: true, record: false })).viaRoute, true);
   // So is the page a collection run has already loaded and hands over.
   const prefetched = harness([unreadable(), unreadable()]);
@@ -728,33 +738,33 @@ async function unreadableRouteTests() {
   // Anything else (a collection run, an automatic start) cannot open it: "no Vortex link", which a run
   // fails the file on at once, instead of a lost connection it waits out for minutes. The page's link
   // to the same route is not fetched again.
-  const run = harness([unreadable(), webLink(), pageWithRoute()]);
+  const run = harness([unreadable(), pageWithRoute()]);
   const notOpened = await run.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route });
   assert.equal(notOpened.url, null);
   assert.equal(notOpened.viaRoute, undefined);
   assert.equal(notOpened.error.code, 'no_nmm_link');
-  assert.equal(run.calls.length, 3, 'the route once, the generator and the page');
-  assert.match(notOpened.error.technicalMessage, /^the download route could not be fetched while another Nexus request succeeded; no Vortex link resolved \| steps: API route network_error \| generator HTTP 200: JSON \{url\}; web link outside Nexus where Vortex needs nxm \| page HTTP 200: HTML page; [^|]*download route/);
+  assert.equal(run.calls.length, 2, 'the route once and the page');
+  assert.match(notOpened.error.technicalMessage, /^the download route could not be fetched while another Nexus request succeeded; no Vortex link resolved \| steps: API route network_error \| page HTTP 200: HTML page; [^|]*download route/);
   assert.doesNotMatch(notOpened.error.technicalMessage, new RegExp(`${UID}|nexus-cdn|api/files`), 'with no link in it');
   assert.equal(run.recorded.length, 1, 'recorded at once, as it is not a connection failure');
 
   // Nexus answered nothing: the connection is down, and nothing is opened even for a click.
-  const offline = harness([unreadable(), unreadable(), unreadable()]);
+  const offline = harness([unreadable(), unreadable()]);
   const down = await offline.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, canOpenRoute: true, record: false });
   assert.equal(down.url, null);
   assert.equal(down.error.code, 'network_error');
   // A route that answers is read as before, never opened.
-  const answered = harness([{ body: '{"url":""}' }, webLink(), pageWithRoute(), { body: '{"url":""}' }]);
+  const answered = harness([{ body: '{"url":""}' }, pageWithRoute(), { body: '{"url":""}' }]);
   const read = await answered.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, canOpenRoute: true, record: false });
   assert.equal(read.viaRoute, undefined);
   assert.equal(read.error.code, 'no_nmm_link');
-  assert.equal(answered.calls.length, 4, 'and the page\'s link to it is read again, as before');
+  assert.equal(answered.calls.length, 3, 'and the page\'s link to it is read again, as before');
   // A rate limit or a sign-in is never worked around.
   const limited = harness([unreadable(), { status: 429, body: 'Too Many Requests' }]);
   const blocked = await limited.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, canOpenRoute: true, record: false });
   assert.equal(blocked.viaRoute, undefined);
   assert.equal(blocked.error.code, 'rate_limited');
-  const signedOut = harness([unreadable(), webLink(), { status: 401, body: '' }]);
+  const signedOut = harness([unreadable(), { status: 401, body: '' }]);
   assert.equal((await signedOut.api.getDownloadUrl({ fileId: UID, isNMM: true, href: route, record: false })).error.code, 'requires_login',
     'a run stops for the sign-in instead of failing the file');
   await new Promise((resolve) => setTimeout(resolve, 1700)); // connection failures are recorded a moment later
@@ -780,30 +790,29 @@ async function unreadableRouteBoundaries() {
   ]) {
     const h = harness([unreadable(), answer, pageWithRoute]);
     const result = await h.api.getDownloadUrl(options);
-    assert.equal(result.url, null, `generator ${code} must not turn into a native-route success`);
+    assert.equal(result.url, null, `a file page answered ${code} must not turn into a native-route success`);
     assert.equal(result.error?.code, code, 'the actual terminal response is preserved');
-    assert.equal(h.calls.length, 2, 'a terminal generator answer stops before loading the file page');
+    assert.equal(h.calls.length, 2, 'a terminal page answer stops there');
 
     const direct = harness([answer]);
     const stopped = await direct.api.getDownloadUrl(options);
     assert.equal(stopped.error?.code, code, 'the API route itself also preserves terminal answers');
-    assert.equal(direct.calls.length, 1, 'a terminal route answer never invokes the generator');
+    assert.equal(direct.calls.length, 1, 'a terminal route answer asks nothing more');
   }
 
   // A completed page fetch must not erase a later explicit denial on the route it contains.
   for (const status of [403, 404]) {
-    const h = harness([{ body: '{"url":""}' }, pageWithRoute, { status }]);
+    const h = harness([pageWithRoute, { status }]);
     const result = await h.api.getDownloadUrl({ ...options, href: `${page}?tab=files&file_id=${fileId}&nmm=1` });
     assert.equal(result.url, null);
     assert.equal(result.error?.code, status === 403 ? 'access_denied' : 'file_not_found');
-    assert.equal(h.calls.length, 3);
+    assert.equal(h.calls.length, 2);
 
-    const requirements = harness([{ body: '{"url":""}' },
-      { body: `<a href="${route}">Download</a>` }, { status }]);
+    const requirements = harness([{ body: `<a href="${route}">Download</a>` }, { status }]);
     const fromRequirements = await requirements.api.getDownloadUrl({ ...options,
       href: `https://www.nexusmods.com/Core/Libs/Common/Widgets/ModRequirementsPopUp?file_id=${fileId}` });
     assert.equal(fromRequirements.error?.code, status === 403 ? 'access_denied' : 'file_not_found');
-    assert.equal(requirements.calls.length, 3, 'requirements do not load a denied route again as a page');
+    assert.equal(requirements.calls.length, 2, 'requirements do not load a denied route again as a page');
   }
 
   const controller = new AbortController();
@@ -832,17 +841,17 @@ async function readableVortexRouteTests() {
   const make = (pages, sectionGameId = String(gameId)) => createHarness({ href: page, sectionGameId, pages });
   const options = { fileId, isNMM: true, href: filePage, canOpenRoute: true, record: false };
 
-  const clicked = make([{ body: '[]' }, { body: markup() }, { body: markup(), finalUrl: filePage }]);
+  const clicked = make([{ body: markup() }, { body: markup(), finalUrl: filePage }]);
   const result = await clicked.api.getDownloadUrl(options);
   assert.deepEqual({ ...result }, { url: route, viaRoute: true }, 'a readable same-file route remains available to a manual click');
-  assert.equal(clicked.calls.length, 3, 'the signed link is searched for before the native route is handed back');
+  assert.equal(clicked.calls.length, 2, 'the signed link is searched for before the native route is handed back');
 
-  const direct = make([{ body: markup(), finalUrl: filePage }, { body: '[]' }]);
+  const direct = make([{ body: markup(), finalUrl: filePage }]);
   assert.deepEqual({ ...await direct.api.getDownloadUrl({ ...options, href: route }) }, { url: route, viaRoute: true },
-    'a clicked API route can be handed to the browser after its readable HTML and empty generator');
-  assert.equal(direct.calls.length, 2, 'the same redirect is not fetched repeatedly');
+    'a clicked API route can be handed to the browser after its readable HTML');
+  assert.equal(direct.calls.length, 1, 'the same redirect is not fetched repeatedly');
 
-  const automatic = make([{ body: '[]' }, { body: markup() }, { body: markup() }]);
+  const automatic = make([{ body: markup() }, { body: markup() }]);
   const stopped = await automatic.api.getDownloadUrl({ ...options, canOpenRoute: false });
   assert.equal(stopped.url, null, 'automatic and collection starts cannot create a native-navigation loop');
   assert.equal(stopped.error?.code, 'no_nmm_link');
@@ -852,12 +861,12 @@ async function readableVortexRouteTests() {
     [`https://www.nexusmods.com/api/files/${(gameId + 1) * 2 ** 32 + Number(fileId)}/download?nmm=1`, String((gameId + 1) * 2 ** 32 + Number(fileId))],
     [`https://untrusted.example/api/files/${uid}/download?nmm=1`, uid]
   ]) {
-    const wrong = make([{ body: '[]' }, { body: markup(link, id) }, { body: markup(link, id) }]);
+    const wrong = make([{ body: markup(link, id) }, { body: markup(link, id) }]);
     const rejected = await wrong.api.getDownloadUrl(options);
     assert.equal(rejected.url, null, 'a different file, game, or site cannot become a native route');
     assert.equal(rejected.viaRoute, undefined);
   }
-  const unknownGame = make([{ body: '[]' }, { body: markup() }, { body: markup() }], '');
+  const unknownGame = make([{ body: markup() }, { body: markup() }], '');
   assert.equal((await unknownGame.api.getDownloadUrl(options)).viaRoute, undefined,
     'an encoded route is not navigated when its game cannot be verified');
   const signedWithoutPageGame = `nxm://readyornot/mods/4212/files/${fileId}?key=signed&expires=9999999999&user_id=1`;
@@ -870,12 +879,12 @@ async function readableVortexRouteTests() {
   const otherGameId = gameId + 1;
   const otherUid = String(otherGameId * 2 ** 32 + Number(fileId));
   const otherRoute = `https://www.nexusmods.com/api/files/${otherUid}/download?nmm=1`;
-  const conflicting = make([{ body: '[]' }, { body: `${markup(otherRoute, otherUid)}<div data-game-id="${otherGameId}"></div>` }]);
+  const conflicting = make([{ body: `${markup(otherRoute, otherUid)}<div data-game-id="${otherGameId}"></div>` }]);
   assert.equal((await conflicting.api.getDownloadUrl(options)).url, null,
     'conflicting response metadata cannot authorize another game\'s route');
 
   for (const status of [401, 403, 404, 429]) {
-    const denied = make([{ body: '[]' }, { body: markup() }, { status }]);
+    const denied = make([{ body: markup() }, { status }]);
     const blocked = await denied.api.getDownloadUrl(options);
     assert.equal(blocked.url, null, `HTTP ${status} on the route remains terminal`);
     assert.equal(blocked.viaRoute, undefined);
@@ -890,7 +899,7 @@ async function oneShotNativeVortexTests() {
   const body = `<mod-download-modal file='${JSON.stringify({ uid: Number(uid), vortexDownloadUrl: route })}'></mod-download-modal>`;
   const data = new Map();
   const storage = { getItem: key => data.get(key) || null, setItem: (key, value) => data.set(key, value) };
-  const replies = () => [{ body: '[]' }, { body }, { body, finalUrl: page }];
+  const replies = () => [{ body }, { body, finalUrl: page }];
   const make = (pages, sessionStorage = storage) => {
     const h = createHarness({ href: page, sectionGameId: '4205', pages, sessionStorage });
     h.hooks.setConfig({ AutoStartDownload: true, AutoCloseTab: false, ShowAlertsOnError: false });
@@ -928,7 +937,7 @@ async function oneShotNativeVortexTests() {
   assert.equal(noWrite.navigations.length, 0, 'the marker must be durably saved before automatic route navigation');
   assert.equal(noWrite.hooks.shouldPassThroughToNative(fileId, true), true);
   const obsolete = make(replies(), { getItem: () => null, setItem: () => assert.fail('a stale attempt must not save a navigation marker') });
-  obsolete.state.pages[2].beforeReply = () => obsolete.hooks.invalidateDownloadAttempts();
+  obsolete.state.pages[1].beforeReply = () => obsolete.hooks.invalidateDownloadAttempts();
   await obsolete.hooks.autoStartDownload();
   assert.equal(obsolete.navigations.length, 0, 'navigation away while the route was being resolved cancels the old native handoff');
 }
@@ -1026,13 +1035,13 @@ Promise.resolve()
   .then(removedModFlowTests)
   .then(removedCollectionNoticeTests)
   .then(legacyChromiumVortexTests)
-  .then(vortexGeneratorFirstTests)
   .then(controlClassificationTests)
   .then(missingLinkTrailTests)
   .then(fileUidTests)
   .then(unreadableRouteTests)
   .then(routeSentBackToThePageTests)
   .then(answeredFilePageTests)
+  .then(vortexReadsThePageTests)
   .then(unreadableRouteBoundaries)
   .then(readableVortexRouteTests)
   .then(oneShotNativeVortexTests)
