@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/a656051c-0568-4e09-848f-1e5e0b79d0d5" alt="NexusMods Bypass Showcase: One-click collections, queue progress and Vortex handoff" width="100%" />
+  <img src="https://github.com/user-attachments/assets/436aa468-cb14-4370-8301-d2b5177fda6b" alt="NexusMods Bypass Showcase: One-click collections, queue progress and Vortex handoff" width="100%" />
 </p>
 
 <p align="center">
