@@ -181,6 +181,10 @@ async function settingsNavigationTests() {
     assert.equal(visible()[0].dataset.settingsGroup, 'basics', 'Basics opens first');
     assert.equal(tabs.filter((tab) => tab.tabIndex === 0).length, 1);
     assert.equal(select.value, 'basics');
+    const scroller = original.querySelector('.nxtk-modal-scroll');
+    scroller.scrollTop = 147;
+    activate('basics');
+    assert.equal(scroller.scrollTop, 147, 'selecting the current category does not jump to the top');
 
     tabs[0].focus();
     tabs[0].dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
@@ -200,6 +204,7 @@ async function settingsNavigationTests() {
     edit(folder, '  Category test  ');
     edit(speed, '7.5');
     activate('basics');
+    assert.equal(scroller.scrollTop, 147, 'each category restores its scroll position');
     await tick();
     assert.equal(store.nxtk_settings.DownloadFolder, 'Category test', 'switching category commits pending text');
     assert.equal(store.nxtk_settings.NDC_downloadSpeed, 7.5, 'switching category commits pending numbers');

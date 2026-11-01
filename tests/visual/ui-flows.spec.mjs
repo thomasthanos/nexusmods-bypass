@@ -99,6 +99,7 @@ test('Wabbajack modlist on a mod page: the deck mounts in the content column and
   const before = await hostSignature(tab);
 
   await tab.locator('#nxtk-settings-fab').click();
+  await tab.locator('#nxtk-settings-modal [data-settings-tab="collections"]').click();
   await importModlist(tab, tab.locator('#nxtk-settings-modal #nxtk-wj-import'));
 
   const deck = tab.locator('.nxtk-deck');

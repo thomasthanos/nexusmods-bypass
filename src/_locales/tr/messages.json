@@ -500,7 +500,7 @@
     "message": "İndirmeler"
   },
   "setSectionPacing": {
-    "message": "Koleksiyonlar"
+    "message": "Koleksiyonlar ve mod listeleri"
   },
   "setSectionAdvanced": {
     "message": "Gelişmiş"
@@ -2252,7 +2252,7 @@
     "message": "Add details"
   },
   "setSectionDiagnostics": {
-    "message": "Diagnostics"
+    "message": "Gizlilik ve raporlar"
   },
   "setPrivateDiagnosticsLabel": {
     "message": "Private diagnostics dashboard"
@@ -2304,5 +2304,14 @@
   },
   "rdBtnDirect": {
     "message": "Bunun yerine doğrudan indir"
+  },
+  "setSectionBasics": {
+    "message": "Temel"
+  },
+  "setCategoryLabel": {
+    "message": "Kategori"
+  },
+  "setSectionVortex": {
+    "message": "Vortex"
   }
 }

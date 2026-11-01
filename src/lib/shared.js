@@ -381,7 +381,7 @@
 
   // Technical settings shown only under "Advanced".
   const ADVANCED_SETTING_KEYS = Object.freeze([
-    'RequestTimeout', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload', 'UseOfficialApi', 'CloudflareFallback'
+    'RequestTimeout', 'UseOfficialApi', 'CloudflareFallback'
   ]);
 
   // Which action buttons an error dialog offers, from the error and what the caller can do.

@@ -715,7 +715,7 @@
     "description": "Settings section heading."
   },
   "setSectionPacing": {
-    "message": "Collections",
+    "message": "Collections & modlists",
     "description": "Settings section heading."
   },
   "setSectionAdvanced": {
@@ -2604,7 +2604,7 @@
     "message": "Add details"
   },
   "setSectionDiagnostics": {
-    "message": "Diagnostics"
+    "message": "Privacy & reports"
   },
   "setPrivateDiagnosticsLabel": {
     "message": "Private diagnostics dashboard"
@@ -2669,5 +2669,14 @@
   "rdBtnDirect": {
     "message": "Direct download instead",
     "description": "Resumable-download panel link: stop using the resumable download and download the file directly."
+  },
+  "setSectionBasics": {
+    "message": "Basics"
+  },
+  "setCategoryLabel": {
+    "message": "Category"
+  },
+  "setSectionVortex": {
+    "message": "Vortex"
   }
 }

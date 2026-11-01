@@ -500,7 +500,7 @@
     "message": "ダウンロード"
   },
   "setSectionPacing": {
-    "message": "コレクション"
+    "message": "コレクションとModリスト"
   },
   "setSectionAdvanced": {
     "message": "詳細設定"
@@ -2168,7 +2168,7 @@
     "message": "Add details"
   },
   "setSectionDiagnostics": {
-    "message": "Diagnostics"
+    "message": "プライバシーと報告"
   },
   "setPrivateDiagnosticsLabel": {
     "message": "Private diagnostics dashboard"
@@ -2220,5 +2220,14 @@
   },
   "rdBtnDirect": {
     "message": "代わりに直接ダウンロード"
+  },
+  "setSectionBasics": {
+    "message": "基本"
+  },
+  "setCategoryLabel": {
+    "message": "カテゴリ"
+  },
+  "setSectionVortex": {
+    "message": "Vortex"
   }
 }

@@ -62,8 +62,8 @@
         ? (value) => (value.trim() && !NXTK.isFullFolderPath(value) ? NXTK.t('setDownloadFolderOpera', null, 'Opera saves files in a folder set here inside your system Downloads folder, not in the download location chosen in Opera. Leave this field empty to save where Opera saves its own downloads.') : '')
         : null
     },
-    { key: 'RequestTimeout', label: () => NXTK.t('setRequestTimeoutLabel', null, 'Wait for a download link'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, advanced: true, desc: () => NXTK.t('setRequestTimeoutDesc', null, 'Time allowed to get a download link from Nexus, not the time needed to download the whole file. Increase only if slow replies keep timing out.') },
-    { key: 'CloseTabDelay', label: () => NXTK.t('setCloseTabDelayLabel', null, 'Close-tab delay'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, advanced: true, desc: () => NXTK.t('setCloseTabDelayDesc', null, 'For automatically started Vortex downloads only. Seconds to wait before closing the temporary Nexus tab after Vortex opens. Try a longer delay if Vortex misses links.') },
+    { key: 'RequestTimeout', label: () => NXTK.t('setRequestTimeoutLabel', null, 'Wait for a download link'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, desc: () => NXTK.t('setRequestTimeoutDesc', null, 'Time allowed to get a download link from Nexus, not the time needed to download the whole file. Increase only if slow replies keep timing out.') },
+    { key: 'CloseTabDelay', label: () => NXTK.t('setCloseTabDelayLabel', null, 'Close-tab delay'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, desc: () => NXTK.t('setCloseTabDelayDesc', null, 'For automatically started Vortex downloads only. Seconds to wait before closing the temporary Nexus tab after Vortex opens. Try a longer delay if Vortex misses links.') },
     {
       key: 'NDC_downloadSpeed',
       label: () => NXTK.t('setDownloadSpeedLabel', null, 'Download speed shown in Vortex'),
@@ -82,17 +82,16 @@
     }
   ];
 
-  // Technical settings live under "Advanced" (one list in shared.js, also used by the tests).
-  for (const s of SETTINGS_UI) {
-    if (NXTK.ADVANCED_SETTING_KEYS.includes(s.key)) s.advanced = true;
-  }
-
-
   const SETTING_GROUPS = [
-    { name: 'downloads', titleKey: 'setSectionFlow', title: 'Downloads', keys: ['AutoStartDownload', 'AutoCloseTab', 'SkipRequirements', 'HandleArchivedFiles', 'DownloadFolder', 'WriteMo2Meta'] },
-    { name: 'collections', titleKey: 'setSectionPacing', title: 'Collections', keys: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'] },
-    { name: 'appearance', titleKey: 'setSectionLanguage', title: 'Appearance & language', keys: ['HidePremiumUpsells', 'ExpandRequirements', 'ShowAlertsOnError', 'ForceEnglish'] },
-    { name: 'diagnostics', titleKey: 'setSectionDiagnostics', title: 'Diagnostics', keys: ['AutoErrorReports', 'PrivateDiagnostics'] }
+    { name: 'basics', titleKey: 'setSectionBasics', title: 'Basics', keys: ['AutoStartDownload', 'SkipRequirements', 'ShowAlertsOnError'] },
+    { name: 'downloads', titleKey: 'setSectionFlow', title: 'Downloads', keys: ['HandleArchivedFiles'], sections: [
+      { name: 'browser', titleKey: 'presetBrowser', title: 'Browser downloads', keys: ['DownloadFolder', 'WriteMo2Meta'] },
+      { name: 'vortex', titleKey: 'setSectionVortex', title: 'Vortex', keys: ['AutoCloseTab', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'] }
+    ] },
+    { name: 'collections', titleKey: 'setSectionPacing', title: 'Collections & modlists', keys: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'] },
+    { name: 'appearance', titleKey: 'setSectionLanguage', title: 'Appearance & language', keys: ['HidePremiumUpsells', 'ExpandRequirements', 'ForceEnglish'] },
+    { name: 'diagnostics', titleKey: 'setSectionDiagnostics', title: 'Privacy & reports', keys: ['AutoErrorReports', 'PrivateDiagnostics'] },
+    { name: 'advanced', titleKey: 'setSectionAdvanced', title: 'Advanced', keys: NXTK.ADVANCED_SETTING_KEYS }
   ];
   const SHORT_COPY = {
     "AutoErrorReports": ["setShortAutoErrorReports", "Off until you choose. Send sampled technical errors."],
@@ -190,8 +189,10 @@
   ];
 
   // UI.showSettingsModal in ui.js checks that the extension is still connected, then calls this.
-  async function openSettingsModal() {
+  async function openSettingsModal(viewState = {}) {
     const cfg = await NexusExt.Storage.getSettings();
+    let currentCategory = SETTING_GROUPS.some((group) => group.name === viewState.category) ? viewState.category : 'basics';
+    const scrollPositions = { ...viewState.scrollPositions };
     const activePreset = NXTK.matchingPreset(cfg);
     const presetButtons = PRESETS_UI.map((p) => `<button type="button" class="nxtk-preset${activePreset === p.name ? ' nxtk-preset-active' : ''}" data-preset="${p.name}" aria-pressed="${activePreset === p.name}"><span class="nxtk-preset-title">${escapeHtml(p.label())}</span><span class="nxtk-preset-desc">${escapeHtml(p.desc())}</span></button>`).join('');
     const presetsHtml = `<div class="nxtk-settings-section nxtk-settings-presets"><div class="nxtk-settings-section-title">${L('setSectionPresets', 'Quick setup')}</div><div class="nxtk-preset-row" role="group">${presetButtons}</div><div class="nxtk-preset-note" id="nxtk-preset-note">${activePreset ? '' : escapeHtml(NXTK.t('presetCustom', null, 'Custom: your own mix of settings.'))}</div></div>`;
@@ -231,13 +232,22 @@
       return `<div class="nxtk-setting-row${s.type === 'bool' ? '' : ' nxtk-setting-row-field'}" data-key="${s.key}"><div class="nxtk-setting-label">${copy}${control}</div>${warning}${help}</div>`;
     };
 
+    const buildRows = (keys) => keys.map((key) => SETTINGS_UI.find((s) => s.key === key)).map(buildRow).join('');
+    const reportActions = `<div class="nxtk-settings-github">
+      <button type="button" class="nxtk-settings-report" data-report-issue>${svgIcon('github')}<span data-report-label>${L('setReportOnGithub', 'Report a bug')}</span></button>
+      <a class="nxtk-settings-report" data-suggest-idea href="${escapeHtml(NXTK.newDiscussionUrl('idea'))}" target="_blank" rel="noopener noreferrer" title="${L('setSuggestIdeaTip', 'Share an idea or ask a question in GitHub Discussions')}">${svgIcon('bulb')}<span>${L('setSuggestIdea', 'Suggest an idea')}</span></a>
+    </div>`;
     const grouped = SETTING_GROUPS.map((group) => {
-      const rows = group.keys.map((key) => SETTINGS_UI.find((s) => s.key === key)).map(buildRow).join('');
+      const rows = buildRows(group.keys);
+      const subsections = (group.sections || []).map((section) => `<details class="nxtk-settings-details" data-settings-details="${section.name}"${viewState.expanded?.includes(section.name) ? ' open' : ''}>
+        <summary>${svgIcon('chevronRight')}<span>${L(section.titleKey, section.title)}</span></summary>
+        <div class="nxtk-settings-rows">${buildRows(section.keys)}</div></details>`).join('');
       const importButton = group.name === 'collections'
         ? `<button class="nxtk-btn nxtk-btn-secondary" id="nxtk-wj-import" ${cfg.WabbajackImport ? '' : 'hidden'}>${L('btnImportWabbajack', 'Import Wabbajack modlist')}</button>` : '';
-      return `<section class="nxtk-settings-section nxtk-settings-${group.name}" data-settings-group="${group.name}" aria-labelledby="nxtk-group-${group.name}"><h3 class="nxtk-settings-section-title" id="nxtk-group-${group.name}">${L(group.titleKey, group.title)}</h3><div class="nxtk-settings-rows">${rows}</div>${importButton}</section>`;
+      return `<section class="nxtk-settings-section nxtk-settings-${group.name}" data-settings-group="${group.name}" id="nxtk-settings-panel-${group.name}" role="tabpanel" aria-labelledby="nxtk-settings-tab-${group.name}" tabindex="0"${currentCategory === group.name ? '' : ' hidden'}><h3 class="nxtk-settings-section-title">${L(group.titleKey, group.title)}</h3>${group.name === 'basics' ? presetsHtml : ''}<div class="nxtk-settings-rows">${rows}</div>${subsections}${importButton}${group.name === 'diagnostics' ? reportActions : ''}</section>`;
     }).join('');
-    const advanced = SETTINGS_UI.filter(s => s.advanced).map(buildRow).join('');
+    const navigation = SETTING_GROUPS.map((group) => `<button type="button" role="tab" id="nxtk-settings-tab-${group.name}" data-settings-tab="${group.name}" aria-controls="nxtk-settings-panel-${group.name}" aria-selected="${currentCategory === group.name}" tabindex="${currentCategory === group.name ? '0' : '-1'}">${L(group.titleKey, group.title)}</button>`).join('');
+    const categoryOptions = SETTING_GROUPS.map((group) => `<option value="${group.name}"${currentCategory === group.name ? ' selected' : ''}>${L(group.titleKey, group.title)}</option>`).join('');
 
     const SETTING_INPUT_DEBOUNCE_MS = 400;
     const pendingInputWrites = new Map();
@@ -259,29 +269,54 @@
         </div>
         <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
       </div>
-      <div class="nxtk-modal-scroll">
-        ${presetsHtml}
-        <div class="nxtk-settings-groups">${grouped}</div>
-        <div class="nxtk-settings-advanced">
-          <div class="nxtk-settings-advanced-bar">
-            <button type="button" class="nxtk-settings-advanced-toggle" id="nxtk-advanced-toggle"
-                    aria-expanded="false" aria-controls="nxtk-advanced-body">${svgIcon('chevronRight')} ${L('setSectionAdvanced', 'Advanced')}</button>
-          </div>
-          <div class="nxtk-settings-advanced-body" id="nxtk-advanced-body" hidden>
-            <div class="nxtk-settings-advanced-panel">${advanced}</div>
-          </div>
-        </div>
+      <div class="nxtk-settings-category-picker">
+        <label for="nxtk-settings-category">${L('setCategoryLabel', 'Category')}</label>
+        <select id="nxtk-settings-category">${categoryOptions}</select>
+      </div>
+      <div class="nxtk-settings-layout">
+        <div class="nxtk-settings-nav" role="tablist" aria-orientation="vertical" aria-label="${L('setCategoryLabel', 'Category')}">${navigation}</div>
+        <div class="nxtk-modal-scroll">${grouped}</div>
       </div>
       <div class="nxtk-modal-footer">
         <button class="nxtk-btn nxtk-btn-secondary" data-reset>${L('setRestoreDefaults', 'Restore defaults')}</button>
-        <div class="nxtk-settings-github">
-          <button type="button" class="nxtk-settings-report" data-report-issue>${svgIcon('github')}<span data-report-label>${L('setReportOnGithub', 'Report a bug')}</span></button>
-          <a class="nxtk-settings-report" data-suggest-idea href="${escapeHtml(NXTK.newDiscussionUrl('idea'))}" target="_blank" rel="noopener noreferrer" title="${L('setSuggestIdeaTip', 'Share an idea or ask a question in GitHub Discussions')}">${svgIcon('bulb')}<span>${L('setSuggestIdea', 'Suggest an idea')}</span></a>
-        </div>
         <button class="nxtk-btn nxtk-btn-primary" data-close>${L('btnDone', 'Done')}</button>
       </div>
     `
     });
+
+    const categoryPicker = modal.querySelector('#nxtk-settings-category');
+    const scroller = modal.querySelector('.nxtk-modal-scroll');
+    function setCategory(name, focus = false) {
+      if (!SETTING_GROUPS.some((group) => group.name === name)) return;
+      if (name === currentCategory) return;
+      scrollPositions[currentCategory] = scroller.scrollTop;
+      flushPendingInputs();
+      currentCategory = name;
+      for (const panel of modal.querySelectorAll('[data-settings-group]')) panel.hidden = panel.dataset.settingsGroup !== name;
+      for (const tab of modal.querySelectorAll('[data-settings-tab]')) {
+        const selected = tab.dataset.settingsTab === name;
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        if (selected && focus) tab.focus({ preventScroll: true });
+      }
+      categoryPicker.value = name;
+      scroller.scrollTop = scrollPositions[name] || 0;
+    }
+    modal.querySelectorAll('[data-settings-tab]').forEach((tab, index, tabs) => {
+      tab.addEventListener('click', () => setCategory(tab.dataset.settingsTab));
+      tab.addEventListener('keydown', (event) => {
+        let next;
+        if (event.key === 'ArrowDown') next = (index + 1) % tabs.length;
+        else if (event.key === 'ArrowUp') next = (index + tabs.length - 1) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else return;
+        event.preventDefault();
+        setCategory(tabs[next].dataset.settingsTab, true);
+      });
+    });
+    categoryPicker.addEventListener('change', () => setCategory(categoryPicker.value));
+    scroller.scrollTop = scrollPositions[currentCategory] || 0;
 
     // A text field that says why a value is not saved (DownloadFolder: a full path), while it holds one,
     // and any note about where its value leads (DownloadFolder on Opera).
@@ -349,8 +384,14 @@
           await settingWrites;
           if (!modal.isConnected || settingRevisions.get(key) !== revision) return;
           NXTK.setForceEnglish(cfg[key]);
+          const nextView = {
+            category: currentCategory,
+            expanded: [...modal.querySelectorAll('[data-settings-details][open]')].map((section) => section.dataset.settingsDetails),
+            scrollPositions: { ...scrollPositions, [currentCategory]: scroller.scrollTop },
+            focusSetting: currentCategory === 'appearance' ? key : null
+          };
           close();
-          NexusExt.UI.showSettingsModal().catch(() => undefined);
+          NexusExt.UI.showSettingsModal(nextView).catch(() => undefined);
         });
       }
     }
@@ -537,24 +578,6 @@
     kit.preloadBundle('report');
     if (cfg.WabbajackImport) kit.preloadBundle('wabbajack');
 
-    const advancedToggle = modal.querySelector('#nxtk-advanced-toggle');
-    const advancedBody = modal.querySelector('#nxtk-advanced-body');
-    let advancedCloseTimer = 0;
-    const setAdvanced = (open) => {
-      clearTimeout(advancedCloseTimer);
-      advancedToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      advancedToggle.classList.toggle('nxtk-expanded', open);
-      if (open) {
-        advancedBody.hidden = false;
-        void advancedBody.offsetHeight;
-        advancedBody.classList.add('nxtk-open');
-        advancedCloseTimer = setTimeout(() => advancedBody.classList.add('nxtk-settled'), 280);
-        return;
-      }
-      advancedBody.classList.remove('nxtk-open', 'nxtk-settled');
-      advancedCloseTimer = setTimeout(() => { advancedBody.hidden = true; }, 280);
-    };
-    advancedToggle.addEventListener('click', () => setAdvanced(!advancedBody.classList.contains('nxtk-open')));
     let resetting = false;
     modal.querySelector('[data-reset]').addEventListener('click', async () => {
       const resetButton = modal.querySelector('[data-reset]');
@@ -588,7 +611,9 @@
       }
     });
 
-    modal.querySelector('[data-close]')?.focus?.({ preventScroll: true });
+    const initialFocus = viewState.focusSetting
+      ? modal.querySelector(`[data-setting="${viewState.focusSetting}"]`) : modal.querySelector('[data-close]');
+    initialFocus?.focus?.({ preventScroll: true });
   }
 
   function nxtkConfirm({ title, message, confirmText, cancelText } = {}) {

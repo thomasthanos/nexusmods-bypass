@@ -640,7 +640,7 @@
     "message": "Загрузки"
   },
   "setSectionPacing": {
-    "message": "Коллекции"
+    "message": "Коллекции и списки модов"
   },
   "setSectionAdvanced": {
     "message": "Дополнительно"
@@ -2420,7 +2420,7 @@
     "message": "Add details"
   },
   "setSectionDiagnostics": {
-    "message": "Diagnostics"
+    "message": "Конфиденциальность и отчёты"
   },
   "setPrivateDiagnosticsLabel": {
     "message": "Private diagnostics dashboard"
@@ -2472,5 +2472,14 @@
   },
   "rdBtnDirect": {
     "message": "Скачать напрямую"
+  },
+  "setSectionBasics": {
+    "message": "Основные"
+  },
+  "setCategoryLabel": {
+    "message": "Категория"
+  },
+  "setSectionVortex": {
+    "message": "Vortex"
   }
 }

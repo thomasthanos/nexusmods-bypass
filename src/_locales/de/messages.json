@@ -570,7 +570,7 @@
     "message": "Downloads"
   },
   "setSectionPacing": {
-    "message": "Sammlungen"
+    "message": "Sammlungen & Modlisten"
   },
   "setSectionAdvanced": {
     "message": "Erweitert"
@@ -2252,7 +2252,7 @@
     "message": "Add details"
   },
   "setSectionDiagnostics": {
-    "message": "Diagnostics"
+    "message": "Datenschutz & Berichte"
   },
   "setPrivateDiagnosticsLabel": {
     "message": "Private diagnostics dashboard"
@@ -2304,5 +2304,14 @@
   },
   "rdBtnDirect": {
     "message": "Stattdessen direkt herunterladen"
+  },
+  "setSectionBasics": {
+    "message": "Grundlagen"
+  },
+  "setCategoryLabel": {
+    "message": "Kategorie"
+  },
+  "setSectionVortex": {
+    "message": "Vortex"
   }
 }

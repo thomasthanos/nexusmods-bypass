@@ -570,7 +570,7 @@
     "message": "Λήψεις"
   },
   "setSectionPacing": {
-    "message": "Συλλογές"
+    "message": "Συλλογές και modlists"
   },
   "setSectionAdvanced": {
     "message": "Για προχωρημένους"
@@ -2252,7 +2252,7 @@
     "message": "Προσθήκη λεπτομερειών"
   },
   "setSectionDiagnostics": {
-    "message": "Διαγνωστικά"
+    "message": "Απόρρητο και αναφορές"
   },
   "setPrivateDiagnosticsLabel": {
     "message": "Ιδιωτικός πίνακας διαγνωστικών"
@@ -2304,5 +2304,14 @@
   },
   "rdBtnDirect": {
     "message": "Απευθείας λήψη αντί γι’ αυτό"
+  },
+  "setSectionBasics": {
+    "message": "Βασικά"
+  },
+  "setCategoryLabel": {
+    "message": "Κατηγορία"
+  },
+  "setSectionVortex": {
+    "message": "Vortex"
   }
 }

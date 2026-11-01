@@ -570,7 +570,7 @@
     "message": "Downloads"
   },
   "setSectionPacing": {
-    "message": "Coleções"
+    "message": "Coleções e listas de mods"
   },
   "setSectionAdvanced": {
     "message": "Avançado"
@@ -2252,7 +2252,7 @@
     "message": "Add details"
   },
   "setSectionDiagnostics": {
-    "message": "Diagnostics"
+    "message": "Privacidade e relatórios"
   },
   "setPrivateDiagnosticsLabel": {
     "message": "Private diagnostics dashboard"
@@ -2304,5 +2304,14 @@
   },
   "rdBtnDirect": {
     "message": "Baixar direto em vez disso"
+  },
+  "setSectionBasics": {
+    "message": "Básico"
+  },
+  "setCategoryLabel": {
+    "message": "Categoria"
+  },
+  "setSectionVortex": {
+    "message": "Vortex"
   }
 }

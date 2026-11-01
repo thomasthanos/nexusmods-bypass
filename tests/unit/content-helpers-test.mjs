@@ -427,7 +427,7 @@ function adTimerCookieBehaviour() {
     /const runWatchdog = \(\) => \{\s*NexusExt\.NNW\?\.refreshAdTimerCookie\?\.\(\);/,
     'the queue watchdog refreshes the cookie on every tick'
   );
-  const upFront = ndc.indexOf("NexusExt.NNW?.refreshAdTimerCookie?.();\n        watchdogTimer");
+  const upFront = ndc.replace(/\r\n/g, '\n').indexOf("NexusExt.NNW?.refreshAdTimerCookie?.();\n        watchdogTimer");
   assert.notEqual(upFront, -1, 'and once up front, before the interval is armed');
   assert.ok(upFront < ndc.indexOf('Promise.resolve(start())'), 'which must precede the start command');
 }

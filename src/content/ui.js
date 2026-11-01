@@ -609,7 +609,7 @@ window.NexusExt = window.NexusExt || {};
     kit.syncFabWithMenus = () => syncFabWithMenus(fab);
   }
 
-  async function showSettingsModal() {
+  async function showSettingsModal(viewState) {
     closeModal('nxtk-settings-modal');
 
     if (NexusExt.Storage.isContextValid && !NexusExt.Storage.isContextValid()) {
@@ -619,7 +619,7 @@ window.NexusExt = window.NexusExt || {};
     }
 
     await loadBundle('settings');
-    await kit.settings.open();
+    await kit.settings.open(viewState);
   }
 
   // filePageUrl: where "Open file page" goes. method: 'vortex' | 'browser'. onSwitchToBrowser: what

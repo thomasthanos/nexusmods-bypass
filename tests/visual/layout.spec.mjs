@@ -18,6 +18,14 @@ fs.mkdirSync(shotDir, { recursive: true });
 const SCREENS = [[3840, 2160], [2560, 1440], [1920, 1080], [1280, 720]];
 const ZOOMS = [1, 1.25, 1.5];
 
+async function settingsCategory(modal, name) {
+  const picker = modal.locator('#nxtk-settings-category');
+  if (await picker.isVisible()) await picker.selectOption(name);
+  else await modal.locator(`[data-settings-tab="${name}"]`).click();
+  await expect(modal.locator('[role="tabpanel"]:visible')).toHaveCount(1);
+  await expect(modal.locator(`[data-settings-group="${name}"]`)).toBeVisible();
+}
+
 // Offline Chromium with the extension installed and the welcome tab closed (tests/visual/helpers.mjs).
 const launchContext = ({ dir = extensionDir, userDataDir = null } = {}) => launchExtension({ extensions: [dir], userDataDir });
 
@@ -1304,7 +1312,7 @@ test('settings: quick-setup presets apply and technical settings sit under Advan
   await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
   const modal = page.locator('.nxtk-modal').first();
   await expect(modal.locator('[data-preset="vortex"]')).toHaveClass(/nxtk-preset-active/, { timeout: 10000 });
-  await expect(modal.locator('#nxtk-advanced-body')).toBeHidden();
+  await expect(modal.locator('[data-settings-group="advanced"]')).toBeHidden();
   await modal.locator('[data-preset="browser"]').click();
   await expect.poll(async () => (await read('nxtk_settings')).NDC_downloadMethod).toBe(1);
   expect((await read('nxtk_settings')).AutoCloseTab).toBe(false);
@@ -1318,60 +1326,56 @@ test('settings: quick-setup presets apply and technical settings sit under Advan
   await expect(page.locator('.nxtk-modal [data-preset="browser"]')).toHaveClass(/nxtk-preset-active/);
   await settle(page);
   await assertFits(page, '.nxtk-modal', 'presets');
-  await page.locator('#nxtk-advanced-toggle').click();
-  await expect(page.locator('#nxtk-advanced-body')).toContainText(/browser check/);
+  await settingsCategory(modal, 'advanced');
+  await expect(modal.locator('[data-settings-group="advanced"]')).toContainText(/browser check/);
   await patch({ NDC_downloadMethod: 0, AutoCloseTab: true });
   await page.close();
   await ext.close();
 });
 
 for (const [width, height] of [[1280, 800], [1366, 768], [360, 800]]) {
-  for (const zoom of ZOOMS) {
-    test(`compact settings groups fit at ${width}x${height}@${zoom}`, async () => {
+  for (const zoom of [...ZOOMS, 2]) {
+    test(`settings categories fit at ${width}x${height}@${zoom}`, async () => {
       const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', width, height, zoom);
       await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
       const modal = page.locator('#nxtk-settings-modal .nxtk-modal');
-      await expect(modal.locator('[data-settings-group="downloads"]')).toBeVisible();
+      await expect(modal.locator('[data-settings-group="basics"]')).toBeVisible();
+      await expect(modal.locator('[role="tabpanel"]:visible')).toHaveCount(1);
       await settle(page);
-      await assertFits(page, '#nxtk-settings-modal .nxtk-modal', 'compact settings');
-      const header = await modal.locator('.nxtk-modal-header').boundingBox();
-      const closeButton = await modal.locator('.nxtk-modal-close').boundingBox();
-      expect(closeButton.x + closeButton.width, 'close stays in the upper right, not on its own row').toBeGreaterThanOrEqual(header.x + header.width - 1);
-      const layout = await modal.evaluate((el) => {
-        const rect = (selector) => el.querySelector(selector).getBoundingClientRect().toJSON();
-        const scroll = el.querySelector('.nxtk-modal-scroll');
-        return {
-          downloads: rect('[data-settings-group="downloads"]'), collections: rect('[data-settings-group="collections"]'),
-          appearance: rect('[data-settings-group="appearance"]'), presets: rect('.nxtk-settings-presets'),
-          overflow: scroll.scrollWidth - scroll.clientWidth,
-          clipped: [...scroll.querySelectorAll('*')].filter((child) => child.getBoundingClientRect().right > scroll.getBoundingClientRect().right + 1).map((child) => ({ class: child.className, flex: getComputedStyle(child).flex, width: child.getBoundingClientRect().width })),
-          descSize: parseFloat(getComputedStyle(el.querySelector('.nxtk-setting-desc')).fontSize)
-        };
-      });
-      expect(layout.overflow, JSON.stringify(layout.clipped)).toBeLessThanOrEqual(1);
-      expect(layout.descSize).toBeGreaterThanOrEqual(12);
-      expect(layout.presets.bottom).toBeLessThanOrEqual(layout.downloads.top);
-      if (width / zoom >= 760) {
-        expect(Math.abs(layout.downloads.top - layout.collections.top)).toBeLessThanOrEqual(1);
-        expect(Math.abs(layout.downloads.width - layout.collections.width)).toBeLessThanOrEqual(1);
-        expect(layout.appearance.height, 'appearance must not stretch into a tall empty card').toBeLessThan(260);
-      } else {
-        expect(layout.collections.top).toBeGreaterThanOrEqual(layout.downloads.bottom);
+      await assertFits(page, '#nxtk-settings-modal .nxtk-modal', 'category settings');
+      const outer = await modal.boundingBox();
+      expect(outer.width).toBeLessThanOrEqual(961);
+      expect(outer.height).toBeLessThanOrEqual(721);
+      const footer = await modal.locator('.nxtk-modal-footer').boundingBox();
+      await expect(modal.locator('.nxtk-settings-nav')).toBeVisible({ visible: width / zoom >= 760 });
+      await expect(modal.locator('#nxtk-settings-category')).toBeVisible({ visible: width / zoom < 760 });
+      await page.screenshot({ path: path.join(shotDir, `settings-basics-${width}x${height}-${zoom}.png`) });
+      let reached = 0;
+      for (const name of ['basics', 'downloads', 'collections', 'appearance', 'diagnostics', 'advanced']) {
+        await settingsCategory(modal, name);
+        const panel = modal.locator(`[data-settings-group="${name}"]`);
+        for (const summary of await panel.locator('details > summary').all()) await summary.click();
+        for (const input of await panel.locator('[data-setting]').all()) {
+          await input.scrollIntoViewIfNeeded();
+          const bounds = await input.evaluate((el) => {
+            const target = el.type === 'checkbox' ? el.closest('.nxtk-toggle') : el;
+            const r = target.getBoundingClientRect();
+            const outer = el.closest('.nxtk-modal-scroll').getBoundingClientRect();
+            return { left: r.left, right: r.right, parentLeft: outer.left, parentRight: outer.right };
+          });
+          expect(bounds.left).toBeGreaterThanOrEqual(bounds.parentLeft - 1);
+          expect(bounds.right).toBeLessThanOrEqual(bounds.parentRight + 1);
+          reached++;
+        }
+        expect(await modal.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+        const footerAfter = await modal.locator('.nxtk-modal-footer').boundingBox();
+        expect(Math.abs(footerAfter.y - footer.y), 'footer does not move with the content').toBeLessThanOrEqual(1);
+        if (name === 'downloads') {
+          await modal.locator('.nxtk-modal-scroll').evaluate((el) => { el.scrollTop = 0; });
+          await page.screenshot({ path: path.join(shotDir, `settings-downloads-${width}x${height}-${zoom}.png`) });
+        }
       }
-      await page.screenshot({ path: path.join(shotDir, `compact-settings-${width}x${height}-${zoom}.png`) });
-      await modal.locator('#nxtk-advanced-toggle').click();
-      await expect(modal.locator('#nxtk-advanced-body')).toBeVisible();
-      for (const input of await modal.locator('[data-setting]').all()) {
-        await input.scrollIntoViewIfNeeded();
-        const box = await input.evaluate((el) => {
-          const target = el.type === 'checkbox' ? el.closest('.nxtk-toggle') : el;
-          const r = target.getBoundingClientRect();
-          const outer = el.closest('.nxtk-modal-scroll').getBoundingClientRect();
-          return { left: r.left, right: r.right, parentLeft: outer.left, parentRight: outer.right };
-        });
-        expect(box.left).toBeGreaterThanOrEqual(box.parentLeft - 1);
-        expect(box.right).toBeLessThanOrEqual(box.parentRight + 1);
-      }
+      expect(reached, 'all settings remain reachable').toBe(23);
       await assertFits(page, '#nxtk-settings-modal .nxtk-modal-footer', 'footer stays reachable');
       await page.close();
     });
@@ -1520,12 +1524,14 @@ test('settings shortcut does not reset its position on scroll when an overlappin
   await page.close();
 });
 
-test('quick setup preserves the dialog, open help, Advanced, scroll and focus without navigation', async () => {
+test('quick setup preserves the dialog, subsections, open help, scroll and focus without navigation', async () => {
   const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
   await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
   const modal = page.locator('#nxtk-settings-modal .nxtk-modal');
   const original = await modal.elementHandle();
-  await modal.locator('#nxtk-advanced-toggle').click();
+  await settingsCategory(modal, 'downloads');
+  await modal.locator('[data-settings-details="vortex"] summary').click();
+  await settingsCategory(modal, 'basics');
   await modal.locator('[data-key="AutoStartDownload"] [data-setting-help]').click();
   const preset = modal.locator('[data-preset="browser"]');
   await preset.focus();
@@ -1535,7 +1541,7 @@ test('quick setup preserves the dialog, open help, Advanced, scroll and focus wi
   await page.keyboard.press('Enter');
   await expect(preset).toHaveAttribute('aria-pressed', 'true');
   expect(await original.evaluate((el) => el.isConnected), 'the same modal stays mounted').toBe(true);
-  await expect(modal.locator('#nxtk-advanced-toggle')).toHaveAttribute('aria-expanded', 'true');
+  await expect(modal.locator('[data-settings-details="vortex"]')).toHaveAttribute('open', '');
   await expect(modal.locator('[data-key="AutoStartDownload"] [data-setting-help]')).toHaveAttribute('aria-expanded', 'true');
   expect(await modal.locator('.nxtk-modal-scroll').evaluate((el) => el.scrollTop)).toBe(beforeScroll);
   expect(await preset.evaluate((el) => document.activeElement === el)).toBe(true);
@@ -1565,7 +1571,9 @@ test('compact settings switches work by clicking their label, track and using Sp
 test('compact settings numeric fields show the complete valid speed value', async () => {
   const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
   await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
-  await page.locator('#nxtk-advanced-toggle').click();
+  const modal = page.locator('#nxtk-settings-modal .nxtk-modal');
+  await settingsCategory(modal, 'downloads');
+  await modal.locator('[data-settings-details="vortex"] summary').click();
   const speed = page.locator('#nxtk-settings-modal [data-setting="NDC_downloadSpeed"]');
   const before = await speed.inputValue();
   await speed.fill('999.9');
@@ -1599,6 +1607,8 @@ test('compact settings long labels and reset confirmation remain usable', async 
   expect(overflow).toBeLessThanOrEqual(1);
   await page.screenshot({ path: path.join(shotDir, 'compact-settings-long-label.png') });
   // Issue #34: a full path is not saved, and the field says why without widening the dialog.
+  await settingsCategory(modal, 'downloads');
+  await modal.locator('[data-settings-details="browser"] summary').click();
   const folderWarning = modal.locator('#nxtk-setting-DownloadFolder-warning');
   await modal.locator('[data-key="DownloadFolder"] input').fill('D:\\mods\\Skyrim Special Edition\\Nexus downloads');
   await modal.locator('[data-key="DownloadFolder"] input').press('Tab');
@@ -1864,6 +1874,7 @@ for (const lang of ['de', 'ru', 'el']) {
       await page.locator('#nxtk-settings-fab').click();
       const settings = page.locator('#nxtk-settings-modal .nxtk-modal');
       const catalog = JSON.parse(fs.readFileSync(path.join(extensionDir, `_locales/${lang}/messages.json`), 'utf8'));
+      await settingsCategory(settings, 'appearance');
       await expect(settings.locator('[data-settings-group="appearance"] h3')).toHaveText(catalog.setSectionLanguage.message);
       for (const width of [360, 1280]) {
         await page.setViewportSize({ width, height: 800 });

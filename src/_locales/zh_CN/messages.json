@@ -535,7 +535,7 @@
     "message": "下载"
   },
   "setSectionPacing": {
-    "message": "合集"
+    "message": "合集与模组列表"
   },
   "setSectionAdvanced": {
     "message": "高级"
@@ -2168,7 +2168,7 @@
     "message": "Add details"
   },
   "setSectionDiagnostics": {
-    "message": "Diagnostics"
+    "message": "隐私与报告"
   },
   "setPrivateDiagnosticsLabel": {
     "message": "Private diagnostics dashboard"
@@ -2220,5 +2220,14 @@
   },
   "rdBtnDirect": {
     "message": "改为直接下载"
+  },
+  "setSectionBasics": {
+    "message": "基础设置"
+  },
+  "setCategoryLabel": {
+    "message": "分类"
+  },
+  "setSectionVortex": {
+    "message": "Vortex"
   }
 }

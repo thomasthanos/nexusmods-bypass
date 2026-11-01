@@ -500,7 +500,7 @@
     "message": "다운로드"
   },
   "setSectionPacing": {
-    "message": "컬렉션"
+    "message": "컬렉션 및 모드 목록"
   },
   "setSectionAdvanced": {
     "message": "고급"
@@ -2168,7 +2168,7 @@
     "message": "Add details"
   },
   "setSectionDiagnostics": {
-    "message": "Diagnostics"
+    "message": "개인정보 및 오류 보고"
   },
   "setPrivateDiagnosticsLabel": {
     "message": "Private diagnostics dashboard"
@@ -2220,5 +2220,14 @@
   },
   "rdBtnDirect": {
     "message": "대신 직접 다운로드"
+  },
+  "setSectionBasics": {
+    "message": "기본"
+  },
+  "setCategoryLabel": {
+    "message": "카테고리"
+  },
+  "setSectionVortex": {
+    "message": "Vortex"
   }
 }
