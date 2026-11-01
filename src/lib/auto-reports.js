@@ -13,6 +13,18 @@
     'rate_limited', 'account_suspended', 'access_denied', 'file_not_found', 'mod_unavailable',
     'collection_unavailable', 'moderation_hold', 'missing_file', 'save_failed', 'USER_CANCELED', 'USER_SHUTDOWN']);
 
+  // A browser download the browser or security software blocked, or a full or locked disk stopped, is the
+  // computer's answer, not a fault of the extension, and no retry changes it (E-1fjr9wd, E-1913fj0). The
+  // user is told locally. The kinds are the ones shared.js gives up on without a retry.
+  const LOCAL_INTERRUPT_KINDS = new Set(['blocked', 'disk', 'user']);
+
+  function staysLocal(kit, entry) {
+    const code = entry.causeCode || entry.code;
+    if (LOCAL_ONLY.has(code)) return true;
+    return /^[A-Z][A-Z_]+$/.test(String(code || ''))
+      && LOCAL_INTERRUPT_KINDS.has(kit.classifyDownloadInterrupt?.(code)?.kind);
+  }
+
   const repeatWindow = (payload) => ['network_error', 'timeout'].includes(payload.error?.causeCode || payload.error?.code)
     ? NETWORK_WINDOW : WINDOW;
 
@@ -78,7 +90,7 @@
 
     async enqueue(entry) {
       const accepted = await this.serial(async () => {
-        if (!await this.enabled() || LOCAL_ONLY.has(entry.causeCode || entry.code)) return false;
+        if (!await this.enabled() || staysLocal(this.kit, entry)) return false;
         const details = this.kit.autoReportDetails(entry);
         const version = this.api.runtime.getManifest().version;
         const fingerprint = `${version}|${details.reference}`;

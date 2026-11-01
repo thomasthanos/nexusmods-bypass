@@ -229,6 +229,12 @@ async function run() {
       assert.equal(await f.reporter.enqueue(f.entry({ code })), false, `${code} stays local`);
     }
     assert.equal(await f.reporter.enqueue(f.entry({ code: 'queue_item_failed', causeCode: 'USER_CANCELED' })), false);
+    // E-1fjr9wd, E-1913fj0: a download the browser or security software blocked, or one a full or locked
+    // disk stopped, is the computer's answer, not a fault of the extension, and no retry can change it.
+    // The user is told locally (Download blocked by security software); nothing is reported.
+    for (const causeCode of ['FILE_VIRUS_INFECTED', 'FILE_SECURITY_CHECK_FAILED', 'FILE_BLOCKED', 'FILE_NO_SPACE', 'FILE_ACCESS_DENIED']) {
+      assert.equal(await f.reporter.enqueue(f.entry({ code: 'queue_item_failed', causeCode })), false, `${causeCode} stays local`);
+    }
     await f.reporter.enqueue(f.entry()); await f.reporter.flush();
     await f.reporter.enqueue(f.entry({ code: 'uncaught_exception' })); await f.reporter.flush();
     assert.equal(f.sent.length, 2, 'distinct bugs send immediately, even seconds apart');

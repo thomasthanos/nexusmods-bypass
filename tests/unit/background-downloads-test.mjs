@@ -1733,6 +1733,38 @@ async function mo2MetaBesideCollectionFile() {
   }
 }
 
+// E-0vikgau (3.3.6, Firefox, 10 reports): Firefox refuses a data: URL to downloads.download ("Access
+// denied for URL data:…"), so no .meta was ever written there. Firefox's background page has Blob and
+// URL.createObjectURL and gets a blob: URL, let go once its download is over; Chromium's service worker
+// has no URL.createObjectURL and keeps the data: URL (mo2MetaBesideCollectionFile).
+async function mo2MetaInFirefox() {
+  const N = context.NXTK;
+  const item = { modId: '12604', fileId: '5', domain: 'skyrimspecialedition', modName: 'SkyUI', version: '5.2' };
+  const { resolveObjectURL } = await import('node:buffer');
+  const saved = global.chrome.downloads;
+  const started = [];
+  global.chrome.downloads = { download: (options, cb) => { started.push(options); cb(41); } };
+  context.Blob = Blob;
+  try {
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
+    await context.writeMo2Meta(item, 'Collection/SkyUI.7z', '/Users/me/Downloads/Collection/SkyUI.7z');
+    assert.match(started[0].url, /^blob:/, 'a blob: URL, which Firefox lets an extension download');
+    assert.equal(started[0].filename, 'Collection/SkyUI.7z.meta');
+    assert.match(await resolveObjectURL(started[0].url).text(), /^modid=12604$/m, 'holding the .meta');
+    context.releaseTextDownloadUrl(41);
+    assert.equal(resolveObjectURL(started[0].url), undefined, 'let go once its download is over');
+
+    // A download the browser refuses lets its URL go at once.
+    global.chrome.downloads = { download: (options, cb) => { started.push(options); global.chrome.runtime.lastError = { message: 'refused' }; cb(undefined); global.chrome.runtime.lastError = null; } };
+    await assert.rejects(context.writeMo2Meta(item, 'Collection/SkyUI.7z', '/Users/me/Downloads/Collection/SkyUI.7z'));
+    assert.equal(resolveObjectURL(started[1].url), undefined, 'a refused download keeps nothing');
+  } finally {
+    delete context.Blob;
+    global.chrome.downloads = saved;
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
+  }
+}
+
 // E-1u4nb29: a mod saved from its page in the browser and installed with Mod Organizer 2 had no
 // description, and MO2's Nexus link did not open its page. With WriteMo2Meta on, a single download gets
 // the .meta a collection file gets, once it has finished.
@@ -2071,6 +2103,7 @@ Promise.resolve()
   .then(browserSecurityBlockIsNeverRetried)
   .then(failedSingleDownloadsCanBeRetried)
   .then(mo2MetaBesideCollectionFile)
+  .then(mo2MetaInFirefox)
   .then(singleDownloadGetsMo2Meta)
   .then(browserPlacesUnnamedDownloads)
   .then(refusedDownloadBehaviour)

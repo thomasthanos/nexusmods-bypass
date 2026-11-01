@@ -22,6 +22,10 @@
 </p>
 
 <p align="center">
+  <img src="https://github.com/user-attachments/assets/a656051c-0568-4e09-848f-1e5e0b79d0d5" alt="NexusMods Bypass Showcase: One-click collections, queue progress and Vortex handoff" width="100%" />
+</p>
+
+<p align="center">
   <img src="docs/assets/install-steps.svg" alt="Download the ZIP, load it, sign in to Nexus Mods" width="100%" />
 </p>
 

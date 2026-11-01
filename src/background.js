@@ -1836,6 +1836,29 @@ function mo2MetaText({ domain, modId, fileId, modName, version }) {
   ].join('\n');
 }
 
+// A file the extension writes itself is handed to downloads.download by URL. Firefox refuses a data: URL
+// there ("Access denied for URL data:…", E-0vikgau: no .meta was ever written in Firefox) and takes a
+// blob: URL, which its background page can make. Chromium's service worker has no URL.createObjectURL and
+// takes the data: URL. A blob: URL is let go once its download is over (releaseTextDownloadUrl), not
+// before: Firefox reads it while it writes the file.
+const heldTextDownloadUrls = new Map();
+
+function textDownloadUrl(text) {
+  // A text type makes the browser pick its own extension (.txt) over the name the file is given.
+  const type = 'application/octet-stream';
+  if (typeof Blob === 'function' && typeof URL.createObjectURL === 'function') {
+    return URL.createObjectURL(new Blob([text], { type }));
+  }
+  return `data:${type},${encodeURIComponent(text)}`;
+}
+
+function releaseTextDownloadUrl(downloadId) {
+  const url = heldTextDownloadUrls.get(downloadId);
+  if (!url) return;
+  heldTextDownloadUrls.delete(downloadId);
+  try { URL.revokeObjectURL(url); } catch (_) { }
+}
+
 // Opt-in (WriteMo2Meta). Saved in the file's folder under the name the file has on disk, so a
 // uniquified "(1)" copy gets a .meta of its own.
 async function writeMo2Meta(item, relativeName, archivePath) {
@@ -1845,16 +1868,20 @@ async function writeMo2Meta(item, relativeName, archivePath) {
   const folder = downloadFolderOf(relativeName);
   const archiveName = archivePath.split(/[\\/]/).pop();
   const text = mo2MetaText({ domain: item.domain, modId: item.modId, fileId: item.fileId, modName: item.modName, version: item.version });
+  const url = textDownloadUrl(text);
   await new Promise((resolve, reject) => {
     chrome.downloads.download({
-      // A text type makes the browser pick its own extension (.txt) over the .meta name.
-      url: `data:application/octet-stream,${encodeURIComponent(text)}`,
+      url,
       filename: `${folder ? `${folder}/` : ''}${archiveName}.meta`,
       conflictAction: 'overwrite',
       saveAs: false
     }, (id) => {
       const error = getRuntimeError();
-      if (error || id === undefined) return reject(new Error(error || 'download_not_started'));
+      if (error || id === undefined) {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+        return reject(new Error(error || 'download_not_started'));
+      }
+      if (url.startsWith('blob:')) heldTextDownloadUrls.set(id, url);
       resolve(id);
     });
   });
@@ -3074,6 +3101,7 @@ if (chrome.downloads?.onChanged) {
     const state = String(delta?.state?.current || '');
     if (!Number.isInteger(downloadId) || !['complete', 'interrupted'].includes(state)) return;
 
+    releaseTextDownloadUrl(downloadId);
     (state === 'complete' ? writeSingleMo2Meta(downloadId) : forgetSingleMo2Meta(downloadId))
       .catch((cause) => recordBackgroundError('MO2 meta', cause));
     handleNdcDownloadTerminal(downloadId, state, delta?.error?.current || null)
