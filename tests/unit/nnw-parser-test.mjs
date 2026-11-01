@@ -661,6 +661,35 @@ async function routeSentBackToThePageTests() {
   assert.match(quiet.error.technicalMessage, / \| API route HTTP 200: HTML page; no link in it$/);
 }
 
+// E-0jjutro / E-1bwikgk (3.3.1–3.3.6, 91 reports): the file page answered, as Nexus served it on 2026-11-01.
+// Signed out, the generator answers [] and the page's download card carries the account gate, beside a
+// sign-out path in its scripts and the main file's ?nmm=1 route in its download dialog; both flows ended as
+// "no link". A file the mod no longer has is an "Error: Object not found." notice; Vortex users who were
+// signed in got a web link from the generator, then that notice. Each now ends as what it is.
+async function answeredFilePageTests() {
+  const modal = `<mod-download-modal file='${JSON.stringify({ uid: 18060337510688, vortexDownloadUrl: 'https://www.nexusmods.com/api/files/18060337510688/download?nmm=1' })}'></mod-download-modal>`;
+  const page = (body) => `<!doctype html><html><head><script>var signOut = "https://users.nexusmods.com/auth/sign_out";</script></head>`
+    + `<body><section id="section" data-game-id="4205">${modal}${body}</section></body></html>`;
+  const signedOutCard = (nmm) => `<mod-file-download file-id="29928" user-is-premium="false" dl-gate-variant="a" is-nmm-download="${nmm}" download-url="${nmm ? '' : '#ERROR-download-location-not-found'}"></mod-file-download>`;
+  const notice = (title, rest) => `<div id="Notice9003" class="info warning clearfix site-notice"><div class="info-content"><h3 id="Notice9003-title">${title}</h3> ${rest} </div></div>`;
+  const filePage = 'https://www.nexusmods.com/readyornot/mods/4212?tab=files&file_id=29928';
+  const run = (isNMM, pages) => createHarness({ href: 'https://www.nexusmods.com/readyornot/mods/4212', sectionGameId: '4205', pages })
+    .api.getDownloadUrl({ fileId: '29928', isNMM, href: `${filePage}${isNMM ? '&nmm=1' : ''}`, record: false });
+
+  for (const isNMM of [true, false]) {
+    const result = await run(isNMM, [{ body: '[]' }, { body: page(signedOutCard(isNMM)) }, { body: '[]' }, { body: page(signedOutCard(isNMM)) }]);
+    assert.equal(result.error?.code, 'requires_login', `${isNMM ? 'Vortex' : 'browser'}: a signed-out visitor is asked to sign in`);
+  }
+  const webLink = JSON.stringify({ url: 'https://files.nexus-cdn.com/4205/4212/file.zip?md5=x&expires=1' });
+  for (const [label, body, code] of [
+    ['a file the mod no longer has', notice('Error', 'Object not found.'), 'file_not_found'],
+    ['a file under moderation', notice('File under moderation', 'Being checked.'), 'moderation_hold']
+  ]) {
+    assert.equal((await run(true, [{ body: webLink }, { body: page(body) }])).error?.code, code, `Vortex: ${label}`);
+    assert.equal((await run(false, [{ body: '[]' }, { body: page(body) }, { body: '[]' }, { body: page(body) }])).error?.code, code, `browser: ${label}`);
+  }
+}
+
 // Issue #30 (3.1.8, Helium on Chrome 155): "API route network_error | generator HTTP 200: JSON {url}; web
 // link outside Nexus where Vortex needs nxm | page HTTP 200: HTML page; a usable link was in it | API route
 // network_error". The route a Vortex click loads failed to fetch within milliseconds while Nexus answered
@@ -1003,6 +1032,7 @@ Promise.resolve()
   .then(fileUidTests)
   .then(unreadableRouteTests)
   .then(routeSentBackToThePageTests)
+  .then(answeredFilePageTests)
   .then(unreadableRouteBoundaries)
   .then(readableVortexRouteTests)
   .then(oneShotNativeVortexTests)

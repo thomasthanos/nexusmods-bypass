@@ -59,6 +59,36 @@
   const NOTICE_TITLE = /<h3\b[^>]*\bid=["']Notice\d+-title["'][^>]*>([^<]{1,80})<\/h3>/gi;
   const MOD_PAGE_SECTION = /<section\b[^>]*\bid=["']section["']/i;
 
+  // What a file page's own download card says, as Nexus served it on 2026-11-01. A signed-in visitor's
+  // <mod-file-download> carries user-is-logged-in="true"; anyone else's carries the account gate
+  // (dl-gate-variant) instead. Both must agree before the card is read as signed out, so a rename of
+  // either attribute stops this check rather than refusing a signed-in download. The page around the card
+  // has a sign-out path in its scripts and the main file's ?nmm=1 route in its download dialog, which the
+  // markers above read as a session and a file offer (E-0jjutro, E-1bwikgk: "no link" for a sign-in).
+  const DOWNLOAD_CARD = /<mod-file-download\b[^>]*>/i;
+  function downloadCardSession(rawContent) {
+    const card = DOWNLOAD_CARD.exec(rawContent.slice(0, MAX_NOTICE_SCAN_CHARS))?.[0];
+    if (!card) return '';
+    if (/\suser-is-logged-in\s*=\s*["']?true\b/i.test(card)) return 'signed-in';
+    return /\sdl-gate-variant\s*=/i.test(card) ? 'signed-out' : '';
+  }
+
+  // A file the mod no longer has (deleted, or a link to another mod's file): the mod's page with an
+  // "Error" notice reading "Object not found." where the download card would be.
+  const OBJECT_NOT_FOUND = /<h3\b[^>]*\bid=["']Notice\d+-title["'][^>]*>\s*Error\s*<\/h3>\s*(?:<[^>]+>\s*)*Object not found\b/i;
+  // A file Nexus is holding for moderation, by the notice's title.
+  const MODERATION_TITLE = /moderat|under review|pending review/i;
+
+  function fileNotice(rawContent) {
+    const content = rawContent.slice(0, MAX_NOTICE_SCAN_CHARS);
+    if (DOWNLOAD_CARD.test(content)) return null;
+    if (OBJECT_NOT_FOUND.test(content)) return { code: 'file_not_found', reason: '"Error: Object not found." notice where the download card would be' };
+    for (const match of content.matchAll(NOTICE_TITLE)) {
+      if (MODERATION_TITLE.test(match[1])) return { code: 'moderation_hold', reason: 'moderation notice where the download card would be' };
+    }
+    return null;
+  }
+
   function unavailableNotice(content) {
     for (const match of String(content || '').slice(0, MAX_NOTICE_SCAN_CHARS).matchAll(NOTICE_TITLE)) {
       const title = match[1].replace(/\s+/g, ' ').trim();
@@ -163,6 +193,13 @@
     if (notice) {
       return { code: 'mod_unavailable', reason: `hidden/removed mod page markup: ${notice}` };
     }
+
+    // The download card's own answer comes before the page-wide markers below (see downloadCardSession).
+    if (downloadCardSession(rawContent) === 'signed-out') {
+      return { code: 'requires_login', reason: 'download card for a signed-out visitor (account gate, no user-is-logged-in)' };
+    }
+    const missingFile = fileNotice(rawContent);
+    if (missingFile) return missingFile;
 
     // A concrete download offer is stronger evidence than generic page chrome or prose. This also
     // prevents a harmless sign-in button in a signed-in layout from hiding a valid file link.

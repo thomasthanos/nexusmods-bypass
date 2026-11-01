@@ -177,7 +177,14 @@ function workerEdgeCases(Parser) {
   // linkKind names a link by kind for the page's reports (where a download route sent a request on).
   assert.equal(Parser.linkKind('https://www.nexusmods.com/newvegas/mods/100?tab=files&file_id=200&nmm=1'), 'file page');
   assert.equal(Parser.linkKind('https://www.nexusmods.com/api/files/858993459400/download?nmm=1'), 'download route');
-  assert.equal(Parser.linkKind('https://www.nexusmods.com/newvegas/mods/100'), 'Nexus page');
+  // E-1hmdsrg (3.3.6, 19 times): a collection run's generator answered with "a Nexus page", which could not
+  // be told apart. Which kind of page it is, from a fixed list and never the address, says why next time.
+  assert.equal(Parser.linkKind('https://www.nexusmods.com/newvegas/mods/100'), 'Nexus mod page');
+  assert.equal(Parser.linkKind('https://users.nexusmods.com/auth/sign_in?redirect_url=x'), 'Nexus sign-in page');
+  assert.equal(Parser.linkKind('https://www.nexusmods.com/premium?utm=dl'), 'Nexus Premium page');
+  assert.equal(Parser.linkKind('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc'), 'Nexus collection page');
+  assert.equal(Parser.linkKind('https://www.nexusmods.com/'), 'Nexus home page');
+  assert.equal(Parser.linkKind('https://www.nexusmods.com/some/other/path'), 'Nexus page');
   assert.equal(Parser.linkKind('https://example.com/elsewhere'), 'other link');
 
   assert.equal(Parser.isSignedNxmLink(VORTEX_URL), true, 'a signed handoff link is recognised');

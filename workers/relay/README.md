@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../../docs/assets/header-relay.svg" alt="Bug-report relay" width="100%" />
+  <img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/header-relay.svg" alt="Bug-report relay" width="100%" />
 </p>
 
 <p align="center">
@@ -9,7 +9,7 @@
   <a href="../../CHANGELOG.md"><kbd> 📋 Changelog </kbd></a>
 </p>
 
-<img src="../../docs/assets/divider.svg" alt="" width="100%" />
+<img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/divider.svg" alt="" width="100%" />
 
 
 A small Cloudflare Worker that receives reports from the extension's **Send bug report** page (and
@@ -222,8 +222,8 @@ and checks that the reports in `tests/fixtures/relay-reports.json` are accepted 
 diagnostics Worker's schema accepts.
 `node workers/relay/test/discord-dispatch-test.mjs` checks embed limits, clipping, Retry-After handling and bounded retries in `discord.js`.
 
-<img src="../../docs/assets/divider.svg" alt="" width="100%" />
+<img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/divider.svg" alt="" width="100%" />
 
 <p align="center">
-  <a href="https://github.com/thomasthanos"><img src="../../docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+  <a href="https://github.com/thomasthanos"><img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/footer.svg?v=3.3.7" alt="Built with care by ThomasT. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
 </p>

@@ -1,7 +1,7 @@
 <div id="top"></div>
 
 <p align="center">
-  <img src="../docs/assets/header-contributing.svg?v=65a40bf33611" alt="Contributing to NexusMods Bypass" width="100%" />
+  <img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/header-contributing.svg" alt="Contributing to NexusMods Bypass" width="100%" />
 </p>
 
 <p align="center">
@@ -11,7 +11,7 @@
   <a href="../CHANGELOG.md"><kbd> 📋 Changelog </kbd></a>
 </p>
 
-<img src="../docs/assets/divider.svg" alt="" width="100%" />
+<img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/divider.svg" alt="" width="100%" />
 
 <p align="center">
   <b>Bug reports and focused pull requests are welcome.</b><br>
@@ -94,8 +94,8 @@ The diagnostics workspace requires Node.js 24.15.0+ (24.x) or 26+.
   <a href="#top"><kbd> ↑ Back to top </kbd></a>
 </p>
 
-<img src="../docs/assets/divider.svg" alt="" width="100%" />
+<img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/divider.svg" alt="" width="100%" />
 
 <p align="center">
-  <a href="https://github.com/thomasthanos"><img src="../docs/assets/footer.svg?v=52bfdbe" alt="Built with care by ThomasT. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+  <a href="https://github.com/thomasthanos"><img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/footer.svg?v=3.3.7" alt="Built with care by ThomasT. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
 </p>

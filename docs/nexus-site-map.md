@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/header-site-map.svg" alt="Nexus Mods site map & official API study" width="100%" />
+  <img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/header-site-map.svg" alt="Nexus Mods site map & official API study" width="100%" />
 </p>
 
 <p align="center">
@@ -9,7 +9,7 @@
   <a href="../CHANGELOG.md"><kbd> 📋 Changelog </kbd></a>
 </p>
 
-<img src="assets/divider.svg" alt="" width="100%" />
+<img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/divider.svg" alt="" width="100%" />
 
 
 This is a study of how nexusmods.com is structured and which **official, documented** interfaces could replace the extension's DOM scraping and internal endpoints. Like the <a href="https://github.com/mytechnotalent/Reverse-Engineering"><kbd>Reverse-Engineering</kbd></a> course, it works from observation, but only through legitimate sources:
@@ -67,6 +67,10 @@ Identifiers you can rely on:
 | `mod-file-download[filesize-bytes][is-managed-download-enabled][is-nmm-download][user-is-logged-in]` | `nnw.js` `offersResumableChoice` | Whether *Slow download* opens Nexus's standard-or-resumable chooser instead of starting (over 500 MB, and `showSaveFilePicker` must exist) | Medium | none (download flow; out of scope) |
 | Chooser `[role="dialog"]`/`.nxm-modal-content` with *Standard download* / *Resumable download*; *Pause*, *Resume Download*, *direct download* buttons on the progress panel | `nnw.js` `largeFileChoiceOf`, `isDirectDownloadControl`, `nexusResumableShown` | Resumable downloads (beta). Labels are English-only on Nexus; kept in `selectors.js` `TEXT` | High (beta UI) | none |
 | Chooser dialog `.nxm-modal` (headlessui `Dialog`) > `.nxm-modal-backdrop` + `.nxm-modal-content` (close: `.nxm-modal-close-button`) | `nnw.js` `nexusChooserOf`, `renderLargeFileChooser` | Where the extension draws its own question: beside Nexus's hidden panel, inside the dialog, so Nexus's focus trap and Escape still apply | High (beta UI) | none |
+| `mod-file-download[user-is-logged-in]` and `[dl-gate-variant]` (seen 2026-11-01: `user-is-logged-in="true"` signed in; no such mark and an account gate signed out, with an empty or `#ERROR…` `download-url`) | `response-classifier.js` `downloadCardSession` | A file page that answered a signed-out visitor is `requires_login`. Both marks must agree, so a rename stops the check rather than refusing a signed-in download | Medium | none |
+| `mod-download-modal[file]` (JSON: `name`, `uid`, `category`, `downloadUrl`, `vortexDownloadUrl`) | `download-url-parser.js` (file metadata) | Always the mod's **main** file, whatever `file_id` was asked for; its `vortexDownloadUrl` is `/api/files/<uid>/download?nmm=1`, which redirects to the file page, never to a file | Medium | v2 `modFiles` |
+| Site notice `<h3 id="Notice…-title">Error</h3> Object not found.` with no `mod-file-download`, inside the mod's own `#section` | `response-classifier.js` `fileNotice` | A file the mod no longer has (deleted, or another mod's file id) is `file_not_found`; a moderation-titled notice with no card is `moderation_hold` | Medium | v2 `modFiles` |
+| `/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl` (checked 2026-11-01) | `nnw.js` `fetchGeneratedDownloadUrl`, `background.js` `resolveNdcBrowserUrl` | Never answers `nmm=1` with an `nxm://` link: `[]` signed out, a `files.nexus-cdn.com` web link signed in (Nexus's own Vortex button reads the card's `download-url` instead). `[]` too for a file that does not exist or a `game_id` given as a name; another game's id gives that game's file | High | none |
 | `mod-file-download[filename][filesize]`; the `#download-section` child whose text starts with the filename | `nnw.js` `nexusFileRowOf`, `renderFileRow` | The file's name and size line, drawn in the extension's look in place of Nexus's | Medium | v2 `modFiles{ name, sizeInBytes }` |
 | `mod-file-download` shadow root `#download-section` (the panel is the child that is not the file row or `#upsell-cards`); panel texts (*Downloading:*, *Download Paused:*, *previous session*, *Something went wrong*…) | `nnw.js` `nexusPanelOf`, `readNexusPanel`, `syncResumableCards` | Where the extension draws its own resumable-download panel and which state it shows. Unknown text shows Nexus's panel again | High (beta UI) | none |
 | Files tab `dt.file-expander-header[data-id][data-size]` (size in KiB, seen 2026-11-01) | `nnw.js` `listedFileBytes`, `sendToLargeFileChoice` | Whether *Manual download* goes to the file's page, where Nexus asks standard or resumable, instead of starting at once | Medium | v2 `modFiles{ sizeInBytes }` |
@@ -243,8 +247,8 @@ Feature flags (in-page settings): **Use the official Nexus API** (default on; of
 - NexusMods.App: https://github.com/Nexus-Mods/NexusMods.App
 - This repo: `src/content/main.js`, `nnw.js`, `ndc.js`, `page-check.js`, `auth.js`
 
-<img src="assets/divider.svg" alt="" width="100%" />
+<img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/divider.svg" alt="" width="100%" />
 
 <p align="center">
-  <a href="https://github.com/thomasthanos"><img src="assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+  <a href="https://github.com/thomasthanos"><img src="https://raw.githubusercontent.com/thomasthanos/nexusmods-bypass/main/docs/assets/footer.svg?v=3.3.7" alt="Built with care by ThomasT. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
 </p>

@@ -884,6 +884,52 @@ function modUnavailableTests() {
     'a title the browser translated is not read');
 }
 
+// E-0jjutro / E-1bwikgk / E-1hmdsrg (91 reports, 3.3.1–3.3.6): what a file page says when it cannot give a
+// link, as Nexus served it on 2026-11-01 (readyornot/mods/4212, skyrimspecialedition/mods/266).
+//  - Signed out, the download card has no user-is-logged-in="true" and carries the account gate
+//    (dl-gate-variant). The page still has a sign-out path in its scripts and the main file's ?nmm=1
+//    route in <mod-download-modal file="…">, which read as a session and a file offer: the reports said
+//    "no Vortex link" (83 times) where Nexus had answered a signed-out visitor.
+//  - A file the mod no longer has is an "Error" notice reading "Object not found.", with no card, inside
+//    the mod's own page.
+//  - A file under moderation is a moderation notice with no card.
+function downloadCardTests() {
+  const classify = globalThis.NXTKResponseClassifier.classify;
+  const scripts = '<script>window.config = { signOutUrl: "https://users.nexusmods.com/auth/sign_out" };</script>';
+  const modal = '<mod-download-modal file="{&quot;name&quot;:&quot;Main&quot;,&quot;uid&quot;:18060337510688,&quot;vortexDownloadUrl&quot;:&quot;https://www.nexusmods.com/api/files/18060337510688/download?nmm=1&quot;}"></mod-download-modal>';
+  const card = (attributes) => `<mod-file-download file-id="29928" game-id="4205" user-is-premium="false" is-nmm-download="true" ${attributes}></mod-file-download>`;
+  const page = (body) => `<html><head>${scripts}</head><body><div id="mainContent"><section id="section" data-game-id="4205">${modal}${body}</section></div></body></html>`;
+  const nxm = 'nxm://readyornot/mods/4212/files/29928?key=k&amp;expires=1&amp;user_id=2';
+
+  const signedOut = classify({ text: page(card('dl-gate-variant="a" download-url=""')) });
+  assert.equal(signedOut?.code, 'requires_login', 'a card for a signed-out visitor asks for a sign-in');
+  assert.match(signedOut.reason, /download card/, 'and says how it knew');
+  assert.equal(classify({ text: page(card('dl-gate-variant="b" download-url="#ERROR-download-location-not-found" is-nmm-download="false"')) })?.code,
+    'requires_login', 'for a browser download too');
+  for (const [label, attributes] of [
+    ['a signed-in Vortex card', `user-is-logged-in="true" download-url="${nxm}"`],
+    ['a signed-in manual card, whose link the page asks for later', 'user-is-logged-in="true" download-url="#ERROR-download-location-not-found"'],
+    // Each signal alone proves nothing: if Nexus renames one, a signed-in download must still go ahead.
+    ['a card that says signed in beside a gate', `user-is-logged-in="true" dl-gate-variant="a" download-url="${nxm}"`],
+    ['a card with neither signal', 'download-url=""']
+  ]) {
+    assert.equal(classify({ text: page(card(attributes)) }), null, `not refused: ${label}`);
+  }
+
+  const notice = (title, rest) => `<div id="Notice9003" class="info warning clearfix site-notice col-1-1"><div class="info-content"><h3 id="Notice9003-title">${title}</h3> ${rest} </div></div>`;
+  const gone = classify({ text: page(notice('Error', 'Object not found.')) });
+  assert.equal(gone?.code, 'file_not_found', 'a file the mod no longer has is not found');
+  assert.match(gone.reason, /Object not found/);
+  assert.equal(classify({ text: page(notice('Error', 'Something else went wrong.')) }), null, 'another error notice is not');
+  assert.equal(classify({ text: page(notice('Error', 'Object not found.') + card(`user-is-logged-in="true" download-url="${nxm}"`)) }), null,
+    'nor one beside a card that offers the file');
+
+  const held = classify({ text: page(notice('File under moderation', 'This file is being checked by our moderators.')) });
+  assert.equal(held?.code, 'moderation_hold', 'a file under moderation is held');
+  assert.equal(classify({ text: page(notice('File under moderation', 'Checked.') + card(`user-is-logged-in="true" download-url="${nxm}"`)) }), null,
+    'unless the card still offers it');
+}
+
 // Bug report #7: a file page of a mod its author had removed started a download on its own, found no link,
 // and offered Retry under "check that you are signed in", while the page itself said the mod was removed.
 function unavailableModPageTests() {
@@ -1514,6 +1560,7 @@ popupSizingTests();
 viewportHeightTests();
 downloadDoctorRemovedTests();
 modUnavailableTests();
+downloadCardTests();
 unavailableModPageTests();
 blockingVerdictTests();
 classifierParityTests();

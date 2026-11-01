@@ -482,7 +482,17 @@
   ]);
 
   // The kind of link a search found, for a report; never the link itself. "A usable link" alone could
-  // not tell a page that carried the nxm:// link from one that only pointed at another download route.
+  // not tell a page that carried the nxm:// link from one that only pointed at another download route,
+  // and "a Nexus page" could not tell a sign-in from an upsell (E-1hmdsrg), so a Nexus page is named by
+  // its kind from a fixed list.
+  const NEXUS_PAGE_KINDS = Object.freeze([
+    [(host, path) => host === 'users.nexusmods.com' && /^\/auth\//i.test(path), 'Nexus sign-in page'],
+    [(host, path) => /^\/premium(?:\/|$)/i.test(path), 'Nexus Premium page'],
+    [(host, path) => /\/collections\//i.test(path), 'Nexus collection page'],
+    [(host, path) => /^\/[a-z0-9-]+\/mods\/\d+\/?$/i.test(path), 'Nexus mod page'],
+    [(host, path) => path === '/' || path === '', 'Nexus home page']
+  ]);
+
   function linkKind(url) {
     const text = String(url || '');
     if (/^nxm:/i.test(text)) return 'nxm link';
@@ -490,7 +500,11 @@
       const parsed = new URL(text);
       if (/(^|\.)nexus-cdn\.com$/i.test(parsed.hostname)) return 'file link';
       if (/^\/api\/files\//i.test(parsed.pathname)) return 'download route';
-      if (/(^|\.)nexusmods\.com$/i.test(parsed.hostname)) return parsed.searchParams.has('file_id') ? 'file page' : 'Nexus page';
+      if (/(^|\.)nexusmods\.com$/i.test(parsed.hostname)) {
+        if (parsed.searchParams.has('file_id')) return 'file page';
+        const host = parsed.hostname.toLowerCase();
+        return NEXUS_PAGE_KINDS.find(([matches]) => matches(host, parsed.pathname))?.[1] || 'Nexus page';
+      }
     } catch (_) { }
     return 'other link';
   }

@@ -429,7 +429,13 @@ async function nexusAnswersAreClassified() {
       ['a generator sign-in error', { body: signedIn }, { status: 403, body: '{"code":"unauthenticated"}' }, { ok: false, code: 'requires_login' }],
       ['a 404 page', { status: 404 }, null, { ok: false, code: 'mod_unavailable' }],
       ['a generator 410', { body: signedIn }, { status: 410 }, { ok: false, code: 'file_not_found' }],
-      ['a generator 503', { body: signedIn }, { status: 503 }, { ok: false, code: 'generate_failed', status: 503 }]
+      ['a generator 503', { body: signedIn }, { status: 503 }, { ok: false, code: 'generate_failed', status: 503 }],
+      // E-1hmdsrg (3.3.3–3.3.6): Nexus's answer on the file page, as served on 2026-11-01. A run ended these
+      // as "no download link" and reported them; they are a sign-in, a file the mod no longer has, and a
+      // file under moderation, and the queue treats each as such.
+      ['a download card for a signed-out visitor', { body: `${signedIn}<section id="section"><mod-file-download file-id="5" user-is-premium="false" dl-gate-variant="a" download-url="#ERROR-download-location-not-found"></mod-file-download></section>` }, null, { ok: false, code: 'requires_login' }],
+      ['an "Object not found." notice', { body: `${signedIn}<section id="section"><div id="Notice9003"><h3 id="Notice9003-title">Error</h3> Object not found. </div></section>` }, null, { ok: false, code: 'file_not_found' }],
+      ['a moderation notice', { body: `${signedIn}<section id="section"><div id="Notice7"><h3 id="Notice7-title">File under moderation</h3> Being checked. </div></section>` }, null, { ok: false, code: 'moderation_hold' }]
     ]) {
       const asked = [];
       context.fetch = async (url) => {

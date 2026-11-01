@@ -51,5 +51,5 @@ If a notice appears incomplete, open an issue in the <a href="https://github.com
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
 <p align="center">
-  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Built with care by ThomasThanos. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg?v=3.3.7" alt="Built with care by ThomasT. Not affiliated with, endorsed by, or connected to Nexus Mods." width="100%" /></a>
 </p>
