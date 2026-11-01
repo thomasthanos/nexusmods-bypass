@@ -29,6 +29,7 @@
     "jsdom": "^25.0.1"
   },
   "overrides": {
+    "minimatch": "11.0.1",
     "miniflare": {
       "undici": "7.30.1"
     }

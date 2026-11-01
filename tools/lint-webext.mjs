@@ -27,7 +27,9 @@ try {
   }
   // Match web-ext lint's manifest checks, without its unused browser/Android runners.
   // Scan every extracted package file; errors fail while warnings remain visible.
-  run(process.execPath, [cli, '--min-manifest-version', '2', '--max-manifest-version', '3',
+  // addons-linter still requires deepmerge 4.3.1, with no upstream fix for
+  // GHSA-gcqx-w48m-w2h4. Block the __proto__ accessor in this checking process.
+  run(process.execPath, ['--disable-proto=throw', cli, '--min-manifest-version', '2', '--max-manifest-version', '3',
     '--enable-data-collection-permissions', sourceDir]);
 } finally {
   rmSync(sourceDir, { recursive: true, force: true });
