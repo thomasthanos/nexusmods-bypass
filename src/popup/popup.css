@@ -11,6 +11,8 @@ html, body {
   color: var(--nxtk-text);
   font-size: 13px;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .popup {
@@ -35,6 +37,8 @@ html, body {
   isolation: isolate;
   overflow: hidden;
   animation: nxtk-slideUp 0.55s cubic-bezier(0.32, 0.72, 0.24, 1) both;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .popup > * { position: relative; z-index: 2; }
@@ -143,6 +147,8 @@ html, body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   letter-spacing: -0.01em;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .popup-version {
@@ -876,19 +882,23 @@ html, body {
   box-shadow: 0 0 8px rgba(77, 219, 120, 0.45);
 }
 
+/* Four ways to give, two to a row: as a list of four rows the view no longer fit the popup in most
+   languages, and its last lines needed a scroll. */
 .support-donate-grid {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
   margin-bottom: 4px;
 }
 
 .support-donate-btn {
+  position: relative;
   width: 100%;
-  min-height: 52px;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 11px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   padding: 9px 11px;
   border: 0;
   border-radius: 14px;
@@ -916,17 +926,17 @@ html, body {
 }
 
 .support-donate-icon {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  border-radius: 10px;
+  border-radius: 9px;
 }
 
 .support-donate-icon svg {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
   fill: #fff;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
 }
@@ -936,6 +946,13 @@ html, body {
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.18),
     0 4px 10px rgba(0,0,0,0.35);
+}
+
+.support-donate-icon--patreon {
+  background: linear-gradient(145deg, #ff6b74, #e0303b);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 4px 10px rgba(255, 66, 77, 0.40);
 }
 
 .support-donate-icon--paypal {
@@ -953,11 +970,18 @@ html, body {
 }
 
 .support-donate-copy {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.support-donate-copy strong,
+.support-donate-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .support-donate-copy strong {
@@ -974,6 +998,9 @@ html, body {
 }
 
 .support-donate-btn .support-external {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   width: 14px;
   height: 14px;
   flex: none;
@@ -1189,3 +1216,73 @@ html, body {
 body { overflow-x: hidden; }
 button, a.btn, .btn { min-height: 32px; }
 * { overflow-wrap: break-word; }
+
+/* Custom tooltips */
+.nxtk-tooltip {
+  position: fixed;
+  z-index: 99999;
+  max-width: 320px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(3px) scale(0.97);
+  transition:
+    opacity 0.16s cubic-bezier(0.32, 0.72, 0.24, 1),
+    transform 0.16s cubic-bezier(0.32, 0.72, 0.24, 1),
+    visibility 0.16s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.nxtk-tooltip.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+.nxtk-tooltip-content {
+  position: relative;
+  z-index: 2;
+  padding: 7px 11px;
+  border-radius: 9px;
+  font-family: -apple-system, "SF Pro Text", "Inter", system-ui, sans-serif;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: #f1f2f6;
+  background: rgba(18, 19, 29, 0.96);
+  border: 1px solid rgba(217, 143, 64, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 10px 28px rgba(0, 0, 0, 0.75),
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 0 18px rgba(217, 143, 64, 0.18);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.nxtk-tooltip-arrow {
+  position: absolute;
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  background: rgba(18, 19, 29, 0.96);
+  border: 1px solid rgba(217, 143, 64, 0.38);
+  pointer-events: none;
+}
+
+.nxtk-tooltip[data-placement="top"] .nxtk-tooltip-arrow {
+  bottom: -4px;
+  border-top: none;
+  border-left: none;
+}
+
+.nxtk-tooltip[data-placement="bottom"] .nxtk-tooltip-arrow {
+  top: -4px;
+  border-bottom: none;
+  border-right: none;
+}

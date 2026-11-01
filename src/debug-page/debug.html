@@ -8,32 +8,133 @@
 </head>
 <body>
   <header class="db-top">
-    <h1 data-i18n="dbTitle">Debug log</h1>
-    <span class="db-live" id="dbLive" data-i18n="dbLive">Live</span>
-    <span class="db-version" id="dbVersion">v—</span>
-  </header>
-  <main class="db">
-    <div class="db-off" id="dbOff" hidden><span data-i18n="dbOff">Debug logs are off. Turn on "Debug logs" in Page settings to record what the extension does.</span> <button type="button" id="dbEnable" class="db-btn" data-i18n="dbEnable">Turn on debug logs</button></div>
-    <div class="db-toolbar" role="toolbar" aria-label="Debug log" data-i18n-aria-label="dbTitle">
-      <label class="db-field"><span data-i18n="dbLevel">Level</span>
-        <select id="dbLevelFilter">
-          <option value="all" data-i18n="dbLevelAll">All</option>
-          <option value="info">info+</option>
-          <option value="warn">warn+</option>
-          <option value="error">error</option>
-        </select>
-      </label>
-      <input class="db-search" id="dbSearch" type="search" placeholder="Search" data-i18n-placeholder="dbSearch" aria-label="Search" data-i18n-aria-label="dbSearch">
-      <label class="db-check"><input type="checkbox" id="dbFollow" checked> <span data-i18n="dbFollow">Follow new entries</span></label>
-      <span class="db-spacer"></span>
-      <button type="button" id="dbExportTxt" class="db-btn" data-i18n="dbExportText">Export .txt</button>
-      <button type="button" id="dbExportJson" class="db-btn" data-i18n="dbExportJson">Export .json</button>
-      <button type="button" id="dbClear" class="db-btn db-btn-danger" data-i18n="dbClear">Clear</button>
+    <div class="db-brand">
+      <a class="db-brand-link" href="../popup/popup.html" title="NexusMods Bypass">
+        <svg class="db-logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/></svg>
+        <span class="db-brand-text">NexusMods <strong>Bypass</strong></span>
+      </a>
+      <span class="db-brand-sep" aria-hidden="true">/</span>
+      <h1 class="db-title" data-i18n="dbTitle">Debug log</h1>
     </div>
-    <p class="db-count" id="dbCount" aria-live="polite"></p>
-    <div class="db-log" id="dbLog" role="log" tabindex="0"></div>
-    <p class="db-empty" id="dbEmpty" hidden data-i18n="dbEmpty">No entries yet.</p>
+    <div class="db-top-meta">
+      <span class="db-live" id="dbLive">
+        <span class="db-live-dot" aria-hidden="true"></span>
+        <span data-i18n="dbLive">Live</span>
+      </span>
+      <span class="db-version" id="dbVersion">v—</span>
+    </div>
+  </header>
+
+  <main class="db">
+    <div class="db-off" id="dbOff" hidden>
+      <div class="db-off-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      </div>
+      <div class="db-off-content">
+        <span class="db-off-text" data-i18n="dbOff">Debug logs are off. Turn on "Debug logs" in Page settings to record what the extension does.</span>
+      </div>
+      <button type="button" id="dbEnable" class="db-btn db-btn-enable" data-i18n="dbEnable">Turn on debug logs</button>
+    </div>
+
+    <section class="db-stats" aria-label="Quick filters">
+      <button type="button" class="db-stat-pill is-active" data-level="all" id="pillAll">
+        <span class="db-stat-label" data-i18n="dbLevelAll">All</span>
+        <span class="db-stat-badge" id="badgeAll">0</span>
+      </button>
+      <button type="button" class="db-stat-pill db-stat-error" data-level="error" id="pillError">
+        <span class="db-stat-dot" aria-hidden="true"></span>
+        <span class="db-stat-label">Errors</span>
+        <span class="db-stat-badge" id="badgeError">0</span>
+      </button>
+      <button type="button" class="db-stat-pill db-stat-warn" data-level="warn" id="pillWarn">
+        <span class="db-stat-dot" aria-hidden="true"></span>
+        <span class="db-stat-label">Warnings</span>
+        <span class="db-stat-badge" id="badgeWarn">0</span>
+      </button>
+      <button type="button" class="db-stat-pill db-stat-info" data-level="info" id="pillInfo">
+        <span class="db-stat-dot" aria-hidden="true"></span>
+        <span class="db-stat-label">Info</span>
+        <span class="db-stat-badge" id="badgeInfo">0</span>
+      </button>
+      <button type="button" class="db-stat-pill db-stat-debug" data-level="debug" id="pillDebug">
+        <span class="db-stat-dot" aria-hidden="true"></span>
+        <span class="db-stat-label">Debug</span>
+        <span class="db-stat-badge" id="badgeDebug">0</span>
+      </button>
+    </section>
+
+    <div class="db-toolbar" role="toolbar" aria-label="Debug log" data-i18n-aria-label="dbTitle">
+      <div class="db-filters">
+        <label class="db-field" for="dbLevelFilter">
+          <span class="db-field-label" data-i18n="dbLevel">Level</span>
+          <select id="dbLevelFilter">
+            <option value="all" data-i18n="dbLevelAll">All</option>
+            <option value="info">info+</option>
+            <option value="warn">warn+</option>
+            <option value="error">error</option>
+          </select>
+        </label>
+        <label class="db-field" for="dbPageFilter">
+          <span class="db-field-label">Component</span>
+          <select id="dbPageFilter">
+            <option value="all">All components</option>
+          </select>
+        </label>
+        <div class="db-search-wrap">
+          <svg class="db-search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <input class="db-search" id="dbSearch" type="search" placeholder="Search entries, keywords, components..." data-i18n-placeholder="dbSearch" aria-label="Search" data-i18n-aria-label="dbSearch">
+          <button type="button" class="db-search-clear" id="dbSearchClear" aria-label="Clear search" hidden>&times;</button>
+        </div>
+      </div>
+
+      <div class="db-actions">
+        <label class="db-check" for="dbFollow">
+          <input type="checkbox" id="dbFollow" checked>
+          <span data-i18n="dbFollow">Follow new entries</span>
+        </label>
+        <button type="button" id="dbPauseFeed" class="db-btn db-btn-toggle" title="Pause live feed auto-update" aria-pressed="false">
+          <svg class="db-btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          <span id="dbPauseLabel">Pause feed</span>
+        </button>
+        <button type="button" id="dbCopyLogs" class="db-btn db-btn-action" title="Copy visible logs to clipboard">
+          <svg class="db-btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1Zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2Zm0 16H8V7h11v14Z"/></svg>
+          <span id="dbCopyLabel">Copy logs</span>
+        </button>
+        <button type="button" id="dbExportTxt" class="db-btn" data-i18n="dbExportText">
+          <svg class="db-btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+          <span>Export .txt</span>
+        </button>
+        <button type="button" id="dbExportJson" class="db-btn" data-i18n="dbExportJson">
+          <svg class="db-btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h2v2H5v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5h2v2H5c-1.1 0-2-.9-2-2v-4a2 2 0 0 0-2-2 2 2 0 0 0 2-2V5c0-1.1.9-2 2-2zm14 0c1.1 0 2 .9 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4c0 1.1-.9 2-2 2h-2v-2h2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5h-2V3h2z"/></svg>
+          <span>Export .json</span>
+        </button>
+        <button type="button" id="dbClear" class="db-btn db-btn-danger" data-i18n="dbClear">
+          <svg class="db-btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+          <span>Clear</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="db-meta-row">
+      <p class="db-count" id="dbCount" aria-live="polite"></p>
+      <span class="db-hint">Click any row to copy text &middot; <kbd>/</kbd> to search</span>
+    </div>
+
+    <div class="db-log-card">
+      <div class="db-log-head" aria-hidden="true">
+        <span class="db-th-time">Time</span>
+        <span class="db-th-level">Level</span>
+        <span class="db-th-page">Component</span>
+        <span class="db-th-text">Message</span>
+        <span class="db-th-copy"></span>
+      </div>
+      <div class="db-log" id="dbLog" role="log" tabindex="0"></div>
+      <p class="db-empty" id="dbEmpty" hidden data-i18n="dbEmpty">No entries yet.</p>
+    </div>
   </main>
+
+  <div class="db-toast" id="dbToast" role="status" aria-live="polite" hidden></div>
+
   <script src="../lib/shared.js"></script>
   <script src="debug-view.js"></script>
   <script src="debug.js"></script>

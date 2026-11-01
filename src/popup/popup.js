@@ -3,6 +3,7 @@
 
   const PROJECT_URL = NXTK.GITHUB_REPO_URL;
   const GITHUB_SPONSOR_URL = 'https://github.com/sponsors/thomasthanos';
+  const PATREON_URL = 'https://www.patreon.com/cw/ThomasT2873';
   const PAYPAL_URL = 'https://paypal.me/Thomasthanos';
   const REVOLUT_URL = 'https://revolut.me/thomas2873';
   let supportViewOpen = false;
@@ -83,8 +84,179 @@
     return false;
   }
 
+  let tooltipController = null;
+
+  function setupTooltips() {
+    let tooltipEl = document.getElementById('nxtkTooltip');
+    if (!tooltipEl) {
+      tooltipEl = document.createElement('div');
+      tooltipEl.className = 'nxtk-tooltip';
+      tooltipEl.id = 'nxtkTooltip';
+      tooltipEl.setAttribute('role', 'tooltip');
+      tooltipEl.setAttribute('aria-hidden', 'true');
+      const content = document.createElement('div');
+      content.className = 'nxtk-tooltip-content';
+      const arrow = document.createElement('div');
+      arrow.className = 'nxtk-tooltip-arrow';
+      arrow.setAttribute('aria-hidden', 'true');
+      tooltipEl.append(content, arrow);
+      document.body.appendChild(tooltipEl);
+    }
+    const contentEl = tooltipEl.querySelector('.nxtk-tooltip-content');
+    const arrowEl = tooltipEl.querySelector('.nxtk-tooltip-arrow');
+
+    let currentTarget = null;
+    let showTimer = null;
+    let warmTimer = null;
+    let isWarm = false;
+
+    function stashTitle(el) {
+      if (!el) return '';
+      if (el.hasAttribute('title')) {
+        const titleVal = el.getAttribute('title');
+        if (titleVal) el.dataset.tooltip = titleVal;
+        el.dataset.hadTitle = 'true';
+        el.removeAttribute('title');
+      }
+      return el.dataset.tooltip || '';
+    }
+
+    function restoreTitle(el) {
+      if (!el) return;
+      if (el.dataset.hadTitle === 'true') {
+        delete el.dataset.hadTitle;
+        if (el.dataset.tooltip) {
+          el.setAttribute('title', el.dataset.tooltip);
+        }
+      }
+    }
+
+    function positionTooltip(target) {
+      const text = target.dataset.tooltip || stashTitle(target);
+      if (!text || !contentEl) return false;
+
+      contentEl.textContent = text;
+      tooltipEl.removeAttribute('data-placement');
+      tooltipEl.style.left = '0px';
+      tooltipEl.style.top = '0px';
+
+      const tRect = tooltipEl.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const popupWidth = document.documentElement.clientWidth || 380;
+      const margin = 8;
+
+      const targetCenterX = targetRect.left + (targetRect.width / 2);
+      let left = targetCenterX - (tRect.width / 2);
+      left = Math.max(margin, Math.min(popupWidth - tRect.width - margin, left));
+
+      let placement = 'bottom';
+      let top = targetRect.bottom + 8;
+      const spaceBelow = window.innerHeight - targetRect.bottom;
+      const spaceAbove = targetRect.top;
+
+      if (spaceBelow < tRect.height + 14 && spaceAbove >= tRect.height + 14) {
+        placement = 'top';
+        top = targetRect.top - tRect.height - 8;
+      }
+
+      tooltipEl.style.left = `${Math.round(left)}px`;
+      tooltipEl.style.top = `${Math.round(top)}px`;
+      tooltipEl.dataset.placement = placement;
+
+      if (arrowEl) {
+        const arrowX = targetCenterX - left;
+        const clampedArrowX = Math.max(12, Math.min(tRect.width - 12, arrowX));
+        arrowEl.style.left = `${Math.round(clampedArrowX)}px`;
+        arrowEl.style.transform = 'translateX(-50%) rotate(45deg)';
+      }
+
+      return true;
+    }
+
+    function show(target) {
+      clearTimeout(showTimer);
+      if (!target || !target.isConnected) return;
+      if (!positionTooltip(target)) return;
+
+      currentTarget = target;
+      tooltipEl.classList.add('is-visible');
+      tooltipEl.setAttribute('aria-hidden', 'false');
+      isWarm = true;
+      clearTimeout(warmTimer);
+    }
+
+    function hide() {
+      clearTimeout(showTimer);
+      if (currentTarget) {
+        restoreTitle(currentTarget);
+        currentTarget = null;
+      }
+      tooltipEl.classList.remove('is-visible');
+      tooltipEl.setAttribute('aria-hidden', 'true');
+      clearTimeout(warmTimer);
+      warmTimer = setTimeout(() => {
+        isWarm = false;
+      }, 300);
+    }
+
+    function handleEnter(target) {
+      if (!target) return;
+      if (currentTarget && currentTarget !== target) {
+        restoreTitle(currentTarget);
+      }
+      const text = stashTitle(target);
+      if (!text) return;
+
+      currentTarget = target;
+      clearTimeout(showTimer);
+      if (isWarm) {
+        show(target);
+      } else {
+        showTimer = setTimeout(() => show(target), 180);
+      }
+    }
+
+    document.addEventListener('pointerover', (e) => {
+      const target = e.target.closest?.('[data-tooltip], [data-i18n-title], [title]');
+      if (target) {
+        handleEnter(target);
+      }
+    });
+
+    document.addEventListener('pointerout', (e) => {
+      if (!currentTarget) return;
+      const related = e.relatedTarget;
+      if (related && currentTarget.contains(related)) return;
+      hide();
+    });
+
+    document.addEventListener('focusin', (e) => {
+      const target = e.target.closest?.('[data-tooltip], [data-i18n-title], [title]');
+      if (target) handleEnter(target);
+    });
+
+    document.addEventListener('focusout', () => hide());
+    document.addEventListener('pointerdown', () => hide());
+    document.addEventListener('scroll', () => hide(), true);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hide();
+    });
+    window.addEventListener('blur', () => hide());
+
+    return {
+      hide,
+      syncTitles: () => {
+        if (currentTarget) {
+          stashTitle(currentTarget);
+          positionTooltip(currentTarget);
+        }
+      }
+    };
+  }
+
   function applyI18n() {
     NXTK.applyI18nTo(document);
+    tooltipController?.syncTitles();
   }
 
   function syncDocumentLanguage(forceEnglish) {
@@ -288,7 +460,7 @@
     const name = document.createElement('span');
     name.className = 'popup-queue-name';
     name.textContent = job.label || job.jobId;
-    name.title = name.textContent;
+    name.dataset.tooltip = name.textContent;
     const progress = document.createElement('span');
     progress.className = 'popup-queue-progress';
     const counted = NXTK.tPlural('progressOfTotal', job.total,
@@ -345,6 +517,7 @@
 
     const cfg = await getSettings();
     NXTK.setForceEnglish(cfg.ForceEnglish);
+    tooltipController = setupTooltips();
     applyI18n();
     syncDocumentLanguage(cfg.ForceEnglish);
 
@@ -470,6 +643,7 @@
     setupGithubMenu();
 
     document.getElementById('supportGithubSponsor')?.addEventListener('click', () => createTab(GITHUB_SPONSOR_URL));
+    document.getElementById('supportPatreon')?.addEventListener('click', () => createTab(PATREON_URL));
     document.getElementById('supportPaypal')?.addEventListener('click', () => createTab(PAYPAL_URL));
     document.getElementById('supportRevolut')?.addEventListener('click', () => createTab(REVOLUT_URL));
 

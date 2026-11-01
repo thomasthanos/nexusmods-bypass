@@ -298,3 +298,32 @@ test('popup: Report on GitHub opens a menu: a bug report, or an idea or a questi
     await ctx.unroute('https://github.com/**');
   }
 });
+
+// Each way to support the project opens its own page, Patreon included.
+test('popup: Support the project opens each place to give', async () => {
+  const pages = [
+    ['#supportGithubSponsor', 'https://github.com/sponsors/thomasthanos'],
+    ['#supportPatreon', 'https://www.patreon.com/cw/ThomasT2873'],
+    ['#supportPaypal', 'https://paypal.me/Thomasthanos'],
+    ['#supportRevolut', 'https://revolut.me/thomas2873']
+  ];
+  const popup = await extensionPage(ctx, 'popup/popup.html');
+  popup.on('pageerror', (error) => pageErrors.push(`popup: ${error.message}`));
+  await popup.setViewportSize({ width: 380, height: 600 });
+  await popup.locator('#openSupport').click();
+  await expect(popup.locator('#popupSupportView')).toBeVisible();
+  const order = await popup.locator('.support-donate-grid .support-donate-btn').evaluateAll((buttons) => buttons.map((b) => `#${b.id}`));
+  expect(order).toEqual(pages.map(([selector]) => selector));
+  expect(await popup.locator('#popupSupportView').evaluate((view) => view.scrollHeight - view.clientHeight),
+    'the whole support view fits the popup, with nothing to scroll to').toBeLessThanOrEqual(0);
+  for (const [selector, url] of pages) {
+    const button = popup.locator(selector);
+    await expect(button, `${selector} fits the support view`).toBeInViewport();
+    // What the new tab asks for (the offline harness never commits that navigation).
+    const [request] = await Promise.all([
+      ctx.waitForEvent('request', { predicate: (r) => r.isNavigationRequest() && !r.url().startsWith('chrome-extension://'), timeout: 15000 }),
+      button.click()
+    ]);
+    expect(request.url().replace(/\/$/, ''), `${selector} opens its page`).toBe(url);
+  }
+});

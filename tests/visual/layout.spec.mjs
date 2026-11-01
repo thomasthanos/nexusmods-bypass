@@ -1853,6 +1853,14 @@ for (const lang of ['de', 'ru', 'el']) {
       expect(overflow.x, `${lang} popup scrolls horizontally`).toBeLessThanOrEqual(1);
       expect(overflow.clipped, `${lang} popup text past the edge`).toEqual([]);
       await popup.screenshot({ path: path.join(shotDir, `popup-${lang}-380.png`) });
+      // The support view: every way to give and the line under them, with nothing to scroll to.
+      await popup.locator('#openSupport').click();
+      await expect(popup.locator('#popupSupportView')).toBeVisible();
+      await settle(popup);
+      expect(await popup.locator('#popupSupportView').evaluate((view) => view.scrollHeight - view.clientHeight),
+        `${lang} support view fits the popup`).toBeLessThanOrEqual(0);
+      await popup.screenshot({ path: path.join(shotDir, `popup-support-${lang}-380.png`) });
+      await popup.locator('#closeSupport').click();
       const page = await ctx.newPage();
       await page.setViewportSize({ width: 380, height: 800 });
       await page.goto('https://www.nexusmods.com/games/skyrimspecialedition/collections/abc123');

@@ -8,12 +8,14 @@
     return { at: Number(entry?.at) || 0, level, page: String(entry?.page || ''), text: String(entry?.text || '') };
   }
 
-  // minLevel: show this level and above ('all' = everything). query: case-insensitive substring.
-  function filterEntries(entries, { minLevel = 'all', query = '' } = {}) {
+  // minLevel: show this level and above ('all' = everything). query: case-insensitive substring. page: specific component or 'all'.
+  function filterEntries(entries, { minLevel = 'all', query = '', page = 'all' } = {}) {
     const min = minLevel === 'all' ? -1 : (RANK[minLevel] ?? -1);
     const q = String(query || '').trim().toLowerCase();
+    const p = String(page || 'all').trim().toLowerCase();
     return (Array.isArray(entries) ? entries : []).map(normalize)
       .filter((e) => RANK[e.level] >= min)
+      .filter((e) => p === 'all' || e.page.toLowerCase() === p)
       .filter((e) => !q || e.text.toLowerCase().includes(q) || e.page.toLowerCase().includes(q));
   }
 
@@ -21,6 +23,14 @@
     const counts = { debug: 0, info: 0, warn: 0, error: 0 };
     for (const e of (Array.isArray(entries) ? entries : []).map(normalize)) counts[e.level] += 1;
     return counts;
+  }
+
+  function getComponents(entries) {
+    const pages = new Set();
+    for (const e of (Array.isArray(entries) ? entries : [])) {
+      if (e?.page) pages.add(String(e.page).trim());
+    }
+    return Array.from(pages).filter(Boolean).sort();
   }
 
   function formatTime(at) {
@@ -37,6 +47,6 @@
     return JSON.stringify({ app: 'nexusmods-bypass', version, exportedAt: new Date().toISOString(), entries: entries.map((e) => ({ ...e, at: new Date(e.at).toISOString() })) }, null, 2);
   }
 
-  root.NXTK_DEBUG_VIEW = { LEVELS, filterEntries, countByLevel, formatTime, exportText, exportJson, normalize };
+  root.NXTK_DEBUG_VIEW = { LEVELS, filterEntries, countByLevel, getComponents, formatTime, exportText, exportJson, normalize };
   if (typeof module !== 'undefined') module.exports = root.NXTK_DEBUG_VIEW;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

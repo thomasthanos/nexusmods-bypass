@@ -108,6 +108,8 @@
   line-height: 1;
   isolation: isolate;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
   color: var(--nxtk-text-bright);
   background: var(--nxtk-glass-tint);
   box-shadow:
