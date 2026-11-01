@@ -1608,6 +1608,7 @@ a.nxtk-settings-report { text-decoration: none; }
 }
 #nxtk-settings-modal .nxtk-settings-report {
   padding: 7px 10px; min-height: 34px; font-size: 12px; white-space: normal; max-width: 100%;
+  overflow-wrap: anywhere;
 }
 /* A long translation can push Done onto a line of its own: it stays at the right end there too. */
 #nxtk-settings-modal .nxtk-modal-footer [data-close] { margin-left: auto; }
