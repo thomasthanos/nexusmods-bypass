@@ -787,6 +787,37 @@ function createHarness(choice) {
       assert.deepEqual(retried, [['B.7z'], 'all'], 'Retry failed queues only the failed files');
     }
 
+    // A browser run's card says its files were downloaded, a Vortex run's that they were sent. A run of
+    // the collection lists the collection's files that are not on Nexus, which no run downloads; a
+    // picked selection (no run type) does not. The API's answer for collection 2d0gvh, 2026-11-01.
+    {
+      const { ndc } = createHarness('browser');
+      NXTK.offNexusResources = shared.NXTK.offNexusResources;
+      ndc.fetchMods = async () => ({
+        revisionNumber: 6,
+        modFiles: [],
+        externalResources: [
+          { id: 392191, name: 'Even Better Artisan Good Icons', resourceType: 'browse', resourceUrl: 'https://github.com/chsiao58/EvenBetterArtisanGoodIcons/releases' },
+          { id: 760913, name: 'Translation bundle', resourceType: 'bundle', resourceUrl: null }
+        ]
+      });
+      assert.equal(await ndc.init(), true);
+      const cards = [];
+      const savedSummary = NexusExt.UI.showRunSummary;
+      NexusExt.UI.showRunSummary = (summary) => { cards.push(summary); };
+      try {
+        const runLog = () => ({ sent: [{ name: 'A.7z', pageUrl: '' }], failed: [], alreadyHad: [] });
+        ndc.showBrowserRunSummary(runLog(), [], 'all');
+        ndc.showBrowserRunSummary(runLog(), [], null);
+        ndc.showRunSummary({ sentMods: [vortexMod(1, 'B.7z', 1)], type: 'mandatory' });
+      } finally { NexusExt.UI.showRunSummary = savedSummary; }
+      assert.deepEqual(cards.map((card) => [card.method, (card.offNexus || []).map((entry) => `${entry.kind} ${entry.name} ${entry.url}`)]), [
+        ['browser', ['offsite Even Better Artisan Good Icons https://github.com/chsiao58/EvenBetterArtisanGoodIcons/releases', 'bundled Translation bundle ']],
+        ['browser', []],
+        ['vortex', ['offsite Even Better Artisan Good Icons https://github.com/chsiao58/EvenBetterArtisanGoodIcons/releases', 'bundled Translation bundle ']]
+      ]);
+    }
+
     // Archive names are labels, not file identities. A skipped history entry is absent from the
     // worker's numbering, and an adopted worker job may number its items in a different order.
     for (const { historyFirst, adopted } of [

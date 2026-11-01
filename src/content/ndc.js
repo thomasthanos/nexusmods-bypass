@@ -120,6 +120,8 @@ window.NexusExt = window.NexusExt || {};
       this.revision = revision;
 
       this.mods = { all: [], mandatory: [], optional: [] };
+      // The collection's files that are not on Nexus (NXTK.offNexusResources), for the end-of-run summary.
+      this.offNexus = [];
       this.pauseBetweenDownload = 5;
       this.downloadSpeed = DEFAULT_DOWNLOAD_SPEED;
       this.downloadMethod = DOWNLOAD_METHOD_VORTEX;
@@ -312,6 +314,7 @@ window.NexusExt = window.NexusExt || {};
         mandatory: mods.filter(m => !m.optional),
         optional: mods.filter(m => m.optional)
       };
+      this.offNexus = NXTK.offNexusResources?.(response.externalResources) || [];
       this.initialized = true;
       return true;
     }
@@ -813,12 +816,20 @@ window.NexusExt = window.NexusExt || {};
       }
     }
 
+    // The collection's files a run of it did not download because they are not on Nexus. A picked
+    // selection has no run type and is not a run of the collection.
+    offNexusFor(type) {
+      return type && Array.isArray(this.offNexus) ? this.offNexus : [];
+    }
+
     // The end-of-run card: what was sent, skipped (with reasons) and failed, with ways to act on it.
     showRunSummary({ sentMods = [], skipped = [], failedDownload = [], type = null } = {}) {
       const summary = {
+        method: 'vortex',
         sent: sentMods.map((mod) => ({ name: mod.file.name, pageUrl: this.fileLinkFor(mod) })),
         skipped: skipped.map(({ name, pageUrl, reason }) => ({ name, pageUrl, reason })),
         failed: failedDownload.map(({ mod, error }) => ({ name: mod.file.name, pageUrl: this.fileLinkFor(mod), code: error?.code || 'unknown', mod })),
+        offNexus: this.offNexusFor(type),
         account: this.vortexAccountNoted || ''
       };
       this.lastRunSummary = summary;
@@ -840,12 +851,14 @@ window.NexusExt = window.NexusExt || {};
     // The same card for a browser-download run, from what the background queue reported.
     showBrowserRunSummary(runLog, skipped = [], type = null) {
       const summary = {
+        method: 'browser',
         sent: runLog.sent,
         skipped: [
           ...runLog.alreadyHad,
           ...(Array.isArray(skipped) ? skipped : []).map((entry) => ({ name: entry.name, pageUrl: entry.pageUrl, reason: skipReasonText(entry.reason) }))
         ],
         failed: runLog.failed,
+        offNexus: this.offNexusFor(type),
         account: ''
       };
       this.lastRunSummary = summary;

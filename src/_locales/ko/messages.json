@@ -1941,6 +1941,32 @@
       }
     }
   },
+  "summaryDownloaded": {
+    "message": "다운로드됨"
+  },
+  "summaryCountsDownloaded": {
+    "message": "$1개 다운로드 · $2개 건너뜀 · $3개 실패",
+    "placeholders": {
+      "downloaded": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryOffNexus": {
+    "message": "Nexus에 없음"
+  },
+  "summaryOffsiteNote": {
+    "message": "해당 사이트에서 직접 다운로드하세요"
+  },
+  "summaryBundledNote": {
+    "message": "컬렉션 자체에 포함되어 있습니다. Vortex가 컬렉션을 설치할 때 추가합니다"
+  },
   "summaryAccountLine": {
     "message": "링크는 Nexus 계정 #$1용으로 서명되었습니다. Vortex도 같은 계정을 사용해야 합니다.",
     "placeholders": {

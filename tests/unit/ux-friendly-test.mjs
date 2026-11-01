@@ -87,6 +87,28 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
   assert.match(text, /- C \(no_nmm_link\) https:\/\/www\.nexusmods\.com/);
   assert.match(text, /Nexus account: #42$/);
   assert.equal(S.formatRunSummaryText({}), '');
+  // A browser run downloaded its files: "Sent" is what a Vortex run did with them.
+  assert.match(S.formatRunSummaryText({ method: 'browser', sent: [{ name: 'A' }] }), /^Downloaded \(1\)\n- A$/);
+  assert.match(S.formatRunSummaryText({ method: 'vortex', sent: [{ name: 'A' }] }), /^Sent \(1\)\n- A$/);
+
+  // A collection's files that are not on Nexus, as the API gave them on 2026-11-01 (Stardew Valley
+  // collections 2d0gvh and igivdc): an off-site page to download from, and an asset bundled in the
+  // collection itself. Neither is a Nexus file, so a run never downloads them.
+  const offNexus = S.offNexusResources([
+    { id: 392190, name: 'Mod Update Menu', resourceType: 'browse', resourceUrl: 'https://forums.stardewvalley.net/threads/unofficial-mod-updates.2096/page-160#post-123104' },
+    { id: 760913, name: 'Stardew Valley VERY Expanded Translation Collection', resourceType: 'bundle', resourceUrl: null },
+    { id: 1, name: 'Not a web page', resourceType: 'browse', resourceUrl: 'javascript:alert(1)' },
+    { id: 2, name: '', resourceType: 'browse', resourceUrl: 'https://example.com/' },
+    null
+  ]);
+  assert.deepEqual(offNexus.map((entry) => ({ ...entry })), [
+    { name: 'Mod Update Menu', kind: 'offsite', url: 'https://forums.stardewvalley.net/threads/unofficial-mod-updates.2096/page-160#post-123104' },
+    { name: 'Stardew Valley VERY Expanded Translation Collection', kind: 'bundled', url: '' },
+    { name: 'Not a web page', kind: 'offsite', url: '' }
+  ], 'named entries only, and a link only to a web page');
+  assert.deepEqual([...S.offNexusResources(undefined)], []);
+  const withOffNexus = S.formatRunSummaryText({ method: 'browser', sent: [{ name: 'A' }], offNexus });
+  assert.match(withOffNexus, /Not on Nexus \(3\)\n- Mod Update Menu \(download it from its own site\) https:\/\/forums\.stardewvalley\.net\/\S+\n- Stardew Valley VERY Expanded Translation Collection \(inside the collection itself: Vortex adds it when it installs the collection\)\n- Not a web page \(download it from its own site\)$/);
 
   // Item 5: history view numbers.
   const stats = S.summarizeCollectionHistory({ all: [1, 2], vortexSent_all: [2, 3, 4] }, 'all', [1, 2, 3, 4, 5]);

@@ -2025,6 +2025,32 @@
       }
     }
   },
+  "summaryDownloaded": {
+    "message": "Λήφθηκαν"
+  },
+  "summaryCountsDownloaded": {
+    "message": "$1 λήφθηκαν · $2 παραλείφθηκαν · $3 απέτυχαν",
+    "placeholders": {
+      "downloaded": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryOffNexus": {
+    "message": "Εκτός Nexus"
+  },
+  "summaryOffsiteNote": {
+    "message": "κατεβάστε το από τη δική του σελίδα"
+  },
+  "summaryBundledNote": {
+    "message": "βρίσκεται μέσα στην ίδια τη συλλογή: το Vortex το προσθέτει όταν εγκαθιστά τη συλλογή"
+  },
   "summaryAccountLine": {
     "message": "Οι σύνδεσμοι υπογράφηκαν για τον λογαριασμό Nexus #$1. Το Vortex πρέπει να χρησιμοποιεί τον ίδιο λογαριασμό.",
     "placeholders": {

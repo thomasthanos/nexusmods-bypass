@@ -1941,6 +1941,32 @@
       }
     }
   },
+  "summaryDownloaded": {
+    "message": "已下载"
+  },
+  "summaryCountsDownloaded": {
+    "message": "已下载 $1 · 已跳过 $2 · 失败 $3",
+    "placeholders": {
+      "downloaded": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryOffNexus": {
+    "message": "不在 Nexus 上"
+  },
+  "summaryOffsiteNote": {
+    "message": "请从其自己的网站下载"
+  },
+  "summaryBundledNote": {
+    "message": "包含在合集本身中：Vortex 安装该合集时会添加它"
+  },
   "summaryAccountLine": {
     "message": "链接是为 Nexus 账号 #$1 签发的。Vortex 必须使用同一个账号。",
     "placeholders": {

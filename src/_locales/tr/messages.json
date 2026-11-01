@@ -2025,6 +2025,32 @@
       }
     }
   },
+  "summaryDownloaded": {
+    "message": "İndirildi"
+  },
+  "summaryCountsDownloaded": {
+    "message": "$1 indirildi · $2 atlandı · $3 başarısız",
+    "placeholders": {
+      "downloaded": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryOffNexus": {
+    "message": "Nexus'ta değil"
+  },
+  "summaryOffsiteNote": {
+    "message": "kendi sitesinden indirin"
+  },
+  "summaryBundledNote": {
+    "message": "koleksiyonun kendi içinde gelir: Vortex koleksiyonu kurarken ekler"
+  },
   "summaryAccountLine": {
     "message": "Bağlantılar #$1 numaralı Nexus hesabı için imzalandı. Vortex aynı hesabı kullanmalı.",
     "placeholders": {

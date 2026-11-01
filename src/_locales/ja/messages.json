@@ -1941,6 +1941,32 @@
       }
     }
   },
+  "summaryDownloaded": {
+    "message": "ダウンロード済み"
+  },
+  "summaryCountsDownloaded": {
+    "message": "ダウンロード $1 · スキップ $2 · 失敗 $3",
+    "placeholders": {
+      "downloaded": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryOffNexus": {
+    "message": "Nexus にないファイル"
+  },
+  "summaryOffsiteNote": {
+    "message": "配布元のサイトからダウンロードしてください"
+  },
+  "summaryBundledNote": {
+    "message": "コレクション自体に同梱されています。Vortex がコレクションをインストールするときに追加します"
+  },
   "summaryAccountLine": {
     "message": "リンクは Nexus アカウント #$1 用に署名されました。Vortex でも同じアカウントを使ってください。",
     "placeholders": {

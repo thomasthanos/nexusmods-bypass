@@ -166,6 +166,57 @@ async function collectionSelectionRegressionTests() {
   console.log('Collection downloaded-file selection regressions OK: ASCII, Unicode identity and canonical normalization');
 }
 
+// The end-of-run card. A browser run's files were downloaded, not sent; and the collection's files that are
+// not on Nexus are listed, an off-site one linked to its page (never a non-web link), a bundled one with
+// where it comes from. A Vortex run's card keeps "sent" and has no such list when there is none.
+async function runSummaryTests() {
+  for (const locale of ['en', 'el']) {
+    const messages = JSON.parse(fs.readFileSync(path.join(root, `src/_locales/${locale}/messages.json`), 'utf8'));
+    const say = (key, args = []) => (messages[key] || en[key]).message.replace(/\$(\d+)/g, (_, n) => args[Number(n) - 1]);
+    const f = fixture(locale);
+    try {
+      for (const file of ['src/content/errors.js', 'src/content/ndc.js', 'src/content/ui-collection.js']) {
+        f.w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+      }
+      const card = () => f.w.document.querySelector('.nxtk-run-summary-modal');
+      f.w.NexusExt.UI.showRunSummary({
+        method: 'browser',
+        sent: [{ name: 'A.7z', pageUrl: '' }],
+        skipped: [],
+        failed: [],
+        offNexus: [
+          { name: 'Mod Update Menu', kind: 'offsite', url: 'https://forums.stardewvalley.net/threads/unofficial-mod-updates.2096/' },
+          { name: 'Translation bundle', kind: 'bundled', url: '' },
+          { name: 'Sneaky', kind: 'offsite', url: 'javascript:alert(1)' }
+        ]
+      });
+      await tick();
+      assert.equal(card().querySelector('.nxtk-modal-subtitle').textContent, say('summaryCountsDownloaded', ['1', '0', '0']), `${locale}: counted as downloaded`);
+      assert.match(card().querySelector('.nxtk-summary-sent summary').textContent, new RegExp(say('summaryDownloaded')));
+      const offNexus = card().querySelector('.nxtk-summary-offnexus');
+      assert.ok(offNexus?.open, `${locale}: the files not on Nexus are listed, open`);
+      assert.match(offNexus.querySelector('summary').textContent, new RegExp(`3\\s+${say('summaryOffNexus')}`));
+      const [site, bundle, sneaky] = offNexus.querySelectorAll('li');
+      const link = site.querySelector('a');
+      assert.equal(link?.href, 'https://forums.stardewvalley.net/threads/unofficial-mod-updates.2096/');
+      assert.equal(link.target, '_blank');
+      assert.match(link.rel, /noopener/);
+      assert.match(site.textContent, new RegExp(say('summaryOffsiteNote')));
+      assert.equal(bundle.querySelector('a'), null);
+      assert.match(bundle.textContent, new RegExp(say('summaryBundledNote').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+      assert.equal(sneaky.querySelector('a'), null, `${locale}: a link that is not a web page is not a link`);
+      card().querySelector('.nxtk-modal-close').click();
+      await tick();
+
+      f.w.NexusExt.UI.showRunSummary({ method: 'vortex', sent: [{ name: 'A.7z', pageUrl: '' }], skipped: [], failed: [] });
+      await tick();
+      assert.equal(card().querySelector('.nxtk-modal-subtitle').textContent, say('summaryCounts', ['1', '0', '0']), `${locale}: a Vortex run sent its files`);
+      assert.equal(card().querySelector('.nxtk-summary-offnexus'), null);
+    } finally { f.close(); }
+  }
+  console.log('Run summary: downloaded vs sent, and files not on Nexus (en, el) OK');
+}
+
 async function settingsNavigationTests() {
   const f = fixture('el');
   const { w, store, modal } = f;
@@ -341,6 +392,7 @@ async function settingsRegressionTests() {
   const failures = newRegressions.filter((result) => result.status === 'rejected').map((result) => result.reason);
   if (failures.length) throw new AggregateError(failures, 'Onboarding/collection selection regressions failed');
   await popupRegressionTests();
+  await runSummaryTests();
   await settingsNavigationTests();
   await settingsRegressionTests();
   const f = fixture();

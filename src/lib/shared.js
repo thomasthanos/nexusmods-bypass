@@ -462,8 +462,28 @@
   // takes it without coming to the front, so the test only shows anything on a cold start.
   const VORTEX_TEST_LINK = 'nxm://premium';
 
-  // Plain text for "Copy list" on the end-of-run summary.
-  function formatRunSummaryText({ sent = [], skipped = [], failed = [], account = '' } = {}, t = (k, f) => f) {
+  // A collection's files that are not on Nexus (the API's externalResources): an asset bundled in the
+  // collection itself ("bundle"), or one its author links to elsewhere ("browse", "direct"). No run downloads
+  // them, so the end-of-run summary lists them. Only a web page is kept as a link.
+  function offNexusResources(resources) {
+    const webPage = (value) => {
+      try {
+        const url = new URL(String(value || ''));
+        return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : '';
+      } catch (_) {
+        return '';
+      }
+    };
+    return (Array.isArray(resources) ? resources : [])
+      .filter((resource) => resource && typeof resource.name === 'string' && resource.name.trim())
+      .map((resource) => resource.resourceType === 'bundle'
+        ? { name: resource.name.trim(), kind: 'bundled', url: '' }
+        : { name: resource.name.trim(), kind: 'offsite', url: webPage(resource.resourceUrl) });
+  }
+
+  // Plain text for "Copy list" on the end-of-run summary. A browser run downloaded its files; a Vortex
+  // run sent them.
+  function formatRunSummaryText({ method = 'vortex', sent = [], skipped = [], failed = [], offNexus = [], account = '' } = {}, t = (k, f) => f) {
     const lines = [];
     const section = (title, items, render) => {
       if (!items.length) return;
@@ -471,9 +491,12 @@
       for (const item of items) lines.push(`- ${render(item)}`);
       lines.push('');
     };
-    section(t('summarySent', 'Sent'), sent, (i) => i.name);
+    section(method === 'browser' ? t('summaryDownloaded', 'Downloaded') : t('summarySent', 'Sent'), sent, (i) => i.name);
     section(t('summarySkipped', 'Skipped'), skipped, (i) => `${i.name} (${i.reason})${i.pageUrl ? ` ${i.pageUrl}` : ''}`);
     section(t('summaryFailed', 'Failed'), failed, (i) => `${i.name} (${i.code})${i.pageUrl ? ` ${i.pageUrl}` : ''}`);
+    section(t('summaryOffNexus', 'Not on Nexus'), offNexus, (i) => (i.kind === 'bundled'
+      ? `${i.name} (${t('summaryBundledNote', 'inside the collection itself: Vortex adds it when it installs the collection')})`
+      : `${i.name} (${t('summaryOffsiteNote', 'download it from its own site')})${i.url ? ` ${i.url}` : ''}`));
     if (account) lines.push(`${t('summaryAccount', 'Nexus account')}: #${account}`);
     return lines.join('\n').trim();
   }
@@ -1640,6 +1663,7 @@
     recordVortexOpenEvent,
     VORTEX_TEST_LINK,
     formatRunSummaryText,
+    offNexusResources,
     summarizeCollectionHistory,
     VORTEX_SENT_PREFIX,
     vortexSentType,

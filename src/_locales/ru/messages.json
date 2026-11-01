@@ -2193,6 +2193,32 @@
       }
     }
   },
+  "summaryDownloaded": {
+    "message": "Скачано"
+  },
+  "summaryCountsDownloaded": {
+    "message": "Скачано: $1 · пропущено: $2 · ошибок: $3",
+    "placeholders": {
+      "downloaded": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryOffNexus": {
+    "message": "Не на Nexus"
+  },
+  "summaryOffsiteNote": {
+    "message": "скачайте с его собственного сайта"
+  },
+  "summaryBundledNote": {
+    "message": "входит в саму коллекцию: Vortex добавит его при установке коллекции"
+  },
   "summaryAccountLine": {
     "message": "Ссылки подписаны для аккаунта Nexus №$1. Vortex должен использовать тот же аккаунт.",
     "placeholders": {

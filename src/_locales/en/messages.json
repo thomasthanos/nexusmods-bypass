@@ -2376,6 +2376,32 @@
       }
     }
   },
+  "summaryDownloaded": {
+    "message": "Downloaded"
+  },
+  "summaryCountsDownloaded": {
+    "message": "$1 downloaded · $2 skipped · $3 failed",
+    "placeholders": {
+      "downloaded": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryOffNexus": {
+    "message": "Not on Nexus"
+  },
+  "summaryOffsiteNote": {
+    "message": "download it from its own site"
+  },
+  "summaryBundledNote": {
+    "message": "inside the collection itself: Vortex adds it when it installs the collection"
+  },
   "summaryAccountLine": {
     "message": "Links were signed for Nexus account #$1. Vortex must use the same account.",
     "placeholders": {

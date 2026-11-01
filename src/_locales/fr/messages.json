@@ -2025,6 +2025,32 @@
       }
     }
   },
+  "summaryDownloaded": {
+    "message": "Téléchargés"
+  },
+  "summaryCountsDownloaded": {
+    "message": "$1 téléchargés · $2 ignorés · $3 échecs",
+    "placeholders": {
+      "downloaded": {
+        "content": "$1"
+      },
+      "skipped": {
+        "content": "$2"
+      },
+      "failed": {
+        "content": "$3"
+      }
+    }
+  },
+  "summaryOffNexus": {
+    "message": "Hors de Nexus"
+  },
+  "summaryOffsiteNote": {
+    "message": "téléchargez-le depuis son propre site"
+  },
+  "summaryBundledNote": {
+    "message": "inclus dans la collection elle-même : Vortex l’ajoute quand il installe la collection"
+  },
   "summaryAccountLine": {
     "message": "Les liens ont été signés pour le compte Nexus n°$1. Vortex doit utiliser le même compte.",
     "placeholders": {

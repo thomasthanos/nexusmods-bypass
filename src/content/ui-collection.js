@@ -649,7 +649,8 @@
   // Retry failed, Copy list, Open failed pages.
   const MAX_PAGES_OPENED = 10;
   function showRunSummary(summary, { onRetryFailed = null } = {}) {
-    const { sent = [], skipped = [], failed = [], account = '' } = summary || {};
+    const { method = 'vortex', sent = [], skipped = [], failed = [], offNexus = [], account = '' } = summary || {};
+    const downloaded = method === 'browser';
     const item = (entry, note) => {
       const name = escapeHtml(entry.name);
       const link = entry.pageUrl && NXTK.isSafeNexusPageUrl(entry.pageUrl)
@@ -660,6 +661,28 @@
     const section = (cls, title, entries, note) => entries.length
       ? `<details class="nxtk-summary-section ${cls}" ${cls === 'nxtk-summary-failed' ? 'open' : ''}><summary><span class="nxtk-summary-count">${entries.length}</span> ${escapeHtml(title)}</summary><ul>${entries.map((e) => item(e, note(e))).join('')}</ul></details>`
       : '';
+    // Files the collection needs from elsewhere: each says where it comes from, and an off-site one links
+    // to its page (NXTK.offNexusResources keeps only web pages; checked again here, as for Nexus pages).
+    const offNexusItem = (entry) => {
+      const name = escapeHtml(entry.name);
+      let link = name;
+      try {
+        if (entry.kind !== 'bundled' && /^https?:$/.test(new URL(entry.url).protocol)) {
+          link = `<a href="${escapeHtml(entry.url)}" target="_blank" rel="noopener noreferrer">${name}</a>`;
+        }
+      } catch (_) { /* not a web page: the name alone */ }
+      const note = entry.kind === 'bundled'
+        ? NXTK.t('summaryBundledNote', null, 'inside the collection itself: Vortex adds it when it installs the collection')
+        : NXTK.t('summaryOffsiteNote', null, 'download it from its own site');
+      return `<li>${link} <span class="nxtk-summary-note">${escapeHtml(note)}</span></li>`;
+    };
+    const offNexusSection = offNexus.length
+      ? `<details class="nxtk-summary-section nxtk-summary-offnexus" open><summary><span class="nxtk-summary-count">${offNexus.length}</span> ${escapeHtml(NXTK.t('summaryOffNexus', null, 'Not on Nexus'))}</summary><ul>${offNexus.map(offNexusItem).join('')}</ul></details>`
+      : '';
+    const counts = [String(sent.length), String(skipped.length), String(failed.length)];
+    const countsLine = downloaded
+      ? NXTK.t('summaryCountsDownloaded', counts, `${sent.length} downloaded · ${skipped.length} skipped · ${failed.length} failed`)
+      : NXTK.t('summaryCounts', counts, `${sent.length} sent · ${skipped.length} skipped · ${failed.length} failed`);
     const failedPages = failed.map((e) => e.pageUrl).filter((url) => url && NXTK.isSafeNexusPageUrl(url));
     return new Promise((resolve) => {
       const { modal, close } = openModal({
@@ -670,14 +693,15 @@
         <div class="nxtk-modal-header">
           <div>
             <div class="nxtk-modal-title">${L('summaryTitle', 'Run summary')}</div>
-            <div class="nxtk-modal-subtitle">${escapeHtml(NXTK.t('summaryCounts', [String(sent.length), String(skipped.length), String(failed.length)], `${sent.length} sent · ${skipped.length} skipped · ${failed.length} failed`))}</div>
+            <div class="nxtk-modal-subtitle">${escapeHtml(countsLine)}</div>
           </div>
           <button class="nxtk-modal-close" data-close aria-label="${L('ariaClose', 'Close')}">&times;</button>
         </div>
         <div class="nxtk-summary-body">
           ${section('nxtk-summary-failed', NXTK.t('summaryFailed', null, 'Failed'), failed, (e) => e.code)}
           ${section('nxtk-summary-skipped', NXTK.t('summarySkipped', null, 'Skipped'), skipped, (e) => e.reason)}
-          ${section('nxtk-summary-sent', NXTK.t('summarySent', null, 'Sent'), sent, () => '')}
+          ${offNexusSection}
+          ${section('nxtk-summary-sent', downloaded ? NXTK.t('summaryDownloaded', null, 'Downloaded') : NXTK.t('summarySent', null, 'Sent'), sent, () => '')}
           ${account ? `<div class="nxtk-summary-account">${escapeHtml(NXTK.t('summaryAccountLine', [account], `Links were signed for Nexus account #${account}. Vortex must use the same account.`))}</div>` : ''}
         </div>
         <div class="nxtk-modal-footer">
