@@ -637,6 +637,8 @@ async function queuedGeneratorNexusLinkIsFollowed() {
       { name: 'one that sends the request on to a sign-in asks for it',
         answer: { finalUrl: 'https://users.nexusmods.com/auth/sign_in', contentType: 'text/html', body: '<html>Sign in</html>' },
         expected: { ok: false, code: 'requires_login' } },
+      { name: 'one that is throttled makes the run wait, with Nexus\'s Retry-After',
+        answer: { status: 429, retryAfter: '90', contentType: 'text/html', body: '' }, expected: { ok: false, code: 'rate_limited', retryAfter: '90' } },
       { name: 'one that cannot be reached is noted, not taken for a file',
         answer: { failure: true }, expected: { ok: false, code: 'no_download_url' }, detail: /\| generator link: Failed to fetch after \d+ms$/ },
       { name: 'a file page from the generator is still never asked', generated: `${item.pageUrl}&nmm=1`, calls: 2,
@@ -654,9 +656,10 @@ async function queuedGeneratorNexusLinkIsFollowed() {
         if (target === offered) {
           const answer = test.answer;
           if (answer.failure) throw new TypeError('Failed to fetch');
+          const status = answer.status || 200;
           return {
-            ok: true, status: 200, url: answer.finalUrl || offered,
-            headers: { get: (name) => (name.toLowerCase() === 'content-type' ? answer.contentType : '') },
+            ok: status < 300, status, url: answer.finalUrl || offered,
+            headers: { get: (name) => ({ 'content-type': answer.contentType, 'retry-after': answer.retryAfter || '' })[name.toLowerCase()] || '' },
             text: async () => {
               if (answer.binary) throw new Error('must not buffer the archive body');
               return answer.body || '';

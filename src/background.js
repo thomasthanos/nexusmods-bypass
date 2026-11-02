@@ -1223,6 +1223,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     } else {
       const issue = classifyNexusResponse(response, response.text);
       if (issue) return ndcResolveFailure(issue.code, response);
+      // Throttled here is throttled for the route too: the run waits, as it does for the route's 429.
+      if (response.status === 429) return ndcResolveFailure('rate_limited', response);
       if (response.fileUrl) return { ok: true, url: response.fileUrl };
       const fileUrl = response.ok ? ndcBrowserFileUrl(DOWNLOAD_PARSER.findDownloadLink(response.text, options)?.url) : '';
       if (fileUrl) return { ok: true, url: fileUrl };
