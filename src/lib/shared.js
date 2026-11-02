@@ -503,8 +503,11 @@
 
   // Sent/downloaded counts for one collection's history, for the history view.
   function summarizeCollectionHistory(collection, type, allIds = []) {
-    const downloaded = new Set(Array.isArray(collection?.[type]) ? collection[type] : []);
-    const sent = new Set(Array.isArray(collection?.[vortexSentType(type)]) ? collection[vortexSentType(type)] : []);
+    // History can outlive a revision. Count only files on this screen, while retaining the older
+    // entries in storage so returning to that revision still has its progress.
+    const current = new Set(allIds);
+    const downloaded = new Set((Array.isArray(collection?.[type]) ? collection[type] : []).filter((id) => current.has(id)));
+    const sent = new Set((Array.isArray(collection?.[vortexSentType(type)]) ? collection[vortexSentType(type)] : []).filter((id) => current.has(id)));
     for (const id of downloaded) sent.delete(id);
     const missing = allIds.filter((id) => !downloaded.has(id));
     return { downloaded: downloaded.size, sent: sent.size, missing, total: allIds.length };
@@ -729,30 +732,20 @@
     return withJitter(Math.min(NETWORK_WAIT_BASE_SECONDS * Math.pow(2, step), NETWORK_WAIT_MAX_SECONDS) * 1000, random);
   }
 
-  // How a collection run treats a file it could not get a link for. A mod that is gone is skipped at
-  // once: asking again cannot bring it back. A single Cloudflare answer is skipped too, since it can
-  // be one page Cloudflare is fussy about, but the same answer this many times in a row means the
-  // whole site is behind a check, and the run stops so it can be completed.
+  // Only a definitive unavailable-file verdict permits advancing without a download. A Cloudflare
+  // challenge says nothing about availability: keep the current file for a retry after verification.
   const QUEUE_UNAVAILABLE_CODES = new Set(['mod_unavailable', 'file_not_found', 'moderation_hold']);
-  const CLOUDFLARE_SKIP_LIMIT = 3;
   const MAX_TRACKED_SKIPS = 200;
 
-  function queueSkipReason(code, cloudflareStrikes = 0) {
+  function queueSkipReason(code) {
     const root = String(code || '').split(/[\s(]/, 1)[0];
-    if (QUEUE_UNAVAILABLE_CODES.has(root)) return root;
-    if (root === 'cloudflare' && Number(cloudflareStrikes) < CLOUDFLARE_SKIP_LIMIT) return root;
-    return '';
+    return QUEUE_UNAVAILABLE_CODES.has(root) ? root : '';
   }
 
-  // The wait before a collection run asks Nexus about the next file, after one it skipped or could not
-  // get. A download spaces out the requests of the files around it; a skip did not, so a run of gone
-  // mods (all that is left when a collection is downloaded again) asked about one after another, and
-  // Cloudflare began answering with its check: the run reported Cloudflare where the mods were removed.
-  // After a Cloudflare answer the wait is longer, so the check can lapse before the next file.
-  const CLOUDFLARE_COOLDOWN_SECONDS = 10;
-  function queueItemGapMs(code) {
-    const root = String(code || '').split(/[\s(]/, 1)[0];
-    return (root === 'cloudflare' ? CLOUDFLARE_COOLDOWN_SECONDS : MIN_HANDOFF_GAP_SECONDS) * 1000;
+  // Skips and per-file failures still space their requests. A real challenge stops the run instead
+  // of waiting briefly and testing the next file; server cooldowns are preserved separately.
+  function queueItemGapMs() {
+    return MIN_HANDOFF_GAP_SECONDS * 1000;
   }
 
   // A size in KB as Nexus lists it, or 0 when there is none worth ordering by.
@@ -1672,7 +1665,6 @@
     isNxmLinkExpired,
     isNexusUserMismatch,
     waitForProtocolHandoff,
-    CLOUDFLARE_SKIP_LIMIT,
     MAX_TRACKED_SKIPS,
     queueSkipReason,
     queueItemGapMs,

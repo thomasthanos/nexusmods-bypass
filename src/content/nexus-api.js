@@ -1,7 +1,7 @@
 // The one place the extension talks to Nexus Mods' documented GraphQL API (v2). Every read goes
 // through a token bucket (burst 60, then 1 per second), honours Retry-After on 429 with capped
-// exponential backoff, and is cached: published collection revisions never change, so they are
-// kept permanently; everything else expires. Calls use the page's own session (credentials:
+// exponential backoff, and is cached. Published revision membership is fixed, but its nested live
+// file/mod metadata can change, so revision projections expire too. Calls use the page's own session (credentials:
 // 'include'), exactly as nexusmods.com does; no API key is stored or needed.
 // See docs/nexus-site-map.md for the study this is based on.
 window.NexusExt = window.NexusExt || {};
@@ -185,20 +185,25 @@ window.NexusExt = window.NexusExt || {};
       const store = await loadPersisted(persistKeyFor(key));
       const entry = store[key];
       if (entry && typeof entry.text === 'string') {
-        memory.set(key, { text: entry.text, expires: Infinity });
+        // Old builds persisted complete revision projections forever. An entry without an expiry
+        // must not revive files/mods that have since been removed; stable game-id entries stay valid.
+        const expires = typeof entry.expires === 'number' ? entry.expires : key.startsWith('rev:') ? 0 : Infinity;
+        if (!(expires > now())) return null;
+        memory.set(key, { text: entry.text, expires });
         return entry.text;
       }
       return null;
     }
 
-    async function writeCache(key, text, ttlMs, permanent) {
+    async function writeCache(key, text, ttlMs, permanent, persist = false) {
       if (!key) return;
-      memory.set(key, { text, expires: permanent ? Infinity : now() + ttlMs });
-      if (!permanent || !storage || text.length > PERSIST_MAX_CHARS) return;
+      const expires = permanent ? Infinity : now() + ttlMs;
+      memory.set(key, { text, expires });
+      if ((!permanent && !persist) || !storage || text.length > PERSIST_MAX_CHARS) return;
       const storageKey = persistKeyFor(key);
       const maxEntries = storageKey === PERSIST_GAMES_KEY ? PERSIST_GAMES_MAX_ENTRIES : PERSIST_MAX_ENTRIES;
       const store = await loadPersisted(storageKey);
-      store[key] = { text, at: now() };
+      store[key] = { text, at: now(), ...(Number.isFinite(expires) ? { expires } : {}) };
       const keys = Object.keys(store).sort((a, b) => (store[a].at || 0) - (store[b].at || 0));
       let total = keys.reduce((sum, k) => sum + (store[k].text?.length || 0), 0);
       while (keys.length > maxEntries || total > PERSIST_MAX_CHARS * 2) {
@@ -282,7 +287,7 @@ window.NexusExt = window.NexusExt || {};
     // `source`: 'cache', 'v2' or 'router'.
     async function graphql({
       query, operationName, variables = {}, context = 'Nexus API', signal = null, timeoutMs,
-      cacheKey = '', ttlMs = 0, permanentIf = null, fallback = true, mutation = false, retries = 2, optional = false
+      cacheKey = '', ttlMs = 0, permanentIf = null, persistIf = null, fallback = true, mutation = false, retries = 2, optional = false
     }) {
       if (signal?.aborted) return abortedResult(context);
       const modsVersion = modsCacheVersion;
@@ -348,7 +353,8 @@ window.NexusExt = window.NexusExt || {};
             const clean = json && !Array.isArray(json.errors) && json.data;
             if (clean && key && (!key.startsWith('mods:') || modsVersion === modsCacheVersion)) {
               const permanent = typeof permanentIf === 'function' && !!permanentIf(json);
-              await writeCache(key, result.text, ttlMs, permanent);
+              const persist = typeof persistIf === 'function' && !!persistIf(json);
+              await writeCache(key, result.text, ttlMs, permanent, persist);
             }
           }
           return finish(result, source, firstAttempt);
@@ -383,8 +389,9 @@ window.NexusExt = window.NexusExt || {};
         timeoutMs,
         cacheKey: `rev:${slug}:${explicit ? revision : 'latest'}`,
         ttlMs: TTL.revisionLatest,
-        // A published revision is immutable; one looked up as "latest" may be superseded.
-        permanentIf: (json) => explicit && isPublished(json?.data?.collectionRevision)
+        // Persist explicit published revisions across reloads, but only for the same bounded TTL:
+        // membership is immutable, whereas the nested files/mods may be hidden or removed later.
+        persistIf: (json) => explicit && isPublished(json?.data?.collectionRevision)
       });
     }
 

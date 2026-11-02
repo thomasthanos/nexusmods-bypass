@@ -179,7 +179,7 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal((await transient.api.graphql({ query: 'q' })).source, 'v2', 'a router outage does not replace the original GraphQL explanation');
   }
 
-  // ---- Caching: TTL, permanent published revisions (persisted), latest not permanent, in-flight dedupe.
+  // ---- Caching: bounded revision projections, stable game ids and in-flight dedupe.
   // A fallback is a real request too, and its 429 must block subsequent calls.
   {
     const h = harness({ responses: [netFail(), limited(5), ok({ data: { a: 1 } })] });
@@ -272,20 +272,47 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
   }
 
   {
-    const published = ok({ data: { collectionRevision: { revisionNumber: 4, revisionStatus: 'published', modFiles: [] } } });
-    const h = harness({ responses: [published, published] });
+    const published = ok({ data: { collectionRevision: { revisionNumber: 4, revisionStatus: 'published', modFiles: [
+      { fileId: 200, file: { fileId: 200, name: 'Available archive', mod: { modId: 100, name: 'Available mod' } } }
+    ] } } });
+    const removed = ok({ data: { collectionRevision: { revisionNumber: 4, revisionStatus: 'published', modFiles: [
+      { fileId: 200, file: null }
+    ] } } });
+    const h = harness({ responses: [published, removed] });
     await h.api.collectionRevisionMods({ slug: 'abc123', revision: 4 });
     await h.api.collectionRevisionMods({ slug: 'abc123', revision: 4 });
     assert.equal(h.calls.length, 1, 'second read comes from cache');
-    assert.ok(h.store.nxtk_api_cache?.['rev:abc123:4'], 'published revision is stored permanently');
-    h.advance(400 * 24 * 3600 * 1000);
-    await h.api.collectionRevisionMods({ slug: 'abc123', revision: 4 });
-    assert.equal(h.calls.length, 1, 'never expires');
+    const saved = JSON.parse(JSON.stringify(h.store.nxtk_api_cache));
+    assert.ok(saved?.['rev:abc123:4'], 'published revision is persisted for a bounded reload cache');
 
-    const restarted = harness({ storageData: { nxtk_api_cache: h.store.nxtk_api_cache } });
+    const restarted = harness({ storageData: { nxtk_api_cache: saved }, responses: [removed] });
     const fromDisk = await restarted.api.collectionRevisionMods({ slug: 'abc123', revision: 4 });
     assert.equal(fromDisk.source, 'cache');
-    assert.equal(restarted.calls.length, 0, 'survives a page reload');
+    assert.equal(restarted.calls.length, 0, 'a valid projection survives reload without another request');
+    restarted.advance(11 * 60 * 1000);
+    const changed = await restarted.api.collectionRevisionMods({ slug: 'abc123', revision: 4 });
+    assert.equal(restarted.calls.length, 1, 'the reloaded projection expires rather than becoming permanent');
+    assert.equal(JSON.parse(changed.text).data.collectionRevision.modFiles[0].file, null,
+      'a repeat run can see that the referenced file is no longer available');
+    await restarted.api.collectionRevisionMods({ slug: 'abc123', revision: 4 });
+    assert.equal(restarted.calls.length, 1, 'the fresh projection is reused within its TTL');
+    h.advance(11 * 60 * 1000);
+    assert.equal(JSON.parse((await h.api.collectionRevisionMods({ slug: 'abc123', revision: 4 })).text)
+      .data.collectionRevision.modFiles[0].file, null, 'the in-memory projection expires as well');
+    assert.equal(h.calls.length, 2);
+
+    const expired = harness({ storageData: { nxtk_api_cache: saved }, responses: [removed] });
+    expired.advance(11 * 60 * 1000);
+    assert.equal((await expired.api.collectionRevisionMods({ slug: 'abc123', revision: 4 })).source, 'v2',
+      'expired disk data is not revived by a new client');
+    const legacy = harness({ storageData: {
+      nxtk_api_cache: { 'rev:abc123:4': { text: published.text, at: 1_000_000 } },
+      nxtk_api_games: { 'game:skyrim': { text: JSON.stringify({ data: { game: { id: 110 } } }), at: 1 } }
+    }, responses: [removed] });
+    assert.equal((await legacy.api.collectionRevisionMods({ slug: 'abc123', revision: 4 })).source, 'v2',
+      'legacy revision entries without an expiry are not trusted indefinitely');
+    assert.equal(await legacy.api.gameId('skyrim'), '110', 'stable game ids keep their separate permanent cache');
+    assert.equal(legacy.calls.length, 1);
 
     const latest = harness({ responses: [published, published] });
     await latest.api.collectionRevisionMods({ slug: 'abc123' });
@@ -315,7 +342,7 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
   // ---- A game id is kept on its own (performance review 2026-11-01). Every game page asks for one, and
   // reading it used to read every cached collection revision too, which can run to megabytes.
   {
-    const revisions = { 'rev:abc123:4': { text: 'x'.repeat(100000), at: 1 } };
+    const revisions = { 'rev:abc123:4': { text: 'x'.repeat(100000), at: 1_000_000, expires: 1_600_000 } };
     const h = harness({ responses: [ok({ data: { game: { id: 1704, domainName: 'skyrimspecialedition' } } })], storageData: { nxtk_api_cache: revisions } });
     assert.equal(await h.api.gameId('skyrimspecialedition'), '1704');
     assert.ok(!h.reads.includes('nxtk_api_cache'), 'the cached revisions are not read for a game id');

@@ -70,6 +70,12 @@ window.NexusExt = window.NexusExt || {};
 
   const MAX_QUEUE_POLL_FAILURES = 5;
 
+  // A gateway failure is a Nexus outage, not proof that this one file failed. Keep it on the
+  // same bounded connection-wait path as the browser queue; a generic HTTP 500 stays per-file.
+  const NEXUS_OUTAGE_STATUSES = new Set([502, 503, 504, 520, 521, 522, 523, 524]);
+  const isQueueConnectionFailure = (error) => NXTK.isConnectionFailure(error?.code)
+    || (error?.code === 'server_error' && NEXUS_OUTAGE_STATUSES.has(Number(error.status)));
+
   // The worker reports a failure as a code with its measurements attached. A code that has a
   // sentence of its own is shown as that sentence; anything else is left as it came, so nothing
   // is lost. Either way the numbers are in the report.
@@ -491,7 +497,9 @@ window.NexusExt = window.NexusExt || {};
       const backoff = Number.isFinite(explicit) && explicit > 0
         ? explicit
         : NXTK.rateLimitBackoffSeconds(this.rateLimitStrikes);
-      const until = Date.now() + Math.min(backoff, NXTK.RATE_LIMIT_MAX_SECONDS) * 1000;
+      // rateLimitBackoffSeconds already bounds our fallback; a server's explicit Retry-After
+      // must not be shortened to that local ceiling.
+      const until = Date.now() + backoff * 1000;
       this.rateLimitedUntil = Math.max(this.rateLimitedUntil || 0, until);
       NexusExt.Storage.saveRateLimit?.({ until: this.rateLimitedUntil });
       return Math.round((this.rateLimitedUntil - Date.now()) / 1000);
@@ -540,10 +548,9 @@ window.NexusExt = window.NexusExt || {};
       });
     }
 
-    // The connection dropped while a file's link was being fetched. Every request fails the same way
-    // until it is back, so the run waits on that file, counting down and ending early when the browser
-    // says it is online again, instead of failing it and every file after it within seconds. False
-    // once the waits have run out (the run then stops) or the run was stopped.
+    // A connection failure or Nexus gateway outage holds the run on this file, with a countdown
+    // and an early check when the browser goes online, instead of failing every remaining file.
+    // False once the bounded waits run out (the run then stops) or the user stopped the run.
     async waitForConnection() {
       this.networkStrikes = (this.networkStrikes || 0) + 1;
       if (this.networkStrikes > NXTK.NETWORK_WAIT_MAX_STRIKES) return false;
@@ -628,6 +635,11 @@ window.NexusExt = window.NexusExt || {};
 
         const error = this.resolveLinkError(result);
         result.error = error;
+
+        if (error.code === 'cloudflare') {
+          const retryAfter = Number(result.rateLimit?.retryAfterSeconds ?? error.retryAfterSeconds);
+          if (Number.isFinite(retryAfter) && retryAfter > 0) this.noteRateLimited(retryAfter);
+        }
 
         if (error.code === 'rate_limited') {
           // The resolve path (getDownloadUrl) passes only the error on, so Retry-After rides on it too.
@@ -1410,10 +1422,13 @@ window.NexusExt = window.NexusExt || {};
 
         const skipPrompt = this.skipHistoryPromptOnce === true;
         this.skipHistoryPromptOnce = false;
-        if (history[this.gameId][this.collectionId][type].length && !skipPrompt) {
+        const currentHistory = NXTK.summarizeCollectionHistory(
+          history[this.gameId][this.collectionId], type, mods.map(historyEntryId)
+        );
+        if (currentHistory.downloaded && !skipPrompt) {
           const choice = await NexusExt.UI.showHistoryDecisionModal({
-            downloadedCount: history[this.gameId][this.collectionId][type].length,
-            totalCount: mods.length
+            downloadedCount: currentHistory.downloaded,
+            totalCount: currentHistory.total
           });
           if (stopped()) return;
 
@@ -1462,7 +1477,6 @@ window.NexusExt = window.NexusExt || {};
 
         const failedDownload = [];
         const skipped = [];
-        let cloudflareStrikes = 0;
         let handedOffCount = 0;
         const sentMods = [];
         let forceStop = false;
@@ -1510,14 +1524,14 @@ window.NexusExt = window.NexusExt || {};
             )
           }, `[${modNumber}]`);
           if (downloadResult.downloadUrl || this.isStopped()) break;
-          if (!NXTK.isConnectionFailure(this.resolveLinkError(downloadResult).code)) break;
+          if (!isQueueConnectionFailure(this.resolveLinkError(downloadResult))) break;
           if (!await this.waitForConnection()) {
             connectionLost = !this.isStopped();
             break;
           }
         }
-        // Any answer from Nexus means the connection is back, so a later drop starts its waits afresh.
-        if (!NXTK.isConnectionFailure(downloadResult.downloadUrl ? '' : this.resolveLinkError(downloadResult).code)) {
+        // An answer outside the transient connection/gateway failures resets the wait counter.
+        if (downloadResult.downloadUrl || !isQueueConnectionFailure(this.resolveLinkError(downloadResult))) {
           this.networkStrikes = 0;
         }
 
@@ -1529,13 +1543,11 @@ window.NexusExt = window.NexusExt || {};
 
         const skipReason = downloadResult.downloadUrl
           ? ''
-          : NXTK.queueSkipReason(this.resolveLinkError(downloadResult).code, cloudflareStrikes);
-        cloudflareStrikes = skipReason === 'cloudflare' ? cloudflareStrikes + 1 : 0;
+          : NXTK.queueSkipReason(this.resolveLinkError(downloadResult).code);
 
         if (skipReason) {
-          // Gone, or one Cloudflare answer: noted and passed over, and the run goes on. A gone mod is the
-          // mod's state, not a fault; a Cloudflare answer is worth a line in a bug report, as in the worker.
-          if (skipReason === 'cloudflare') this.recordFileFailure(this.resolveLinkError(downloadResult));
+          // Only a definitive unavailable-file verdict is passed over. A challenge says nothing
+          // about whether this file exists and must stop the run before its progress advances.
           this.logSkipped(`[${modNumber}] ${mod.file.name}`, skipReason);
           skipped.push({ name: mod.file.name, pageUrl: mod.file.url, reason: skipReason });
           this.advanceVortexRun();

@@ -18,12 +18,15 @@ global.NXTK = {
   orderQueueBySize: shared.NXTK.orderQueueBySize,
   queueSkipReason: shared.NXTK.queueSkipReason,
   isSafeNexusPageUrl: shared.NXTK.isSafeNexusPageUrl,
-  CLOUDFLARE_SKIP_LIMIT: shared.NXTK.CLOUDFLARE_SKIP_LIMIT,
+  summarizeCollectionHistory: shared.NXTK.summarizeCollectionHistory,
   vortexSentType: shared.NXTK.vortexSentType,
   nxmLinkInfo: shared.NXTK.nxmLinkInfo,
   isNxmLinkExpired: shared.NXTK.isNxmLinkExpired,
   isNexusUserMismatch: shared.NXTK.isNexusUserMismatch,
   isConnectionFailure: shared.NXTK.isConnectionFailure,
+  RATE_LIMIT_MAX_STRIKES: shared.NXTK.RATE_LIMIT_MAX_STRIKES,
+  RATE_LIMIT_MAX_SECONDS: shared.NXTK.RATE_LIMIT_MAX_SECONDS,
+  rateLimitBackoffSeconds: shared.NXTK.rateLimitBackoffSeconds,
   // Connection waits end at the first tick, and two of them run out, so the tests stay quick.
   networkWaitMs: () => 0,
   NETWORK_WAIT_MAX_STRIKES: 2,
@@ -344,8 +347,9 @@ function createHarness(choice) {
     NexusExt.Storage.getRateLimit = async () => null;
     ndc.fetchDownloadLinkWithRetry = async (mod) => {
       asked.push(mod.file.name);
-      const code = answerFor(mod, ndc);
-      return code ? { downloadUrl: '', error: { code } } : { downloadUrl: `nxm://game/mods/1/files/${mod.fileId}` };
+      const answer = answerFor(mod, ndc);
+      const error = typeof answer === 'string' ? { code: answer } : answer;
+      return answer ? { downloadUrl: '', error } : { downloadUrl: `nxm://game/mods/1/files/${mod.fileId}` };
     };
     ndc.handOffDownload = (mod) => { handed.push(mod.file.name); return true; };
     await ndc.runCollection(mods, null);
@@ -374,23 +378,139 @@ function createHarness(choice) {
   assert.ok(sized.logs.some((line) => /^mod_unavailable · <a href="https:\/\/www\.nexusmods\.com\/[^"]+file_id=2" [^>]*>Removed\.7z<\/a>$/.test(line)),
     'and named, with the reason and a link to its file page (not a Vortex hand-off)');
 
-  // One Cloudflare answer is passed over; the same answer on file after file stops the run.
-  const limit = NXTK.CLOUDFLARE_SKIP_LIMIT;
+  // History belongs to all revisions of the collection. Only entries that still occur in this
+  // run may trigger the "already downloaded" question or contribute to its count.
+  {
+    const savedDecision = NexusExt.UI.showHistoryDecisionModal;
+    const savedClear = NexusExt.Storage.clearHistoryType;
+    try {
+      for (const { downloaded, expectedCount } of [
+        { downloaded: [999], expectedCount: 0 },
+        { downloaded: [999, 10, 888], expectedCount: 1 }
+      ]) {
+        const { ndc, calls } = createHarness('browser');
+        const history = { game: { collection: { all: [...downloaded] } } };
+        const original = structuredClone(history);
+        const prompts = [];
+        const cleared = [];
+        NexusExt.Storage.getHistory = async () => structuredClone(history);
+        NexusExt.Storage.clearHistoryType = async (payload) => { cleared.push(payload); return history; };
+        NexusExt.UI.showHistoryDecisionModal = async (options) => { prompts.push(options); return 'cancel'; };
+        await ndc.runCollection([vortexMod(10, 'Current A.7z', 1), vortexMod(20, 'Current B.7z', 2)], 'all');
+        assert.deepEqual(prompts, expectedCount ? [{ downloadedCount: expectedCount, totalCount: 2 }] : [],
+          'only downloaded IDs in the current run may be counted or prompt for a history decision');
+        assert.equal(calls.browserQueue, expectedCount ? 0 : 1, 'old-revision-only history does not delay the new collection run');
+        assert.deepEqual(cleared, [], 'filtering displayed history never clears the stored history of other revisions');
+        assert.deepEqual(history, original);
+      }
+    } finally {
+      NexusExt.UI.showHistoryDecisionModal = savedDecision;
+      NexusExt.Storage.clearHistoryType = savedClear;
+    }
+  }
+
+  // The locally computed backoff is bounded, but a longer Retry-After belongs to the server.
+  // Shortening its one-hour wait to the ten-minute fallback limit just hits Nexus again too soon.
+  {
+    const { ndc } = createHarness('vortex');
+    const now = Date.now();
+    const realNow = Date.now;
+    const savedSave = NexusExt.Storage.saveRateLimit;
+    let stored;
+    Date.now = () => now;
+    NexusExt.Storage.saveRateLimit = (value) => { stored = value; };
+    try {
+      assert.equal(ndc.noteRateLimited(3600), 3600, 'the explicit one-hour wait is never shortened to the local backoff ceiling');
+      assert.equal(ndc.rateLimitedUntil, now + 3600000);
+      assert.equal(stored.until, now + 3600000, 'other tabs receive the full server cooldown');
+      assert.equal(ndc.noteRateLimited(30), 3600, 'a later shorter wait cannot erase the longer cooldown');
+      const fallback = createHarness('vortex').ndc;
+      assert.equal(fallback.noteRateLimited(null), NXTK.rateLimitBackoffSeconds(1), 'without a server delay, the existing bounded backoff remains');
+    } finally {
+      Date.now = realNow;
+      NexusExt.Storage.saveRateLimit = savedSave;
+    }
+  }
+
+  // A challenge does not prove that a file is unavailable. A repeat collection can mix files
+  // already downloaded, a removed Nexus mod, and a locally removed file Vortex needs again.
+  // Keep the challenged file out of both the skipped list and downloaded/sent history, and let a
+  // later user-started run resolve that same file after completing the check.
+  {
+    const { ndc } = createHarness('vortex');
+    const history = { game: { collection: { all: [99], vortexSent_all: [2] } } };
+    const asked = [];
+    const handed = [];
+    const writes = [];
+    const outcomes = [];
+    const mods = [
+      vortexMod(99, 'Already downloaded.7z', 1),
+      vortexMod(1, 'Removed on Nexus.7z', 1),
+      vortexMod(2, 'Removed locally.7z', 2),
+      vortexMod(3, 'Next available.7z', 3)
+    ];
+    let challengeCleared = false;
+    ndc.pauseBetweenDownload = 0;
+    ndc.showAlertsOnError = false;
+    ndc.smallestFirst = false;
+    ndc.ui.startDownload = (total) => { ndc.ui.progress = 0; ndc.ui.modsCount = total; };
+    ndc.ui.incrementProgress = () => { ndc.ui.progress += 1; };
+    ndc.ui.endDownload = (outcome) => { outcomes.push(outcome); ndc.runStatus = 3; };
+    NexusExt.Storage.getHistory = async () => structuredClone(history);
+    NexusExt.Storage.getRateLimit = async () => null;
+    NexusExt.UI.showHistoryDecisionModal = async () => 'skip';
+    const savedAdd = NexusExt.Storage.addHistoryEntry;
+    NexusExt.Storage.addHistoryEntry = async ({ type, fileId }) => {
+      writes.push([type, fileId]);
+      const collection = history.game.collection;
+      collection[type] = [...new Set([...(collection[type] || []), fileId])];
+      return structuredClone(history);
+    };
+    ndc.fetchDownloadLinkWithRetry = async (mod) => {
+      asked.push(mod.fileId);
+      if (mod.fileId === 1) return { downloadUrl: '', error: { code: 'mod_unavailable' } };
+      if (mod.fileId === 2 && !challengeCleared) return { downloadUrl: '', error: { code: 'cloudflare' } };
+      return { downloadUrl: `nxm://game/mods/1/files/${mod.fileId}` };
+    };
+    ndc.handOffDownload = (mod) => { handed.push(mod.fileId); return true; };
+    try {
+      await ndc.runCollection(mods, 'all');
+      assert.deepEqual(asked, [1, 2], 'the first real challenge stops requests before another valid file is queried');
+      assert.deepEqual(handed, [], 'the challenged file and files after it are not handed off');
+      assert.equal(ndc.ui.progress, 2, 'only the known downloaded file and proven unavailable mod advance progress');
+      assert.equal(outcomes[0], 'blocked');
+      assert.deepEqual(writes, [], 'a challenge never becomes a sent or downloaded history entry');
+      assert.deepEqual(ndc.lastRunSummary.skipped.map((entry) => entry.name), ['Removed on Nexus.7z'],
+        'the summary does not label the challenged file unavailable');
+
+      challengeCleared = true;
+      await ndc.runCollection(mods, 'all');
+      assert.deepEqual(asked, [1, 2, 1, 2, 3], 'a later run asks for the challenged file again before continuing');
+      assert.deepEqual(handed, [2, 3], 'Vortex gets the locally removed file again and then the remaining valid file');
+      assert.deepEqual(writes, [['vortexSent_all', 2], ['vortexSent_all', 3]], 'recovered handoffs remain sent, never downloaded');
+      assert.deepEqual(history.game.collection.all, [99], 'downloaded history is preserved across the blocked run');
+      assert.equal(outcomes[1], 'partial', 'the proven unavailable mod remains explicitly skipped');
+    } finally {
+      NexusExt.Storage.addHistoryEntry = savedAdd;
+    }
+  }
+
+  // The first challenge pauses the run; querying other files cannot complete a human check.
   const walled = await runVortexQueue(
-    Array.from({ length: limit + 2 }, (_, index) => vortexMod(index + 1, `Mod ${index + 1}.7z`, index + 1)),
+    Array.from({ length: 5 }, (_, index) => vortexMod(index + 1, `Mod ${index + 1}.7z`, index + 1)),
     () => 'cloudflare'
   );
-  assert.equal(walled.asked.length, limit + 1, 'the run stops at the first Cloudflare answer past the limit');
+  assert.equal(walled.asked.length, 1, 'the first Cloudflare answer stops the run before another file is queried');
   assert.deepEqual(walled.handed, []);
   assert.equal(walled.outcome, 'blocked', 'and asks for the check to be completed');
 
   const broken = await runVortexQueue(
-    Array.from({ length: limit + 2 }, (_, index) => vortexMod(index + 1, `Mod ${index + 1}.7z`, index + 1)),
-    (mod) => (mod.fileId === limit ? '' : 'cloudflare')
+    Array.from({ length: 5 }, (_, index) => vortexMod(index + 1, `Mod ${index + 1}.7z`, index + 1)),
+    (mod) => (mod.fileId === 1 ? '' : 'cloudflare')
   );
-  assert.equal(broken.asked.length, limit + 2, 'a file that resolves ends the Cloudflare streak');
-  assert.deepEqual(broken.handed, [`Mod ${limit}.7z`]);
-  assert.equal(broken.outcome, 'partial');
+  assert.equal(broken.asked.length, 2, 'earlier successful handoffs do not permit skipping a later challenge');
+  assert.deepEqual(broken.handed, ['Mod 1.7z']);
+  assert.equal(broken.outcome, 'blocked');
 
   // A file that is not handed off is followed by a wait (NXTK.queueItemGapMs): removed mods asked about
   // back to back drew Cloudflare's check. A hand-off keeps its own pause, and the last file waits for nothing.
@@ -399,10 +519,10 @@ function createHarness(choice) {
   try {
     const spaced = await runVortexQueue(
       Array.from({ length: 5 }, (_, index) => vortexMod(index + 1, `Mod ${index + 1}.7z`, index + 1)),
-      (mod) => ({ 1: 'mod_unavailable', 2: 'cloudflare', 4: 'no_nmm_link', 5: 'mod_unavailable' })[mod.fileId] || ''
+      (mod) => ({ 1: 'mod_unavailable', 2: 'file_not_found', 4: 'no_nmm_link', 5: 'mod_unavailable' })[mod.fileId] || ''
     );
     assert.deepEqual(spaced.handed, ['Mod 3.7z']);
-    assert.deepEqual(gaps, ['mod_unavailable', 'cloudflare', ''], 'a skip passes its reason; a failure, none');
+    assert.deepEqual(gaps, ['mod_unavailable', 'file_not_found', ''], 'a proven unavailable file and a per-file failure are followed by a gap');
   } finally {
     delete NXTK.queueItemGapMs;
   }
@@ -436,13 +556,71 @@ function createHarness(choice) {
   assert.ok(down.logs.some((line) => /Collection paused/.test(line)), 'and says the completed files are kept');
   assert.deepEqual(recordedErrors, ['offline'], 'a run that stopped on the connection records it once');
 
+  // A gateway outage is site-wide just like a lost connection. Moving on after one such answer
+  // would ask every remaining file during the outage and mark them all failed.
+  recordedErrors.length = 0;
+  for (const status of [502, 503, 504, 520, 521, 522, 523, 524]) {
+    let unavailable = true;
+    const gateway = await runVortexQueue(threeMods(), (mod) => {
+      if (mod.fileId !== 2 || !unavailable) return '';
+      unavailable = false;
+      return { code: 'server_error', status };
+    });
+    assert.deepEqual(gateway.asked, ['One.7z', 'Two.7z', 'Two.7z', 'Three.7z'],
+      `HTTP ${status}: retry the same file after the outage wait before asking the next one`);
+    assert.deepEqual(gateway.handed, ['One.7z', 'Two.7z', 'Three.7z']);
+    assert.equal(gateway.outcome, 'finished');
+    assert.deepEqual(recordedErrors, [], `HTTP ${status}: a recovered outage is not recorded as a failed file`);
+  }
+  const gatewayDown = await runVortexQueue(threeMods(), (mod) => mod.fileId === 1 ? '' : { code: 'server_error', status: 503 });
+  assert.deepEqual(gatewayDown.asked, ['One.7z', ...Array(NXTK.NETWORK_WAIT_MAX_STRIKES + 1).fill('Two.7z')],
+    'an exhausted gateway outage stops on the current file without requesting later files');
+  assert.deepEqual(gatewayDown.handed, ['One.7z']);
+  assert.equal(gatewayDown.outcome, 'error');
+  assert.deepEqual(recordedErrors, ['server_error'], 'an exhausted outage records one final failure');
+  recordedErrors.length = 0;
+  const oneBadFile = await runVortexQueue(threeMods(), (mod) => mod.fileId === 2 ? { code: 'server_error', status: 500 } : '');
+  assert.deepEqual(oneBadFile.asked, ['One.7z', 'Two.7z', 'Three.7z'], 'a generic HTTP 500 remains a per-file failure');
+  assert.equal(oneBadFile.outcome, 'partial');
+  assert.deepEqual(recordedErrors, ['server_error']);
+  recordedErrors.length = 0;
+  const gatewayChallenge = await runVortexQueue(threeMods(), (mod) => mod.fileId === 2 ? { code: 'cloudflare', status: 503 } : '');
+  assert.deepEqual(gatewayChallenge.asked, ['One.7z', 'Two.7z'], 'a challenge at HTTP 503 requires verification rather than automatic outage retries');
+  assert.equal(gatewayChallenge.outcome, 'blocked');
+  assert.deepEqual(recordedErrors, ['cloudflare']);
+  recordedErrors.length = 0;
+  let resumedOutage = false;
+  let pausedOutageOnce = false;
+  const pausedOutage = await runVortexQueue(threeMods(), (mod, ndc) => {
+    if (mod.fileId !== 2) return '';
+    if (!pausedOutageOnce) {
+      pausedOutageOnce = true;
+      ndc.runStatus = 1;
+      setTimeout(() => { ndc.runStatus = 0; resumedOutage = true; }, 1100);
+      return { code: 'server_error', status: 504 };
+    }
+    assert.equal(resumedOutage, true, 'the gateway retry waits until the paused run resumes');
+    return '';
+  });
+  assert.deepEqual(pausedOutage.asked, ['One.7z', 'Two.7z', 'Two.7z', 'Three.7z']);
+  assert.equal(pausedOutage.outcome, 'finished');
+  assert.deepEqual(recordedErrors, []);
+  const stoppedOutage = await runVortexQueue(threeMods(), (mod, ndc) => {
+    if (mod.fileId !== 2) return '';
+    setTimeout(() => ndc.stopDownload(), 10);
+    return { code: 'server_error', status: 502 };
+  });
+  assert.deepEqual(stoppedOutage.asked, ['One.7z', 'Two.7z'], 'Stop during an outage wait does not retry or move to the next file');
+  assert.equal(stoppedOutage.outcome, 'stopped');
+  assert.deepEqual(recordedErrors, [], 'a user stop during the outage is not recorded as a failure');
+
   const broke = await runVortexQueue(threeMods(), (mod) => (mod.fileId === 2 ? 'request_failed' : ''));
   assert.deepEqual(broke.asked, ['One.7z', 'Two.7z', 'Three.7z'], 'a fault that is not the connection fails just that file');
   assert.equal(broke.outcome, 'partial');
-  assert.deepEqual(recordedErrors, ['offline', 'request_failed'], 'and a file that failed for good, once');
+  assert.deepEqual(recordedErrors, ['request_failed'], 'and a file that failed for good, once');
 
-  // Skips: a gone mod is the mod's state, not a fault, and records nothing; a Cloudflare answer is worth
-  // a line in a bug report, as in the worker, once for its file.
+  // A definite removal is skipped without a fault report. A challenge stops at that file, is
+  // recorded once, and never requests the available file after it.
   recordedErrors.length = 0;
   await runVortexQueue(threeMods(), (mod) => (mod.fileId === 1 ? 'mod_unavailable' : mod.fileId === 2 ? 'cloudflare' : ''));
   assert.deepEqual(recordedErrors, ['cloudflare']);

@@ -1599,8 +1599,8 @@ async function advanceNdcJob(jobId) {
         return null;
       }
 
-      // A gone mod, or one Cloudflare answer, is skipped at once and the queue moves on. Cloudflare on
-      // several files running falls through to the stop below, as a check the user has to complete.
+      // Only a definite unavailable-file verdict is skipped. A Cloudflare response does not prove
+      // this file is gone; the current item remains pending until the user can complete the check.
       const skipReason = NXTK.queueSkipReason(resolved.code, job.cloudflareStrikes);
       if (skipReason) {
         const transition = await mutateNdcJobIf(
@@ -1622,20 +1622,24 @@ async function advanceNdcJob(jobId) {
           itemState: 'skipped',
           error: skipReason
         });
-        // A mod that is gone is the mod's state, not a fault, so only a Cloudflare skip is worth a
-        // line in the bug report.
-        if (skipReason === 'cloudflare') await recordQueueItemFailure(job, item, 'cloudflare', 'skipped');
         await waitMs(NXTK.queueItemGapMs(skipReason));
         continue;
       }
 
       if (BLOCKING_RESOLVE_CODES.has(resolved.code)) {
+        // A challenge can also carry a server-wide cooldown. Keep the verification verdict, but
+        // honour Retry-After across replacement runs instead of letting Start probe Nexus again.
+        const retryUntil = resolved.code === 'cloudflare'
+          && (resolved.status === 429 || NXTK.parseRetryAfterSeconds(resolved.retryAfter) !== null)
+          ? Date.now() + retryAfterMilliseconds(resolved.retryAfter) : 0;
+        if (retryUntil) await publishSharedRateLimit(retryUntil);
         const transition = await mutateNdcJobIf(
           job.id,
           idleOnItem(startIndex),
           (current) => {
             current.status = resolved.code === 'requires_login' ? 'requires_login' : 'error';
             current.lastError = resolved.code;
+            current.waitingUntil = retryUntil;
             recordJobFailure(current, { fileId: item.fileId, code: resolved.code });
             bumpNdcControl(current);
           }
@@ -3265,7 +3269,7 @@ async function reconcileNdcJobs() {
   if (!hasDownloadsApi()) return;
   let runningCount = 0;
   try {
-    const jobs = await readNdcJobs();
+    const jobs = await readNdcJobs({ strict: true });
     for (const job of Object.values(jobs)) {
       try {
         if (job.status === 'running') {

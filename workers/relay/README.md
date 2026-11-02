@@ -18,6 +18,10 @@ channel (and optionally e-mail). The extension never contains the webhook or any
 
 ## Current deployment
 
+Updated on 2026-11-02 with comparison baseline 4.0.1 through a settings-only update. The existing Worker code and every other binding were inherited unchanged. Production version `ff97f15a-a585-42c3-a0ac-7df5a913e54e` serves 100% of traffic (deployment `8ac0a284-cf3d-4c82-b411-de6a9c3bf043`). Read-back confirmed baseline 4.0.1 and preserved bindings; health returned HTTP 200 with `ok: true, configured: true`. No report was sent and no secret value was read or replaced.
+
+### Previous 4.0.0 deployment
+
 Updated on 2026-11-01 with comparison baseline 4.0.0, by `npx wrangler deploy` from `workers/relay/` (the release workflow's deploy job skipped: `CLOUDFLARE_API_TOKEN` is unset). Before it, the live Worker code was compared with this directory's Wrangler bundle and found identical (45,439 characters), and the live bindings matched `wrangler.toml` but for the baseline, so the deployment changed only `RELAY_EXTENSION_VERSION`. Production version `988b1b61-ac3e-4043-aa72-ed786d0fd7f4` serves 100% of traffic. It replaced `64afba56-62fe-480e-bfe0-19ce5857fa4f`, an upload of the same code with baseline 3.3.7 made on 2026-11-01 at 15:12 UTC and not recorded here. Read-back confirmed baseline 4.0.0, the `RATE_LIMIT` KV namespace, the `DIAGNOSTICS` service binding, the unchanged allowed origins and recipient, and the `DISCORD_WEBHOOK_URL` secret. Health returned HTTP 200 with `ok: true, configured: true`; the extension's report preflight returned HTTP 204 with its origin and the exposed `Retry-After`. No report was sent and no secret value was read or replaced.
 
 ### Previous 3.3.7 deployment

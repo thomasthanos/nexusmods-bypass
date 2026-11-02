@@ -116,6 +116,26 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
   assert.equal(stats.sent, 2, 'a downloaded file is not also counted as sent');
   assert.deepEqual([...stats.missing], [3, 4, 5]);
   assert.equal(S.summarizeCollectionHistory(null, 'all', [7]).missing.length, 1);
+  {
+    // A newer revision no longer contains every file from its previous download history. The
+    // history view must describe this revision, without deleting the older revision's progress.
+    const history = { all: ['old-A', 'old-C'], vortexSent_all: ['old-B'] };
+    const saved = plain(history);
+    assert.deepEqual(plain(S.summarizeCollectionHistory(history, 'all', ['current-D'])),
+      { downloaded: 0, sent: 0, missing: ['current-D'], total: 1 },
+      'files from an older revision do not inflate current downloaded/sent counts');
+    assert.deepEqual(history, saved, 'summarizing a revision preserves all stored history');
+    assert.deepEqual(plain(S.summarizeCollectionHistory({
+      all: ['1704:42', 'old-A'], vortexSent_all: ['1704:42', '1151:42', 'old-B']
+    }, 'all', ['1151:42', '1704:43'])),
+    { downloaded: 0, sent: 1, missing: ['1151:42', '1704:43'], total: 2 },
+    'the same file number in another game is a different history identity');
+    assert.deepEqual(plain(S.summarizeCollectionHistory({
+      all: [1, '1704:42'], vortexSent_all: ['1']
+    }, 'all', ['1', '1704:42'])),
+    { downloaded: 1, sent: 1, missing: ['1'], total: 2 },
+    'matching uses the same exact ID values as the download queue');
+  }
 
   // Item 8: no jargon left in English user-facing strings.
   const en = JSON.parse(fs.readFileSync('src/_locales/en/messages.json', 'utf8'));

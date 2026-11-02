@@ -185,15 +185,56 @@ async function classifiedRateLimitWaitsInsteadOfFailing() {
   }
 }
 
-// A removed mod, a 404 page and one Cloudflare answer are each skipped, and the rest of the run
-// still downloads. The skipped files come back by name when the run ends (#10 follow-up).
+// A challenge says nothing about this file's availability. Keep the very first protected item
+// pending instead of skipping it and probing more pages behind the same verification.
+async function firstCloudflareChallengeKeepsTheCurrentFile() {
+  const jobId = 'testjob-cffirst';
+  const items = [1, 2].map((fileId) => ({
+    fileId, historyId: String(fileId), gameId: '1704', name: `Still available ${fileId}.7z`,
+    pageUrl: `https://www.nexusmods.com/skyrimspecialedition/mods/${fileId}`, sizeKb: 10
+  }));
+  const history = { 1704: { 'cf-first': { all: ['99'] } } };
+  await storageSetLocal(STORAGE_HISTORY_KEY, history);
+  await storageSetLocal(`nxtk_ndc_items:${jobId}`, items);
+  await storageSetLocal(NDC_JOBS_KEY, {
+    [jobId]: { id: jobId, tabId: 7, gameId: '1704', collectionId: 'cf-first', type: 'all',
+      itemCount: items.length, index: 0, completed: 0, failed: [], skipped: [], status: 'running',
+      activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now() }
+  });
+  const savedFetch = context.fetch;
+  const savedSend = global.chrome.tabs.sendMessage;
+  const asked = [];
+  const sent = [];
+  context.fetch = async (url) => {
+    asked.push(String(url));
+    return { ok: false, status: 403, url: String(url), text: async () => '',
+      headers: { get: (name) => name === 'Cf-Mitigated' ? 'challenge' : '' } };
+  };
+  global.chrome.tabs.sendMessage = (_tabId, message, callback) => { sent.push(message); callback?.(); };
+  try {
+    await advanceNdcJob(jobId);
+    const job = await readNdcJob(jobId);
+    assert.deepEqual(asked, [items[0].pageUrl], 'the first challenge stops all further Nexus requests');
+    assert.equal(job.status, 'error');
+    assert.equal(job.lastError, 'cloudflare');
+    assert.equal(job.index, 0, 'the protected file remains the current item');
+    assert.equal(job.skipped.length, 0, 'verification never becomes an unavailable-file skip');
+    assert.deepEqual(await storageGetLocal(STORAGE_HISTORY_KEY, null), history, 'completed history is preserved');
+    assert.equal(sent.find((event) => event.type === 'NXT_NDC_DONE')?.outcome, 'cloudflare');
+  } finally {
+    context.fetch = savedFetch;
+    global.chrome.tabs.sendMessage = savedSend;
+  }
+}
+
+// Definite removed/404 responses are skipped, and the available file after them is still reached.
+// Verification is covered separately: it is never evidence that a mod is unavailable.
 async function skippedModsDoNotStopTheQueue() {
   const jobId = 'testjob-skipped01';
   const page = (id) => `https://www.nexusmods.com/skyrimspecialedition/mods/${id}`;
   const items = [
     { fileId: 11, historyId: '11', gameId: '1704', name: 'Removed.7z', pageUrl: page(11), sizeKb: 10 },
     { fileId: 12, historyId: '12', gameId: '1704', name: 'Gone.7z', pageUrl: page(12), sizeKb: 10 },
-    { fileId: 13, historyId: '13', gameId: '1704', name: 'Walled.7z', pageUrl: page(13), sizeKb: 10 },
     { fileId: 14, historyId: '14', gameId: '1704', name: 'Fine.7z', pageUrl: page(14), sizeKb: 10 }
   ];
   queueGaps.length = 0;
@@ -227,7 +268,6 @@ async function skippedModsDoNotStopTheQueue() {
       return reply(200, `${signedIn}<div id="Notice1" class="site-notice"><h3 id="Notice1-title">Removed by author</h3></div>`);
     }
     if (target === page(12)) return reply(404, '<html><body>Not found</body></html>');
-    if (target === page(13)) return reply(403, '<html>challenge</html>', { 'Cf-Mitigated': 'challenge' });
     if (target === page(14)) return reply(200, signedIn);
     return reply(200, '{"url":"https://premium-files.nexus-cdn.com/1/14/fine.7z?key=k&expires=1&user_id=2"}');
   };
@@ -250,33 +290,32 @@ async function skippedModsDoNotStopTheQueue() {
     await advanceNdcJob(jobId);
     const job = await readNdcJob(jobId);
     assert.equal(job.status, 'partial', 'the run reaches the end instead of stopping');
-    assert.equal(job.index, 4, 'every file was reached');
+    assert.equal(job.index, 3, 'every file was reached');
     assert.deepEqual(job.skipped.map(({ name, reason }) => [name, reason]), [
       ['Removed.7z', 'mod_unavailable'],
-      ['Gone.7z', 'mod_unavailable'],
-      ['Walled.7z', 'cloudflare']
+      ['Gone.7z', 'mod_unavailable']
     ], 'each skip names the file and why');
     assert.equal(job.skipped[0].pageUrl, page(11), 'and keeps its page for the summary link');
     assert.equal(jobFailureCount(job), 1, 'a skip is not counted as a failure');
     assert.equal(asked.filter((url) => url === page(11)).length, 1, 'a removed mod is asked for once, not retried');
     assert.equal(asked.filter((url) => url === page(12)).length, 1, 'so is a 404 page');
     // Removed mods, back to back, were where Cloudflare stepped in (store review, 2026-10-30).
-    assert.deepEqual(queueGaps, ['mod_unavailable', 'mod_unavailable', 'cloudflare', 'download_not_started'],
-      'every file that was not downloaded is followed by a wait, a Cloudflare answer by its own');
+    assert.deepEqual(queueGaps, ['mod_unavailable', 'mod_unavailable', 'download_not_started'],
+      'every file that was not downloaded is followed by a wait');
 
     const skippedEvents = sent.filter((message) => message.type === 'NXT_NDC_PROGRESS' && message.itemState === 'skipped');
-    assert.deepEqual(skippedEvents.map((message) => message.error), ['mod_unavailable', 'mod_unavailable', 'cloudflare']);
+    assert.deepEqual(skippedEvents.map((message) => message.error), ['mod_unavailable', 'mod_unavailable']);
     const done = sent.find((message) => message.type === 'NXT_NDC_DONE');
     assert.equal(done?.outcome, 'partial');
-    assert.equal(done.skippedCount, 3, 'the end of the run carries the count');
-    assert.deepEqual(done.skipped.map(({ name }) => name), ['Removed.7z', 'Gone.7z', 'Walled.7z'],
+    assert.equal(done.skippedCount, 2, 'the end of the run carries the count');
+    assert.deepEqual(done.skipped.map(({ name }) => name), ['Removed.7z', 'Gone.7z'],
       'and the list the deck prints');
 
     const log = await storageGetLocal(NXTK.ERROR_LOG_KEY, []);
     const skipLines = log.filter((entry) => /Removed|Gone|file 1[123]\b/.test(JSON.stringify(entry)));
     assert.ok(skipLines.every((entry) => !/mod_unavailable/.test(JSON.stringify(entry))),
       'a mod that is gone is not written up as a fault');
-    assert.ok(log.some((entry) => /cloudflare/.test(JSON.stringify(entry))), 'a Cloudflare skip is');
+    assert.ok(log.every((entry) => !/cloudflare/.test(JSON.stringify(entry))), 'removed mods do not become Cloudflare faults');
   } finally {
     context.fetch = previousFetch;
     global.chrome.downloads = previousDownloads;
@@ -285,56 +324,57 @@ async function skippedModsDoNotStopTheQueue() {
   }
 }
 
-// Cloudflare on file after file is the whole site behind a check. The run stops there, instead of
-// marking a thousand-mod collection as skipped, and a status poll still gets the skipped list.
-async function cloudflareStreakStopsTheQueue() {
-  const jobId = 'testjob-cfstreak1';
-  const limit = NXTK.CLOUDFLARE_SKIP_LIMIT;
-  queueGaps.length = 0;
-  const items = Array.from({ length: limit + 3 }, (_, index) => ({
-    fileId: 60 + index, historyId: String(60 + index), gameId: '1704', name: `Walled ${index}.7z`,
-    pageUrl: `https://www.nexusmods.com/skyrimspecialedition/mods/${60 + index}`, sizeKb: 10
-  }));
-  await storageSetLocal(`nxtk_ndc_items:${jobId}`, items);
-  await storageSetLocal(NDC_JOBS_KEY, {
-    [jobId]: {
-      id: jobId, tabId: 7, gameId: '1704', collectionId: 'walled', type: 'all',
-      itemCount: items.length, index: 0, completed: 0, failed: [], skipped: [], status: 'running',
-      activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now()
-    }
-  });
-  const previousFetch = context.fetch;
-  const previousSendMessage = global.chrome.tabs.sendMessage;
+// A challenge's Retry-After applies across runs. It remains a verification verdict, but clicking
+// Start again must wait for the same server deadline instead of beginning another burst of requests.
+async function cloudflareCooldownSurvivesAReplacementRun() {
+  const rateKey = 'nxtk_ndc_rate_limit';
+  const jobId = 'testjob-cfcooldown';
+  const item = { fileId: 60, historyId: '60', gameId: '1704', name: 'Protected.7z',
+    pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/60', sizeKb: 10 };
+  const savedFetch = context.fetch;
+  const savedSend = global.chrome.tabs.sendMessage;
   const sent = [];
-  let pages = 0;
-  context.fetch = async (url) => {
-    pages += 1;
-    return {
-      ok: false, status: 403, url: String(url), text: async () => '',
-      headers: { get: (name) => (name === 'Cf-Mitigated' ? 'challenge' : '') }
-    };
-  };
-  global.chrome.tabs.sendMessage = (_tabId, message, callback) => {
-    sent.push(message);
-    if (callback) callback();
-  };
+  const asked = [];
+  global.chrome.tabs.sendMessage = (_tabId, message, callback) => { sent.push(message); callback?.(); };
   try {
-    await advanceNdcJob(jobId);
-    const job = await readNdcJob(jobId);
-    assert.equal(pages, limit + 1, 'the first answer past the limit is where the run stops');
-    assert.deepEqual(queueGaps, Array(limit).fill('cloudflare'), 'each skipped answer is let lapse, and a stopped run waits no more');
-    assert.equal(job.status, 'error');
-    assert.equal(job.lastError, 'cloudflare', 'as a Cloudflare block the user can clear');
-    assert.equal(job.skipped.length, limit, 'the files before it were skipped, not failed');
-    const done = sent.find((message) => message.type === 'NXT_NDC_DONE');
-    assert.equal(done?.outcome, 'cloudflare');
-    assert.equal(done.skipped.length, limit, 'a stopped run still lists what it skipped');
-    const status = await NDC_QUEUE_HANDLERS.NDC_QUEUE_STATUS({ jobId });
-    assert.equal(status.skippedCount, limit);
-    assert.equal(status.skipped.length, limit, 'so does a status poll');
+    for (const responseStatus of [429, 403]) {
+      sent.length = 0;
+      asked.length = 0;
+      await storageSetLocal(rateKey, { until: 0 });
+      await storageSetLocal(`nxtk_ndc_items:${jobId}`, [item]);
+      await storageSetLocal(NDC_JOBS_KEY, { [jobId]: {
+        id: jobId, tabId: 7, gameId: '1704', collectionId: 'cf-cooldown', type: 'all', itemCount: 1,
+        index: 0, completed: 0, failed: [], skipped: [], status: 'running', activeDownloadId: null,
+        createdAt: Date.now(), updatedAt: Date.now()
+      } });
+      context.fetch = async (url) => {
+        asked.push(String(url));
+        return { ok: false, status: responseStatus, url: String(url), text: async () => '<form id="challenge-form"></form>',
+          headers: { get: (name) => ({ 'Cf-Mitigated': 'challenge', 'Retry-After': '120' })[name] || '' } };
+      };
+      const before = Date.now();
+      await advanceNdcJob(jobId);
+      const blocked = await readNdcJob(jobId);
+      assert.equal(blocked.lastError, 'cloudflare', 'a verified challenge does not become an ordinary rate-limit verdict');
+      assert.equal(blocked.index, 0, 'the protected file remains pending');
+      const until = (await storageGetLocal(rateKey, null)).until;
+      assert.ok(until >= before + 120000, 'the server cooldown is published across queues');
+      assert.equal(blocked.waitingUntil, until);
+      const restarted = await NDC_QUEUE_HANDLERS.NDC_QUEUE_START({
+        gameId: '1704', collectionId: 'cf-cooldown', type: 'all', items: [item], requestTimeout: 30000
+      }, { tab: { id: 7 } });
+      const waiting = await readNdcJob(restarted.jobId);
+      assert.equal(waiting.status, 'running');
+      assert.equal(waiting.index, 0);
+      assert.equal(waiting.waitingUntil, until, 'a replacement run retains the original server deadline');
+      assert.deepEqual(asked, [item.pageUrl], 'Start cannot make another request before that deadline');
+      assert.ok(sent.some((event) => event.type === 'NXT_NDC_WAITING' && event.until === until));
+    }
   } finally {
-    context.fetch = previousFetch;
-    global.chrome.tabs.sendMessage = previousSendMessage;
+    context.fetch = savedFetch;
+    global.chrome.tabs.sendMessage = savedSend;
+    await storageSetLocal(rateKey, { until: 0 });
+    await storageSetLocal(NDC_JOBS_KEY, {});
   }
 }
 
@@ -1036,6 +1076,54 @@ async function reconcileSurvivesAFailingJob() {
   }
 }
 
+// The top-level job-list read can fail before any individual job is reached. That does not prove
+// that all queues are finished, so the recovery alarm must survive and retry the durable list.
+async function reconcileReadFailureKeepsRecovery() {
+  const savedGet = global.chrome.storage.local.get;
+  const savedDownloads = global.chrome.downloads;
+  const savedAlarms = global.chrome.alarms;
+  const savedReconcile = context.reconcileNdcJob;
+  const savedRecord = context.recordBackgroundError;
+  const jobId = 'testjob-unreadable';
+  const jobs = { [jobId]: { id: jobId, gameId: '1704', collectionId: 'unreadable', type: 'all',
+    itemCount: 1, index: 0, completed: 0, failed: [], status: 'running', activeDownloadId: null,
+    waitingUntil: Date.now() + 300000, createdAt: Date.now(), updatedAt: Date.now() } };
+  await storageSetLocal(NDC_JOBS_KEY, jobs);
+  const armed = [];
+  const cleared = [];
+  const recovered = [];
+  const errors = [];
+  try {
+    global.chrome.downloads = { download: noop, search: (_q, cb) => cb([]) };
+    global.chrome.alarms = { create: (name) => armed.push(name), clear: (name) => cleared.push(name) };
+    context.recordBackgroundError = (_where, error) => errors.push(String(error?.message || error));
+    context.reconcileNdcJob = async (id) => recovered.push(id);
+    global.chrome.storage.local.get = (keys, callback) => {
+      if (keys !== NDC_JOBS_KEY) return savedGet(keys, callback);
+      global.chrome.runtime.lastError = { message: 'download jobs temporarily unreadable' };
+      callback({});
+      global.chrome.runtime.lastError = null;
+    };
+    await context.reconcileNdcJobs();
+    assert.ok(armed.includes('nxtk-reconcile'), 'unreadable job storage retains the recovery alarm');
+    assert.equal(cleared.includes('nxtk-reconcile'), false, 'unknown jobs are not treated as an empty list');
+    assert.deepEqual(recovered, [], 'no job is guessed from an unreadable list');
+    assert.ok(errors.some((message) => message.includes('temporarily unreadable')), 'the read failure is recorded');
+    global.chrome.storage.local.get = savedGet;
+    assert.deepEqual(await storageGetLocal(NDC_JOBS_KEY, null), jobs, 'durable waiting jobs are not replaced');
+    await context.reconcileNdcJobs();
+    assert.deepEqual(recovered, [jobId], 'a later readable pass can recover the original job');
+  } finally {
+    global.chrome.storage.local.get = savedGet;
+    global.chrome.downloads = savedDownloads;
+    global.chrome.alarms = savedAlarms;
+    context.reconcileNdcJob = savedReconcile;
+    context.recordBackgroundError = savedRecord;
+    global.chrome.runtime.lastError = null;
+    await storageSetLocal(NDC_JOBS_KEY, {});
+  }
+}
+
 // Importing files into the download history while that collection's queue is running: the page used
 // to read the history, merge, then replace the lists, so an id the queue added in between was lost
 // and that file downloaded again next run. The worker now merges inside its own write queue.
@@ -1188,6 +1276,8 @@ async function queueIgnoresFullPathFolders() {
 }
 
 Promise.resolve()
+  .then(reconcileReadFailureKeepsRecovery)
+  .then(firstCloudflareChallengeKeepsTheCurrentFile)
   .then(jobStateBehaviour)
   .then(writeQueueRelease)
   .then(queueIgnoresFullPathFolders)
@@ -1196,7 +1286,7 @@ Promise.resolve()
   .then(reconnectScopeBehaviour)
   .then(classifiedRateLimitWaitsInsteadOfFailing)
   .then(skippedModsDoNotStopTheQueue)
-  .then(cloudflareStreakStopsTheQueue)
+  .then(cloudflareCooldownSurvivesAReplacementRun)
   .then(stopCancelsAPendingStart)
   .then(restartWaitsForAnInFlightStart)
   .then(resumeConsumesAMissedTerminal)

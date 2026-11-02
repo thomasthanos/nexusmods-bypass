@@ -17,6 +17,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-4-0-1"><kbd> 4.0.1 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-0-0"><kbd> 4.0.0 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-7"><kbd> 3.3.7 </kbd></a>&ensp;·&ensp;
   <a href="#release-3-3-6"><kbd> 3.3.6 </kbd></a>&ensp;·&ensp;
@@ -32,6 +33,17 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 <a id="unreleased"></a>
 
 ## Unreleased
+
+<a id="release-4-0-1"></a>
+
+## 4.0.1 — 2026-11-02
+
+- **A real Cloudflare check keeps its file for retry:** collections now stop at the first challenge instead of skipping up to three files whose availability is unknown. Confirmed removed or unavailable files still skip with pacing. Completed-file history remains available, and a challenged file is eligible again after verification.
+- **Server waits survive collection restarts:** Vortex's explicit `Retry-After` is no longer shortened to the ten-minute computed-backoff limit. A Cloudflare response carrying a cooldown keeps its challenge meaning and also preserves the wait; a browser queue restarted during its shared deadline sends no new request. The existing one-hour limit on page-published shared deadlines remains, while the current Vortex tab retains longer explicit waits.
+- **Nexus outages and worker recovery:** gateway failures in Vortex collection runs wait on the same file rather than failing each file in turn. A transient failure reading the worker's durable job list no longer removes its reconciliation alarm.
+- **History for the current revision:** downloaded/sent counts and the start prompt only count matching files in the current selection. Older IDs remain stored. Historical completion is not a live disk inventory: use *Re-download All* for files removed locally, and resend missing Vortex files because the browser cannot inspect Vortex's inventory.
+- **Fresh published-revision metadata:** revision membership may be immutable while its referenced files and mods are removed or restored. The full cached projection now expires after ten minutes, including persisted entries; old unbounded revision entries are ignored. Stable game IDs keep their separate permanent cache.
+- **Current diagnostics deployed:** deployed the current authenticated dashboard Worker from `f25f5e3` and applied the additive `0002_issue_auto_fixes.sql` migration, preserving service configuration and encrypted bindings. Portable assets remain behind Access. The relay's comparison baseline is 4.0.1. Deployment versions and checks are recorded in the Worker READMEs.
 
 - **Collection downloads in the browser take the link Nexus gives:** since 3.3.6 some collection files failed with `no_download_url`. Nexus's link generator answered with a Nexus address that has no file name in it, and the queue only takes a Nexus CDN link or a link named like an archive, so it never asked that address and failed the file. A single download hands the same address to the browser, which follows it. The queue now asks it once, keeps it only when it answers with a file (directly or by sending the request on to the CDN), and otherwise goes on to the file's download route as before. Its report says what the address answered, by kind only.
 - **Reports name more of the notices Nexus shows in place of a download:** most failed Vortex links on Opera came from a file page showing a notice of none of the known kinds, in place of the file's download card. A notice whose title names no kind (such as a bare *Error*) is now named by the sentence under it, and the list of kinds adds ad blocker, download limit, mod manager, verification, maintenance and region. A notice for the whole site no longer hides the one about the file: up to three are named. As before, only the kind leaves the browser, never the notice's words.
