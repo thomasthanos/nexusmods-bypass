@@ -10,6 +10,7 @@ import { validateSubscription } from '../services/delivery.ts';
 import { sendTestNotification } from '../services/notifications.ts';
 import { getGithubIssues } from '../services/github.ts';
 import { getGithubDiscussions } from '../services/github-discussions.ts';
+import { autoFixOf } from '../services/auto-fix.ts';
 import { countedInstall, relayedReportCount } from '../utils/installs.ts';
 import { sanitizeText } from '../utils/sanitize.ts';
 
@@ -287,7 +288,9 @@ adminRoutes.get('/issues/:id', async (c) => {
   const summary = summaryResult?.results[0] as { retained_report_count: number; retained_distinct_installs: number; browsers_json: string; versions_json: string; operating_systems_json: string };
   const versions = JSON.parse(summary.versions_json) as string[];
   const latest = latestResult?.results[0] as ReportRow | undefined;
-  return c.json({ issue: issueValue(issue), report_summary: {
+  // Marked fixed by the Worker itself (services/auto-fix.ts) and left so since: when, and on what evidence.
+  const autoFix = issue.status === 'fixed' ? await autoFixOf(c.env.DB, id) : null;
+  return c.json({ issue: { ...issueValue(issue), auto_fix: autoFix }, report_summary: {
     retained_report_count: summary.retained_report_count, retained_distinct_installs: summary.retained_distinct_installs,
     browsers: JSON.parse(summary.browsers_json) as string[], versions: versions.slice(0, 100), versions_truncated: versions.length > 100,
     operating_systems: JSON.parse(summary.operating_systems_json) as string[]

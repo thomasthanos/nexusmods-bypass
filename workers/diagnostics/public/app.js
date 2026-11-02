@@ -567,6 +567,8 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   }
   function renderLifecycle(target, value, generation) {
     target.replaceChildren(); target.append(ui.panelHeading('Manage issue', { icon: 'settings', description: 'Fixed and regressed statuses need a release version. Muted and ignored issues suppress alerts.' }));
+    // Marked fixed by the Worker: no newer copy on these browsers reported it. A report from that version or later reopens it.
+    if (value.auto_fix) target.append(node('p', 'muted auto-fix-note', `Marked fixed automatically ${formatDate(value.auto_fix.fixed_at)}: no reports from ${value.auto_fix.fixed_in_version} or later on ${value.auto_fix.browsers.join(', ')}. A report from those versions reopens it.`));
     const form = node('form', 'filter-form lifecycle-form'); form.dataset.form = 'lifecycle';
     const status = field('Status', 'status', value.status, STATUSES); status.querySelector('option[value=""]')?.remove();
     form.append(status, field('Fixed in version', 'fixed_in_version', value.fixed_in_version ?? ''), field('GitHub issue URL', 'github_issue_url', value.github_issue_url ?? ''));

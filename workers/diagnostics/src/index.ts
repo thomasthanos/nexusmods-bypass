@@ -8,6 +8,7 @@ import { sendIssueNotifications } from './services/notifications.ts';
 import adminRoutes from './routes/admin.ts';
 import growthRoutes from './routes/growth.ts';
 import { syncStore, dispatchReviewPush } from './services/store-monitor.ts';
+import { autoFixIssues } from './services/auto-fix.ts';
 import { ingestionOptions, notificationConfiguration } from './http/config.ts';
 import {
   boundedJson, limitAdminPushTest, limitPublicInstall, limitPublicIp,
@@ -118,10 +119,15 @@ app.onError((error, c) => {
 export { app };
 export default {
   fetch: app.fetch,
-  async scheduled(_event: ScheduledController, env: AppEnv['Bindings'], context: ExecutionContext) {
+  async scheduled(event: ScheduledController, env: AppEnv['Bindings'], context: ExecutionContext) {
     context.waitUntil((async () => {
       await syncStore(env.DB);
       await dispatchReviewPush(env.DB, env, 'https://diagnostics.thomast.uk');
     })().catch(() => logFailure('diagnostics_store_monitor_failed', crypto.randomUUID())));
+    // Issues that stopped happening are marked fixed (services/auto-fix.ts). Its decision takes days of
+    // evidence, so the first run of each hour is enough.
+    if (new Date(event.scheduledTime).getUTCMinutes() < 15) {
+      context.waitUntil(autoFixIssues(env.DB).catch(() => logFailure('diagnostics_auto_fix_failed', crypto.randomUUID())));
+    }
   }
 };
