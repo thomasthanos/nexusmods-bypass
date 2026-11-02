@@ -615,6 +615,69 @@ async function queuedBrowserRoutesResolveToFiles() {
   }
 }
 
+// 3.3.6 and 4.0.0 queue reports: "generator HTTP 200: JSON {url}; a usable link was in it (Nexus page) |
+// page HTTP 200: … (download route) | route HTTP 200: … (download route)". The generator's link was a
+// Nexus address with no file name: a single download hands it to the browser, the queue never asked it.
+async function queuedGeneratorNexusLinkIsFollowed() {
+  const savedFetch = context.fetch;
+  const item = { fileId: 42, gameId: '1704', name: 'Wanted.7z',
+    pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/42?tab=files&file_id=42' };
+  const offered = 'https://www.nexusmods.com/download/abc123';
+  const stored = 'https://files.nexus-cdn.com/5f/5f2b9c0d41e7';
+  const signedIn = '<a href="/auth/sign_out">Log out</a>';
+  try {
+    for (const test of [
+      { name: 'a nameless Nexus link that serves the archive is downloaded',
+        answer: { contentType: 'application/octet-stream', binary: true }, cancel: 1, expected: { ok: true, url: offered } },
+      { name: 'one that sends the request on to the CDN is downloaded from there',
+        answer: { finalUrl: stored, contentType: 'application/x-7z-compressed', binary: true }, cancel: 1, expected: { ok: true, url: stored } },
+      { name: 'one that answers with a page is not the file, and the report says what it was',
+        answer: { contentType: 'text/html', body: `<!doctype html><html><body>${signedIn}</body></html>` },
+        expected: { ok: false, code: 'no_download_url' }, detail: /\| generator link HTTP 200: HTML page; no link in it$/ },
+      { name: 'one that sends the request on to a sign-in asks for it',
+        answer: { finalUrl: 'https://users.nexusmods.com/auth/sign_in', contentType: 'text/html', body: '<html>Sign in</html>' },
+        expected: { ok: false, code: 'requires_login' } },
+      { name: 'one that cannot be reached is noted, not taken for a file',
+        answer: { failure: true }, expected: { ok: false, code: 'no_download_url' }, detail: /\| generator link: Failed to fetch after \d+ms$/ },
+      { name: 'a file page from the generator is still never asked', generated: `${item.pageUrl}&nmm=1`, calls: 2,
+        expected: { ok: false, code: 'no_download_url' } }
+    ]) {
+      const asked = [];
+      let canceled = 0;
+      context.fetch = async (url, options) => {
+        const target = String(url);
+        asked.push(target);
+        if (target.includes('GenerateDownloadUrl')) {
+          return { ok: true, status: 200, url: target, headers: { get: () => '' },
+            text: async () => JSON.stringify({ url: test.generated || offered }) };
+        }
+        if (target === offered) {
+          const answer = test.answer;
+          if (answer.failure) throw new TypeError('Failed to fetch');
+          return {
+            ok: true, status: 200, url: answer.finalUrl || offered,
+            headers: { get: (name) => (name.toLowerCase() === 'content-type' ? answer.contentType : '') },
+            text: async () => {
+              if (answer.binary) throw new Error('must not buffer the archive body');
+              return answer.body || '';
+            },
+            body: { cancel: async () => { canceled += 1; } }
+          };
+        }
+        return { ok: true, status: 200, url: target, headers: { get: () => '' }, text: async () => signedIn };
+      };
+      const result = await context.resolveNdcBrowserUrl(item, 30000);
+      assert.deepEqual(Object.fromEntries(Object.keys(test.expected).map((key) => [key, result[key]])), test.expected, test.name);
+      assert.equal(asked.length, test.calls || 3, `${test.name}: the page, the generator and its link at most`);
+      assert.equal(canceled, test.cancel || 0, `${test.name}: an archive body is cancelled, not buffered`);
+      if (test.detail) assert.match(result.detail, test.detail, `${test.name}: detail`);
+      if (result.detail) assert.doesNotMatch(result.detail, /abc123|download\/|nexus-cdn/, `${test.name}: the report names kinds, never the address`);
+    }
+  } finally {
+    context.fetch = savedFetch;
+  }
+}
+
 // Settings reach storage inside their bounds whoever writes them; a value of the wrong type is
 // still refused outright.
 async function settingsPatchIsNormalized() {
@@ -728,6 +791,7 @@ async function bundleLoadsAreTargetedAndQuiet() {
 
 Promise.resolve()
   .then(queuedBrowserRoutesResolveToFiles)
+  .then(queuedGeneratorNexusLinkIsFollowed)
   .then(downloadNameFromLink)
   .then(transferSizeVerdicts)
   .then(staleRecordsAreNotJudged)

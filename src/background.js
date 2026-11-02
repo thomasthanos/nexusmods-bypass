@@ -1040,8 +1040,8 @@ async function fetchNdcResponse(url, options, timeoutMs, { probeDownload = false
       contentType: response.headers?.get?.('Content-Type') || ''
     };
     if (probeDownload) {
-      const fileUrl = ndcBrowserFileUrl(result.url);
       const isDocument = DOCUMENT_MIME_PATTERN.test(result.contentType);
+      const fileUrl = ndcBrowserFileUrl(result.url, { served: result.ok && !!result.contentType && !isDocument });
       // Following the route may already have reached the archive. Inspect headers, then cancel
       // this probe instead of buffering a mod into worker memory before downloading it again.
       if (!NXTK.validateDownloadTarget(result.url, { method: 1 }).ok
@@ -1153,14 +1153,16 @@ function ndcResolveFailure(code, response) {
   };
 }
 
-// Browser downloads need a file, rather than an otherwise trusted Nexus page or resolver route.
-function ndcBrowserFileUrl(url) {
+// Browser downloads need a file, rather than an otherwise trusted Nexus page or resolver route. A link
+// the queue has asked and seen answer with a file (served) needs no name: newer files have none in
+// their address. A download route or a file page is never taken for the file itself.
+function ndcBrowserFileUrl(url, { served = false } = {}) {
   const verdict = NXTK.validateDownloadTarget(url, { method: 1 });
   if (!verdict.ok) return '';
   const parsed = new URL(verdict.url);
   if (/(^|\.)nexus-cdn\.com\.?$/i.test(parsed.hostname)) return verdict.url;
   if (/^\/api\/files\//i.test(parsed.pathname) || parsed.searchParams.has('file_id')) return '';
-  return NXTK.downloadNameFromUrl(verdict.url) ? verdict.url : '';
+  return served || NXTK.downloadNameFromUrl(verdict.url) ? verdict.url : '';
 }
 
 async function resolveNdcBrowserUrl(item, timeoutMs) {
@@ -1209,13 +1211,32 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     || ndcBrowserFileUrl(DOWNLOAD_PARSER.findDownloadLink(page.text, options)?.url);
   if (direct) return { ok: true, url: direct };
 
+  const routeDetails = [];
+  // The generator can also answer with a Nexus address that is neither a page the queue knows nor named
+  // like a file (3.3.6 and 4.0.0 queue reports: "a usable link was in it (Nexus page)"). A single
+  // download hands such a link to the browser, which follows it; the queue never asked it. It is asked
+  // once now, and kept only when it answers with a file, never with a page.
+  if (found?.url && DOWNLOAD_PARSER.linkKind(found.url) === 'Nexus page') {
+    const response = await fetchNdcResponse(found.url, { method: 'GET', credentials: 'include' }, timeoutMs, { probeDownload: true });
+    if (response.status === 0) {
+      routeDetails.push(connectionFailureDetail('generator link', response));
+    } else {
+      const issue = classifyNexusResponse(response, response.text);
+      if (issue) return ndcResolveFailure(issue.code, response);
+      if (response.fileUrl) return { ok: true, url: response.fileUrl };
+      const fileUrl = response.ok ? ndcBrowserFileUrl(DOWNLOAD_PARSER.findDownloadLink(response.text, options)?.url) : '';
+      if (fileUrl) return { ok: true, url: fileUrl };
+      const sentOn = response.url && response.url !== found.url ? `; sent on to ${DOWNLOAD_PARSER.linkKind(response.url)}` : '';
+      routeDetails.push(`generator link HTTP ${response.status}: ${response.text ? DOWNLOAD_PARSER.explainMissingLink(response.text, options) : 'no page'}${sentOn}`);
+    }
+  }
+
   // Some accounts receive [] from the generator while their page still carries the file's download
   // route. Only a same-file, same-game route from that page/response may be probed, never downloaded
   // as the archive itself. A self-reference or another HTML page cannot start an endless lookup.
   let route = DOWNLOAD_PARSER.findDownloadRoute(generated.text, options)
     || DOWNLOAD_PARSER.findDownloadRoute(page.text, options);
   const visited = new Set();
-  const routeDetails = [];
   for (let step = 0; step < 2 && route && !visited.has(route.url); step += 1) {
     visited.add(route.url);
     const response = await fetchNdcResponse(route.url, { method: 'GET', credentials: 'include' }, timeoutMs, { probeDownload: true });

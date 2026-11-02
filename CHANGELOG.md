@@ -33,6 +33,9 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+- **Collection downloads in the browser take the link Nexus gives:** since 3.3.6 some collection files failed with `no_download_url`. Nexus's link generator answered with a Nexus address that has no file name in it, and the queue only takes a Nexus CDN link or a link named like an archive, so it never asked that address and failed the file. A single download hands the same address to the browser, which follows it. The queue now asks it once, keeps it only when it answers with a file (directly or by sending the request on to the CDN), and otherwise goes on to the file's download route as before. Its report says what the address answered, by kind only.
+- **Reports name more of the notices Nexus shows in place of a download:** most failed Vortex links on Opera came from a file page showing a notice of none of the known kinds, in place of the file's download card. A notice whose title names no kind (such as a bare *Error*) is now named by the sentence under it, and the list of kinds adds ad blocker, download limit, mod manager, verification, maintenance and region. A notice for the whole site no longer hides the one about the file: up to three are named. As before, only the kind leaves the browser, never the notice's words.
+
 <a id="release-4-0-0"></a>
 
 ## 4.0.0 — 2026-11-01

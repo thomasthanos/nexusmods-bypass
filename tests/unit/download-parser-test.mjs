@@ -131,6 +131,20 @@ function workerEdgeCases(Parser) {
     ['<!doctype html><html><body><h3 id="Notice2-title">Under moderation</h3></body></html>', browser, 'HTML page; moderation notice; no link in it'],
     ['<!doctype html><html><body><h3 id="Notice2-title">Downloads unavailable</h3></body></html>', browser, 'HTML page; unavailable notice; no link in it'],
     ['<!doctype html><html><body><h3 id="Notice2-title">Something else entirely</h3></body></html>', browser, 'HTML page; site notice; no link in it'],
+    // 2026-11-02, most failed Vortex links on Opera: a notice of no known kind where the file's card would
+    // be. A title that names no kind is read by the sentence under it; a bare "Error" is at least an error.
+    ['<!doctype html><html><body><div id="Notice9"><h3 id="Notice9-title">Error</h3><p id="Notice9-paragraph">You have reached your daily download limit.</p></div></body></html>', vortex,
+      'HTML page; download-limit notice; no link in it'],
+    ['<!doctype html><html><body><div id="Notice9"><h3 id="Notice9-title">Error</h3> Something went wrong. </div></body></html>', vortex, 'HTML page; error notice; no link in it'],
+    ['<!doctype html><html><body><div id="Notice9"><h3 id="Notice9-title">Attention</h3><p>Read this.</p></div></body></html>', vortex, 'HTML page; warning notice; no link in it'],
+    ['<!doctype html><html><body><h3 id="Notice9-title">Adblock detected</h3></body></html>', vortex, 'HTML page; ad-blocker notice; no link in it'],
+    ['<!doctype html><html><body><h3 id="Notice9-title">Mod manager download unavailable</h3></body></html>', vortex, 'HTML page; mod-manager notice; no link in it'],
+    ['<!doctype html><html><body><div id="Notice8"><h3 id="Notice8-title">Please verify you are human</h3></div></body></html>', browser, 'HTML page; verification notice; no link in it'],
+    // A notice for the whole site can come before the one in place of the file: both are named, once each.
+    ['<!doctype html><html><body><div id="Notice1"><h3 id="Notice1-title">Scheduled maintenance</h3></div><div id="Notice9"><h3 id="Notice9-title">Error</h3> Object not found. </div><div id="Notice10"><h3 id="Notice10-title">Scheduled maintenance</h3></div></body></html>', vortex,
+      'HTML page; maintenance notice; removed-or-hidden notice; no link in it'],
+    // The sentence only names a kind for the notice it belongs to, not a later box's.
+    ['<!doctype html><html><body><div id="Notice9"><h3 id="Notice9-title">Error</h3> Nope. </div><p>Your daily download limit is fine.</p></body></html>', vortex, 'HTML page; error notice; no link in it'],
     // "A usable link was in it" could not tell the nxm:// link from a route that only leads to another page.
     [JSON.stringify({ url: VORTEX_URL }), vortex, 'JSON {url}; a usable link was in it (nxm link)'],
     [JSON.stringify({ fileId: 200, downloadUrl: MANUAL_URL }), browser, 'JSON {fileId, downloadUrl}; a usable link was in it (file link)'],
@@ -168,7 +182,8 @@ function workerEdgeCases(Parser) {
     [JSON.stringify({ url: VORTEX_URL }), vortex],
     [JSON.stringify({ fileId: 200, downloadUrl: MANUAL_URL }), browser],
     ['<!doctype html><html><body><h3 id="Notice1-title">Premium members only for jane</h3></body></html>', vortex],
-    ['<!doctype html><html><body><div class="cf-turnstile" data-sitekey="0x4AAAA-secret"></div><form method="post" action="/api/files/858993459400/download?nmm=1&key=secret"></form></body></html>', vortex]
+    ['<!doctype html><html><body><div class="cf-turnstile" data-sitekey="0x4AAAA-secret"></div><form method="post" action="/api/files/858993459400/download?nmm=1&key=secret"></form></body></html>', vortex],
+    ['<!doctype html><html><body><div id="Notice9"><h3 id="Notice9-title">Error</h3><p>jane, file 200 of newvegas has reached its download limit (secret)</p></div></body></html>', vortex]
   ]) {
     assert.doesNotMatch(Parser.explainMissingLink(text, options), /858993459400|api\/files|nexusmods\.com|nexus-cdn|secret|newvegas|members|jane|\b200\b/,
       `nothing of the answer itself: ${text.slice(0, 50)}`);

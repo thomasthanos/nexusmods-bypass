@@ -461,7 +461,16 @@
 
   // The kind of site notice a page shows in place of a mod, by its fixed Nexus title. Only the kind is
   // reported, never the notice's text.
-  const NOTICE_TITLE = /<h3\b[^>]*\bid=["']Notice\d+-title["'][^>]*>([^<]{1,80})<\/h3>/i;
+  const NOTICE_TITLE = /<h3\b[^>]*\bid=["']Notice\d+-title["'][^>]*>([^<]{1,80})<\/h3>/gi;
+  // Up to this many notices a page shows are named: a notice for the whole site can come before the one
+  // in place of the file.
+  const MAX_NOTICES_NAMED = 3;
+  // Titles that only say something is wrong; the sentence under them names the kind.
+  const GENERIC_NOTICE_TITLES = Object.freeze([
+    [/^(?:error|oops|sorry)\b/i, 'error notice'],
+    [/^(?:warning|attention)\b/i, 'warning notice'],
+    [/^(?:notice|information|info)\b/i, 'information notice']
+  ]);
   // What else can stand between a file page and its link, read from markup only: a check a person has to
   // complete (Cloudflare Turnstile, reCAPTCHA, hCaptcha), a form that submits to a download route or to
   // the link generator, and a page that reloads itself.
@@ -478,8 +487,35 @@
     [/archiv/i, 'archived-file notice'],
     [/premium|supporter|membership/i, 'premium notice'],
     [/virus|malware|quarantin|suspicious|unsafe/i, 'file-safety notice'],
+    // 2026-11-02: most failed Vortex links on Opera came from a file page with a notice of none of the
+    // kinds above in place of the file's download card. These name what such a notice may be about.
+    [/ad ?block/i, 'ad-blocker notice'],
+    [/download limit|daily limit|limit reached|quota|too many downloads/i, 'download-limit notice'],
+    [/mod manager|vortex|manual download only/i, 'mod-manager notice'],
+    [/verif|captcha|human|robot/i, 'verification notice'],
+    [/maintenance/i, 'maintenance notice'],
+    [/region|country/i, 'region notice'],
     [/unavailable|not available|disabled|restricted|blocked/i, 'unavailable notice']
   ]);
+
+  // A notice's kind, from its title or, when the title names none, from its sentence (the text up to the
+  // end of the notice's box). Only a kind from the lists above leaves this function.
+  function noticeKinds(body) {
+    const kinds = [];
+    for (const match of String(body || '').matchAll(NOTICE_TITLE)) {
+      const title = match[1].replace(/\s+/g, ' ').trim();
+      const after = body.slice(match.index + match[0].length, match.index + match[0].length + 400);
+      const end = after.search(/<\/div>/i);
+      const sentence = (end >= 0 ? after.slice(0, end) : after).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+      const kind = NOTICE_KINDS.find(([pattern]) => pattern.test(title))?.[1]
+        || NOTICE_KINDS.find(([pattern]) => pattern.test(sentence))?.[1]
+        || GENERIC_NOTICE_TITLES.find(([pattern]) => pattern.test(title))?.[1]
+        || 'site notice';
+      if (!kinds.includes(kind)) kinds.push(kind);
+      if (kinds.length >= MAX_NOTICES_NAMED) break;
+    }
+    return kinds;
+  }
 
   // The kind of link a search found, for a report; never the link itself. "A usable link" alone could
   // not tell a page that carried the nxm:// link from one that only pointed at another download route,
@@ -538,8 +574,7 @@
     }
     if (/<(?:!doctype html|html|body|head)[\s>]/i.test(trimmed.slice(0, 8192))) {
       const parts = ['HTML page'];
-      const title = NOTICE_TITLE.exec(body)?.[1] || '';
-      if (title) parts.push(NOTICE_KINDS.find(([pattern]) => pattern.test(title))?.[1] || 'site notice');
+      parts.push(...noticeKinds(body));
       if (/\bid=["']slowDownloadButton["']/i.test(body)) parts.push('slow-download button');
       if (CAPTCHA_WIDGET.test(body)) parts.push('captcha widget');
       const form = DOWNLOAD_FORM.exec(body)?.[0];
