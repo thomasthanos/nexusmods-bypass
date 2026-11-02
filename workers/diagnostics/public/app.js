@@ -11,7 +11,26 @@ const VIEWS = ['overview', 'issues', 'settings'];
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const issueIdentifier = (value) => /^[1-9][0-9]{0,15}$/.test(String(value)) && Number.isSafeInteger(Number(value)) ? Number(value) : null;
 const humanize = (value) => String(value ?? 'unknown').replaceAll('_', ' ');
+const capitalized = (value) => humanize(value).replace(/^./, (letter) => letter.toUpperCase());
 const categoryLabel = (value) => ({ SECURITY_BLOCK: 'Security block', EXTENSION_CONFLICT: 'Extension conflict', HANDOFF_FAILURE: 'Download handoff', API_RATE_LIMIT: 'Request limit', API_SCHEMA_MISMATCH: 'Unexpected API response', DOM_SELECTOR_MISSING: 'Page element missing', NETWORK_UNREACHABLE: 'Connection issue', UPSTREAM_BREAKING_CHANGE: 'Website changed', UNKNOWN_ERROR: 'Unclassified error' }[value] ?? humanize(value).toLowerCase().replace(/^./, (letter) => letter.toUpperCase()));
+// The extension's own error codes in plain words: a short title for lists and the sheet, and what it means.
+// Anything else keeps its category's name.
+const PLAIN_ISSUES = {
+  no_nmm_link: ['No Vortex link from Nexus', 'Nexus did not give a mod manager (Vortex) link for the file, so it could not be sent to Vortex.'],
+  no_download_url: ['No download link from Nexus', 'Nexus did not give a download link for the file, so the browser could not start it.'],
+  timeout: ['Nexus answered too slowly', 'A request to Nexus took longer than the extension waits, so it gave up on it.'],
+  network_error: ['Could not reach Nexus', 'A request to Nexus got no answer: the connection dropped, or something on the computer blocked it.'],
+  request_failed: ['Extension error on a page', 'The extension ran into an error while it was working on a Nexus page.'],
+  background_error: ['Error in the download queue', 'Something failed in the background part of the extension, which runs the download queue.'],
+  nexus_page_changed: ['Nexus page looks different', 'A Nexus page did not look the way the extension expects. Nexus may have changed it.'],
+  FILE_VIRUS_INFECTED: ['Blocked by antivirus', 'The antivirus or the browser flagged the downloaded file and removed it. This is not an extension bug.'],
+  FILE_SECURITY_CHECK_FAILED: ['Blocked by a security check', 'The browser could not finish its security check of the downloaded file and blocked it. This is not an extension bug.'],
+  PIPELINE_TEST: ['Test report', 'A test sent to check that error reports reach this app.']
+};
+const plainTitle = (value) => PLAIN_ISSUES[value.error_code]?.[0] ?? categoryLabel(value.category ?? value.error_code ?? 'Unknown issue');
+const plainExplanation = (value) => PLAIN_ISSUES[value.error_code]?.[1] ?? `${categoryLabel(value.category)}: ${humanize(value.error_code).toLowerCase()}.`;
+// Where a fault comes from, for people; "unknown" says nothing and is left out.
+const ORIGINS = { client_env: 'User’s computer', upstream_site: 'Nexus side', rate_limit: 'Rate limit', extension_bug: 'Extension bug' };
 const REPORT_SETUP = 'In extension Settings → Diagnostics, enable “Send technical error reports automatically” and “Private diagnostics dashboard”. New automatic reports appear here after opt-in. Earlier Discord messages and manual reports are not imported.';
 const GITHUB_ISSUES_URL = 'https://github.com/thomasthanos/nexusmods-bypass/issues';
 const GITHUB_DISCUSSIONS_URL = 'https://github.com/thomasthanos/nexusmods-bypass/discussions';
@@ -37,6 +56,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   let invalidated = false;
   let destroyed = false;
   let issuePage = 1;
+  let closedPage = 1;
   let releasePage = 1;
   let mutedPage = 1;
   let detail = null;
@@ -197,13 +217,14 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   function pagination(target, value, onPage, history = false) {
     const page = Number(value.page) || 1; const limit = Number(value.limit) || 20; const total = Math.max(0, Number(value.total) || 0);
     const pages = Math.max(1, Math.ceil(total / limit));
+    const noun = `${history ? 'report' : 'result'}${total === 1 ? '' : 's'}`;
     // A single page needs no controls; the count stays visible as plain metadata.
-    if (pages <= 1 && page <= 1) { target.append(node('p', 'muted list-count', `${formatNumber(total)} ${history ? 'reports' : 'results'}`)); return; }
+    if (pages <= 1 && page <= 1) { target.append(node('p', 'muted list-count', `${formatNumber(total)} ${noun}`)); return; }
     const wrapper = node('div', 'pagination');
     const previous = button('Previous', () => onPage(page - 1), 'button button-small'); previous.disabled = page <= 1;
     const next = button('Next', () => onPage(page + 1), 'button button-small'); next.disabled = page >= pages || page >= 10_000;
     if (history) { previous.dataset.historyPrevious = ''; next.dataset.historyNext = ''; }
-    wrapper.append(previous, node('span', 'muted', `Page ${formatNumber(page)} of ${formatNumber(pages)} · ${formatNumber(total)} ${history ? 'reports' : 'results'}`), next); target.append(wrapper);
+    wrapper.append(previous, node('span', 'muted', `Page ${formatNumber(page)} of ${formatNumber(pages)} · ${formatNumber(total)} ${noun}`), next); target.append(wrapper);
   }
   /** Shared list row: leading status dot, title line, metadata line, optional trailing figure and chevron. */
   function listRow(element, { title, badges = [], meta = [], figure = null, tone = '' }) {
@@ -225,7 +246,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const counts = node('span', 'issue-count'); counts.append(node('strong', '', formatNumber(value.total_occurrences)), node('span', 'muted', 'reports'));
     const meta = [`#${value.id} · ${value.error_code ?? 'Unknown error'}`, `${value.last_seen_version ?? 'Unknown version'} · ${relativeTime(value.last_seen_at)}`, `${formatNumber(value.affected_installs_count)} installs`];
     if (value.relayed_report_count > 0) meta.push(`${formatNumber(value.relayed_report_count)} via Discord`);
-    return listRow(button('', () => { void openIssue(value.id); }, ''), { title: categoryLabel(value.category ?? value.error_code ?? 'Unknown issue'), badges, meta, figure: counts, tone: STATUS_TONES[value.status] ?? '' });
+    return listRow(button('', () => { void openIssue(value.id); }, ''), { title: plainTitle(value), badges, meta, figure: counts, tone: STATUS_TONES[value.status] ?? '' });
   }
   function filterSummary(filters) {
     const range = `${filters.from} – ${filters.to}`;
@@ -390,7 +411,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
   function resetIssueFilters() {
     automaticIssueDates = true;
     issueFilters = { ...Object.fromEntries(Object.keys(issueFilters).map((key) => [key, ''])), ...dateRange(30) };
-    issuePage = 1; void loadIssues();
+    issuePage = 1; closedPage = 1; void loadIssues();
   }
   function issueFilterForm() {
     const form = node('form', 'issues-filter'); form.dataset.form = 'issues';
@@ -421,7 +442,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         form.querySelector('[data-validation]')?.remove(); const validation = node('p', 'inline-message', 'Enter a complete release version and a category identifier, such as DOM_SELECTOR_MISSING.'); validation.dataset.validation = ''; validation.setAttribute('role', 'alert'); form.append(validation); return;
       }
       if (next.from !== issueFilters.from || next.to !== issueFilters.to) automaticIssueDates = false;
-      issueFilters = next; issuePage = 1; void loadIssues();
+      issueFilters = next; issuePage = 1; closedPage = 1; void loadIssues();
     });
     return form;
   }
@@ -444,14 +465,33 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const githubPending = Promise.all([loadFeed('issues', githubContent, generation), loadFeed('discussions', discussionsContent, generation)]);
     loading(target, 'Loading extension diagnostics…');
     try {
-      const data = await request('view:issues', `/issues${queryString({ ...issueFilters, page: issuePage, limit: 20 })}`);
+      // Without a status filter, issues that still need attention lead and the fixed or ignored ones wait,
+      // folded, below them: each list pages on its own.
+      const split = !issueFilters.status;
+      const [data, closed] = await Promise.all([
+        request('view:issues', `/issues${queryString({ ...issueFilters, ...(split ? { state: 'open' } : {}), page: issuePage, limit: 20 })}`),
+        split ? request('view:closed-issues', `/issues${queryString({ ...issueFilters, state: 'closed', page: closedPage, limit: 20 })}`) : null
+      ]);
       if (!isCurrent(generation)) return;
       target.replaceChildren(); settled(target);
       target.append(ui.panelHeading('Extension diagnostics', { icon: 'health', description: 'Opt-in error reports. Filters apply here only; dates use UTC.' }), issueFilterForm());
-      const list = node('div', 'issue-list issue-card'); list.setAttribute('aria-label', 'Filtered issues');
+      const list = node('div', 'issue-list issue-card'); list.setAttribute('aria-label', split ? 'Open issues' : 'Filtered issues');
       if (data.items?.length) for (const value of data.items) list.append(issueRow(value));
+      else if (split) empty(list, 'No open issues', 'Nothing reported in this date range needs attention.', 'quiet');
       else empty(list, 'No matching issues', 'Change the filters or expand the UTC date range.'); target.append(list);
       pagination(target, data, (page) => { issuePage = page; void loadIssues(); });
+      if (split) {
+        const total = Math.max(0, Number(closed?.total) || 0);
+        const folded = disclosure(`Fixed and ignored (${formatNumber(total)})`, 'closed-issues', 'closed-issues');
+        folded.dataset.closedIssues = '';
+        folded.append(node('p', 'muted closed-hint', 'They move back up by themselves if they happen again.'));
+        const closedList = node('div', 'issue-list issue-card disclosure-content'); closedList.setAttribute('aria-label', 'Fixed and ignored issues');
+        if (closed?.items?.length) for (const value of closed.items) closedList.append(issueRow(value));
+        else empty(closedList, 'Nothing fixed yet', 'Issues marked fixed or ignored in this date range appear here.', 'quiet');
+        folded.append(closedList);
+        if (total > 0) pagination(folded, closed, (page) => { closedPage = page; void loadIssues(); });
+        target.append(folded);
+      }
     } catch (error) {
       if (isCurrent(generation)) {
         showError(target, error, () => { void loadIssues(); });
@@ -524,28 +564,29 @@ export function createDashboard({ document: doc = globalThis.document, window: w
     const list = node('dl', 'metadata-grid');
     for (const [key, value] of pairs) { const entry = node('div'); entry.append(node('dt', 'muted', key), node('dd', '', value === null || value === undefined || value === '' ? '—' : value)); list.append(entry); } return list;
   }
-  function classification(title, value, { inline = false } = {}) {
-    const box = inline ? node('div', 'classification') : section(title);
-    const labels = node('div', 'tag-row'); labels.append(tag(categoryLabel(value.category)), tag(value.fault_origin ?? 'unknown'));
-    box.append(labels, node('p', 'suggested-action', value.suggested_action ?? 'No suggested action was recorded.')); return box;
-  }
+  // The report the sheet shows (the latest, or one picked under All reports): its error message and where
+  // it came from in plain view. Its own evidence goes under Technical details (renderReportTechnical).
   function renderReport(target, report) {
-    rememberDisclosures();
     target.replaceChildren();
     if (!report) { empty(target, 'Report bodies are no longer retained', 'Lifetime issue counts and grouping remain available. New reports will appear here.'); return; }
-    const environment = section('Selected report', `Received ${formatDate(report.created_at)}`);
-    environment.append(evidence('Error message', report.error_message ?? 'No message retained.'));
-    environment.append(keyValues([['Version', report.version], ['Browser', `${report.browser ?? '—'} ${report.browser_version ?? ''}`.trim()], ['OS', report.source === 'relay' ? 'Not reported' : `${report.os ?? '—'} ${report.os_version ?? ''}`.trim()], ['Destination / mode', `${report.destination ?? '—'} / ${report.download_mode ?? '—'}`], ['Severity', report.severity], ['Occurred', formatDate(report.occurred_at)]]));
-    const metadata = disclosure('Report metadata', 'report-metadata');
-    metadata.append(keyValues([['Report ID', report.id], ['Source', report.source === 'relay' ? 'Automatic report via the Discord relay' : 'Private diagnostics'], ['Category', report.category], ['Failure stage', report.failure_stage], ['HTTP / Retry-After', `${report.http_status ?? '—'} / ${report.retry_after ?? '—'}`], ['Mod / collection', `${report.mod_id ?? '—'} / ${report.collection_id ?? '—'}`]]));
-    environment.append(metadata); target.append(environment);
-    const reportClassification = disclosure('Report classification', 'report-classification');
-    reportClassification.append(node('p', 'muted disclosure-content', 'Classified when received.'), classification('Classified when received', report, { inline: true })); target.append(reportClassification);
-    const timeline = disclosure('Execution timeline', 'execution-timeline');
-    timeline.append(node('p', 'muted', 'Extension timings on a shared elapsed-time scale.'));
+    const latest = report.id === detail?.latest_report?.id;
+    const panel = section(latest ? 'Latest report' : 'Selected report', `Received ${formatDate(report.created_at)}`);
+    panel.append(evidence('Error message', report.error_message ?? 'No message retained.'));
+    const where = [`Version ${report.version ?? '—'}`, `${capitalized(report.browser)} ${report.browser_version ?? ''}`.trim(),
+      report.destination === 'vortex' ? 'Vortex download' : report.destination === 'mo2' ? 'Mod Organizer 2' : 'Browser download',
+      report.source === 'relay' ? 'via Discord' : 'private diagnostics'];
+    panel.append(node('p', 'muted report-where', where.join(' · '))); target.append(panel);
+  }
+  // Everything a developer may want about the shown report; a part with nothing in it is left out.
+  function renderReportTechnical(target, report) {
+    target.replaceChildren();
+    if (!report) { target.append(node('p', 'muted', 'No report body is retained.')); return; }
+    const facts = node('section', 'evidence-block'); facts.append(node('h4', '', 'Report details'));
+    facts.append(keyValues([['Report ID', report.id], ['Source', report.source === 'relay' ? 'Automatic report via the Discord relay' : 'Private diagnostics'], ['OS', report.source === 'relay' ? 'Not reported' : `${report.os ?? '—'} ${report.os_version ?? ''}`.trim()], ['Destination / mode', `${report.destination ?? '—'} / ${report.download_mode ?? '—'}`], ['Severity', report.severity], ['Occurred', formatDate(report.occurred_at)], ['Category', report.category], ['Failure stage', report.failure_stage], ['HTTP / Retry-After', `${report.http_status ?? '—'} / ${report.retry_after ?? '—'}`], ['Mod / collection', `${report.mod_id ?? '—'} / ${report.collection_id ?? '—'}`]]));
+    target.append(facts);
     const breadcrumbs = Array.isArray(report.breadcrumbs) ? report.breadcrumbs : [];
-    if (!breadcrumbs.length) empty(timeline, 'No breadcrumbs recorded', 'This report did not include an execution timeline.');
-    else {
+    if (breadcrumbs.length) {
+      const timeline = node('section', 'evidence-block'); timeline.append(node('h4', '', 'Execution timeline'), node('p', 'muted', 'Extension timings on a shared elapsed-time scale.'));
       const total = Math.max(1, ...breadcrumbs.map((crumb) => Math.max(0, Number(crumb.timestamp_offset_ms) || 0) + Math.max(0, Number(crumb.duration_ms) || 0)));
       const list = node('ol', 'timeline');
       for (const crumb of breadcrumbs) {
@@ -557,13 +598,16 @@ export function createDashboard({ document: doc = globalThis.document, window: w
         const track = node('div', 'timeline-track'); track.setAttribute('aria-hidden', 'true'); const bar = node('span', `timeline-bar timeline-bar-${crumb.status}`); bar.style.marginLeft = `${Math.min(100, offset * 100 / total)}%`; bar.style.width = `${Math.max(0.5, Math.min(100 - offset * 100 / total, (duration ?? 0) * 100 / total))}%`; track.append(bar); content.append(track);
         if (crumb.metadata && Object.keys(crumb.metadata).length) { const metadata = node('details', 'disclosure step-metadata'); const stepSummary = node('summary'); stepSummary.append(node('span', 'summary-text', 'Step metadata')); metadata.append(stepSummary, evidence('Metadata', crumb.metadata)); content.append(metadata); } row.append(content); list.append(row);
       }
-      timeline.append(list, node('p', 'muted', `Reported timeline: ${formatNumber(total)} ms.`));
+      timeline.append(list, node('p', 'muted', `Reported timeline: ${formatNumber(total)} ms.`)); target.append(timeline);
     }
-    target.append(timeline);
-    const diagnostic = disclosure('DOM & API evidence', 'dom-evidence');
-    if (report.dom_state) diagnostic.append(evidence('Document, selectors & API schema', report.dom_state)); else diagnostic.append(node('p', 'muted', 'No DOM state was included.'));
-    if (report.context && Object.keys(report.context).length) diagnostic.append(evidence('Request context', report.context)); target.append(diagnostic);
-    const stack = disclosure('Stack trace', 'stack-trace'); stack.append(evidence('Sanitized stack', report.stack_trace || 'No stack trace retained.')); target.append(stack);
+    if (report.dom_state) target.append(evidence('Page and API state', report.dom_state));
+    if (report.context && Object.keys(report.context).length) target.append(evidence('Request context', report.context));
+    if (report.stack_trace) target.append(evidence('Stack trace', report.stack_trace));
+  }
+  function showReport(report) {
+    const root = elements['issue-detail'];
+    const visible = root.querySelector('[data-selected-report]'); if (visible) renderReport(visible, report);
+    const technical = root.querySelector('[data-report-technical]'); if (technical) renderReportTechnical(technical, report);
   }
   function renderLifecycle(target, value, generation) {
     target.replaceChildren(); target.append(ui.panelHeading('Manage issue', { icon: 'settings', description: 'Fixed and regressed statuses need a release version. Muted and ignored issues suppress alerts.' }));
@@ -609,7 +653,7 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       for (const report of historyData.items) {
         const item = button(`${report.version} · ${report.browser} / ${report.os ?? 'OS not reported'} · ${formatDate(report.created_at)}`, () => {
           if (!isDetailCurrent(generation)) return; selectedReport = report;
-          renderReport(elements['issue-detail'].querySelector('[data-selected-report]'), selectedReport); renderHistory(target, generation);
+          showReport(selectedReport); renderHistory(target, generation);
           elements['issue-detail'].querySelector('[data-manual-copy-section]')?.remove();
         }, 'history-row'); item.dataset.reportId = report.id; item.setAttribute('aria-pressed', String(selectedReport?.id === report.id)); list.append(item);
       }
@@ -650,28 +694,44 @@ export function createDashboard({ document: doc = globalThis.document, window: w
       manual.append(text, button('Select all context', () => { text.focus(); text.select(); }, 'button button-small')); target.append(manual); text.focus(); text.select(); notify('Select and copy the context below.', 'info');
     } finally { if (isDetailCurrent(generation)) copyButton.disabled = false; }
   }
+  // Plain words first (what happened, what to do, how often and where), then the latest report and the
+  // controls; all reports and the technical evidence stay folded below.
   function renderDetail(generation) {
     if (!detail || !isDetailCurrent(generation)) return;
     rememberDisclosures();
-    const target = elements['issue-detail']; target.replaceChildren(); settled(target); const value = detail.issue;
+    const target = elements['issue-detail']; target.replaceChildren(); settled(target); const value = detail.issue; const summary = detail.report_summary ?? {};
     const title = node('h2', '', `Issue #${value.id}`); title.id = 'issue-title';
-    const header = node('div', 'detail-heading'); const titleGroup = node('div', 'detail-title'); titleGroup.append(title, node('p', 'muted detail-code', value.error_code ?? 'Unknown error'));
+    const header = node('div', 'detail-heading'); const titleGroup = node('div', 'detail-title');
+    titleGroup.append(title, node('p', 'detail-plain-title', plainTitle(value)), node('p', 'muted detail-code', value.error_code ?? 'Unknown error'));
     const copy = button('Copy debug context', () => { void copyContext(generation, copy); }, 'button button-small'); copy.dataset.action = 'copy-context';
     header.append(titleGroup, copy); target.append(header);
-    const labels = node('div', 'tag-row'); labels.append(statusTag(value.status), tag(categoryLabel(value.category)), tag(value.fault_origin)); if (value.muted) labels.append(tag('muted')); target.append(labels);
+    // The category is the title already when the code has no plain name of its own.
+    const labels = node('div', 'tag-row'); labels.append(statusTag(value.status));
+    if (categoryLabel(value.category) !== plainTitle(value)) labels.append(tag(categoryLabel(value.category)));
+    if (ORIGINS[value.fault_origin]) labels.append(ui.tag(ORIGINS[value.fault_origin])); if (value.muted) labels.append(tag('muted')); target.append(labels);
+    const relayed = value.relayed_report_count > 0;
     target.append(ui.stats([
-      metric('Lifetime reports', formatNumber(value.total_occurrences)),
-      metric('Affected installs', formatNumber(value.affected_installs_count), value.relayed_report_count > 0 ? `and ${formatNumber(value.relayed_report_count)} reports via Discord without an installation ID` : undefined),
+      metric('Reports', formatNumber(value.total_occurrences), relayed ? `${formatNumber(value.relayed_report_count)} of them via Discord` : undefined),
+      metric('Users', formatNumber(value.affected_installs_count), relayed ? 'Reports via Discord cannot be told apart' : undefined),
       metric('First seen', formatDate(value.first_seen_at), value.first_seen_version),
       metric('Last seen', formatDate(value.last_seen_at), value.last_seen_version)
     ], 'stats-4 detail-summary'));
     const feedback = node('p', 'inline-message'); feedback.dataset.dialogStatus = ''; feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite'); feedback.hidden = true; target.append(feedback);
-    target.append(classification('Suggested next step', value));
+    const about = section('What happened', '', 'info');
+    about.append(node('p', 'plain-explanation', plainExplanation(value)));
+    const todo = node('p', 'suggested-action'); todo.append(node('strong', '', 'What to do: '), value.suggested_action ?? 'No suggested action was recorded.'); about.append(todo);
+    about.append(keyValues([['Browsers', summary.browsers?.map(capitalized).join(', ')], ['Versions', `${summary.versions?.join(', ') ?? ''}${summary.versions_truncated ? ' (first 100)' : ''}`]]));
+    target.append(about);
+    const report = node('div'); report.dataset.selectedReport = ''; target.append(report);
     const lifecycle = node('section', 'panel detail-section'); renderLifecycle(lifecycle, value, generation); target.append(lifecycle);
-    const report = node('div'); report.dataset.selectedReport = ''; renderReport(report, selectedReport); target.append(report);
-    const historyDisclosure = disclosure('Report history', 'report-history');
+    const historyDisclosure = disclosure(`All reports (${formatNumber(summary.retained_report_count ?? 0)})`, 'report-history');
     const history = node('div', 'disclosure-content'); history.dataset.reportHistory = ''; renderHistory(history, generation); historyDisclosure.append(history); target.append(historyDisclosure);
-    const grouping = disclosure('Grouping & affected environments', 'issue-grouping'); grouping.append(keyValues([['Category', value.category], ['Fingerprint', value.fingerprint], ['Original category', value.error_category], ['Failure stage', value.failure_stage], ['Destination', value.destination], ['Normalized top frame', value.normalized_top_frame], ['Retained reports', formatNumber(detail.report_summary?.retained_report_count)], ['Browsers', detail.report_summary?.browsers?.join(', ')], ['Versions', `${detail.report_summary?.versions?.join(', ') ?? ''}${detail.report_summary?.versions_truncated ? ' (first 100)' : ''}`], ['Operating systems', detail.report_summary?.operating_systems?.join(', ')]])); target.append(grouping);
+    const technical = disclosure('Technical details', 'technical-details');
+    const technicalBody = node('div', 'disclosure-content technical-details');
+    const reportTechnical = node('div'); reportTechnical.dataset.reportTechnical = '';
+    const grouping = node('section', 'evidence-block'); grouping.append(node('h4', '', 'How reports are grouped'), keyValues([['Category', value.category], ['Fingerprint', value.fingerprint], ['Original category', value.error_category], ['Failure stage', value.failure_stage], ['Destination', value.destination], ['Normalized top frame', value.normalized_top_frame], ['Retained reports', formatNumber(summary.retained_report_count)], ['Operating systems', summary.operating_systems?.join(', ')]]));
+    technicalBody.append(reportTechnical, grouping); technical.append(technicalBody); target.append(technical);
+    showReport(selectedReport);
   }
   function setIssueUrl(id, replace = false) {
     const url = new URL(win.location.href); if (id === null) url.searchParams.delete('issue'); else url.searchParams.set('issue', String(id));

@@ -515,7 +515,9 @@ test('returning to the foreground refreshes the current mobile logs view', async
   assert.equal(calls.filter(({ path }) => path.startsWith('/issues?')).length, count);
   Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
   document.dispatchEvent(new dom.window.Event('visibilitychange')); await tick();
-  assert.equal(calls.filter(({ path }) => path.startsWith('/issues?')).length, count + 1);
+  // One refresh loads both lists: the open issues and the folded fixed or ignored ones.
+  const refreshed = calls.filter(({ path }) => path.startsWith('/issues?')).slice(count);
+  assert.deepEqual(refreshed.map(({ path }) => new URL(path, 'https://diagnostics.test').searchParams.get('state')), ['open', 'closed']);
   assert.ok(document.querySelector('[data-form="issues"]'));
 });
 
@@ -624,9 +626,12 @@ test('secondary tools remember expansion while report errors and lifecycle contr
   const detail = document.querySelector('#issue-detail');
   assert.equal(detail.querySelector('[data-form="lifecycle"]').closest('details'), null);
   assert.equal(detail.querySelector('[data-selected-report] .evidence-block').closest('details'), null);
-  for (const key of ['execution-timeline', 'dom-evidence', 'stack-trace', 'issue-grouping', 'report-history']) assert.equal(detail.querySelector(`[data-disclosure-key="${key}"]`).open, false);
-  assert.match(detail.querySelector('[data-disclosure-key="issue-grouping"]').textContent, /NETWORK_UNREACHABLE/);
+  // Two folded parts at most: every report, and the technical evidence of the shown one with the grouping.
+  assert.deepEqual([...detail.querySelectorAll('details[data-disclosure-key]')].map((element) => element.dataset.disclosureKey), ['report-history', 'technical-details']);
+  for (const key of ['report-history', 'technical-details']) assert.equal(detail.querySelector(`[data-disclosure-key="${key}"]`).open, false);
+  assert.match(detail.querySelector('[data-disclosure-key="technical-details"]').textContent, /NETWORK_UNREACHABLE/);
   assert.match(detail.querySelector('.detail-heading').textContent, /Copy debug context/);
+  assert.match(detail.textContent, /What happened/);
 });
 
 for (const status of [403, 500]) test(`a ${status} report history failure opens its disclosure and keeps Retry visible`, async (t) => {
@@ -702,4 +707,84 @@ test('session invalidation reveals the top-of-main sign-in alert without changin
   assert.match(message.textContent, /Sign in to continue/);
   assert.equal(dialog.open, false); assert.equal(dialog.scrollTop, 80);
   assert.equal(scrolls.length, 0);
+});
+
+test('open issues lead and fixed or ignored ones wait folded below, each list paging on its own', async (t) => {
+  const listFor = (path) => new URL(path, 'https://diagnostics.test').searchParams;
+  const { app, document, calls } = setup(t, (path) => {
+    if (!path.startsWith('/issues?')) return undefined;
+    const query = listFor(path);
+    if (query.get('state') === 'open') return { items: [{ ...issue(1), error_code: 'no_nmm_link', category: 'UNKNOWN_ERROR' }], total: 1, page: 1, limit: 20 };
+    if (query.get('state') === 'closed') return { items: [{ ...issue(2), status: 'fixed', fixed_in_version: '3.3.6' }], total: 21, page: Number(query.get('page')), limit: 20 };
+    return { items: [{ ...issue(3), status: 'fixed', fixed_in_version: '3.3.6' }], total: 1, page: 1, limit: 20 };
+  });
+  await app.navigate('issues');
+  const view = document.querySelector('[data-diagnostic-issues]');
+  const open = view.querySelector('[aria-label="Open issues"]');
+  assert.equal(open.querySelectorAll('.issue-row').length, 1);
+  assert.match(open.textContent, /No Vortex link from Nexus/, 'a known error code gets a plain title instead of its category');
+  assert.equal(view.querySelector('.list-count').textContent, '1 result');
+  const folded = view.querySelector('[data-closed-issues]');
+  assert.equal(folded.tagName, 'DETAILS'); assert.equal(folded.open, false, 'folded until opened');
+  assert.match(folded.querySelector('summary').textContent, /Fixed and ignored \(21\)/);
+  assert.equal(open.compareDocumentPosition(folded) & document.defaultView.Node.DOCUMENT_POSITION_FOLLOWING, document.defaultView.Node.DOCUMENT_POSITION_FOLLOWING, 'below the open ones');
+  assert.match(folded.querySelector('[aria-label="Fixed and ignored issues"]').textContent, /#2/);
+  assert.match(folded.querySelector('.pagination').textContent, /Page 1 of 2 · 21 results/);
+
+  // The folded list pages on its own and stays open while it does.
+  folded.open = true;
+  folded.querySelector('.pagination button:last-child').click(); await tick();
+  const closedPages = calls.filter(({ path }) => path.startsWith('/issues?') && listFor(path).get('state') === 'closed').map(({ path }) => listFor(path).get('page'));
+  assert.deepEqual(closedPages.slice(-1), ['2']);
+  assert.equal(document.querySelector('[data-closed-issues]').open, true);
+  assert.equal(listFor(calls.filter(({ path }) => path.startsWith('/issues?') && listFor(path).get('state') === 'open').at(-1).path).get('page'), '1');
+
+  // A status filter shows that status only, in one list.
+  const form = document.querySelector('[data-form="issues"]'); form.elements.namedItem('status').value = 'fixed';
+  const before = calls.length;
+  form.dispatchEvent(new document.defaultView.Event('submit', { cancelable: true })); await tick();
+  const filtered = calls.slice(before).filter(({ path }) => path.startsWith('/issues?'));
+  assert.equal(filtered.length, 1); assert.equal(listFor(filtered[0].path).get('state'), null);
+  assert.equal(document.querySelector('[data-closed-issues]'), null);
+  assert.equal(document.querySelector('[aria-label="Filtered issues"] .issue-row').textContent.includes('#3'), true);
+});
+
+test('the issue sheet says what happened in plain words and folds only what has something in it', async (t) => {
+  const plain = { id: 'relay-one', version: '4.0.0', browser: 'opera', browser_version: '138', os: null, destination: 'vortex', download_mode: 'auto', severity: 'error', category: 'UNKNOWN_ERROR', suggested_action: 'Check connection.', error_message: 'steps: page HTTP 200: HTML page; site notice', stack_trace: null, created_at: now, occurred_at: now, breadcrumbs: [], dom_state: null, context: {}, source: 'relay' };
+  const { app, document } = setup(t, (path) => {
+    if (/^\/issues\/\d+\/reports/.test(path)) return { items: [plain], total: 1, page: 1, limit: 5 };
+    if (/^\/issues\/\d+$/.test(path)) return { issue: { ...issue(4), error_code: 'no_nmm_link', category: 'UNKNOWN_ERROR', fault_origin: 'unknown', relayed_report_count: 2 }, latest_report: plain, report_summary: { retained_report_count: 1, browsers: ['opera'], versions: ['4.0.0'], operating_systems: [] } };
+    return undefined;
+  });
+  await app.openIssue(4);
+  const detail = document.querySelector('#issue-detail');
+  assert.match(detail.querySelector('.detail-heading').textContent, /No Vortex link from Nexus/);
+  assert.match(detail.textContent, /Nexus did not give a mod manager \(Vortex\) link/);
+  assert.match(detail.textContent, /What to do: Check connection\./);
+  assert.match(detail.textContent, /2 of them via Discord/);
+  assert.doesNotMatch(detail.querySelector('.tag-row').textContent, /unknown/, 'an unknown origin is not shown as a tag');
+  assert.match(detail.querySelector('.tag-row').textContent, /Unclassified error/, 'a plain title keeps its category as a tag');
+  const latest = detail.querySelector('[data-selected-report]');
+  assert.match(latest.textContent, /Latest report/); assert.match(latest.textContent, /Version 4\.0\.0 · Opera 138 · Vortex download · via Discord/);
+  assert.match(detail.textContent, /BrowsersOpera/);
+  assert.equal(latest.querySelector('.evidence-block').closest('details'), null, 'the error message is never folded');
+  const technical = detail.querySelector('[data-disclosure-key="technical-details"]');
+  assert.match(technical.textContent, /Automatic report via the Discord relay/);
+  for (const absent of ['Execution timeline', 'Page and API state', 'Stack trace', 'Request context']) assert.doesNotMatch(technical.textContent, new RegExp(absent), `${absent} is left out when empty`);
+});
+
+test('an error code without a plain name keeps its category as the title, said once', async (t) => {
+  const { app, document } = setup(t, (path) => {
+    if (/^\/issues\/\d+\/reports/.test(path)) return { items: [], total: 0, page: 1, limit: 5 };
+    if (/^\/issues\/\d+$/.test(path)) return { issue: issue(5), latest_report: null, report_summary: { retained_report_count: 0, browsers: [], versions: [], operating_systems: [] } };
+    return undefined;
+  });
+  await app.openIssue(5);
+  const detail = document.querySelector('#issue-detail');
+  assert.equal(detail.querySelector('.detail-plain-title').textContent, 'Connection issue');
+  const tags = detail.querySelector('.tag-row').textContent;
+  assert.doesNotMatch(tags, /Connection issue/, 'the title is not repeated as a tag');
+  assert.match(tags, /User’s computer/);
+  assert.equal(detail.querySelector('.plain-explanation').textContent, 'Connection issue: fetch failed.');
+  assert.match(detail.querySelector('[data-selected-report]').textContent, /Report bodies are no longer retained/);
 });

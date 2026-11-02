@@ -34,6 +34,9 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+- **Diagnostics app: open issues first, fixed ones folded away:** *Issues* listed fixed and ignored issues among the open ones, so the ones that still need attention were hard to find. Issues that are new, being investigated or regressed now come first. Fixed and ignored ones sit below them in a folded *Fixed and ignored* section, with their own count and pages, and move back up by themselves if they happen again. Choosing a status in the filters still shows a single list. The issues API takes `state=open` or `state=closed` for this.
+- **A plainer issue sheet:** an issue opened as seven sections of report internals. It now says in plain words what happened and what to do (such as *No Vortex link from Nexus*, with the error code beside it), how many reports and users, which browsers and versions it came from, and the latest report's message and where it happened. Everything else is folded into two sections, *All reports* and *Technical details*, and a part a report did not include is left out instead of shown empty.
+
 <a id="release-4-0-1"></a>
 
 ## 4.0.1 — 2026-11-02

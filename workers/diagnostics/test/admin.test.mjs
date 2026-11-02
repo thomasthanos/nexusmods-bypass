@@ -65,6 +65,19 @@ test('issue report dimensions must match the same report and never multiply issu
   assert.equal(typeof value.items[0].id, 'number');
 });
 
+test('the issue list splits into open issues and closed ones (fixed or ignored)', async (t) => {
+  const { db, request } = fixture(t);
+  const statuses = { new: 'a', investigating: 'b', regressed: 'c', fixed: 'd', ignored: 'e' };
+  const ids = Object.fromEntries(Object.entries(statuses).map(([status, letter]) => [status, issue(db, { fingerprint: letter.repeat(64), status,
+    fixed_in_version: ['fixed', 'regressed'].includes(status) ? '3.2.0' : null })]));
+  const listed = async (query) => (await (await request(`/issues?${query}`)).json()).items.map(({ id }) => id).sort();
+  assert.deepEqual(await listed('state=open'), [ids.new, ids.investigating, ids.regressed].sort());
+  assert.deepEqual(await listed('state=closed'), [ids.fixed, ids.ignored].sort());
+  assert.deepEqual(await listed('state=closed&status=fixed'), [ids.fixed], 'a status narrows it further');
+  assert.deepEqual(await listed('state=open&status=fixed'), []);
+  assert.equal((await request('/issues?state=all')).status, 400);
+});
+
 test('overview applies report dimensions consistently to issues, reports and release metrics', async (t) => {
   const { db, request } = fixture(t);
   const first = issue(db); report(db, first, 1, { browser: 'chrome' });

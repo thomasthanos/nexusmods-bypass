@@ -87,7 +87,7 @@ test('mobile issue sheet renders evidence, supports a manual copy fallback and p
   await page.locator('#view-overview .issue-row').first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.locator('#issue-title')).toHaveText(`Issue #${preview.ids.upstream}`);
-  await page.locator('#issue-detail summary').filter({ hasText: 'Execution timeline' }).click();
+  await page.locator('#issue-detail summary').filter({ hasText: 'Technical details' }).click();
   await expect(page.locator('#issue-detail .timeline')).toBeVisible();
   await expect(page.locator('#issue-detail')).toContainText('UI_CLICK_DOWNLOAD');
   await expect(page.locator('#issue-detail')).toContainText('429');
@@ -116,8 +116,10 @@ test('desktop filters, hostile diagnostic text, deep links and settings work wit
   await page.locator('[data-form="issues"] details').evaluate((element) => { element.open = true; });
   await page.locator('[name="destination"]').selectOption('vortex');
   await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
-  await expect(page.locator('[data-diagnostic-issues] .issue-list .issue-row')).toHaveCount(1);
-  await expect(page.locator('[data-diagnostic-issues] .issue-list')).toContainText('Download handoff');
+  // Open issues come first; fixed and ignored ones are folded below in a list of their own.
+  const openIssues = page.locator('[data-diagnostic-issues] .issue-list[aria-label="Open issues"]');
+  await expect(openIssues.locator('.issue-row')).toHaveCount(1);
+  await expect(openIssues).toContainText('Download handoff');
   await expect(page.locator('[data-diagnostic-issues] .issue-row-meta span').filter({ hasText: 'Discord' })).toHaveText('2 via Discord');
   await page.screenshot({ path: new URL('issues-desktop.png', screenshots).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true });
   await page.goto(`${preview.origin}/?issue=${preview.ids.network}`);
@@ -127,8 +129,8 @@ test('desktop filters, hostile diagnostic text, deep links and settings work wit
   await page.goto(`${preview.origin}/?issue=${preview.ids.handoff}`);
   await expect(page.locator('#issue-title')).toHaveText(`Issue #${preview.ids.handoff}`);
   // The newest report is a relay copy: its source is named and its OS is not guessed.
-  await expect(page.locator('#issue-detail')).toContainText('and 2 reports via Discord without an installation ID');
-  await page.locator('#issue-detail summary').filter({ hasText: 'Report metadata' }).click();
+  await expect(page.locator('#issue-detail')).toContainText('2 of them via Discord');
+  await page.locator('#issue-detail summary').filter({ hasText: 'Technical details' }).click();
   await expect(page.locator('#issue-detail').getByText('Automatic report via the Discord relay', { exact: true })).toBeVisible();
   await expect(page.locator('#issue-detail')).toContainText('OS not reported');
   await page.getByRole('button', { name: 'Close issue details' }).click();
@@ -247,7 +249,7 @@ test('mobile Refresh advances the default UTC window after midnight and loads ne
   await context.addInitScript(({ day }) => { let current = day - 60_000; Date.now = () => current; window.advanceDiagnosticsClock = () => { current = day + 60_000; }; }, { day });
   await openOverview(page);
   await page.locator('[data-view="issues"]').click();
-  await expect(page.locator('[data-diagnostic-issues]')).toContainText('No matching issues');
+  await expect(page.locator('[data-diagnostic-issues]')).toContainText('No open issues');
   await page.evaluate(() => window.advanceDiagnosticsClock());
   const updated = page.waitForResponse((response) => response.url().includes('/api/admin/issues?') && response.status() === 200);
   await page.getByRole('button', { name: 'Refresh diagnostics' }).click();
@@ -285,7 +287,7 @@ test('320px overview and issue detail remain usable with reduced motion', async 
   await expect(page.getByRole('button', { name: 'Close issue details' })).toBeVisible();
   // A relay copy as the newest report: its source, OS and installation lines fit as well.
   await page.goto(`${preview.origin}/?issue=${preview.ids.handoff}`);
-  await expect(page.locator('#issue-detail')).toContainText('and 2 reports via Discord without an installation ID');
+  await expect(page.locator('#issue-detail')).toContainText('2 of them via Discord');
   await expect(page.locator('#issue-detail')).toContainText('OS not reported');
   assert.equal(await page.locator('#issue-dialog').evaluate((element) => element.scrollWidth <= element.clientWidth), true);
 });

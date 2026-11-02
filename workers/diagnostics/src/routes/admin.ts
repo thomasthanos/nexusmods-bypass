@@ -43,6 +43,8 @@ const releaseFields = { ...dateFields, browser: browserSchema.optional(), destin
 const issueQuerySchema = z.strictObject({
   ...dateFields, ...paginationFields, version: versionSchema.optional(), browser: browserSchema.optional(), os: osSchema.optional(),
   destination: destinationSchema.optional(), download_mode: z.enum(['manual', 'auto']).optional(), status: statusSchema.optional(),
+  // open: still needs attention (new, investigating, regressed); closed: fixed or ignored.
+  state: z.enum(['open', 'closed']).optional(),
   fault_origin: faultSchema.optional(), category: categorySchema.optional(), severity: severitySchema.optional(),
   muted: z.enum(['true', 'false']).optional(), q: z.string().trim().min(1).max(200).optional()
 });
@@ -222,6 +224,7 @@ adminRoutes.get('/issues', async (c) => {
   for (const name of ['status', 'fault_origin', 'category'] as const) {
     if (input[name]) { conditions.push(`i.${name}=?`); values.push(input[name]); }
   }
+  if (input.state) conditions.push(input.state === 'open' ? "i.status IN ('new','investigating','regressed')" : "i.status IN ('fixed','ignored')");
   if (input.muted !== undefined) { conditions.push('i.muted=?'); values.push(input.muted === 'true' ? 1 : 0); }
   const reportConditions = ['r.issue_id=i.id', 'r.created_at>=?', 'r.created_at<=?'];
   const reportValues: SqlValue[] = [window.start, window.end];

@@ -377,6 +377,10 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
 .issues-primary-toolbar .field-label { position: absolute; z-index: 1; left: 12px; top: 0; bottom: 0; display: flex; align-items: center; color: var(--text-3); pointer-events: none; }
 .issues-primary-toolbar input, .issues-primary-toolbar select { padding-left: 72px; }
 .issues-disclosure { padding: 0 12px; border-radius: var(--radius-md); background: var(--fill); }
+/* Fixed and ignored issues: folded below the open ones. */
+.closed-issues { margin-top: 12px; padding: 0 12px; border-radius: var(--radius-md); background: var(--fill); }
+.closed-issues > summary { color: var(--text-2); font-size: var(--text-subhead); }
+.closed-hint { margin: 0 0 8px; font-size: var(--text-footnote); }
 .issues-disclosure > summary { color: var(--text-2); font-size: var(--text-subhead); }
 .issues-disclosure .filter-grid { padding-top: 2px; }
 .filter-actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
@@ -547,6 +551,10 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
 .detail-title { flex: 1 1 180px; min-width: 0; }
 .detail-title h2 { font-size: var(--text-title); font-weight: 700; }
 .detail-code { margin-top: 2px; font-family: var(--mono); font-size: var(--text-footnote); overflow-wrap: anywhere; }
+.detail-plain-title { margin-top: 2px; font-size: var(--text-headline); font-weight: 600; overflow-wrap: anywhere; }
+.plain-explanation { font-size: var(--text-callout); line-height: 1.45; }
+.report-where { margin-top: 8px; font-size: var(--text-footnote); overflow-wrap: anywhere; }
+.technical-details { display: grid; gap: 4px; }
 .detail-summary { padding: 12px var(--pad); border-radius: var(--radius-lg); background: var(--surface); }
 .detail-summary .stat:nth-child(n + 3) .stat-value { font-size: var(--text-callout); font-weight: 600; }
 .suggested-action { margin-top: 8px; font-size: var(--text-callout); line-height: 1.45; }
