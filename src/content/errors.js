@@ -181,6 +181,10 @@ window.NexusExt = window.NexusExt || {};
       technicalMessage: String(overrides.technicalMessage || ''),
       stack: String(overrides.stack || '').slice(0, 1500),
       ...(overrides.fileIdentity && NXTK.reportFileIdentity(overrides.fileIdentity) ? { fileIdentity: NXTK.reportFileIdentity(overrides.fileIdentity) } : {}),
+      // What Nexus shows on the file's page in place of a link (NXTKDownloadParser.noticeHeadlines), for the
+      // dialog only: NXTK.buildErrorEntry, and so the log and every report, never takes it.
+      ...(Array.isArray(overrides.pageNotices) && overrides.pageNotices.length
+        ? { pageNotices: overrides.pageNotices.slice(0, 3).map((line) => String(line).slice(0, 200)) } : {}),
       // Carried on the error so a Retry-After survives callers that pass only the error along.
       retryAfterSeconds: Number.isFinite(Number(overrides.retryAfterSeconds)) && Number(overrides.retryAfterSeconds) > 0
         ? Number(overrides.retryAfterSeconds)

@@ -517,6 +517,25 @@
     return kinds;
   }
 
+  // The notices a page shows, as the person would read them (title, then its sentence), for the error
+  // dialog on that person's own page. They never leave the browser: reports carry noticeKinds only.
+  const MAX_NOTICE_HEADLINE_CHARS = 200;
+  function noticeHeadlines(text) {
+    const body = String(text ?? '').slice(0, MAX_INPUT_CHARS);
+    const headlines = [];
+    for (const match of body.matchAll(NOTICE_TITLE)) {
+      const title = decodeEntities(match[1]).replace(/\s+/g, ' ').trim();
+      const after = body.slice(match.index + match[0].length, match.index + match[0].length + 400);
+      const end = after.search(/<\/div>/i);
+      const sentence = decodeEntities((end >= 0 ? after.slice(0, end) : after).replace(/<[^>]*>/g, ' '))
+        .replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+      const line = [title, sentence].filter(Boolean).join(': ').slice(0, MAX_NOTICE_HEADLINE_CHARS).trim();
+      if (line && !headlines.includes(line)) headlines.push(line);
+      if (headlines.length >= MAX_NOTICES_NAMED) break;
+    }
+    return headlines;
+  }
+
   // The kind of link a search found, for a report; never the link itself. "A usable link" alone could
   // not tell a page that carried the nxm:// link from one that only pointed at another download route,
   // and "a Nexus page" could not tell a sign-in from an upsell (E-1hmdsrg), so a Nexus page is named by
@@ -605,6 +624,7 @@
     findDownloadLink,
     findDownloadRoute,
     linkKind,
+    noticeHeadlines,
     findSignedNxmLink,
     isSignedNxmLink,
     normalizeFileId,

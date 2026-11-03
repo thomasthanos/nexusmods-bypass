@@ -217,7 +217,8 @@
         const scaleAttr = scale === 1 ? '' : ` data-scale="${scale}"`;
         const step = s.step ? ` step="${escapeHtml(s.step)}"` : '';
         const min = s.min === undefined ? 0 : s.min;
-        const displayValue = Number(cfg[s.key]) / scale;
+        // The value in use: a stored one outside the bounds is used as its bound (NXTK.normalizeSetting).
+        const displayValue = (NXTK.normalizeSetting(s.key, Number(cfg[s.key])) ?? Number(cfg[s.key])) / scale;
         control = `<span class="nxtk-setting-field"><input id="${inputId}" type="number" data-setting="${s.key}" aria-describedby="${summaryId}"${decimal}${scaleAttr}${step} value="${escapeHtml(displayValue)}" min="${escapeHtml(min)}"><span class="nxtk-setting-unit">${escapeHtml(text(s.unit))}</span></span>`;
       } else if (s.type === 'text') {
         const maxLength = Number(s.maxLength) > 0 ? ` maxlength="${Number(s.maxLength)}"` : '';
@@ -535,8 +536,28 @@
       });
     });
 
+    // Turning the browser check off is asked about first, in plain words (confirmCloudflareFallbackOff):
+    // the box stays ticked, and the setting on, unless the person picks "Turn it off".
+    let askingFallbackOff = false;
+    async function confirmFallbackOff(input) {
+      input.checked = true;
+      if (askingFallbackOff) return;
+      askingFallbackOff = true;
+      try {
+        if (!await confirmCloudflareFallbackOff() || !input.isConnected) return;
+        input.checked = false;
+        update(input, { commit: true });
+      } finally {
+        askingFallbackOff = false;
+      }
+    }
+
     modal.addEventListener('change', e => {
       if (!e.target.dataset.setting) return;
+      if (e.target.dataset.setting === 'CloudflareFallback' && e.target.type === 'checkbox' && !e.target.checked) {
+        confirmFallbackOff(e.target).catch(() => undefined);
+        return;
+      }
       clearTimeout(pendingInputWrites.get(e.target));
       pendingInputWrites.delete(e.target);
       update(e.target, { commit: true });
@@ -651,6 +672,42 @@
         </div>`
       });
       modal.querySelector('[data-close="confirm"]').focus();
+    });
+  }
+
+  // Asked before the Cloudflare fallback is turned off. Without it, a check Nexus asks for ends the download,
+  // or the whole collection run, with an error, so keeping it on is the answer Enter, Escape, the close
+  // button and a click beside the dialog all give. True only for "Turn it off".
+  function confirmCloudflareFallbackOff() {
+    return new Promise((resolve) => {
+      const { modal } = openModal({
+        id: 'nxtk-cloudflare-off-modal',
+        restoreFocus: true,
+        className: 'nxtk-modal nxtk-modal-sm nxtk-alert-modal',
+        backdropClassName: 'nxtk-modal-backdrop nxtk-alert-backdrop',
+        onKeyDown: (event, close) => {
+          if (event.key !== 'Enter') return;
+          if (event.target?.closest?.('button, a, input, select, textarea')) return;
+          close('keep');
+        },
+        onClose: (value) => resolve(value === 'off'),
+        html: `
+        <div class="nxtk-modal-header">
+          <div class="nxtk-alert-header-inner">
+            <span class="nxtk-alert-icon">${svgIcon('info')}</span>
+            <span class="nxtk-modal-title">${escapeHtml(NXTK.t('cfOffTitle', null, 'Turn this off?'))}</span>
+          </div>
+          <button class="nxtk-modal-close" data-close="keep" aria-label="${L('ariaClose', 'Close')}">&times;</button>
+        </div>
+        <div class="nxtk-alert-body">
+          <div class="nxtk-alert-line">${escapeHtml(NXTK.t('cfOffMessage', null, 'Sometimes Nexus asks you to show you are not a robot. With this on, the extension opens the page so you can do that, and your downloads keep going. With it off, those downloads, and collections, just stop with an error.'))}</div>
+        </div>
+        <div class="nxtk-modal-footer nxtk-alert-footer">
+          <button class="nxtk-btn nxtk-btn-secondary" type="button" data-close="off">${escapeHtml(NXTK.t('cfOffTurnOff', null, 'Turn it off'))}</button>
+          <button class="nxtk-btn nxtk-btn-primary" type="button" data-close="keep">${escapeHtml(NXTK.t('cfOffKeep', null, 'Keep it on'))}</button>
+        </div>`
+      });
+      modal.querySelector('.nxtk-btn-primary[data-close="keep"]').focus();
     });
   }
 

@@ -18,6 +18,7 @@ global.NXTK = {
   orderQueueBySize: shared.NXTK.orderQueueBySize,
   queueSkipReason: shared.NXTK.queueSkipReason,
   isSafeNexusPageUrl: shared.NXTK.isSafeNexusPageUrl,
+  checkPageUrl: shared.NXTK.checkPageUrl,
   summarizeCollectionHistory: shared.NXTK.summarizeCollectionHistory,
   vortexSentType: shared.NXTK.vortexSentType,
   nxmLinkInfo: shared.NXTK.nxmLinkInfo,
@@ -504,6 +505,26 @@ function createHarness(choice) {
   assert.deepEqual(walled.handed, []);
   assert.equal(walled.outcome, 'blocked', 'and asks for the check to be completed');
 
+  // CloudflareFallback, on by default: the stopped run opens the page for the check, the file's mod page
+  // without its file id, so Auto-start does not start that file beside the run.
+  {
+    const opened = [];
+    const savedSend = NexusExt.Storage.sendDownloadCommand;
+    NexusExt.Storage.sendDownloadCommand = async (command, payload) => {
+      if (command === 'OPEN_CHECK_PAGE') opened.push(payload.url);
+      return { ok: true, value: { opened: true, tabId: 3 } };
+    };
+    try {
+      const stopped = await runVortexQueue([vortexMod(7, 'Mod 7.7z', 7)], () => 'cloudflare');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.equal(stopped.outcome, 'blocked');
+      assert.deepEqual(opened, ['https://www.nexusmods.com/skyrimspecialedition/mods/7']);
+      assert.ok(stopped.logs.some((text) => /new tab/.test(text)), 'the log says where the check is');
+    } finally {
+      NexusExt.Storage.sendDownloadCommand = savedSend;
+    }
+  }
+
   const broken = await runVortexQueue(
     Array.from({ length: 5 }, (_, index) => vortexMod(index + 1, `Mod ${index + 1}.7z`, index + 1)),
     (mod) => (mod.fileId === 1 ? '' : 'cloudflare')
@@ -963,6 +984,52 @@ function createHarness(choice) {
       ndc.downloadMods = async (list, type) => { retried = [list.map((m) => m.file.name), type]; };
       await card.options.onRetryFailed();
       assert.deepEqual(retried, [['B.7z'], 'all'], 'Retry failed queues only the failed files');
+    }
+
+    // CloudflareFallback, on by default: a browser run Nexus stopped for its check links the page for it in
+    // the dialog and opens it by itself, a mod page without its file id; with the setting off it only says so.
+    for (const fallback of [true, false]) {
+      const harness = createHarness('browser');
+      const { ndc } = harness;
+      delete ndc.downloadBrowserQueue;
+      NXTK.createQueueEta = shared.NXTK.createQueueEta; NXTK.formatBytes = shared.NXTK.formatBytes; NXTK.MAX_TRACKED_SKIPS = shared.NXTK.MAX_TRACKED_SKIPS;
+      ndc.ui.setProgress = () => {}; ndc.ui.setTimeLeft = () => {}; ndc.ui.setDownloadStatus = () => {}; ndc.ui.endDownload = () => {};
+      const logged = [];
+      ndc.ui.logText = (text) => logged.push(text);
+      ndc.cloudflareFallback = fallback;
+      let listener = null;
+      const savedChrome = global.chrome; const savedDoc = global.document;
+      const savedShowError = NexusExt.UI.showError; const savedSummary = NexusExt.UI.showRunSummary;
+      global.document = { addEventListener: () => {}, removeEventListener: () => {}, visibilityState: 'visible' };
+      global.chrome = { runtime: { onMessage: { addListener: (fn) => { listener = fn; }, removeListener: () => {} } } };
+      const commands = [];
+      NexusExt.Storage.sendDownloadCommand = async (command, payload) => {
+        commands.push([command, payload]);
+        if (command === 'NDC_QUEUE_START') return { ok: true, value: { jobId: 'job-cf' } };
+        if (command === 'OPEN_CHECK_PAGE') return { ok: true, value: { opened: true, tabId: 5 } };
+        return { ok: true, value: { status: 'running', index: 0 } };
+      };
+      const dialogs = [];
+      NexusExt.UI.showError = (error, options) => dialogs.push([error.code, options]);
+      NexusExt.UI.showRunSummary = () => {};
+      const run = ndc.downloadBrowserQueue([vortexMod(1, 'A.7z', 1)], 'all', {});
+      for (let i = 0; i < 50 && !(listener && ndc.backgroundJobId); i += 1) await new Promise((r) => setTimeout(r, 10));
+      listener({ jobId: 'job-cf', type: 'NXT_NDC_DONE', outcome: 'cloudflare', skipped: [],
+        checkPageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/266' });
+      await run;
+      await new Promise((r) => setTimeout(r, 10));
+      global.chrome = savedChrome; global.document = savedDoc;
+      NexusExt.UI.showError = savedShowError; NexusExt.UI.showRunSummary = savedSummary;
+      assert.equal(dialogs.length, 1, 'the stop is explained once');
+      assert.equal(dialogs[0][0], 'cloudflare');
+      assert.equal(dialogs[0][1].filePageUrl, 'https://www.nexusmods.com/skyrimspecialedition/mods/266', 'with the page to open for the check');
+      const opened = commands.filter(([command]) => command === 'OPEN_CHECK_PAGE');
+      if (fallback) {
+        assert.deepEqual(opened.map(([, payload]) => payload.url), ['https://www.nexusmods.com/skyrimspecialedition/mods/266'], 'the page opens by itself');
+        assert.ok(logged.some((text) => /new tab/.test(text)), 'and the log says where to go');
+      } else {
+        assert.deepEqual(opened, [], 'nothing opens with the setting off');
+      }
     }
 
     // QA on 2026-11-01: Pause at 10/53, reload, Resume, Stop at 35/53: the card said 25 downloaded. A deck

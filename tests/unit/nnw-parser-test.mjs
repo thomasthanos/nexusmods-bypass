@@ -286,6 +286,19 @@ async function downloadFlowTests() {
     assert.match(harness.calls[0].url, /[?&]file_id=200&nmm=1$/, 'read from the file\'s Vortex page, not the generator');
   }
 
+  // Diagnostics issue #4: a Vortex page with a notice of its own in place of the file's card. The error
+  // carries what the notice says, for the person's dialog; its report text keeps only the notice's kind.
+  {
+    const page = '<!doctype html><html><body><div id="Notice9"><h3 id="Notice9-title">Error</h3>'
+      + '<p id="Notice9-paragraph">This file can only be downloaded manually.</p></div></body></html>';
+    const harness = createHarness({ sectionGameId: '130', responses: [response(page)] });
+    const result = await harness.api.getDownloadUrl({ fileId: '200', isNMM: true });
+    assert.equal(result.url, null);
+    assert.equal(result.error.code, 'no_nmm_link');
+    assert.deepEqual([...result.error.pageNotices], ['Error: This file can only be downloaded manually.']);
+    assert.doesNotMatch(String(result.error.technicalMessage || ''), /manually/, 'never in the technical text');
+  }
+
   {
     const harness = createHarness({
       scripts: ['window.bootstrap = { "game_id": 130 };'],

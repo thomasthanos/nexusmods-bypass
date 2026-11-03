@@ -108,6 +108,30 @@ async function run() {
     assert.match(f.w.document.querySelector('.nxtk-error-code').textContent, /E-[a-z0-9]{7}/);
     f.close();
   }
+  // Diagnostics issue #4: what Nexus shows in place of the file's link is quoted in the person's own dialog,
+  // and never reaches the report page, the error log or a report.
+  {
+    const f = fixture(); script(f.w, 'src/content/errors.js'); script(f.w, 'src/content/ui.js');
+    const notice = 'Error: This file can only be downloaded manually.';
+    const error = f.w.NexusExt.Errors.create('no_nmm_link', { record: false, pageNotices: [notice] });
+    f.w.NexusExt.UI.showError(f.w.NexusExt.Errors.normalize(error), { method: 'vortex' });
+    const shown = f.w.document.querySelector('.nxtk-error-notice');
+    assert.ok(shown, 'the dialog quotes the notice');
+    assert.match(shown.textContent, /Nexus shows this on the file’s page:/);
+    assert.match(shown.textContent, /“Error: This file can only be downloaded manually\.”/);
+    f.w.document.querySelector('[data-send-report]').click();
+    const opened = f.sent.at(-1);
+    assert.equal(opened.type, 'OPEN_REPORT_PAGE');
+    assert.equal(f.w.NXTK.buildErrorEntry(opened.error).pageNotices, undefined, 'the report page and the log never take it');
+    assert.doesNotMatch(JSON.stringify(f.w.NXTK.buildErrorEntry(opened.error)), /manually/);
+    f.close();
+  }
+  {
+    const f = fixture(); script(f.w, 'src/content/errors.js'); script(f.w, 'src/content/ui.js');
+    f.w.NexusExt.UI.showError(f.w.NexusExt.Errors.create('no_nmm_link', { record: false }), { method: 'vortex' });
+    assert.equal(f.w.document.querySelector('.nxtk-error-notice'), null, 'no notice, no line');
+    f.close();
+  }
   for (const failure of ['rejected', 'throws']) {
     const f = fixture();
     for (const file of ['src/content/errors.js', 'src/content/storage.js', 'src/content/ui.js']) script(f.w, file);

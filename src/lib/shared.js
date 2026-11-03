@@ -274,7 +274,9 @@
   // Bounds every writer applies, so a value typed into a field never reaches storage out of range.
   const SETTING_LIMITS = Object.freeze({
     CloseTabDelay: Object.freeze({ min: 0, max: 60000, integer: true }),
-    RequestTimeout: Object.freeze({ min: 5000, max: 120000, integer: true }),
+    // Diagnostics issue #2: with 5 seconds, a link Nexus gave after 5.3 s failed the download. Nexus often
+    // takes that long, so a wait under 15 s is raised to 15 s, a stored one included (each request is).
+    RequestTimeout: Object.freeze({ min: 15000, max: 120000, integer: true }),
     NDC_pauseBetweenDownload: Object.freeze({ min: 0, max: 600, integer: true }),
     NDC_downloadSpeed: Object.freeze({ min: 0.1, max: 1000 }),
     NDC_downloadMethod: Object.freeze({ min: 0, max: 1, integer: true }),
@@ -1311,6 +1313,20 @@
     }
   }
 
+  // Where a collection run Nexus stopped for its browser check (CloudflareFallback) sends the person to
+  // complete it: the file's mod page without its file id, so Auto-start cannot start that file beside the
+  // run, or else the site's home page. Nexus asks for the same check on every one of its pages.
+  function checkPageUrl(url) {
+    if (!isSafeNexusPageUrl(url)) return '';
+    try {
+      const parsed = new URL(String(url).trim());
+      const modPage = /^\/[a-z0-9-]{1,80}\/mods\/\d{1,12}(?=\/|$)/i.exec(parsed.pathname)?.[0];
+      return `${parsed.origin}${modPage || '/'}`;
+    } catch (_) {
+      return '';
+    }
+  }
+
   const TRIGGER_LABELS = {
     manual: 'manual (you clicked a download button)',
     automatic: 'automatic (started by the extension)',
@@ -1699,6 +1715,7 @@
     setDebugLogging,
     validateDownloadTarget,
     isSafeNexusPageUrl,
+    checkPageUrl,
     buildErrorEntry,
     createErrorThrottle,
     stackFrameOf,

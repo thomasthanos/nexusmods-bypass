@@ -6,7 +6,7 @@ import {
   noop, finishCallback, messageListeners, context, NXTK, jobFailureCount, ndcScopeKey, sanitizeNdcJobItem,
   mutateNdcJob, readNdcJob, saveNdcJob, storageSetLocal, storageGetLocal, enqueueStorageTask, advanceNdcJob,
   processNdcJob, NDC_JOBS_KEY, writeQueues, NDC_QUEUE_HANDLERS, STORAGE_HISTORY_KEY,
-  handleNdcDownloadTerminal
+  handleNdcDownloadTerminal, DOWNLOAD_HANDLERS
 } from './helpers/background-harness.mjs';
 
 // The worker waits after a file it did not download before asking about the next (NXTK.queueItemGapMs).
@@ -220,10 +220,39 @@ async function firstCloudflareChallengeKeepsTheCurrentFile() {
     assert.equal(job.index, 0, 'the protected file remains the current item');
     assert.equal(job.skipped.length, 0, 'verification never becomes an unavailable-file skip');
     assert.deepEqual(await storageGetLocal(STORAGE_HISTORY_KEY, null), history, 'completed history is preserved');
-    assert.equal(sent.find((event) => event.type === 'NXT_NDC_DONE')?.outcome, 'cloudflare');
+    const done = sent.find((event) => event.type === 'NXT_NDC_DONE');
+    assert.equal(done?.outcome, 'cloudflare');
+    // CloudflareFallback: the deck opens the page for the check from the file the run stopped on.
+    assert.equal(done.checkPageUrl, 'https://www.nexusmods.com/skyrimspecialedition/mods/1');
+    const status = await NDC_QUEUE_HANDLERS.NDC_QUEUE_STATUS({ jobId });
+    assert.equal(status.checkPageUrl, done.checkPageUrl, 'a deck that reattaches or polls gets it too');
   } finally {
     context.fetch = savedFetch;
     global.chrome.tabs.sendMessage = savedSend;
+  }
+}
+
+// The page for Nexus's check opens beside the collection's tab, only as a Nexus page without a file id
+// (Auto-start must not start the file beside the run), and not at all with the setting off.
+async function checkPageOpensBesideTheCollection() {
+  const savedCreate = global.chrome.tabs.create;
+  const created = [];
+  global.chrome.tabs.create = (properties, callback) => { created.push(properties); callback?.({ id: 99, ...properties }); };
+  const sender = { id: global.chrome.runtime.id, tab: { id: 7, index: 3, windowId: 2, url: 'https://www.nexusmods.com/games/skyrimspecialedition/collections/abc' } };
+  try {
+    await storageSetLocal(NXTK.SETTINGS_KEY, { ...NXTK.DEFAULTS });
+    const opened = await DOWNLOAD_HANDLERS.OPEN_CHECK_PAGE({ url: 'https://www.nexusmods.com/skyrimspecialedition/mods/266?tab=files&file_id=1000&nmm=1' }, sender);
+    assert.deepEqual({ ...opened }, { opened: true, tabId: 99 });
+    assert.deepEqual({ ...created[0] }, { url: 'https://www.nexusmods.com/skyrimspecialedition/mods/266', active: true, windowId: 2, index: 4, openerTabId: 7 });
+    await assert.rejects(DOWNLOAD_HANDLERS.OPEN_CHECK_PAGE({ url: 'https://evil.example/skyrimspecialedition/mods/1' }, sender), /unsafe-check-page/);
+    await assert.rejects(DOWNLOAD_HANDLERS.OPEN_CHECK_PAGE({ url: 'javascript:alert(1)' }, sender), /unsafe-check-page/);
+    await storageSetLocal(NXTK.SETTINGS_KEY, { ...NXTK.DEFAULTS, CloudflareFallback: false });
+    const off = await DOWNLOAD_HANDLERS.OPEN_CHECK_PAGE({ url: 'https://www.nexusmods.com/skyrimspecialedition/mods/266' }, sender);
+    assert.deepEqual({ ...off }, { opened: false });
+    assert.equal(created.length, 1, 'nothing opens with the setting off or for a page outside Nexus');
+  } finally {
+    global.chrome.tabs.create = savedCreate;
+    await storageSetLocal(NXTK.SETTINGS_KEY, { ...NXTK.DEFAULTS });
   }
 }
 
@@ -1287,6 +1316,7 @@ Promise.resolve()
   .then(classifiedRateLimitWaitsInsteadOfFailing)
   .then(skippedModsDoNotStopTheQueue)
   .then(cloudflareCooldownSurvivesAReplacementRun)
+  .then(checkPageOpensBesideTheCollection)
   .then(stopCancelsAPendingStart)
   .then(restartWaitsForAnInFlightStart)
   .then(resumeConsumesAMissedTerminal)

@@ -318,7 +318,15 @@
     }
   }
 
-  async function describeSession(errorCount) {
+  // The setting first: "not active" alone read as if the fallback were off, when it only had not been
+  // needed on the page (both reports in issues #41 and #42 had it on).
+  function describeFallback(cfg) {
+    if (cfg?.CloudflareFallback === false) return 'off';
+    const marker = readFallbackMarker();
+    return marker ? `on · used on this page (${marker})` : 'on · not needed on this page';
+  }
+
+  async function describeSession(errorCount, cfg = null) {
     const lines = ['──────── Session ────────'];
     const total = await cachedTotalDownloads();
     lines.push(`Downloads counted: ${total === null ? '(unavailable)' : total}`);
@@ -327,8 +335,7 @@
     const action = describeActivity();
     lines.push(`Last action:       ${action || '(none recorded this page)'}`);
 
-    const marker = readFallbackMarker();
-    lines.push(`Cloudflare fallback: ${marker || 'not active'}`);
+    lines.push(`Cloudflare fallback: ${describeFallback(cfg)}`);
     return lines;
   }
 
@@ -405,7 +412,7 @@
     }
 
     lines.push('');
-    lines.push(...await describeSession(errors.length));
+    lines.push(...await describeSession(errors.length, cfg));
 
     lines.push('');
     lines.push(...describeSettings(cfg));

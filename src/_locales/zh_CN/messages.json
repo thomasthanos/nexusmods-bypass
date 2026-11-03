@@ -153,6 +153,9 @@
   "errCloudflareFix": {
     "message": "在文件页面完成验证后重试。如果验证反复出现，请关闭 VPN 或代理。"
   },
+  "errPageNotice": {
+    "message": "Nexus 在该文件的页面上显示："
+  },
   "errRateLimitedMsg": {
     "message": "Nexus Mods 正在临时限制请求频率。"
   },
@@ -1247,6 +1250,21 @@
   },
   "setCloudflareFallbackDesc": {
     "message": "如果 Nexus 要求确认你是真人，会打开文件页面，让你自己完成浏览器验证。不会绕过验证。因此当前标签页可能切换页面。"
+  },
+  "cfOffTitle": {
+    "message": "确定要关闭吗？"
+  },
+  "cfOffMessage": {
+    "message": "Nexus 有时会要求你证明自己不是机器人。开启此项时，扩展会打开该页面让你完成验证，下载会继续进行。关闭后，这类下载和合集只会报错停止。"
+  },
+  "cfOffKeep": {
+    "message": "保持开启"
+  },
+  "cfOffTurnOff": {
+    "message": "关闭"
+  },
+  "logCheckPageOpened": {
+    "message": "已在新标签页中打开 Nexus 页面。请在那里完成验证，然后重新开始下载：会从同一个文件继续。"
   },
   "tabControls": {
     "message": "控制",

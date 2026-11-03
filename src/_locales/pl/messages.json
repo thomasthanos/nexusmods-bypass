@@ -153,6 +153,9 @@
   "errCloudflareFix": {
     "message": "Ukończ weryfikację na stronie pliku, a następnie spróbuj ponownie. Jeśli wciąż wraca, wyłącz VPN lub serwer proxy."
   },
+  "errPageNotice": {
+    "message": "Nexus pokazuje to na stronie pliku:"
+  },
   "errRateLimitedMsg": {
     "message": "Nexus Mods tymczasowo ogranicza liczbę żądań."
   },
@@ -1475,6 +1478,21 @@
   },
   "setCloudflareFallbackDesc": {
     "message": "Jeśli Nexus prosi o potwierdzenie, że jesteś człowiekiem, otwiera stronę pliku, aby można było samodzielnie przejść weryfikację przeglądarki. Nie omija weryfikacji. Dlatego bieżąca karta może zmienić stronę."
+  },
+  "cfOffTitle": {
+    "message": "Wyłączyć?"
+  },
+  "cfOffMessage": {
+    "message": "Czasem Nexus prosi o potwierdzenie, że nie jesteś robotem. Gdy to jest włączone, rozszerzenie otwiera stronę, żebyś mógł to zrobić, a pobieranie trwa dalej. Gdy to wyłączysz, takie pobrania, także kolekcje, po prostu kończą się błędem."
+  },
+  "cfOffKeep": {
+    "message": "Zostaw włączone"
+  },
+  "cfOffTurnOff": {
+    "message": "Wyłącz"
+  },
+  "logCheckPageOpened": {
+    "message": "Strona Nexus otworzyła się w nowej karcie. Dokończ tam weryfikację, a potem uruchom pobieranie ponownie: wznowi się od tego samego pliku."
   },
   "tabControls": {
     "message": "Sterowanie",

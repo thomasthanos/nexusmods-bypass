@@ -153,6 +153,9 @@
   "errCloudflareFix": {
     "message": "ファイルページで認証を完了してから再試行してください。何度も表示される場合は、VPN またはプロキシをオフにしてください。"
   },
+  "errPageNotice": {
+    "message": "Nexus はファイルのページにこう表示しています:"
+  },
   "errRateLimitedMsg": {
     "message": "Nexus Mods が一時的にリクエストを制限しています。"
   },
@@ -1247,6 +1250,21 @@
   },
   "setCloudflareFallbackDesc": {
     "message": "Nexus が人間であることの確認を求めた場合、ファイルページを開いて自分でブラウザー確認を完了できるようにします。確認を回避する機能ではありません。このため現在のタブでページが切り替わる場合があります。"
+  },
+  "cfOffTitle": {
+    "message": "オフにしますか？"
+  },
+  "cfOffMessage": {
+    "message": "Nexus は時々、ロボットではないことの確認を求めます。これがオンなら、拡張機能がそのページを開くので確認でき、ダウンロードはそのまま続きます。オフにすると、そのようなダウンロードやコレクションはエラーで止まるだけです。"
+  },
+  "cfOffKeep": {
+    "message": "オンのままにする"
+  },
+  "cfOffTurnOff": {
+    "message": "オフにする"
+  },
+  "logCheckPageOpened": {
+    "message": "新しいタブで Nexus のページを開きました。そこで確認を済ませてから、もう一度ダウンロードを開始してください。同じファイルから続きます。"
   },
   "tabControls": {
     "message": "コントロール",

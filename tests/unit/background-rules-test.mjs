@@ -712,7 +712,7 @@ async function settingsPatchIsNormalized() {
   let reply = await send('SETTINGS_PATCH', { patch: { NDC_pauseBetweenDownload: -30, RequestTimeout: 1 } });
   assert.equal(reply.ok, true, 'out-of-range numbers are accepted');
   assert.equal(reply.value.NDC_pauseBetweenDownload, 0, 'but stored inside their bounds');
-  assert.equal(reply.value.RequestTimeout, 5000, 'including a timeout too short to be useful');
+  assert.equal(reply.value.RequestTimeout, 15000, 'including a timeout too short to be useful');
   reply = await send('SETTINGS_PATCH', { patch: { RequestTimeout: 'soon' } });
   assert.equal(reply.ok, false, 'a value of the wrong type is still refused');
   assert.match(reply.error, /invalid-settings-value:RequestTimeout/);

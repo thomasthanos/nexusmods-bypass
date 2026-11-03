@@ -512,6 +512,52 @@ async function settingsRegressionTests() {
         await tick();
         assert.equal(f.w.document.activeElement, button, `${cancel} returns focus to the opener`);
       }
+    }],
+    ['turning the Cloudflare fallback off asks first and keeps it on unless confirmed', async (f) => {
+      const input = f.modal().querySelector('[data-setting="CloudflareFallback"]');
+      const dialog = () => f.w.document.querySelector('#nxtk-cloudflare-off-modal');
+      const patches = [];
+      const send = f.w.chrome.runtime.sendMessage;
+      f.w.chrome.runtime.sendMessage = (message, callback) => {
+        if (message.type === 'SETTINGS_PATCH') patches.push({ ...message.payload.patch });
+        send(message, callback);
+      };
+      const untick = async () => {
+        input.checked = false;
+        input.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+        await tick();
+      };
+      assert.equal(input.checked, true, 'on by default');
+      for (const answer of ['Escape', 'keep', 'close', 'backdrop', 'Enter']) {
+        await untick();
+        assert.ok(dialog(), `${answer}: the question is asked`);
+        assert.match(dialog().textContent, /not a robot/, 'in plain words');
+        assert.equal(input.checked, true, `${answer}: the switch stays on while it asks`);
+        assert.equal(f.w.document.activeElement?.textContent, 'Keep it on', 'keeping it on has the focus');
+        if (answer === 'Escape') f.w.document.activeElement.dispatchEvent(new f.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        else if (answer === 'keep') dialog().querySelector('.nxtk-btn-primary').click();
+        else if (answer === 'close') dialog().querySelector('.nxtk-modal-close').click();
+        else if (answer === 'backdrop') dialog().click();
+        else {
+          f.w.document.activeElement.blur();
+          f.w.document.body.dispatchEvent(new f.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        }
+        await tick();
+        assert.equal(dialog(), null, `${answer}: the question closes`);
+        assert.equal(input.checked, true, `${answer}: it stays on`);
+        assert.deepEqual(patches, [], `${answer}: nothing is saved`);
+      }
+      await untick();
+      dialog().querySelector('[data-close="off"]').click();
+      await tick();
+      assert.equal(input.checked, false, 'Turn it off turns it off');
+      assert.deepEqual(patches, [{ CloudflareFallback: false }]);
+      assert.equal(f.store.nxtk_settings.CloudflareFallback, false);
+      input.checked = true;
+      input.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+      await tick();
+      assert.equal(dialog(), null, 'turning it back on asks nothing');
+      assert.equal(f.store.nxtk_settings.CloudflareFallback, true);
     }]
   ];
   for (const [name, run] of cases) {

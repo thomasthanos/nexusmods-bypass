@@ -153,6 +153,9 @@
   "errCloudflareFix": {
     "message": "Führen Sie die Überprüfung auf der Dateiseite durch und versuchen Sie es erneut. Kommt sie immer wieder, schalten Sie Ihr VPN oder Ihren Proxy aus."
   },
+  "errPageNotice": {
+    "message": "Nexus zeigt auf der Seite der Datei:"
+  },
   "errRateLimitedMsg": {
     "message": "Nexus Mods drosselt derzeit die Anzahl der Anfragen."
   },
@@ -1323,6 +1326,21 @@
   },
   "setCloudflareFallbackDesc": {
     "message": "Wenn Nexus prüfen möchte, ob du ein Mensch bist, öffnet sich die Dateiseite, damit du die Browserprüfung selbst abschließen kannst. Die Prüfung wird nicht umgangen. Deshalb kann der aktuelle Tab die Seite wechseln."
+  },
+  "cfOffTitle": {
+    "message": "Wirklich ausschalten?"
+  },
+  "cfOffMessage": {
+    "message": "Manchmal will Nexus prüfen, dass du kein Roboter bist. Ist das hier an, öffnet die Erweiterung die Seite, damit du das erledigen kannst, und deine Downloads laufen weiter. Ist es aus, brechen diese Downloads, auch Sammlungen, einfach mit einem Fehler ab."
+  },
+  "cfOffKeep": {
+    "message": "Anlassen"
+  },
+  "cfOffTurnOff": {
+    "message": "Ausschalten"
+  },
+  "logCheckPageOpened": {
+    "message": "Eine Nexus-Seite wurde in einem neuen Tab geöffnet. Schließe dort die Prüfung ab und starte den Download dann erneut: Er macht bei derselben Datei weiter."
   },
   "tabControls": {
     "message": "Steuerung",

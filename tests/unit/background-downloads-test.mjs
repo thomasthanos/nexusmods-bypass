@@ -2082,6 +2082,23 @@ async function newerNexusFilesKeepTheirOwnName() {
     await context.startNdcDownload({ id: 'job-uuid', folder: '' }, { fileId: '798212', name: 'Wabbajack file' }, uuid);
     assert.equal(started.at(-1).filename, 'd6879c21-5ebd-4d6f-b8cc-7756784d7d65.zip', 'with no mod name, the uuid keeps its place');
 
+    // A first chunk shorter than the signature is read on until there are enough bytes.
+    const chunks = [[0x37, 0x7a], [0xbc, 0xaf, 0x27], [0x1c, 0x00]];
+    context.fetch = async () => ({ ok: true, status: 200, body: { getReader: () => {
+      let next = 0;
+      return { read: async () => (next < chunks.length ? { value: Uint8Array.from(chunks[next++]), done: false } : { value: undefined, done: true }) };
+    } } });
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
+    await single('');
+    assert.equal(started.at(-1).filename, 'Animation Queue Fix-798212.7z', 'a signature split over chunks is still read');
+    context.fetch = async () => ({ ok: true, status: 200, body: { getReader: () => ({ read: async () => ({ value: Uint8Array.from([0x50, 0x4b]), done: true }) }) } });
+    await single('');
+    assert.equal(started.at(-1).filename, undefined, 'a file shorter than any signature keeps Firefox\'s name');
+    context.fetch = async (url, options) => {
+      sniffs.push({ url: String(url), credentials: options?.credentials });
+      return { ok: true, status: 200, body: { getReader: () => ({ read: async () => ({ value: Uint8Array.from(firstBytes), done: false }) }) } };
+    };
+
     // What it cannot tell, or cannot read, keeps Firefox's name, as before.
     await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
     firstBytes = [0x4d, 0x5a, 0x90, 0x00];

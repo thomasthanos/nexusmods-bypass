@@ -503,6 +503,7 @@ const ARCHIVE_SIGNATURES = Object.freeze([
   { extension: '7z', bytes: [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c] },
   { extension: 'rar', bytes: [0x52, 0x61, 0x72, 0x21, 0x1a, 0x07] }
 ]);
+const ARCHIVE_SIGNATURE_BYTES = Math.max(...ARCHIVE_SIGNATURES.map(({ bytes }) => bytes.length));
 const ARCHIVE_SNIFF_TIMEOUT_MS = 15000;
 
 // The extension of the archive a link serves, '' when it cannot tell. Only the first part of the answer
@@ -515,8 +516,17 @@ async function sniffArchiveExtension(url) {
   try {
     const response = await fetch(url, { method: 'GET', credentials: 'omit', cache: 'no-store', signal: controller.signal });
     if (!response?.ok || !response.body?.getReader) return '';
-    const { value } = await response.body.getReader().read();
-    const head = value || [];
+    // The first chunk can be shorter than a signature: read until there are enough bytes, or the file ends.
+    const reader = response.body.getReader();
+    const head = [];
+    while (head.length < ARCHIVE_SIGNATURE_BYTES) {
+      const { value, done } = await reader.read();
+      if (done || !value?.length) break;
+      for (const byte of value) {
+        if (head.length >= ARCHIVE_SIGNATURE_BYTES) break;
+        head.push(byte);
+      }
+    }
     return ARCHIVE_SIGNATURES.find(({ bytes }) => bytes.every((byte, index) => head[index] === byte))?.extension || '';
   } catch (_) {
     return '';
@@ -670,7 +680,36 @@ async function searchRecentDownloads(now) {
   return results.flat();
 }
 
+// A tab opened for the person, beside the one that asked for it.
+function openTabBeside(url, sender) {
+  const opener = sender?.tab;
+  const properties = { url, active: true };
+  // In the opener's window: an index alone would place it in whichever window has the focus.
+  if (Number.isInteger(opener?.windowId) && opener.windowId >= 0) properties.windowId = opener.windowId;
+  if (Number.isInteger(opener?.index) && opener.index >= 0) properties.index = opener.index + 1;
+  if (Number.isInteger(opener?.id) && opener.id >= 0) properties.openerTabId = opener.id;
+  return new Promise((resolve, reject) => {
+    chrome.tabs.create(properties, (tab) => {
+      const error = getRuntimeError();
+      if (error) reject(new Error(error));
+      else resolve(tab || null);
+    });
+  });
+}
+
 const DOWNLOAD_HANDLERS = {
+  // CloudflareFallback, on by default: a collection run that Nexus stopped for its browser check opens a
+  // Nexus page (NXTK.checkPageUrl) in a tab of its own, where the person completes the check; Start then
+  // carries on from the same file. Only a Nexus page is opened, and not at all with the setting off.
+  async OPEN_CHECK_PAGE(payload, sender) {
+    const url = NXTK.checkPageUrl(payload?.url);
+    if (!url) throw new Error('unsafe-check-page');
+    const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+    if (settings?.CloudflareFallback === false) return { opened: false };
+    const tab = await openTabBeside(url, sender);
+    return { opened: true, tabId: Number.isInteger(tab?.id) ? tab.id : null };
+  },
+
   async DOWNLOAD_START(payload, sender) {
     if (!hasDownloadsApi()) throw new Error('no-permission');
     const url = String(payload?.url || '');
@@ -1707,6 +1746,8 @@ async function advanceNdcJob(jobId) {
             current.status = resolved.code === 'requires_login' ? 'requires_login' : 'error';
             current.lastError = resolved.code;
             current.waitingUntil = retryUntil;
+            // The file a browser check stopped the run on: the page for the check is opened from it.
+            current.checkPageUrl = resolved.code === 'cloudflare' ? NXTK.checkPageUrl(item.pageUrl) : '';
             recordJobFailure(current, { fileId: item.fileId, code: resolved.code });
             bumpNdcControl(current);
           }
@@ -1717,6 +1758,7 @@ async function advanceNdcJob(jobId) {
         notifyNdcJob(job, 'NXT_NDC_DONE', {
           outcome: resolved.code,
           itemName: item.name,
+          checkPageUrl: job.checkPageUrl || '',
           skipped: jobSkippedList(job)
         });
         dropNdcJobItems(job.id);
@@ -3079,7 +3121,8 @@ const NDC_QUEUE_HANDLERS = {
       skippedCount: jobSkipCount(job),
       skipped: jobSkippedList(job),
       waitingUntil: Number(job.waitingUntil) || 0,
-      lastError: String(job.lastError || '')
+      lastError: String(job.lastError || ''),
+      checkPageUrl: job.status === 'error' && job.lastError === 'cloudflare' ? String(job.checkPageUrl || '') : ''
     };
   },
 

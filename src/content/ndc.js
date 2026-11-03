@@ -133,6 +133,8 @@ window.NexusExt = window.NexusExt || {};
       this.downloadMethod = DOWNLOAD_METHOD_VORTEX;
       this.requestTimeout = Errors.DEFAULT_TIMEOUT_MS;
       this.showAlertsOnError = true;
+      // CloudflareFallback: a run Nexus stops for its browser check opens a page for it (openCheckPage).
+      this.cloudflareFallback = true;
       this.downloadFolder = '';
       this.lastError = null;
       this.disposed = false;
@@ -287,6 +289,7 @@ window.NexusExt = window.NexusExt || {};
       this.downloadSpeed = settings.NDC_downloadSpeed;
       this.requestTimeout = settings.RequestTimeout || Errors.DEFAULT_TIMEOUT_MS;
       this.showAlertsOnError = settings.ShowAlertsOnError !== false;
+      this.cloudflareFallback = settings.CloudflareFallback !== false;
       this.downloadFolder = settings.DownloadFolder ?? '';
       this.wabbajackImport = settings.WabbajackImport === true;
       this.smallestFirst = settings.NDC_smallestFirst !== false;
@@ -484,6 +487,12 @@ window.NexusExt = window.NexusExt || {};
         text,
         error: downloadUrl ? null : Errors.create('no_nmm_link', { context: 'Reading collection download link', record: false })
       };
+    }
+
+    // What Nexus showed on the file's page in place of a link (errors.js pageNotices), for this run's log only.
+    pageNoticeText(error) {
+      const notices = Array.isArray(error?.pageNotices) ? error.pageNotices.filter(Boolean) : [];
+      return notices.length ? ` ${T('errPageNotice', 'Nexus shows this on the file’s page:')} “${notices.join('” “')}”` : '';
     }
 
     // How a file of the run ended, once: the attempts before it were not recorded.
@@ -883,6 +892,23 @@ window.NexusExt = window.NexusExt || {};
     }
 
     // What the error dialog's "Open file page" / "Use browser download" buttons refer to.
+    // CloudflareFallback, on by default: when Nexus stops a run for its browser check, the page for it opens
+    // in a new tab beside this one (a mod page without its file id, so Auto-start starts nothing there).
+    // The person completes the check there, and Start carries on from the file the run stopped on.
+    async openCheckPage(pageUrl) {
+      const url = NXTK.checkPageUrl?.(pageUrl) || '';
+      if (!this.cloudflareFallback || !url || this.disposed) return false;
+      let reply = null;
+      try {
+        reply = await NexusExt.Storage.sendDownloadCommand('OPEN_CHECK_PAGE', { url });
+      } catch (_) {
+        reply = null;
+      }
+      if (!reply?.ok || !reply.value?.opened) return false;
+      this.ui?.logText?.(T('logCheckPageOpened', 'A Nexus page opened in a new tab. Complete the check there, then start the download again: it carries on from the same file.'), 'info');
+      return true;
+    }
+
     errorContextFor(mod) {
       return {
         filePageUrl: NXTK.isSafeNexusPageUrl?.(this.fileLinkFor(mod)) ? this.fileLinkFor(mod) : '',
@@ -1049,7 +1075,7 @@ window.NexusExt = window.NexusExt || {};
           this.downloadController = null;
         };
 
-        const finish = (outcome = 'error', error = '', skipped = []) => {
+        const finish = (outcome = 'error', error = '', skipped = [], checkPageUrl = '') => {
           if (settled) return;
           settled = true;
           cleanup();
@@ -1066,7 +1092,14 @@ window.NexusExt = window.NexusExt || {};
             const text = queueErrorText(reason);
             this.ui.logText(TS('logBackgroundError', [text], `Background collection error: ${text}`), 'error');
           }
-          if (blocking && this.showAlertsOnError) NexusExt.UI?.showError?.(Errors.normalize({ code }));
+          // A browser check stopped the run: the dialog links the page for it, which also opens by itself.
+          const checkPage = code === 'cloudflare' ? NXTK.checkPageUrl?.(checkPageUrl) || '' : '';
+          if (blocking && this.showAlertsOnError) {
+            NexusExt.UI?.showError?.(Errors.normalize({ code }), checkPage
+              ? { title: T('dlgDownloadPaused', 'Download paused'), filePageUrl: checkPage, method: 'browser' }
+              : {});
+          }
+          if (checkPage) void this.openCheckPage(checkPage);
           let deckOutcome = known ? outcome : 'error';
           if (blocking) deckOutcome = code === 'requires_login' ? 'requires_login' : 'blocked';
           this.ui.endDownload(deckOutcome);
@@ -1107,7 +1140,7 @@ window.NexusExt = window.NexusExt || {};
             return;
           }
           if (DECK_OUTCOMES.has(snapshot.status)) {
-            finish(snapshot.status, snapshot.lastError || '', snapshot.skipped);
+            finish(snapshot.status, snapshot.lastError || '', snapshot.skipped, snapshot.checkPageUrl || '');
           }
         };
 
@@ -1183,7 +1216,7 @@ window.NexusExt = window.NexusExt || {};
           if (message.type === 'NXT_NDC_DONE') {
             stopWaitCountdown();
             if (message.folder) this.landedIn = String(message.folder);
-            finish(message.outcome || 'error', message.error || '', message.skipped);
+            finish(message.outcome || 'error', message.error || '', message.skipped, message.checkPageUrl || '');
           }
         };
 
@@ -1555,19 +1588,23 @@ window.NexusExt = window.NexusExt || {};
           const downloadError = this.resolveLinkError(downloadResult);
           this.recordFileFailure(downloadError);
           this.ui.log(
-            `[${modNumber}] ${escapeHtml(Errors.toLogMessage(downloadError))} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`,
+            `[${modNumber}] ${escapeHtml(Errors.toLogMessage(downloadError) + this.pageNoticeText(downloadError))} <a href="${fileUrl}" target="_blank" rel="noopener noreferrer">${fileName}</a>`,
             'error'
           );
           if (Errors.isBlocking(downloadError)) {
             forceStop = true;
             outcome = downloadError.code === 'requires_login' ? 'requires_login' : 'blocked';
+            // A browser check: the dialog links the page for it, which also opens by itself (openCheckPage).
+            const checkPage = downloadError.code === 'cloudflare' ? NXTK.checkPageUrl?.(mod.file?.url) || '' : '';
             if (this.showAlertsOnError) {
               NexusExt.UI.showError(downloadError, {
                 title: downloadError.code === 'requires_login'
                   ? T('dlgSignInRequired', 'Sign in required')
-                  : T('dlgDownloadPaused', 'Download paused')
+                  : T('dlgDownloadPaused', 'Download paused'),
+                ...(checkPage ? { filePageUrl: checkPage, method: 'vortex' } : {})
               });
             }
+            if (checkPage) void this.openCheckPage(checkPage);
           } else if (connectionLost) {
             // Nexus stayed out of reach through every wait: the run stops on this file, which is not
             // counted as failed, so starting again picks it up first.

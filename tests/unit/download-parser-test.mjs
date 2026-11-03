@@ -176,6 +176,17 @@ function workerEdgeCases(Parser) {
   }
   assert.doesNotMatch(Parser.explainMissingLink('{"error":"Invalid file 200 for jane@example.com"}', browser), /jane|200|Invalid/,
     'the answer\'s own text never reaches the explanation');
+  // Diagnostics issue #4: what a notice says, in its own words, is for the person's own error dialog only.
+  assert.deepEqual([...Parser.noticeHeadlines('<!doctype html><html><body><div id="Notice1"><h3 id="Notice1-title">Scheduled maintenance</h3></div>'
+    + '<div id="Notice9"><h3 id="Notice9-title">Error</h3><p id="Notice9-paragraph">This file can only be downloaded <b>manually</b> &amp; not with Vortex.</p></div>'
+    + '<div id="Notice10"><h3 id="Notice10-title">Scheduled maintenance</h3></div><div id="Notice11"><h3 id="Notice11-title">Fourth</h3></div></body></html>')],
+  ['Scheduled maintenance', 'Error: This file can only be downloaded manually & not with Vortex.', 'Fourth'],
+  'title and sentence, tags gone, entities read, each once, at most three');
+  assert.deepEqual([...Parser.noticeHeadlines('<h3 id="Notice1-title">Note</h3><p>&lt;script&gt;x&lt;/script&gt;' + 'y'.repeat(400) + '</p>')].map((line) => line.length <= 200 && !/[<>]/.test(line)), [true],
+    'no markup, and no longer than a line');
+  assert.deepEqual([...Parser.noticeHeadlines('<!doctype html><html><body><p>No notice here.</p></body></html>')], []);
+  assert.deepEqual([...Parser.noticeHeadlines(null)], []);
+
   // The kind of a link or a notice is named, never the link, its ids or the notice's words.
   for (const [text, options] of [
     [JSON.stringify({ vortexDownloadUrl: 'https://www.nexusmods.com/api/files/858993459400/download?nmm=1&key=secret' }), vortex],

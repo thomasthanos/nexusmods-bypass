@@ -344,7 +344,24 @@ async function truncationTests() {
     `the clipboard copy is the untruncated report (${result.report.length} vs ${sent.length})`);
 }
 
+// Issues #41 and #42: "Cloudflare fallback: not active" read as if the setting were off, when it was on
+// and only had not been needed. The line says the setting first.
+async function fallbackLineTests() {
+  const on = await loadShared({}).NXTK.buildBugReport();
+  assert.match(on, /^Cloudflare fallback: on · not needed on this page$/m, 'on by default, said so');
+  assert.doesNotMatch(on, /not active/);
+  const off = await loadShared({ settings: { CloudflareFallback: false } }).NXTK.buildBugReport();
+  assert.match(off, /^Cloudflare fallback: off$/m);
+  const used = loadShared({});
+  used.context.sessionStorage = {
+    getItem: (key) => key === 'nxtk_cloudflare_native_fallback'
+      ? JSON.stringify({ isNMM: true, fileId: '42', autoStartPending: true, expiresAt: Date.now() + 60000 }) : null
+  };
+  assert.match(await used.NXTK.buildBugReport(), /^Cloudflare fallback: on · used on this page \(Vortex · file 42 · still waiting to hand over · \d+s left\)$/m);
+}
+
 async function emptyLogTests() {
+  await fallbackLineTests();
   const { NXTK } = loadShared({ errors: [], total: 0 });
   const report = await NXTK.buildBugReport();
   assert.match(report, /\(no errors recorded\)/);
@@ -520,7 +537,8 @@ function settingLimitTests() {
   const normalize = NXTK.normalizeSetting;
   assert.equal(normalize('NDC_pauseBetweenDownload', -5), 0, 'a negative pause is stored as none');
   assert.equal(normalize('NDC_pauseBetweenDownload', 99999), 600, 'and a huge one is capped');
-  assert.equal(normalize('RequestTimeout', 1000), 5000, 'a timeout too short to reach Nexus is raised');
+  assert.equal(normalize('RequestTimeout', 1000), 15000, 'a timeout too short to reach Nexus is raised');
+  assert.equal(normalize('RequestTimeout', 5000), 15000, 'and 5 s too: Nexus often takes longer (diagnostics issue #2)');
   assert.equal(normalize('CloseTabDelay', 1500.6), 1501, 'millisecond settings are whole numbers');
   assert.equal(normalize('NDC_downloadSpeed', 2.5), 2.5, 'the speed keeps its decimals');
   assert.equal(normalize('NDC_downloadMethod', 7), 1, 'the method is one of the two that exist');

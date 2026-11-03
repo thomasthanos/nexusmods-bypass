@@ -153,6 +153,9 @@
   "errCloudflareFix": {
     "message": "Conclua a verificação na página do arquivo e tente novamente. Se ela continuar aparecendo, desative sua VPN ou proxy."
   },
+  "errPageNotice": {
+    "message": "O Nexus mostra isto na página do arquivo:"
+  },
   "errRateLimitedMsg": {
     "message": "O Nexus Mods está limitando temporariamente as solicitações."
   },
@@ -1323,6 +1326,21 @@
   },
   "setCloudflareFallbackDesc": {
     "message": "Se o Nexus pedir para verificar que você é humano, abre a página do arquivo para você concluir a verificação do navegador. Não pula a verificação. Por isso a aba atual pode mudar de página."
+  },
+  "cfOffTitle": {
+    "message": "Desativar isto?"
+  },
+  "cfOffMessage": {
+    "message": "Às vezes o Nexus pede que você prove que não é um robô. Com isto ativado, a extensão abre a página para você fazer isso, e seus downloads continuam. Desativado, esses downloads, e as coleções, simplesmente param com um erro."
+  },
+  "cfOffKeep": {
+    "message": "Manter ativado"
+  },
+  "cfOffTurnOff": {
+    "message": "Desativar"
+  },
+  "logCheckPageOpened": {
+    "message": "Uma página do Nexus foi aberta em uma nova aba. Conclua a verificação lá e inicie o download de novo: ele continua do mesmo arquivo."
   },
   "tabControls": {
     "message": "Controles",

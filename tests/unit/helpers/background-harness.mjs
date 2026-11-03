@@ -60,4 +60,4 @@ export const { mutateNdcJob, readNdcJob, saveNdcJob, storageSetLocal, storageGet
   advanceNdcJob, processNdcJob, appendErrorLogEntry, applyNdcDownloadTerminal, __verifyTransferSize: verifyTransferSize, __NDC_JOBS_KEY: NDC_JOBS_KEY, __writeQueues: writeQueues,
   __NDC_QUEUE_HANDLERS: NDC_QUEUE_HANDLERS, __STORAGE_HISTORY_KEY: STORAGE_HISTORY_KEY, __MAX_NDC_JOB_ITEMS: MAX_NDC_JOB_ITEMS } = context;
 export const { __handleNdcDownloadTerminal: handleNdcDownloadTerminal,
-  __recordQueueItemFailure: recordQueueItemFailure } = context;
+  __recordQueueItemFailure: recordQueueItemFailure, __DOWNLOAD_HANDLERS: DOWNLOAD_HANDLERS } = context;

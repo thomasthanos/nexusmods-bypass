@@ -153,6 +153,9 @@
   "errCloudflareFix": {
     "message": "Doğrulamayı dosya sayfasında tamamlayıp tekrar deneyin. Tekrar tekrar çıkıyorsa VPN'inizi veya proxy'nizi kapatın."
   },
+  "errPageNotice": {
+    "message": "Nexus dosyanın sayfasında şunu gösteriyor:"
+  },
   "errRateLimitedMsg": {
     "message": "Nexus Mods geçici olarak istekleri sınırlıyor."
   },
@@ -1323,6 +1326,21 @@
   },
   "setCloudflareFallbackDesc": {
     "message": "Nexus insan olduğunu doğrulamanı isterse tarayıcı kontrolünü kendin tamamlaman için dosya sayfasını açar. Kontrolü atlatmaz. Bu yüzden mevcut sekmedeki sayfa değişebilir."
+  },
+  "cfOffTitle": {
+    "message": "Kapatılsın mı?"
+  },
+  "cfOffMessage": {
+    "message": "Nexus bazen robot olmadığını göstermeni ister. Bu açıkken eklenti sayfayı açar, sen doğrulamayı yaparsın ve indirmelerin devam eder. Kapalıysa bu indirmeler ve koleksiyonlar bir hatayla durur."
+  },
+  "cfOffKeep": {
+    "message": "Açık kalsın"
+  },
+  "cfOffTurnOff": {
+    "message": "Kapat"
+  },
+  "logCheckPageOpened": {
+    "message": "Yeni bir sekmede bir Nexus sayfası açıldı. Doğrulamayı orada tamamla, sonra indirmeyi yeniden başlat: aynı dosyadan devam eder."
   },
   "tabControls": {
     "message": "Kontroller",

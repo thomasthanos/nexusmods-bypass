@@ -1179,7 +1179,11 @@ window.NexusExt = window.NexusExt || {};
       }
 
       if (isTerminalVortexError(latestError)) return { url: null, error: latestError };
-      return routeOutcome() || { url: null, error: latestError || Errors.create('no_nmm_link', { record: false }) };
+      const outcome = routeOutcome() || { url: null, error: latestError || Errors.create('no_nmm_link', { record: false }) };
+      // Diagnostics issue #4: a file page with a notice of its own in place of the file's card, on Opera
+      // above all. The dialog shows the person what the notice says; reports keep only its kind.
+      const notices = !outcome.url && outcome.error && firstResponse.ok ? DownloadParser.noticeHeadlines?.(firstResponse.text) || [] : [];
+      return notices.length ? { ...outcome, error: { ...outcome.error, pageNotices: notices } } : outcome;
     }
 
     const fetchFilePageFallback = async () => {
@@ -1206,7 +1210,8 @@ window.NexusExt = window.NexusExt || {};
         return { url: extracted.url };
       }
       noteAnswer('page', pageResponse, false);
-      return { url: null, error: Errors.create('no_download_url', { context: 'Reading manual download page', record: false }) };
+      return { url: null, error: Errors.create('no_download_url', { context: 'Reading manual download page', record: false,
+        pageNotices: DownloadParser.noticeHeadlines?.(pageResponse.text) || [] }) };
     };
 
     const attemptFetch = async (attempt, didPageFallback = false, lastError = null) => {

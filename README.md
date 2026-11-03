@@ -76,7 +76,7 @@ On first install, the welcome page asks three setup questions and has a **Test V
 - **Download flow:** auto-start, close the extra tab after sending to Vortex, skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first.
 - **Files:** browser download folder. Optional `.meta` files for Mod Organizer 2 beside each file saved in the browser, from a mod page or a collection, so MO2 shows the mod's description and opens its Nexus page (off by default).
 - **Official Nexus API:** use the documented API for collection, mod and file details (on), follow curator update policy (off), endorse and track buttons (on). See <a href="docs/nexus-site-map.md"><kbd>docs/nexus-site-map.md</kbd></a>.
-- **Advanced:** request timeout, close-tab delay, Vortex download speed and pause between files, official API, open the file page when Nexus asks for a browser check.
+- **Advanced:** request timeout (at least 15 seconds), close-tab delay, Vortex download speed and pause between files, official API, open a page when Nexus asks for a browser check (on by default, also for collections; turning it off asks first).
 - **Language:** Always use English.
 </details>
 

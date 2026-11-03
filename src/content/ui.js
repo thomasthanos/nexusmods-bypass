@@ -662,6 +662,10 @@ window.NexusExt = window.NexusExt || {};
     const shown = NexusExt.Errors?.displayText
       ? NexusExt.Errors.displayText(normalized)
       : { message: normalized.userMessage, recovery: normalized.recovery };
+    // What Nexus shows on the file's page in place of a link, in its own words (errors.js pageNotices).
+    const pageNotices = Array.isArray(normalized.pageNotices) && normalized.pageNotices.length
+      ? `<div class="nxtk-error-recovery nxtk-error-notice">${escapeHtml(NXTK.t('errPageNotice', null, 'Nexus shows this on the file’s page:'))}${normalized.pageNotices.map((line) => `<br>“${escapeHtml(line)}”`).join('')}</div>`
+      : '';
     // Without a title of its own the dialog names what is needed: a sign-in, or a look at the
     // download. A caller's title is kept as given, in whatever language it was translated into.
     const dialogTitle = title || (requiresLogin
@@ -689,6 +693,7 @@ window.NexusExt = window.NexusExt || {};
         <div class="nxtk-alert-body">
           <div class="nxtk-error-message">${escapeHtml(shown.message)}</div>
           <div class="nxtk-error-recovery">${escapeHtml(shown.recovery)}</div>
+          ${pageNotices}
           <div class="nxtk-error-code">${escapeHtml(NXTK.t('dlgErrorId', null, 'Error ID'))}: ${escapeHtml(NXTK.errorReference(normalized))} · ${escapeHtml(normalized.code)}</div>
         </div>
         <div class="nxtk-modal-footer nxtk-alert-footer nxtk-error-footer">
