@@ -688,13 +688,15 @@ function openTabBeside(url, sender) {
   if (Number.isInteger(opener?.windowId) && opener.windowId >= 0) properties.windowId = opener.windowId;
   if (Number.isInteger(opener?.index) && opener.index >= 0) properties.index = opener.index + 1;
   if (Number.isInteger(opener?.id) && opener.id >= 0) properties.openerTabId = opener.id;
-  return new Promise((resolve, reject) => {
-    chrome.tabs.create(properties, (tab) => {
+  const create = (props) => new Promise((resolve, reject) => {
+    chrome.tabs.create(props, (tab) => {
       const error = getRuntimeError();
       if (error) reject(new Error(error));
       else resolve(tab || null);
     });
   });
+  // The opener's window or place can be gone by now (closed, or the tab moved): a plain new tab then.
+  return create(properties).catch(() => create({ url, active: true }));
 }
 
 const DOWNLOAD_HANDLERS = {

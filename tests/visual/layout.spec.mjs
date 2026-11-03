@@ -1321,6 +1321,42 @@ test('skip requirements: a click on the requirements tab opens the files tab ins
   await ext.close();
 });
 
+// The Cloudflare fallback is on by default. Turning it off asks first, in plain words: the focused answer,
+// Enter and Escape keep it on, and only "Turn it off" saves it off. Turning it back on asks nothing.
+test('settings: turning the Cloudflare fallback off asks first and keeps it on unless confirmed', async () => {
+  const { ext, read } = await extensionPage();
+  const page = await openPage('https://www.nexusmods.com/skyrimspecialedition/mods/1', 1280, 800, 1);
+  await page.locator('#nxtk-settings-fab').click({ timeout: 20000 });
+  const modal = page.locator('#nxtk-settings-modal .nxtk-modal');
+  await settingsCategory(modal, 'advanced');
+  const toggle = modal.locator('[data-setting="CloudflareFallback"]');
+  const question = page.locator('#nxtk-cloudflare-off-modal');
+  const saved = async () => (await read('nxtk_settings'))?.CloudflareFallback;
+  await expect(toggle).toBeChecked();
+  for (const answer of ['Enter', 'Escape', 'keep']) {
+    await toggle.click();
+    await expect(question).toBeVisible();
+    await expect(question).toContainText('not a robot');
+    await expect(question.locator('.nxtk-btn-primary')).toBeFocused();
+    await expect(toggle, `${answer}: the switch stays on while it asks`).toBeChecked();
+    if (answer === 'keep') await question.locator('.nxtk-btn-primary').click();
+    else await page.keyboard.press(answer);
+    await expect(question).toHaveCount(0);
+    await expect(toggle, `${answer}: it stays on`).toBeChecked();
+    expect(await saved(), `${answer}: nothing turned it off`).not.toBe(false);
+  }
+  await expect(modal, 'the settings stay open under the question').toBeVisible();
+  await toggle.click();
+  await question.locator('[data-close="off"]').click();
+  await expect(toggle).not.toBeChecked();
+  await expect.poll(saved).toBe(false);
+  await toggle.click();
+  await expect(question, 'turning it back on asks nothing').toHaveCount(0);
+  await expect.poll(saved).toBe(true);
+  await page.close();
+  await ext.close();
+});
+
 test('settings: quick-setup presets apply and technical settings sit under Advanced', async () => {
   const { ext, patch, read } = await extensionPage();
   await patch({ NDC_downloadMethod: 0, AutoCloseTab: true, AutoStartDownload: true, SkipRequirements: true, HideDownloadPopup: true });
@@ -1928,6 +1964,28 @@ for (const lang of ['de', 'ru', 'el']) {
         }
         await settingsCategory(settings, 'basics');
         await page.screenshot({ path: path.join(shotDir, `compact-settings-${lang}-${width}.png`) });
+      }
+      // The question before the Cloudflare fallback is turned off fits as well, in these labels.
+      await settingsCategory(settings, 'advanced');
+      for (const [width, height] of [[360, 800], [180, 400]]) {
+        await page.setViewportSize({ width, height });
+        await settle(page);
+        const toggle = settings.locator('[data-setting="CloudflareFallback"]');
+        await toggle.click();
+        const question = page.locator('#nxtk-cloudflare-off-modal .nxtk-modal');
+        await expect(question).toBeVisible();
+        await expect(question).toContainText(catalog.cfOffKeep.message);
+        await expect(question).toContainText(catalog.cfOffTurnOff.message);
+        await settle(page);
+        await assertFits(page, '#nxtk-cloudflare-off-modal .nxtk-modal', `${lang} Cloudflare question ${width}`);
+        const clipped = await question.evaluate((el) => [...el.querySelectorAll('button, .nxtk-alert-line, .nxtk-modal-title')]
+          .filter((child) => child.scrollWidth > child.clientWidth + 1 || child.getBoundingClientRect().right > el.getBoundingClientRect().right + 1)
+          .map((child) => child.textContent.trim().slice(0, 30)));
+        expect(clipped, `${lang} ${width}px Cloudflare question text fits`).toEqual([]);
+        await page.screenshot({ path: path.join(shotDir, `cloudflare-off-${lang}-${width}.png`) });
+        await page.keyboard.press('Escape');
+        await expect(page.locator('#nxtk-cloudflare-off-modal')).toHaveCount(0);
+        await expect(toggle).toBeChecked();
       }
     } finally {
       await closeExtension(ctx);

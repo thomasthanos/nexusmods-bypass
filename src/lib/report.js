@@ -265,6 +265,11 @@
       if (key === 'NDC_downloadMethod') {
         line += value === 0 ? ' (Vortex)' : value === 1 ? ' (Browser)' : '';
       }
+      // A saved number outside its bounds is used as the bound (a 5 s link wait as 15 s): say what is used.
+      if (typeof value === 'number') {
+        const used = NXTK.normalizeSetting?.(key, value);
+        if (typeof used === 'number' && used !== value) line += ` (used as ${used})`;
+      }
       lines.push(line);
     }
     return lines;

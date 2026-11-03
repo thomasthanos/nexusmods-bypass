@@ -244,6 +244,21 @@ async function checkPageOpensBesideTheCollection() {
     const opened = await DOWNLOAD_HANDLERS.OPEN_CHECK_PAGE({ url: 'https://www.nexusmods.com/skyrimspecialedition/mods/266?tab=files&file_id=1000&nmm=1' }, sender);
     assert.deepEqual({ ...opened }, { opened: true, tabId: 99 });
     assert.deepEqual({ ...created[0] }, { url: 'https://www.nexusmods.com/skyrimspecialedition/mods/266', active: true, windowId: 2, index: 4, openerTabId: 7 });
+    // A window that is gone by now: the page still opens, in a plain new tab.
+    global.chrome.tabs.create = (properties, callback) => {
+      created.push(properties);
+      if (properties.windowId !== undefined) {
+        global.chrome.runtime.lastError = { message: 'No window with id: 2.' };
+        callback?.();
+        global.chrome.runtime.lastError = null;
+        return;
+      }
+      callback?.({ id: 100, ...properties });
+    };
+    const moved = await DOWNLOAD_HANDLERS.OPEN_CHECK_PAGE({ url: 'https://www.nexusmods.com/skyrimspecialedition/mods/266' }, sender);
+    assert.deepEqual({ ...moved }, { opened: true, tabId: 100 });
+    assert.deepEqual({ ...created.at(-1) }, { url: 'https://www.nexusmods.com/skyrimspecialedition/mods/266', active: true });
+    created.length = 1;
     await assert.rejects(DOWNLOAD_HANDLERS.OPEN_CHECK_PAGE({ url: 'https://evil.example/skyrimspecialedition/mods/1' }, sender), /unsafe-check-page/);
     await assert.rejects(DOWNLOAD_HANDLERS.OPEN_CHECK_PAGE({ url: 'javascript:alert(1)' }, sender), /unsafe-check-page/);
     await storageSetLocal(NXTK.SETTINGS_KEY, { ...NXTK.DEFAULTS, CloudflareFallback: false });

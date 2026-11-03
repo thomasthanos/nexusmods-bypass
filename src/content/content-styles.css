@@ -1805,6 +1805,16 @@ a.nxtk-settings-report { text-decoration: none; }
 }
 .nxtk-alert-line { padding: 2px 0; }
 .nxtk-alert-footer { justify-content: flex-end; }
+/* A narrow window (a phone, or a small one at browser zoom): an alert's title and its answers wrap instead
+   of running past the dialog's edge. "Να απενεργοποιηθεί;" and "Оставить включённым" did at 180px. */
+.nxtk-alert-header-inner { flex: 1 1 auto; min-width: 0; }
+.nxtk-alert-header-inner .nxtk-alert-icon { flex: 0 0 auto; }
+.nxtk-alert-header-inner .nxtk-modal-title { min-width: 0; overflow-wrap: anywhere; }
+.nxtk-alert-footer .nxtk-btn { max-width: 100%; white-space: normal; line-height: 1.25; overflow-wrap: anywhere; text-align: center; }
+@media (max-width: 260px) {
+  .nxtk-alert-modal { padding: 14px; }
+  .nxtk-alert-footer .nxtk-btn { flex: 1 1 100%; padding: 10px 12px; }
+}
 .nxtk-error-modal { border-color: rgba(224, 64, 64, .34); }
 .nxtk-error-icon { background: var(--nxtk-danger-soft); }
 .nxtk-error-icon svg { fill: var(--nxtk-danger); }
@@ -1818,6 +1828,8 @@ a.nxtk-settings-report { text-decoration: none; }
   color: var(--nxtk-text-muted);
   line-height: 1.55;
 }
+/* What Nexus shows on the file's page, quoted in its own words: a long word or link must not widen the dialog. */
+.nxtk-error-notice { overflow-wrap: anywhere; }
 .nxtk-error-code {
   margin-top: 14px;
   color: var(--nxtk-text-dim);

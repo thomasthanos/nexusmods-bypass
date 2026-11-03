@@ -350,8 +350,11 @@ async function fallbackLineTests() {
   const on = await loadShared({}).NXTK.buildBugReport();
   assert.match(on, /^Cloudflare fallback: on · not needed on this page$/m, 'on by default, said so');
   assert.doesNotMatch(on, /not active/);
-  const off = await loadShared({ settings: { CloudflareFallback: false } }).NXTK.buildBugReport();
+  const off = await loadShared({ settings: { CloudflareFallback: false, RequestTimeout: 5000 } }).NXTK.buildBugReport();
   assert.match(off, /^Cloudflare fallback: off$/m);
+  // Diagnostics issue #2: a saved 5 s link wait is used as 15 s, and the report says which.
+  assert.match(off, /^RequestTimeout: 5000 \(used as 15000\)$/m);
+  assert.match(on, /^RequestTimeout: 30000$/m, 'a value in bounds is printed as it is');
   const used = loadShared({});
   used.context.sessionStorage = {
     getItem: (key) => key === 'nxtk_cloudflare_native_fallback'
