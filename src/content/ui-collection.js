@@ -45,14 +45,18 @@
   // The names a collection file can be on disk under. Its API uri is the archive's name for an older
   // file, and a content address for a newer one (d6/87/9c/<uuid>, seen 2026-11-01). Nexus names a newer
   // file's archive "<file name>-<mod id>-<version>-<time>", a version with letters in it ("1-0a") too.
-  // 3.3.7 and older saved a file whose link had no name as "<mod name>-<file id>" (now the browser names
-  // it, background.js downloadPlan), and a mod's name is often not its file's.
+  // 3.3.7 and older saved a file whose link had no name as "<mod name>-<file id>", and so does Firefox now
+  // (background.js namedDownloadPlan); a mod's name is often not its file's. 4.0.0 and 4.0.1 in Firefox
+  // saved it as the <uuid> of its content address, with no extension (issue #42: 163 of a collection's 350
+  // files, all of them the uuid in a file's uri, checked on 2026-11-03).
   function normalizeModKeys(mod) {
     const fileId = String(mod?.fileId || mod?.file?.fileId || '');
     const modId = String(mod?.file?.mod?.modId || '');
     const modName = normalizeImportName(mod?.file?.mod?.name);
+    const uri = String(mod?.file?.uri || '');
     return {
-      uri: normalizeImportName(mod?.file?.uri),
+      uri: normalizeImportName(uri),
+      content: uri.includes('/') ? normalizeImportName(uri.split('/').pop()) : '',
       name: normalizeImportName(mod?.file?.name),
       modId: /^\d+$/.test(modId) ? modId : '',
       saved: modName && /^\d+$/.test(fileId) ? `${modName} ${fileId}` : ''
@@ -66,6 +70,7 @@
   function normalizedNameMatches(candidate, keys) {
     if (!candidate) return false;
     if (keys.uri.length >= 4 && keys.uri === candidate) return true;
+    if (keys.content.length >= 32 && followedByDigits(candidate, keys.content)) return true;
     if (keys.saved && followedByDigits(candidate, keys.saved)) return true;
     if (keys.name.length < 4 || !candidate.startsWith(keys.name)) return false;
     if (followedByDigits(candidate, keys.name)) return true;
@@ -74,22 +79,22 @@
     return !!keys.modId && candidate.startsWith(byMod) && /^(?: [\p{L}\p{N}]+)*$/u.test(candidate.slice(byMod.length));
   }
 
-  const IMPORT_FILE_EXTENSIONS = NXTK.ARCHIVE_FILE_EXTENSIONS;
-  const IMPORT_FILE_ACCEPT = IMPORT_FILE_EXTENSIONS.map((extension) => `.${extension}`).join(',');
-  const IMPORT_FILE_PATTERN = new RegExp(`\\.(?:${IMPORT_FILE_EXTENSIONS.join('|')})$`, 'i');
+  const IMPORT_FILE_PATTERN = new RegExp(`\\.(?:${NXTK.ARCHIVE_FILE_EXTENSIONS.join('|')})$`, 'i');
+  // A newer file Firefox saved under the uuid in its link: no extension, a "(1)" copy included.
+  const CONTENT_ADDRESS_NAME = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?: ?\(\d+\))?$/i;
 
+  // The picker lists every file: a list of archive types would hide the files Firefox saved with no
+  // extension, which Import now recognizes (issue #42). What is not an archive is left out here.
   function createImportFileInput() {
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.accept = IMPORT_FILE_ACCEPT;
     return input;
   }
 
-  // accept= is only a picker hint, so the selection is filtered again here.
   function collectImportFileNames(files) {
     const names = Array.from(files || [], (file) => file.name);
-    const archives = names.filter((name) => IMPORT_FILE_PATTERN.test(name));
+    const archives = names.filter((name) => IMPORT_FILE_PATTERN.test(name) || CONTENT_ADDRESS_NAME.test(name));
     return { names: archives, skipped: names.length - archives.length };
   }
 
@@ -1192,10 +1197,13 @@
         });
         const summary = [
           NXTK.t('alertImportedMods', [String(downloaded.length), String(ndc.mods.all.length)],
-            `Imported ${downloaded.length} of ${ndc.mods.all.length} collection mods into history.`),
-          NXTK.tPlural('alertUnmatchedFiles', unmatchedCount,
-            `${unmatchedCount} selected file${unmatchedCount === 1 ? '' : 's'} did not match this collection.`)
+            `Imported ${downloaded.length} of ${ndc.mods.all.length} collection mods into history.`)
         ];
+        // Issue #42's alert said "0 selected files did not match this collection."
+        if (unmatchedCount) {
+          summary.push(NXTK.tPlural('alertUnmatchedFiles', unmatchedCount,
+            `${unmatchedCount} selected file${unmatchedCount === 1 ? '' : 's'} did not match this collection.`));
+        }
         if (skipped) summary.push(importSkippedNotice());
         await nxtkAlert(summary.join('\n'));
       });

@@ -205,24 +205,29 @@ function nativePassthroughTests() {
 
 function importFileFilterTests() {
   // The list is shared with the worker and the download namer, so it comes from shared.js.
+  // The picker lists every file (issue #42), so this filter is the only one.
   const shared = fs.readFileSync('src/lib/shared.js', 'utf8');
   const NXTK = {
     ARCHIVE_FILE_EXTENSIONS: new Function(`return ${extractConstExpression(shared, 'ARCHIVE_FILE_EXTENSIONS')};`)()
   };
   const api = new Function('Array', 'RegExp', 'NXTK', `
-    const IMPORT_FILE_EXTENSIONS = ${extractConstExpression(ui, 'IMPORT_FILE_EXTENSIONS')};
-    const IMPORT_FILE_ACCEPT = ${extractConstExpression(ui, 'IMPORT_FILE_ACCEPT')};
     const IMPORT_FILE_PATTERN = ${extractConstExpression(ui, 'IMPORT_FILE_PATTERN')};
+    const CONTENT_ADDRESS_NAME = ${extractConstExpression(ui, 'CONTENT_ADDRESS_NAME')};
     ${extractFunction(ui, 'collectImportFileNames')}
-    return { collectImportFileNames, IMPORT_FILE_ACCEPT, IMPORT_FILE_EXTENSIONS };
+    return { collectImportFileNames };
   `)(Array, RegExp, NXTK);
 
-  const accept = api.IMPORT_FILE_ACCEPT.split(',');
-  assert.ok(accept.every((entry) => /^\.[a-z0-9]+$/.test(entry)), 'every accept entry is an extension');
-  for (const extension of ['.zip', '.7z', '.rar']) {
-    assert.ok(accept.includes(extension), `${extension} must be offered — Nexus serves it`);
+  for (const extension of ['zip', '7z', 'rar']) {
+    assert.deepEqual(api.collectImportFileNames([{ name: `Mod.${extension}` }]).names, [`Mod.${extension}`], `.${extension} is taken — Nexus serves it`);
   }
-  assert.ok(!accept.includes('.meta'), 'a mod manager sidecar is not a download');
+  // Issue #42: what Firefox saved a newer file as in 4.0.0 and 4.0.1, a "(1)" copy too.
+  assert.deepEqual(api.collectImportFileNames([
+    { name: '1895579d-e5d5-4f87-9ed6-75c5fdccd000' },
+    { name: '0B7A9AFF-7395-4CC8-AF40-F1DCE05808C2 (2)' },
+    { name: '1895579d-e5d5-4f87-9ed6-75c5fdccd000.meta' },
+    { name: '1895579d-e5d5-4f87' }
+  ]).names, ['1895579d-e5d5-4f87-9ed6-75c5fdccd000', '0B7A9AFF-7395-4CC8-AF40-F1DCE05808C2 (2)'],
+  'a bare uuid is a newer file Firefox saved, its sidecar and a cut one are not');
 
   const picked = api.collectImportFileNames([
     { name: 'Cool Mod-266-1-0.zip' },

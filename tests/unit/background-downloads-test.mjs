@@ -1949,13 +1949,14 @@ async function browserPlacesUnnamedDownloads() {
 // Nexus file's link carries no name (files.nexus-cdn.com/d6/87/9c/<uuid>, seen that day for file 798212):
 // its name and real extension come only in the answer's Content-Disposition, which the browser reads.
 // The browser names such a file; where the extension places it (a folder, or a .meta beside it),
-// Chromium's onDeterminingFilename puts the browser's name there. Firefox has no such event, so there
-// the file keeps the browser's name and place, and gets no .meta it could not be found beside.
+// Chromium's onDeterminingFilename puts the browser's name there. Firefox has no such event and names a
+// download by its link alone, so there the extension names it.
 async function newerNexusFilesKeepTheirOwnName() {
   const N = context.NXTK;
   const H = context.__DOWNLOAD_HANDLERS;
   const savedDownloads = global.chrome.downloads;
   const savedSession = global.chrome.storage.session;
+  const savedFetch = context.fetch;
   const session = {};
   global.chrome.storage.session = {
     get: (key, cb) => cb(key in session ? { [key]: structuredClone(session[key]) } : {}),
@@ -1995,6 +1996,8 @@ async function newerNexusFilesKeepTheirOwnName() {
     { url: 'https://www.nexusmods.com/skyrimspecialedition/mods/82395?tab=files&file_id=798212', tab: { id: 3 } });
   };
   const metas = () => started.filter((options) => options.filename?.endsWith('.meta'));
+  let chromiumFetches = 0;
+  context.fetch = async () => { chromiumFetches += 1; throw new TypeError('Failed to fetch'); };
   try {
     global.chrome.downloads = chromium;
     await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
@@ -2046,20 +2049,60 @@ async function newerNexusFilesKeepTheirOwnName() {
       'the waiting file is still placed');
     assert.equal(listeners.size, 0);
 
-    // Firefox: no onDeterminingFilename.
+    // Firefox: no onDeterminingFilename, and a download is named by its link alone, so 4.0.0 and 4.0.1 saved
+    // such a file as "d6879c21-…" with no extension (issues #41, #43). The extension names it, by the
+    // archive its first bytes show, and reads nothing more of it.
+    assert.equal(chromiumFetches, 0, 'Chromium reads the name from the answer: nothing is asked first');
     const { onDeterminingFilename, ...firefox } = chromium;
     void onDeterminingFilename;
     global.chrome.downloads = firefox;
-    const sessionBefore = Object.keys(session).length;
-    const inFirefox = await single('NexusMods');
-    assert.equal(started.at(-1).filename, undefined, 'Firefox names and places it as its own download');
-    assert.equal(Object.keys(session).length, sessionBefore, 'no .meta waits for a file whose place the extension does not know');
-    assert.equal(inFirefox.filename, '');
+    const sniffs = [];
+    let firstBytes = [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c, 0x00, 0x04];
+    context.fetch = async (url, options) => {
+      sniffs.push({ url: String(url), credentials: options?.credentials });
+      return { ok: true, status: 200, body: { getReader: () => ({ read: async () => ({ value: Uint8Array.from(firstBytes), done: false }) }) } };
+    };
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
+    const plainInFirefox = await single('');
+    assert.equal(started.at(-1).filename, 'Animation Queue Fix-798212.7z', 'named "<mod name>-<file id>", with its real extension');
+    assert.equal(plainInFirefox.filename, 'Animation Queue Fix-798212.7z');
+    assert.deepEqual(sniffs.at(-1), { url: uuid, credentials: 'omit' }, 'its first bytes are read without cookies');
+    assert.equal(listeners.size, 0);
+    await single('NexusMods');
+    assert.equal(started.at(-1).filename, 'NexusMods/Animation Queue Fix-798212.7z', 'in the folder, too');
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
+    const withMetaInFirefox = await single('');
+    onDisk.set(withMetaInFirefox.downloadId, 'C:\\Users\\me\\Downloads\\Animation Queue Fix-798212.7z');
+    await context.writeSingleMo2Meta(withMetaInFirefox.downloadId);
+    assert.equal(metas().at(-1).filename, 'Animation Queue Fix-798212.7z.meta', 'and it gets its .meta');
+    firstBytes = [0x50, 0x4b, 0x03, 0x04];
     const collectionInFirefox = await context.startNdcDownload({ id: 'job-uuid', folder: 'Collection' }, item, uuid);
-    assert.equal(collectionInFirefox.folder, null);
+    assert.equal(started.at(-1).filename, 'Collection/Animation Queue Fix-798212.zip');
+    assert.equal(collectionInFirefox.folder, 'Collection', 'the job knows where its .meta goes');
+    await context.startNdcDownload({ id: 'job-uuid', folder: '' }, { fileId: '798212', name: 'Wabbajack file' }, uuid);
+    assert.equal(started.at(-1).filename, 'd6879c21-5ebd-4d6f-b8cc-7756784d7d65.zip', 'with no mod name, the uuid keeps its place');
+
+    // What it cannot tell, or cannot read, keeps Firefox's name, as before.
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: false });
+    firstBytes = [0x4d, 0x5a, 0x90, 0x00];
+    await single('');
+    assert.equal(started.at(-1).filename, undefined, 'an unknown kind of file');
+    context.fetch = async () => { throw new TypeError('NetworkError when attempting to fetch resource.'); };
+    await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS, WriteMo2Meta: true });
+    const sessionBefore = Object.keys(session).length;
+    const unread = await single('NexusMods');
+    assert.equal(started.at(-1).filename, undefined, 'an answer it could not read');
+    assert.equal(unread.filename, '');
+    assert.equal(Object.keys(session).length, sessionBefore, 'no .meta waits for a file whose place the extension does not know');
+    const unreadCollection = await context.startNdcDownload({ id: 'job-uuid', folder: 'Collection' }, item, uuid);
+    assert.equal(unreadCollection.folder, null);
+    const sniffed = sniffs.length;
+    await context.startNdcDownload({ id: 'job-uuid', folder: 'Collection' }, item, 'https://cf-files.nexus-cdn.com/1704/12604/SkyUI_5_2_SE-12604-5-2SE.7z?md5=a');
+    assert.equal(sniffs.length, sniffed, 'a file with its name in its link is not asked');
   } finally {
     global.chrome.downloads = savedDownloads;
     global.chrome.storage.session = savedSession;
+    context.fetch = savedFetch;
     context.__recentDownloadStarts.clear();
     await storageSetLocal(N.SETTINGS_KEY, { ...N.DEFAULTS });
   }

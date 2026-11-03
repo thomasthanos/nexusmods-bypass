@@ -211,6 +211,67 @@ async function importRecognizesSavedNamesTests() {
   console.log('Import: names 3.3.7 and Nexus give a file are recognized OK');
 }
 
+// Issue #42: Import took 187 of a collection's 350 files. 4.0.0 and 4.0.1 in Firefox saved the other 163, all
+// newer files, under the uuid of their content address with no extension (all seven names the reporter
+// listed are such a file's uri, checked on 2026-11-03), and the picker's list of archive types hid them.
+// The alert also said "0 selected files did not match this collection."
+async function importRecognizesFirefoxUuidNamesTests() {
+  const f = fixture();
+  try {
+    for (const file of ['src/content/errors.js', 'src/content/ndc.js', 'src/content/ui-collection.js']) {
+      f.w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+    }
+    const ndc = new f.w.NexusExt.NDC('cyberpunk2077', 'iszwwe');
+    const mod = (fileId, name, uri, modId) => ({ fileId, file: { fileId, name, uri, size: 1024, mod: { modId, name } } });
+    ndc.mods.all = [
+      mod(154001, 'Immersive Rippers', '18/95/57/1895579d-e5d5-4f87-9ed6-75c5fdccd000', 7064),
+      mod(154002, 'Cyber Enemies', '0b/7a/9a/0b7a9aff-7395-4cc8-af40-f1dce05808c2', 30585),
+      mod(154003, 'Radio Hosts Fix', 'fe/78/5a/fe785a05-122b-4a0a-841f-1cd942027f03', 16643),
+      mod(113323, 'Immersive Food Vendors - Dogtown', 'Immersive Food Vendors - Dogtown-10393-1-2-1-1752182391.zip', 10393),
+      mod(154004, 'Time Dilation Overhaul', '72/d5/6a/72d56a15-b144-40ec-98c7-61efffa19958', 4931)
+    ];
+    ndc.mods.mandatory = ndc.mods.all;
+    const deck = f.w.NexusExt.UI.createControlDeck(ndc);
+    f.w.document.body.appendChild(deck);
+    let input;
+    const click = f.w.HTMLInputElement.prototype.click;
+    f.w.HTMLInputElement.prototype.click = function () { if (this.type === 'file') input = this; else click.call(this); };
+    let historyPatch;
+    f.w.NexusExt.Storage.mergeCollectionHistory = async (payload) => { historyPatch = payload; };
+    deck.querySelector('#nxtk-import-mods').click();
+    assert.equal(input.accept, '', 'the picker lists files with no extension too');
+    Object.defineProperty(input, 'files', { value: [
+      { name: '1895579d-e5d5-4f87-9ed6-75c5fdccd000' },
+      { name: '0b7a9aff-7395-4cc8-af40-f1dce05808c2(1)' },
+      { name: 'fe785a05-122b-4a0a-841f-1cd942027f03.zip' },
+      { name: 'Immersive Food Vendors - Dogtown-10393-1-2-1-1752182391.Zip' }
+    ] });
+    input.dispatchEvent(new f.w.Event('change'));
+    await tick();
+    assert.deepEqual([...historyPatch.lists.all], [154001, 154002, 154003, 113323],
+      'a file saved under its uuid, a "(1)" copy, one given ".zip" by hand, and one under its name');
+    const alert = f.w.document.querySelector('.nxtk-alert-modal').textContent;
+    assert.match(alert, /Imported 4 of 5/);
+    assert.doesNotMatch(alert, /did not match/, 'no line about files that did not match when every one did');
+    assert.doesNotMatch(alert, /not mod archives/, 'a uuid name is not skipped as something else');
+
+    f.w.document.querySelector('.nxtk-alert-modal')?.remove();
+    deck.querySelector('#nxtk-import-mods').click();
+    Object.defineProperty(input, 'files', { value: [
+      { name: '72d56a15-b144-40ec-98c7-61efffa19958' },
+      { name: '00000000-0000-4000-8000-000000000000' },
+      { name: 'notes.txt' }
+    ] });
+    input.dispatchEvent(new f.w.Event('change'));
+    await tick();
+    assert.deepEqual([...historyPatch.lists.all], [154004], 'another uuid is no file of this collection');
+    const second = f.w.document.querySelector('.nxtk-alert-modal').textContent;
+    assert.match(second, /1 selected file did not match/);
+    assert.match(second, /not mod archives were skipped/);
+  } finally { f.close(); }
+  console.log('Import: files Firefox saved under their uuid are recognized OK');
+}
+
 // QA on 2026-11-01: the deck's menu button had no accessible name, and a closed menu's items stayed in the
 // accessibility tree (only made transparent), where screen readers and automation still found them.
 async function deckMenuAccessibilityTests() {
@@ -475,6 +536,7 @@ async function settingsRegressionTests() {
   await popupRegressionTests();
   await runSummaryTests();
   await importRecognizesSavedNamesTests();
+  await importRecognizesFirefoxUuidNamesTests();
   await deckMenuAccessibilityTests();
   await settingsNavigationTests();
   await settingsRegressionTests();

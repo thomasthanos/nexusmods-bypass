@@ -613,6 +613,7 @@ async function queuedBrowserRoutesResolveToFiles() {
 // 3.3.6 and 4.0.0 queue reports: "generator HTTP 200: JSON {url}; a usable link was in it (Nexus page) |
 // page HTTP 200: … (download route) | route HTTP 200: … (download route)". The generator's link was a
 // Nexus address with no file name: a single download hands it to the browser, the queue never asked it.
+// In issue #41 all of them were newer files of under a kilobyte (checked on 2026-11-03).
 async function queuedGeneratorNexusLinkIsFollowed() {
   const savedFetch = context.fetch;
   const item = { fileId: 42, gameId: '1704', name: 'Wanted.7z',
@@ -634,8 +635,18 @@ async function queuedGeneratorNexusLinkIsFollowed() {
         expected: { ok: false, code: 'requires_login' } },
       { name: 'one that is throttled makes the run wait, with Nexus\'s Retry-After',
         answer: { status: 429, retryAfter: '90', contentType: 'text/html', body: '' }, expected: { ok: false, code: 'rate_limited', retryAfter: '90' } },
-      { name: 'one that cannot be reached is noted, not taken for a file',
-        answer: { failure: true }, expected: { ok: false, code: 'no_download_url' }, detail: /\| generator link: Failed to fetch after \d+ms$/ },
+      { name: 'one that cannot be reached is noted, not taken for a file', calls: 4,
+        answer: { failure: true }, expected: { ok: false, code: 'no_download_url' },
+        detail: /\| generator link: Failed to fetch after \d+ms \| generator link without cookies: Failed to fetch after \d+ms$/ },
+      // Issue #41 (Chromium, 2026-11-03): sent on with cookies to the CDN, which allows any origin, the
+      // request is refused as if nothing answered. Without cookies the same signed link serves the file.
+      { name: 'one refused with cookies is asked again without, and its file is taken', calls: 4,
+        answer: { refusedWithCookies: true, finalUrl: stored, contentType: 'application/x-7z-compressed', binary: true },
+        cancel: 1, expected: { ok: true, url: stored } },
+      { name: 'without cookies a sign-in page says nothing about the visitor', calls: 4,
+        answer: { refusedWithCookies: true, finalUrl: 'https://users.nexusmods.com/auth/sign_in', contentType: 'text/html', body: '<html>Sign in</html>' },
+        expected: { ok: false, code: 'no_download_url' },
+        detail: /\| generator link: Failed to fetch after \d+ms \| generator link without cookies HTTP 200; sent on to Nexus sign-in page$/ },
       { name: 'a file page from the generator is still never asked', generated: `${item.pageUrl}&nmm=1`, calls: 2,
         expected: { ok: false, code: 'no_download_url' } }
     ]) {
@@ -650,7 +661,7 @@ async function queuedGeneratorNexusLinkIsFollowed() {
         }
         if (target === offered) {
           const answer = test.answer;
-          if (answer.failure) throw new TypeError('Failed to fetch');
+          if (answer.failure || (answer.refusedWithCookies && options?.credentials === 'include')) throw new TypeError('Failed to fetch');
           const status = answer.status || 200;
           return {
             ok: status < 300, status, url: answer.finalUrl || offered,
@@ -666,7 +677,7 @@ async function queuedGeneratorNexusLinkIsFollowed() {
       };
       const result = await context.resolveNdcBrowserUrl(item, 30000);
       assert.deepEqual(Object.fromEntries(Object.keys(test.expected).map((key) => [key, result[key]])), test.expected, test.name);
-      assert.equal(asked.length, test.calls || 3, `${test.name}: the page, the generator and its link at most`);
+      assert.equal(asked.length, test.calls || 3, `${test.name}: the page, the generator and its link (twice when refused) at most`);
       assert.equal(canceled, test.cancel || 0, `${test.name}: an archive body is cancelled, not buffered`);
       if (test.detail) assert.match(result.detail, test.detail, `${test.name}: detail`);
       if (result.detail) assert.doesNotMatch(result.detail, /abc123|download\/|nexus-cdn/, `${test.name}: the report names kinds, never the address`);

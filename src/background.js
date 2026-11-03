@@ -478,20 +478,69 @@ const DOWNLOAD_CONFLICT_ACTION = 'uniquify';
 // extension come only in the answer's Content-Disposition, which the page cannot read and the browser
 // does. Such a file was named "<mod>-<file id>.zip", a 7z archive included. Now the browser names it,
 // and where the extension places it, Chromium's onDeterminingFilename moves that name into the folder.
-// Firefox has no such event: there such a file keeps the browser's name and place, and gets no .meta.
+// Firefox has no such event and names a download by its link alone, never by the answer, so there such
+// a file is named by the extension (givenName, see namedDownloadPlan).
 // folder: where in the download location the file ends up ('' for the location itself), or null where
 // the browser places it.
-function downloadPlan(url, folder, { writeMo2Meta = false } = {}) {
+function downloadPlan(url, folder, { writeMo2Meta = false, givenName = '' } = {}) {
   const request = { url, conflictAction: DOWNLOAD_CONFLICT_ACTION, saveAs: false };
-  const name = NXTK.downloadNameFromUrl(url);
+  const linkName = NXTK.downloadNameFromUrl(url);
+  const name = linkName || givenName;
   const dir = downloadSubfolder(folder);
-  if (!dir && !writeMo2Meta) return { request, name, folder: null, browserNamed: false };
+  // A name only the extension knows is always given; the browser takes one in the link by itself.
+  if (!dir && !writeMo2Meta && name === linkName) return { request, name, folder: null, browserNamed: false };
   if (name) {
     request.filename = buildDownloadPath(folder, name);
     return { request, name, folder: dir, browserNamed: false };
   }
   const placeable = !!chrome.downloads?.onDeterminingFilename?.addListener;
   return { request, name, folder: placeable ? dir : null, browserNamed: placeable };
+}
+
+// What an archive's first bytes say it is. Nexus hosts mods as these three almost only.
+const ARCHIVE_SIGNATURES = Object.freeze([
+  { extension: 'zip', bytes: [0x50, 0x4b, 0x03, 0x04] },
+  { extension: '7z', bytes: [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c] },
+  { extension: 'rar', bytes: [0x52, 0x61, 0x72, 0x21, 0x1a, 0x07] }
+]);
+const ARCHIVE_SNIFF_TIMEOUT_MS = 15000;
+
+// The extension of the archive a link serves, '' when it cannot tell. Only the first part of the answer
+// is read; the rest is never fetched. The CDN lets any origin read a file (Access-Control-Allow-Origin: *)
+// but not its Content-Disposition, which only a host permission would show (checked on 2026-11-03), and
+// such a read must carry no cookies, which a signed link does not need.
+async function sniffArchiveExtension(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ARCHIVE_SNIFF_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { method: 'GET', credentials: 'omit', cache: 'no-store', signal: controller.signal });
+    if (!response?.ok || !response.body?.getReader) return '';
+    const { value } = await response.body.getReader().read();
+    const head = value || [];
+    return ARCHIVE_SIGNATURES.find(({ bytes }) => bytes.every((byte, index) => head[index] === byte))?.extension || '';
+  } catch (_) {
+    return '';
+  } finally {
+    clearTimeout(timer);
+    controller.abort();
+  }
+}
+
+// Issues #41 and #43: Firefox saved a newer Nexus file, whose link has no name, as the "<uuid>" in its
+// link, with no extension, so it could neither be opened nor told from the others. There the extension
+// names it as 3.3.7 did, "<mod name>-<file id>" (which Import recognizes), now with the extension its first
+// bytes show rather than ".zip" for every file. A file it cannot tell keeps Firefox's name, as before.
+async function namedDownloadPlan(url, folder, { writeMo2Meta = false, modName = '', fileId = '' } = {}) {
+  const plan = downloadPlan(url, folder, { writeMo2Meta });
+  if (plan.name || chrome.downloads?.onDeterminingFilename?.addListener) return plan;
+  const mod = String(modName || '').trim();
+  const file = String(fileId ?? '').trim();
+  let base = mod && /^\d{1,12}$/.test(file) ? `${mod}-${file}` : '';
+  if (!base) {
+    try { base = decodeURIComponent(new URL(url).pathname.split('/').pop() || ''); } catch (_) { }
+  }
+  const extension = base ? await sniffArchiveExtension(url) : '';
+  return extension ? downloadPlan(url, folder, { writeMo2Meta, givenName: `${base}.${extension}` }) : plan;
 }
 
 // The extension's downloads whose names are not settled yet, by the link they were asked from: a file the
@@ -658,7 +707,9 @@ const DOWNLOAD_HANDLERS = {
       const existing = findDuplicateDownload(await searchRecentDownloads(now), { url: verdict.url, filename: urlName, now });
       if (existing) return { downloadId: existing.id, filename: existing.filename || urlName, duplicate: true };
       const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-      const plan = downloadPlan(verdict.url, payload?.folder, { writeMo2Meta: settings?.WriteMo2Meta === true });
+      const plan = await namedDownloadPlan(verdict.url, payload?.folder, {
+        writeMo2Meta: settings?.WriteMo2Meta === true, modName: payload?.modName, fileId: payload?.fileId
+      });
       let metaSaved = () => {};
       const downloadId = await startPlannedDownload(plan, (id) => {
         // Before anything else runs: the file can be complete before its .meta details are saved.
@@ -1215,11 +1266,24 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   // The generator can also answer with a Nexus address that is neither a page the queue knows nor named
   // like a file (3.3.6 and 4.0.0 queue reports: "a usable link was in it (Nexus page)"). A single
   // download hands such a link to the browser, which follows it; the queue never asked it. It is asked
-  // once now, and kept only when it answers with a file, never with a page.
+  // now, and kept only when it answers with a file, never with a page.
   if (found?.url && DOWNLOAD_PARSER.linkKind(found.url) === 'Nexus page') {
     const response = await fetchNdcResponse(found.url, { method: 'GET', credentials: 'include' }, timeoutMs, { probeDownload: true });
+    const sentOn = (answer) => (answer.url && answer.url !== found.url ? `; sent on to ${DOWNLOAD_PARSER.linkKind(answer.url)}` : '');
     if (response.status === 0) {
       routeDetails.push(connectionFailureDetail('generator link', response));
+      // Issue #41: the browser refuses a request with cookies that is sent on to a host the extension has
+      // no permission for and that lets any origin read it (Access-Control-Allow-Origin: *, as the CDN
+      // does): it fails as if nothing answered (checked in Chromium on 2026-11-03). The link is signed, as
+      // the CDN's are, so a refused one is asked once more without cookies, and only a file counts then: a
+      // sign-in page says nothing about a visitor who sent no cookies. A timeout is not asked again.
+      if (response.error !== 'timed out') {
+        const bare = await fetchNdcResponse(found.url, { method: 'GET', credentials: 'omit' }, timeoutMs, { probeDownload: true });
+        if (bare.fileUrl) return { ok: true, url: bare.fileUrl };
+        routeDetails.push(bare.status === 0
+          ? connectionFailureDetail('generator link without cookies', bare)
+          : `generator link without cookies HTTP ${bare.status}${sentOn(bare)}`);
+      }
     } else {
       const issue = classifyNexusResponse(response, response.text);
       if (issue) return ndcResolveFailure(issue.code, response);
@@ -1228,8 +1292,7 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
       if (response.fileUrl) return { ok: true, url: response.fileUrl };
       const fileUrl = response.ok ? ndcBrowserFileUrl(DOWNLOAD_PARSER.findDownloadLink(response.text, options)?.url) : '';
       if (fileUrl) return { ok: true, url: fileUrl };
-      const sentOn = response.url && response.url !== found.url ? `; sent on to ${DOWNLOAD_PARSER.linkKind(response.url)}` : '';
-      routeDetails.push(`generator link HTTP ${response.status}: ${response.text ? DOWNLOAD_PARSER.explainMissingLink(response.text, options) : 'no page'}${sentOn}`);
+      routeDetails.push(`generator link HTTP ${response.status}: ${response.text ? DOWNLOAD_PARSER.explainMissingLink(response.text, options) : 'no page'}${sentOn(response)}`);
     }
   }
 
@@ -1274,14 +1337,18 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   };
 }
 
-// The same as a single-mod download's (downloadPlan): the name in the link, else the browser's.
-async function ndcDownloadPlan(job, url) {
+// The same as a single-mod download's (namedDownloadPlan): the name in the link, else the browser's, or in
+// Firefox the extension's. Without an item, for a download the browser already has, nothing is asked.
+async function ndcDownloadPlan(job, url, item = null) {
   const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
-  return downloadPlan(url, job.folder, { writeMo2Meta: settings?.WriteMo2Meta === true });
+  const writeMo2Meta = settings?.WriteMo2Meta === true;
+  return item
+    ? namedDownloadPlan(url, job.folder, { writeMo2Meta, modName: item.modName, fileId: item.fileId })
+    : downloadPlan(url, job.folder, { writeMo2Meta });
 }
 
 async function startNdcDownload(job, item, url) {
-  const plan = await ndcDownloadPlan(job, url);
+  const plan = await ndcDownloadPlan(job, url, item);
   const downloadId = await startPlannedDownload(plan, (id) => ndcDownloadJobs.set(id, job.id));
   // filename: '' when the browser named the file. folder: where its .meta goes, null for none.
   return { downloadId, filename: plan.request.filename || '', folder: plan.folder };
