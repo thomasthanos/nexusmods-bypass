@@ -552,6 +552,36 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
+  // Issue #45: "Close the extra Nexus tab" closed a collection's own tab. The tab had become a file's
+  // Vortex page (most likely Vortex sent a "manual download only" file's page to the browser, and Opera GX
+  // opened it in that tab), Auto-start sent the file and the tab closed, with the collection run in it.
+  // The first Nexus page a tab showed is kept for the tab (sessionStorage lasts as long as the tab), and
+  // only a tab opened afresh on this very file counts as an extra tab to close. Any other tab stays open.
+  const TAB_FIRST_PAGE_KEY = 'nxtk_tab_first_page';
+  function filePageKey(url) {
+    try {
+      const parsed = new URL(url, location.href);
+      return `${parsed.pathname.replace(/\/+$/, '')}#${parsed.searchParams.get('file_id') || ''}`;
+    } catch (_) {
+      return '';
+    }
+  }
+  function rememberTabFirstPage() {
+    try {
+      if (sessionStorage.getItem(TAB_FIRST_PAGE_KEY)) return;
+      sessionStorage.setItem(TAB_FIRST_PAGE_KEY, JSON.stringify({ page: filePageKey(location.href), fresh: history.length <= 1 }));
+    } catch (_) { }
+  }
+  rememberTabFirstPage();
+  function isExtraTabForThisFile() {
+    try {
+      const first = JSON.parse(sessionStorage.getItem(TAB_FIRST_PAGE_KEY) || 'null');
+      return !!first?.fresh && !!getCurrentFileId() && first.page === filePageKey(location.href);
+    } catch (_) {
+      return false;
+    }
+  }
+
   function getCurrentFileKey() {
     const modPage = getModPagePath();
     const fileId = getCurrentFileId();
@@ -1905,7 +1935,10 @@ window.NexusExt = window.NexusExt || {};
       return false;
     }
     globalThis.NXTK?.bumpTotalDownloads?.();
-    if (closeTabAfterStart && cfg.AutoCloseTab && isNMM && attemptId === downloadAttemptSequence) {
+    if (closeTabAfterStart && cfg.AutoCloseTab && isNMM && attemptId === downloadAttemptSequence
+      && !isExtraTabForThisFile()) {
+      Logger.info('Not closing this tab: it showed another page before this file (issue #45).');
+    } else if (closeTabAfterStart && cfg.AutoCloseTab && isNMM && attemptId === downloadAttemptSequence) {
       const closeDelay = NXTK.normalizeSetting('CloseTabDelay', Number(cfg.CloseTabDelay))
         ?? NXTK.DEFAULTS.CloseTabDelay;
       // The tab closes only once the watch says Vortex opened: closing earlier would take the

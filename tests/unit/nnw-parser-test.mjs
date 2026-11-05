@@ -55,6 +55,8 @@ function createHarness({
   // With pages, requests go through the real errors.js and response classifier and are answered from this list.
   pages = null,
   sessionStorage = undefined,
+  // The tab's session history (history.length); none by default.
+  history = undefined,
   // The URL class the page sees, for a browser whose parser differs from Node's.
   url = URL
 } = {}) {
@@ -158,6 +160,7 @@ function createHarness({
     console,
     document,
     sessionStorage,
+    history,
     fetch,
     navigator: { onLine: true },
     location: {
@@ -955,6 +958,40 @@ async function oneShotNativeVortexTests() {
   assert.equal(obsolete.navigations.length, 0, 'navigation away while the route was being resolved cancels the old native handoff');
 }
 
+// Issue #45: "Close the extra Nexus tab" closed a collection's own tab once it had become a file's Vortex
+// page. Only a tab opened afresh on this very file is an extra tab; any other tab stays open.
+async function autoCloseOnlyExtraTabsTests() {
+  const page = 'https://www.nexusmods.com/newvegas/mods/100?tab=files&file_id=200&nmm=1';
+  const nxm = `nxm://newvegas/mods/100/files/200?key=abc&expires=${Math.floor(Date.now() / 1000) + 3600}&user_id=7`;
+  const card = `<!doctype html><html><body><section id="section"><mod-file-download file-id="200" user-is-logged-in="true" download-url="${nxm.replaceAll('&', '&amp;')}"></mod-file-download></section></body></html>`;
+  const run = async ({ historyLength, firstPage = null }) => {
+    const data = new Map(firstPage ? [['nxtk_tab_first_page', JSON.stringify(firstPage)]] : []);
+    const storage = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, String(value)), removeItem: key => data.delete(key) };
+    const h = createHarness({ href: page, sectionGameId: '130', pages: [{ body: card }], sessionStorage: storage, history: { length: historyLength } });
+    const sent = [];
+    const send = h.context.chrome.runtime.sendMessage;
+    h.context.chrome.runtime.sendMessage = (message, ...rest) => { sent.push(message.type); return send(message, ...rest); };
+    h.hooks.setConfig({ AutoStartDownload: true, AutoCloseTab: true, CloseTabDelay: 0, ShowAlertsOnError: false });
+    h.context.NXTK.waitForProtocolHandoff = async () => true;
+    h.context.NXTK.bumpTotalDownloads = () => {};
+    h.context.NXTK.recordVortexOpenEvent = () => {};
+    await h.hooks.autoStartDownload();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    return { closed: sent.includes('CLOSE_TAB'), handed: h.navigations.some((url) => String(url).startsWith('nxm:')), first: JSON.parse(data.get('nxtk_tab_first_page') || 'null') };
+  };
+  const fresh = await run({ historyLength: 1 });
+  assert.equal(fresh.handed, true, 'the file is sent to Vortex');
+  assert.equal(fresh.closed, true, 'a tab opened afresh on this file is closed, as before');
+  assert.deepEqual({ ...fresh.first }, { page: '/newvegas/mods/100#200', fresh: true });
+  const collection = await run({ historyLength: 2, firstPage: { page: '/games/witcher3/collections/osehn4#', fresh: true } });
+  assert.equal(collection.handed, true, 'the collection tab that became the file page still sends the file');
+  assert.equal(collection.closed, false, 'and the collection tab stays open');
+  const used = await run({ historyLength: 3 });
+  assert.equal(used.closed, false, 'a tab that showed another site first stays open');
+  const otherFile = await run({ historyLength: 2, firstPage: { page: '/newvegas/mods/100#199', fresh: true } });
+  assert.equal(otherFile.closed, false, 'a tab opened for another file of the mod stays open');
+}
+
 // E-0fk41cm: "Failed to fetch after 4580ms … page hidden". A tab that is closed or navigated drops its
 // requests with the same TypeError a dead connection gives; that is the page going away, not a fault.
 async function leavingPageTests() {
@@ -1060,6 +1097,7 @@ Promise.resolve()
   .then(oneShotNativeVortexTests)
   .then(staleSignedDownloadTests)
   .then(leavingPageTests)
+  .then(autoCloseOnlyExtraTabsTests)
   .then(() => console.log('nnw.js parser and fallback behavior OK'))
   .catch((error) => {
     console.error(error);

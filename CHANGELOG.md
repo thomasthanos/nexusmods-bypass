@@ -35,6 +35,8 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+- **A collection's tab is never closed by "Close the extra Nexus tab" (issue #45):** in Opera GX a Vortex collection run sent its first file, a "manual download only" one, and then the collection's own tab closed, so only that file was downloaded. The tab had become the file's Vortex page, most likely because Vortex had the browser open it there. *Auto-start* then sent the file and the setting closed the tab, the collection run with it. Now only a tab opened afresh on that very file is closed. A tab that showed another page first, a collection, a mod page or another site, stays open, and the file is still sent.
+
 <a id="release-4-0-2"></a>
 
 ## 4.0.2 — 2026-11-03
