@@ -1626,6 +1626,18 @@
     "message": "If Nexus asks you to verify you are human, open the file page so you can complete the browser check yourself. It does not bypass the check. This is why the current tab may change pages.",
     "description": "Settings-panel description. Explains why the tab navigates on its own when Cloudflare challenges a background request."
   },
+  "setCheckVortexOpensLabel": {
+    "message": "Check that Vortex opens",
+    "description": "Settings-panel label (Vortex section). \"Vortex\" is a product name."
+  },
+  "setShortCheckVortexOpens": {
+    "message": "Turn off for another mod manager that opens nxm:// links.",
+    "description": "One-line summary under the label. \"nxm://\" stays as-is."
+  },
+  "setCheckVortexOpensDesc": {
+    "message": "After a link is sent to Vortex, watch whether Vortex opened, and say so if it did not. Turn this off if another mod manager opens nxm:// links for you: links are then taken as picked up, the extra tab closes as usual and nothing asks whether Vortex opened.",
+    "description": "Settings help text: what the check does and why someone using another mod manager turns it off."
+  },
   "cfOffTitle": {
     "message": "Turn this off?",
     "description": "Title of the dialog shown when someone turns off \"Open page for a browser check\". Short and plain."

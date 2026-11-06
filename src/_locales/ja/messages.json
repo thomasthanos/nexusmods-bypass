@@ -1251,6 +1251,15 @@
   "setCloudflareFallbackDesc": {
     "message": "Nexus が人間であることの確認を求めた場合、ファイルページを開いて自分でブラウザー確認を完了できるようにします。確認を回避する機能ではありません。このため現在のタブでページが切り替わる場合があります。"
   },
+  "setCheckVortexOpensLabel": {
+    "message": "Vortex が開くか確認する"
+  },
+  "setShortCheckVortexOpens": {
+    "message": "nxm:// リンクを別の MOD マネージャーで開く場合はオフにします。"
+  },
+  "setCheckVortexOpensDesc": {
+    "message": "リンクを Vortex に送った後、Vortex が開いたかを確認し、開かなかった場合は知らせます。別の MOD マネージャーが nxm:// リンクを開く場合はオフにしてください。リンクは受け取られたものとして扱われ、余分なタブは通常どおり閉じ、Vortex が開いたかは尋ねません。"
+  },
   "cfOffTitle": {
     "message": "オフにしますか？"
   },

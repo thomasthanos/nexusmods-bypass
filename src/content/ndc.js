@@ -289,6 +289,7 @@ window.NexusExt = window.NexusExt || {};
       this.downloadSpeed = settings.NDC_downloadSpeed;
       this.requestTimeout = settings.RequestTimeout || Errors.DEFAULT_TIMEOUT_MS;
       this.showAlertsOnError = settings.ShowAlertsOnError !== false;
+      this.checkVortexOpens = settings.CheckVortexOpens !== false;
       this.cloudflareFallback = settings.CloudflareFallback !== false;
       this.downloadFolder = settings.DownloadFolder ?? '';
       this.wabbajackImport = settings.WabbajackImport === true;
@@ -751,6 +752,11 @@ window.NexusExt = window.NexusExt || {};
     // After the first hand-off of a run: wait for the page to lose focus (the OS opening Vortex), and
     // if it does not, ask once. Returns false when the user says Vortex did not open.
     async confirmFirstVortexHandoff() {
+      // Discussion #44: another mod manager opens the links without looking like Vortex to the page.
+      if (this.checkVortexOpens === false) {
+        NXTK.noteActivity?.('info', ['Vortex hand-off: not checking whether Vortex opened (setting off)']);
+        return true;
+      }
       let reason = '';
       NXTK.noteActivity?.('info', ['Vortex hand-off: watching whether Vortex opens (collection)']);
       const picked = await NXTK.waitForProtocolHandoff({ timeoutMs: VORTEX_CONFIRM_TIMEOUT_MS, maxMs: NXTK.PROTOCOL_BLUR_OPENED_MS, onResult: (r) => { reason = r; } });

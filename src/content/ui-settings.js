@@ -63,6 +63,7 @@
         : null
     },
     { key: 'RequestTimeout', label: () => NXTK.t('setRequestTimeoutLabel', null, 'Wait for a download link'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, desc: () => NXTK.t('setRequestTimeoutDesc', null, 'Time allowed to get a download link from Nexus, not the time needed to download the whole file. Increase only if slow replies keep timing out.') },
+    { key: 'CheckVortexOpens', label: () => NXTK.t('setCheckVortexOpensLabel', null, 'Check that Vortex opens'), type: 'bool', desc: () => NXTK.t('setCheckVortexOpensDesc', null, 'After a link is sent to Vortex, watch whether Vortex opened, and say so if it did not. Turn this off if another mod manager opens nxm:// links for you: links are then taken as picked up, the extra tab closes as usual and nothing asks whether Vortex opened.') },
     { key: 'CloseTabDelay', label: () => NXTK.t('setCloseTabDelayLabel', null, 'Close-tab delay'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, desc: () => NXTK.t('setCloseTabDelayDesc', null, 'For automatically started Vortex downloads only. Seconds to wait before closing the temporary Nexus tab after Vortex opens. Try a longer delay if Vortex misses links.') },
     {
       key: 'NDC_downloadSpeed',
@@ -86,7 +87,7 @@
     { name: 'basics', titleKey: 'setSectionBasics', title: 'Basics', keys: ['AutoStartDownload', 'SkipRequirements', 'ShowAlertsOnError'] },
     { name: 'downloads', titleKey: 'setSectionFlow', title: 'Downloads', keys: ['HandleArchivedFiles'], sections: [
       { name: 'browser', titleKey: 'presetBrowser', title: 'Browser downloads', keys: ['DownloadFolder', 'WriteMo2Meta'] },
-      { name: 'vortex', titleKey: 'setSectionVortex', title: 'Vortex', keys: ['AutoCloseTab', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'] }
+      { name: 'vortex', titleKey: 'setSectionVortex', title: 'Vortex', keys: ['AutoCloseTab', 'CheckVortexOpens', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'] }
     ] },
     { name: 'collections', titleKey: 'setSectionPacing', title: 'Collections & modlists', keys: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'] },
     { name: 'appearance', titleKey: 'setSectionLanguage', title: 'Appearance & language', keys: ['HidePremiumUpsells', 'ExpandRequirements', 'ForceEnglish'] },
@@ -103,6 +104,10 @@
     "AutoCloseTab": [
       "setShortAutoCloseTab",
       "Vortex only. Close the temporary tab after sending."
+    ],
+    "CheckVortexOpens": [
+      "setShortCheckVortexOpens",
+      "Turn off for another mod manager that opens nxm:// links."
     ],
     "SkipRequirements": [
       "setShortSkipRequirements",

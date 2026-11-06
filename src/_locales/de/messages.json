@@ -1327,6 +1327,15 @@
   "setCloudflareFallbackDesc": {
     "message": "Wenn Nexus prüfen möchte, ob du ein Mensch bist, öffnet sich die Dateiseite, damit du die Browserprüfung selbst abschließen kannst. Die Prüfung wird nicht umgangen. Deshalb kann der aktuelle Tab die Seite wechseln."
   },
+  "setCheckVortexOpensLabel": {
+    "message": "Prüfen, ob sich Vortex öffnet"
+  },
+  "setShortCheckVortexOpens": {
+    "message": "Ausschalten für einen anderen Mod-Manager, der nxm://-Links öffnet."
+  },
+  "setCheckVortexOpensDesc": {
+    "message": "Nachdem ein Link an Vortex gesendet wurde, wird geprüft, ob sich Vortex geöffnet hat, und gemeldet, wenn nicht. Schalte das aus, wenn ein anderer Mod-Manager nxm://-Links für dich öffnet: Links gelten dann als angenommen, der zusätzliche Tab schließt sich wie gewohnt und nichts fragt, ob sich Vortex geöffnet hat."
+  },
   "cfOffTitle": {
     "message": "Wirklich ausschalten?"
   },

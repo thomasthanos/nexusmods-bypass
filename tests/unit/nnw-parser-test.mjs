@@ -964,20 +964,21 @@ async function autoCloseOnlyExtraTabsTests() {
   const page = 'https://www.nexusmods.com/newvegas/mods/100?tab=files&file_id=200&nmm=1';
   const nxm = `nxm://newvegas/mods/100/files/200?key=abc&expires=${Math.floor(Date.now() / 1000) + 3600}&user_id=7`;
   const card = `<!doctype html><html><body><section id="section"><mod-file-download file-id="200" user-is-logged-in="true" download-url="${nxm.replaceAll('&', '&amp;')}"></mod-file-download></section></body></html>`;
-  const run = async ({ historyLength, firstPage = null }) => {
+  const run = async ({ historyLength, firstPage = null, check = true, opened = true }) => {
     const data = new Map(firstPage ? [['nxtk_tab_first_page', JSON.stringify(firstPage)]] : []);
     const storage = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, String(value)), removeItem: key => data.delete(key) };
     const h = createHarness({ href: page, sectionGameId: '130', pages: [{ body: card }], sessionStorage: storage, history: { length: historyLength } });
     const sent = [];
     const send = h.context.chrome.runtime.sendMessage;
     h.context.chrome.runtime.sendMessage = (message, ...rest) => { sent.push(message.type); return send(message, ...rest); };
-    h.hooks.setConfig({ AutoStartDownload: true, AutoCloseTab: true, CloseTabDelay: 0, ShowAlertsOnError: false });
-    h.context.NXTK.waitForProtocolHandoff = async () => true;
+    h.hooks.setConfig({ AutoStartDownload: true, AutoCloseTab: true, CloseTabDelay: 0, ShowAlertsOnError: false, CheckVortexOpens: check });
+    let watched = 0;
+    h.context.NXTK.waitForProtocolHandoff = async () => { watched += 1; return opened; };
     h.context.NXTK.bumpTotalDownloads = () => {};
     h.context.NXTK.recordVortexOpenEvent = () => {};
     await h.hooks.autoStartDownload();
     await new Promise((resolve) => setTimeout(resolve, 50));
-    return { closed: sent.includes('CLOSE_TAB'), handed: h.navigations.some((url) => String(url).startsWith('nxm:')), first: JSON.parse(data.get('nxtk_tab_first_page') || 'null') };
+    return { watched, closed: sent.includes('CLOSE_TAB'), handed: h.navigations.some((url) => String(url).startsWith('nxm:')), first: JSON.parse(data.get('nxtk_tab_first_page') || 'null') };
   };
   const fresh = await run({ historyLength: 1 });
   assert.equal(fresh.handed, true, 'the file is sent to Vortex');
@@ -990,6 +991,15 @@ async function autoCloseOnlyExtraTabsTests() {
   assert.equal(used.closed, false, 'a tab that showed another site first stays open');
   const otherFile = await run({ historyLength: 2, firstPage: { page: '/newvegas/mods/100#199', fresh: true } });
   assert.equal(otherFile.closed, false, 'a tab opened for another file of the mod stays open');
+  // Discussion #44: another mod manager opens the link but does not look like Vortex to the page.
+  const unseen = await run({ historyLength: 1, opened: false });
+  assert.equal(unseen.closed, false, 'with the check on, a tab whose link showed no sign of Vortex stays open');
+  const otherManager = await run({ historyLength: 1, opened: false, check: false });
+  assert.equal(otherManager.watched, 0, 'with "Check that Vortex opens" off, nothing watches for Vortex');
+  assert.equal(otherManager.handed, true);
+  assert.equal(otherManager.closed, true, 'and the extra tab closes as usual');
+  const otherManagerCollection = await run({ historyLength: 2, firstPage: { page: '/games/witcher3/collections/osehn4#', fresh: true }, check: false });
+  assert.equal(otherManagerCollection.closed, false, 'a tab that was another page first still stays open');
 }
 
 // E-0fk41cm: "Failed to fetch after 4580ms … page hidden". A tab that is closed or navigated drops its

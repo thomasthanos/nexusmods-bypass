@@ -1327,6 +1327,15 @@
   "setCloudflareFallbackDesc": {
     "message": "Se Nexus chiede di verificare che sei una persona, apre la pagina del file per consentirti di completare il controllo del browser. Non aggira il controllo. Per questo la scheda attuale può cambiare pagina."
   },
+  "setCheckVortexOpensLabel": {
+    "message": "Controlla che Vortex si apra"
+  },
+  "setShortCheckVortexOpens": {
+    "message": "Disattivalo se un altro gestore di mod apre i link nxm://."
+  },
+  "setCheckVortexOpensDesc": {
+    "message": "Dopo l'invio di un link a Vortex, controlla se Vortex si è aperto e avvisa se non è successo. Disattivalo se un altro gestore di mod apre i link nxm:// al posto tuo: i link si considerano ricevuti, la scheda in più si chiude come al solito e non viene chiesto se Vortex si è aperto."
+  },
   "cfOffTitle": {
     "message": "Disattivare?"
   },

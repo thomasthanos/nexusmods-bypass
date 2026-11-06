@@ -1327,6 +1327,15 @@
   "setCloudflareFallbackDesc": {
     "message": "Si Nexus demande de vérifier que tu es humain, ouvre la page du fichier pour que tu effectues toi-même la vérification du navigateur. Cela ne contourne pas le contrôle. L’onglet actuel peut donc changer de page."
   },
+  "setCheckVortexOpensLabel": {
+    "message": "Vérifier que Vortex s'ouvre"
+  },
+  "setShortCheckVortexOpens": {
+    "message": "Désactivez-le si un autre gestionnaire de mods ouvre les liens nxm://."
+  },
+  "setCheckVortexOpensDesc": {
+    "message": "Après l'envoi d'un lien à Vortex, vérifie que Vortex s'est ouvert et le signale sinon. Désactivez cette option si un autre gestionnaire de mods ouvre les liens nxm:// pour vous : les liens sont alors considérés comme reçus, l'onglet supplémentaire se ferme comme d'habitude et rien ne demande si Vortex s'est ouvert."
+  },
   "cfOffTitle": {
     "message": "Désactiver cette option ?"
   },

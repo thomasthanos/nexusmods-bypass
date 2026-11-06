@@ -1251,6 +1251,15 @@
   "setCloudflareFallbackDesc": {
     "message": "如果 Nexus 要求确认你是真人，会打开文件页面，让你自己完成浏览器验证。不会绕过验证。因此当前标签页可能切换页面。"
   },
+  "setCheckVortexOpensLabel": {
+    "message": "检查 Vortex 是否打开"
+  },
+  "setShortCheckVortexOpens": {
+    "message": "如果由其他模组管理器打开 nxm:// 链接，请关闭此项。"
+  },
+  "setCheckVortexOpensDesc": {
+    "message": "把链接发送给 Vortex 后，检查 Vortex 是否已打开，没有打开时会提示。如果由其他模组管理器为你打开 nxm:// 链接，请关闭此项：链接会被视为已接收，多余的标签页照常关闭，也不会再询问 Vortex 是否打开。"
+  },
   "cfOffTitle": {
     "message": "确定要关闭吗？"
   },

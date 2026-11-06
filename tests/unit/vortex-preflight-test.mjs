@@ -884,9 +884,10 @@ function createHarness(choice) {
     assert.deepEqual(Object.keys(winH.listeners), [], 'and leaves no listeners behind');
 
     // A typed run: hand-offs land in the sent list, a sent file is sent again, a downloaded one is skipped.
-    const typedRun = async ({ history = {}, opened = true, modalAnswer = 'yes', links = null, mods }) => {
+    const typedRun = async ({ history = {}, opened = true, modalAnswer = 'yes', links = null, mods, check = true }) => {
       const harness = createHarness('vortex');
       const { ndc } = harness;
+      ndc.checkVortexOpens = check;
       const handed = []; const logs = []; const recorded = []; let outcome = null; let modalShown = 0;
       ndc.pauseBetweenDownload = 0; ndc.showAlertsOnError = false; ndc.smallestFirst = false;
       ndc.ui.incrementProgress = () => {};
@@ -898,14 +899,15 @@ function createHarness(choice) {
       NexusExt.UI.showHistoryDecisionModal = async () => 'skip';
       NexusExt.Storage.clearHistoryType = async () => history;
       NexusExt.UI.showVortexOpenedModal = async () => { modalShown += 1; return modalAnswer; };
-      NXTK.waitForProtocolHandoff = async () => opened;
+      let watched = 0;
+      NXTK.waitForProtocolHandoff = async () => { watched += 1; return opened; };
       ndc.recordHistoryEntry = async (type, id) => { recorded.push([type, id]); return history; };
       const queue = links ? [...links] : null;
       ndc.fetchDownloadLinkWithRetry = async (mod) => ({ downloadUrl: queue ? queue.shift() : link(future) + mod.fileId });
       ndc.handOffDownload = (mod, url) => { handed.push([mod.file.name, url]); return true; };
       await ndc.runCollection(mods, 'all');
       NXTK.waitForProtocolHandoff = async () => true;
-      return { handed, logs, recorded, outcome, modalShown };
+      return { handed, logs, recorded, outcome, modalShown, watched };
     };
     const three = [vortexMod(1, 'A.7z', 1), vortexMod(2, 'B.7z', 2), vortexMod(3, 'C.7z', 3)];
 
@@ -925,6 +927,12 @@ function createHarness(choice) {
     assert.equal(refused.modalShown, 1, 'the user is asked once');
     assert.equal(refused.outcome, 'stopped');
     assert.ok(refused.logs.some((l) => /Vortex did not open/.test(l)));
+
+    // Discussion #44: with "Check that Vortex opens" off, another mod manager's silence asks nothing.
+    const otherManager = await typedRun({ opened: false, modalAnswer: 'no', mods: three, check: false });
+    assert.equal(otherManager.watched, 0, 'nothing watches for Vortex');
+    assert.equal(otherManager.modalShown, 0, 'nothing asks whether Vortex opened');
+    assert.equal(otherManager.handed.length, 3, 'and every file is sent');
 
     const confirmed = await typedRun({ opened: false, modalAnswer: 'yes', mods: three });
     assert.equal(confirmed.handed.length, 3, 'a "yes" sends the rest');

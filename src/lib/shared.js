@@ -242,6 +242,8 @@
   const DEFAULTS = {
     AutoStartDownload: true,
     AutoCloseTab: true,
+    // Discussion #44: off for another mod manager that opens nxm:// links but is not seen as Vortex.
+    CheckVortexOpens: true,
     SkipRequirements: true,
     ShowAlertsOnError: true,
     HandleArchivedFiles: true,

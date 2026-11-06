@@ -1681,6 +1681,11 @@ window.NexusExt = window.NexusExt || {};
   function watchSingleHandoff() {
     const wait = NXTK.waitForProtocolHandoff;
     if (typeof wait !== 'function') return Promise.resolve(true);
+    // Discussion #44: another mod manager opens the link without looking like Vortex to the page.
+    if (cfg.CheckVortexOpens === false) {
+      Logger.info('Vortex hand-off: not checking whether Vortex opened (setting off); the link counts as picked up');
+      return Promise.resolve(true);
+    }
     const sequence = ++singleHandoffSequence;
     let reason = '';
     Logger.info('Vortex hand-off: watching whether Vortex opens');

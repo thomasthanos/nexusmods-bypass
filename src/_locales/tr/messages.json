@@ -1327,6 +1327,15 @@
   "setCloudflareFallbackDesc": {
     "message": "Nexus insan olduğunu doğrulamanı isterse tarayıcı kontrolünü kendin tamamlaman için dosya sayfasını açar. Kontrolü atlatmaz. Bu yüzden mevcut sekmedeki sayfa değişebilir."
   },
+  "setCheckVortexOpensLabel": {
+    "message": "Vortex'in açıldığını kontrol et"
+  },
+  "setShortCheckVortexOpens": {
+    "message": "nxm:// bağlantılarını başka bir mod yöneticisi açıyorsa kapat."
+  },
+  "setCheckVortexOpensDesc": {
+    "message": "Bir bağlantı Vortex'e gönderildikten sonra Vortex'in açılıp açılmadığına bakar, açılmadıysa söyler. nxm:// bağlantılarını senin için başka bir mod yöneticisi açıyorsa bunu kapat: bağlantılar alınmış sayılır, fazladan sekme her zamanki gibi kapanır ve Vortex'in açılıp açılmadığı sorulmaz."
+  },
   "cfOffTitle": {
     "message": "Kapatılsın mı?"
   },

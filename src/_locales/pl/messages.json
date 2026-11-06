@@ -1479,6 +1479,15 @@
   "setCloudflareFallbackDesc": {
     "message": "Jeśli Nexus prosi o potwierdzenie, że jesteś człowiekiem, otwiera stronę pliku, aby można było samodzielnie przejść weryfikację przeglądarki. Nie omija weryfikacji. Dlatego bieżąca karta może zmienić stronę."
   },
+  "setCheckVortexOpensLabel": {
+    "message": "Sprawdzaj, czy Vortex się otwiera"
+  },
+  "setShortCheckVortexOpens": {
+    "message": "Wyłącz, jeśli linki nxm:// otwiera inny menedżer modów."
+  },
+  "setCheckVortexOpensDesc": {
+    "message": "Po wysłaniu linku do Vortex sprawdza, czy Vortex się otworzył, i informuje, jeśli nie. Wyłącz to, jeśli linki nxm:// otwiera za ciebie inny menedżer modów: linki są wtedy uznawane za przyjęte, dodatkowa karta zamyka się jak zwykle i nic nie pyta, czy Vortex się otworzył."
+  },
   "cfOffTitle": {
     "message": "Wyłączyć?"
   },

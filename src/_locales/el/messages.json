@@ -1327,6 +1327,15 @@
   "setCloudflareFallbackDesc": {
     "message": "Αν το Nexus ζητήσει να επιβεβαιώσεις ότι είσαι άνθρωπος, ανοίγει τη σελίδα του αρχείου για να ολοκληρώσεις εσύ τον έλεγχο. Δεν παρακάμπτει τον έλεγχο. Γι' αυτό μπορεί να αλλάξει η σελίδα στην τρέχουσα καρτέλα."
   },
+  "setCheckVortexOpensLabel": {
+    "message": "Έλεγχος ότι ανοίγει το Vortex"
+  },
+  "setShortCheckVortexOpens": {
+    "message": "Κλείσ' το αν τα nxm:// links τα ανοίγει άλλος mod manager."
+  },
+  "setCheckVortexOpensDesc": {
+    "message": "Μόλις σταλεί ένα link στο Vortex, ελέγχει αν άνοιξε το Vortex και σε ειδοποιεί αν δεν άνοιξε. Κλείσ' το αν τα nxm:// links τα ανοίγει άλλος mod manager: τα links θεωρούνται τότε ότι παραλήφθηκαν, η επιπλέον καρτέλα κλείνει κανονικά και δεν ρωτάει τίποτα για το Vortex."
+  },
   "cfOffTitle": {
     "message": "Να απενεργοποιηθεί;"
   },

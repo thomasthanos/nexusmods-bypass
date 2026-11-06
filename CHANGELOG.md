@@ -35,6 +35,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+- **Another mod manager instead of Vortex (discussion #44):** a mod manager that opens `nxm://` links the way Vortex does, but does not show the page the signs Vortex gives, got "Vortex didn't open?" after every download, its extra tab never closed, and collections asked whether Vortex had opened. The new setting *Check that Vortex opens* (Settings → Downloads → Vortex, on by default) can now be turned off. Links then count as picked up: the extra tab closes as usual, and nothing watches for Vortex or asks about it. Translated into all 13 languages.
 - **A collection's tab is never closed by "Close the extra Nexus tab" (issue #45):** in Opera GX a Vortex collection run sent its first file, a "manual download only" one, and then the collection's own tab closed, so only that file was downloaded. The tab had become the file's Vortex page, most likely because Vortex had the browser open it there. *Auto-start* then sent the file and the setting closed the tab, the collection run with it. Now only a tab opened afresh on that very file is closed. A tab that showed another page first, a collection, a mod page or another site, stays open, and the file is still sent.
 
 <a id="release-4-0-2"></a>

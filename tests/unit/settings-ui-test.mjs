@@ -599,7 +599,7 @@ async function settingsRegressionTests() {
     await w.NexusExt.UIKit.settings.open();
     const groups = {
       basics: ['AutoStartDownload', 'SkipRequirements', 'ShowAlertsOnError'],
-      downloads: ['HandleArchivedFiles', 'DownloadFolder', 'WriteMo2Meta', 'AutoCloseTab', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'],
+      downloads: ['HandleArchivedFiles', 'DownloadFolder', 'WriteMo2Meta', 'AutoCloseTab', 'CheckVortexOpens', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'],
       collections: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'],
       appearance: ['HidePremiumUpsells', 'ExpandRequirements', 'ForceEnglish'],
       diagnostics: ['AutoErrorReports', 'PrivateDiagnostics'],
@@ -611,8 +611,8 @@ async function settingsRegressionTests() {
       assert.deepEqual([...section.querySelectorAll('[data-setting]')].map((el) => el.dataset.setting), keys);
     }
     assert.equal(find('[data-settings-group="advanced"]').hidden, true);
-    assert.equal(modal().querySelectorAll('[data-setting]').length, 23, 'all settings appear exactly once');
-    assert.equal(new Set([...modal().querySelectorAll('[data-setting]')].map((el) => el.dataset.setting)).size, 23);
+    assert.equal(modal().querySelectorAll('[data-setting]').length, 24, 'all settings appear exactly once');
+    assert.equal(new Set([...modal().querySelectorAll('[data-setting]')].map((el) => el.dataset.setting)).size, 24);
     for (const input of modal().querySelectorAll('[data-setting]')) {
       assert.ok(input.labels?.length || input.getAttribute('aria-labelledby'), `${input.dataset.setting} has an accessible label`);
     }
