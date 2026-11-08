@@ -17,6 +17,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-4-1-0"><kbd> 4.1.0 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-0-3"><kbd> 4.0.3 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-0-2"><kbd> 4.0.2 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-0-1"><kbd> 4.0.1 </kbd></a>&ensp;·&ensp;
@@ -35,6 +36,10 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 <a id="unreleased"></a>
 
 ## Unreleased
+
+<a id="release-4-1-0"></a>
+
+## 4.1.0 — 2026-11-08
 
 - **Large files saved with their real name (resumable downloads):** Nexus's resumable download, for files over 500 MB in Chrome, Edge and Opera, asked the browser to save a newer file under the code in its address, and the browser offered it as `<code>.txt` (for example `6f96399b-8cd8-4a91-8fe4-3cdc58d90124.txt`). The file had to be renamed by hand before Vortex, Mod Organizer 2 or an archive tool would open it. The save window now offers the name Nexus gives such an archive, `<file name>-<mod id>-<file id>`, which *Import* recognizes, with the extension the file really has (`.zip`, `.7z` or `.rar`). Once *Resumable download* is chosen, the extension asks Nexus for the file's link as *Slow download* does and reads only its first bytes, without cookies, to tell which. If it cannot tell in time, the finished file is named after its contents. Where the browser renames a saved file only after a click, the extension's panel shows a *Fix the file name* button. Nexus's own download is unchanged, and permissions are the same. Translated into all 13 languages.
 - **Nexus's download window in the extension's look, without "Go premium":** the *Download mod file* window that the mod page's *Manual* and *Vortex* buttons open (with the file's requirements) is drawn by Nexus in a part of the page the extension's styles and upsell hiding did not reach, so it kept Nexus's look and its "Go 10x faster. Play more. Go premium" banner. The window now gets the extension's look and name tag, and with *Hide ads and Premium panels* on (the default) the banner is hidden. The requirements, the author's note and Nexus's own buttons stay as they are.
