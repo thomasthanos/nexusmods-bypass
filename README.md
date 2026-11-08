@@ -21,6 +21,13 @@
   <img src="docs/assets/features.svg" alt="Fewer clicks, collection queue, resume, official Nexus API, Wabbajack (beta), safer Vortex handoff, reports and debug log, 13 languages" width="100%" />
 </p>
 
+https://github.com/user-attachments/assets/436aa468-cb14-4370-8301-d2b5177fda6b
+
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/436aa468-cb14-4370-8301-d2b5177fda6b">▶ Watch the showcase video</a><br />
+  <sub>If the player is unavailable in the GitHub mobile app, open the video link in your browser.</sub>
+</p>
+
 <p align="center">
   <img src="docs/assets/install-steps.svg" alt="Download the ZIP, load it, sign in to Nexus Mods" width="100%" />
 </p>
