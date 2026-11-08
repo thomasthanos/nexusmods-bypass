@@ -1,6 +1,6 @@
 {
   "name": "nexusmods-bypass",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "private": true,
   "description": "Development tooling for the NexusMods Bypass browser extension. The extension itself has no runtime dependencies.",
   "workspaces": [

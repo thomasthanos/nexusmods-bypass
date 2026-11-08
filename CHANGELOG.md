@@ -17,6 +17,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-4-0-3"><kbd> 4.0.3 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-0-2"><kbd> 4.0.2 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-0-1"><kbd> 4.0.1 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-0-0"><kbd> 4.0.0 </kbd></a>&ensp;·&ensp;
@@ -34,6 +35,10 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 <a id="unreleased"></a>
 
 ## Unreleased
+
+<a id="release-4-0-3"></a>
+
+## 4.0.3 — 2026-11-08
 
 - **Collection files the browser refused, downloaded after all (diagnostics issue #7):** in 4.0.2 the most reported error, on Chrome, Opera and Edge, was a browser collection run failing a file with `no_download_url`. Nexus's link generator gave a Nexus address. With cookies, the browser refused the request it was sent on to; without them, the same address answered with a page. So the address is reachable, and only the cookie request's next step is refused. That address now goes to the browser's own download, which sends the cookies and follows it, as a single download does. A web page saved in place of a small file is now caught as *not a file*, and a report says what the address answered without cookies, by kind only.
 - **"Could not load file" explained (diagnostics issues #13, #18, #19):** one install reported every hour that the collection downloader or the settings could not be loaded, because the browser could not read the extension's own files. The extension now asks once more a moment later, for files an update is replacing. If they stay unreadable, it says plainly that its files on this computer are missing or damaged and how to reinstall, and it no longer sends that as an error report.
