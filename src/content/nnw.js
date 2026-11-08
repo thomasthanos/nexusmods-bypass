@@ -3310,7 +3310,99 @@ div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/regist
     shadowRoot.appendChild(shadowStyle);
   }
 
+  // Nexus's download windows ("Download mod file" with the file's requirements, from a Manual or Vortex
+  // button) are its nxm-modal, drawn in a download component's shadow root or in the page's own
+  // #next-shadow-root (seen 2026-11-08), where neither the page's extension stylesheet nor the page-wide
+  // observer reaches. Each such root gets the extension's look for the window and, with Hide Premium
+  // upsells on, loses the "Go premium" banner inside the requirements list. Nexus's nodes, text, links and
+  // handlers stay its own; only a style sheet and a name tag are added, and the banner is hidden, not removed.
+  const MODAL_STYLE_ATTR = 'data-nxtk-modal-style';
+  const MODAL_CSS = `
+.nxm-modal:not([data-nxtk-ask])>.nxm-modal-backdrop{background:rgba(8,10,18,.55);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%)}
+.nxm-modal-content{border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45))!important;border-radius:var(--nxtk-radius-md,16px)!important;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01)),var(--nxtk-glass-tint-deep,rgba(10,12,22,.92))!important;box-shadow:0 24px 60px rgba(0,0,0,.45),var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.35))!important;color:var(--nxtk-text,#eceaf2);font-family:"Inter",system-ui,sans-serif}
+.nxm-modal-header{gap:12px;border-color:var(--nxtk-border,rgba(255,255,255,.1))!important}
+.nxm-modal-header :is(h1,h2,h3){display:flex;align-items:center;flex-wrap:wrap;gap:10px;color:var(--nxtk-text-bright,#f8f8fc)}
+.nxm-modal-close-button{border-radius:var(--nxtk-radius-sm,12px);transition:color .18s,background .18s}
+.nxm-modal-close-button:hover{color:var(--nxtk-accent-hover,#ecaa5a);background:var(--nxtk-accent-soft,rgba(217,143,64,.18))}
+.nxm-modal-content hr,.nxm-modal-content [class*="border"]{border-color:var(--nxtk-border,rgba(255,255,255,.1))}
+.nxm-modal-content .nxm-button{border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45))!important;border-radius:var(--nxtk-radius-sm,12px)!important;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.02)),linear-gradient(135deg,var(--nxtk-accent,#d98f40),var(--nxtk-accent-dim,#b87a30))!important;color:#fff!important;font-weight:600;box-shadow:var(--nxtk-accent-glow,0 0 20px rgba(217,143,64,.24));transition:transform .18s,box-shadow .18s}
+.nxm-modal-content .nxm-button:hover{transform:translateY(-1px)}
+.nxm-modal-content .nxm-button :is(svg,span){color:inherit!important;fill:currentColor}
+.nxm-modal-content :is(button,a):focus-visible{outline:2px solid var(--nxtk-accent-hover,#ecaa5a)!important;outline-offset:2px}
+.nxm-modal-content a:not(.nxm-button):hover{color:var(--nxtk-accent-hover,#ecaa5a)}
+.nxm-modal-content [class*="bg-surface"]{background-color:rgba(255,255,255,.04)!important;border-color:var(--nxtk-border,rgba(255,255,255,.1))!important}
+.nxtk-modal-brand{padding:3px 10px;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45));border-radius:999px;background:var(--nxtk-accent-soft,rgba(217,143,64,.18));color:var(--nxtk-accent-hover,#ecaa5a);font:600 11px/1.4 "Inter",system-ui,sans-serif;letter-spacing:.3px;white-space:nowrap}
+.nxtk-upsell-hidden{display:none!important}
+`;
+  const PREMIUM_LINK_DEPTH = 5;
+  const modalRootsWatched = new WeakSet();
+  let modalSyncTimer = null;
+
+  function downloadModalRoots() {
+    const roots = getSearchRoots(document).slice(1);
+    const portal = document.getElementById('next-shadow-root')?.shadowRoot;
+    if (portal) for (const root of getSearchRoots(portal)) if (!roots.includes(root)) roots.push(root);
+    return roots;
+  }
+
+  const isPremiumLink = (node) => /premium/i.test(node.getAttribute?.('href') || '')
+    || textIs(controlLabel(node), 'goPremium', ['go premium', 'get premium', 'upgrade to premium']);
+
+  // The banner a "Go premium" link sits in: its ancestors that hold no other link or button, so the
+  // requirements around it (their own links) stay.
+  function premiumBannerOf(link) {
+    let box = link;
+    for (let depth = 0; depth < PREMIUM_LINK_DEPTH; depth += 1) {
+      const parent = box.parentElement;
+      if (!parent || parent.matches('.nxm-modal-content, .nxm-modal-body, [role="dialog"], #download-section')) break;
+      if (parent.querySelectorAll('a, button, h1, h2, h3, h4').length > 1) break;
+      box = parent;
+    }
+    return box;
+  }
+
+  function themeDownloadModal(root) {
+    const modals = root.querySelectorAll('.nxm-modal-content');
+    if (!modals.length) return;
+    if (!root.querySelector(`style[${MODAL_STYLE_ATTR}]`)) {
+      const style = document.createElement('style');
+      style.setAttribute(MODAL_STYLE_ATTR, '');
+      style.textContent = MODAL_CSS + (cfg.HidePremiumUpsells ? SHADOW_UPSELL_CSS : '');
+      root.append(style);
+    }
+    for (const modal of modals) {
+      // The extension's own question over a large file's chooser carries its name already.
+      if (modal.parentElement?.hasAttribute('data-nxtk-ask')) continue;
+      const title = modal.querySelector('.nxm-modal-header :is(h1, h2, h3)');
+      if (title && !title.querySelector('.nxtk-modal-brand')) {
+        const brand = document.createElement('span');
+        brand.className = 'nxtk-modal-brand';
+        brand.setAttribute(RD_UI_ATTR, '');
+        brand.textContent = NXTK.t('appName', null, 'NexusMods Bypass');
+        title.append(brand);
+      }
+      if (!cfg.HidePremiumUpsells) continue;
+      for (const link of modal.querySelectorAll('a, button')) {
+        if (!link.closest(`[${RD_UI_ATTR}]`) && isPremiumLink(link)) hideUpsellElement(premiumBannerOf(link));
+      }
+    }
+  }
+
+  function syncDownloadModals() {
+    clearTimeout(modalSyncTimer);
+    modalSyncTimer = null;
+    for (const root of downloadModalRoots()) {
+      themeDownloadModal(root);
+      if (modalRootsWatched.has(root) || typeof MutationObserver !== 'function') continue;
+      modalRootsWatched.add(root);
+      new MutationObserver(() => {
+        if (!modalSyncTimer) modalSyncTimer = setTimeout(syncDownloadModals, 30);
+      }).observe(root, { childList: true, subtree: true });
+    }
+  }
+
   function upsellBlocker() {
+    syncDownloadModals();
     if (!cfg.HidePremiumUpsells) return;
     applyUpsellHiding(document);
     document.querySelectorAll('mod-file-download').forEach(hideCardUpsells);
@@ -3706,6 +3798,10 @@ div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/regist
       interceptRequirementsTab();
       watchStoredSettings();
       attachSaveNameEvents();
+      // A download window opens on a click, in a root that may not have been there before.
+      window.addEventListener('click', () => {
+        for (const delay of [60, 300, 900]) setTimeout(syncDownloadModals, delay);
+      }, true);
       listenersAttached = true;
     }
     if (isCloudflareChallengeDocument()) {

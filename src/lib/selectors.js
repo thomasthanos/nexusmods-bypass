@@ -77,6 +77,8 @@
     // keeps the ad blocker, and the "Allow ads" it is offered beside.
     adblockNoticeContinue: Object.freeze(['continue with adblock']),
     adblockNoticeAllowAds: Object.freeze(['allow ads']),
+    // The "Go premium" link of the banner in Nexus's download window ("Go 10x faster. Play more.").
+    goPremium: Object.freeze(['go premium', 'get premium', 'upgrade to premium']),
     // Nexus's resumable downloads (beta, files over 500 MB). Nexus shows these in English only.
     largeFileChooser: Object.freeze(['resumable download']),
     standardDownload: Object.freeze(['standard download']),

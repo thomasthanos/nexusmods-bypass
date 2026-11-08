@@ -895,6 +895,47 @@ const adblockNoticeDone = (async () => {
   console.log('ad-blocker notice behavior OK');
 })();
 
+// --- Nexus's download window ("Download mod file", seen 2026-11-08 from the mod page's Manual button) -------
+// Drawn in the page's own #next-shadow-root, where the page's stylesheet does not reach. Its requirements
+// list carried a "Go 10x faster. Play more. Go premium" banner, and the window kept Nexus's look.
+await (async () => {
+  const MODAL = '<div class="nxm-modal nxm-modal-md" role="dialog" aria-modal="true"><div class="nxm-modal-backdrop"></div>'
+    + '<div class="nxm-modal-content"><div class="nxm-modal-header"><h2>Download mod file</h2>'
+    + '<button aria-label="Close" class="nxm-modal-close-button"><svg></svg></button></div>'
+    + '<div class="nxm-modal-body"><div class="flex justify-between"><p>Kassie\'s HR ReShade preset</p>'
+    + '<button type="button" class="nxm-button">Download</button></div><hr>'
+    + '<h3>Mod file requirements</h3><p>Some of these may be required, you may already have some from past downloads</p>'
+    + '<div class="rounded border"><div class="banner rounded"><svg></svg><p>Go 10x faster. Play more. '
+    + '<a href="https://users.nexusmods.com/account/billing/premium">Go premium</a></p></div>'
+    + '<div class="requirement"><a href="https://reshade.me" class="icon"><svg></svg></a><div><span>External resource</span><span>ReShade</span></div></div>'
+    + '<div class="note"><span>Author note</span><p>duh, obviously!</p></div></div></div></div></div>';
+  const w = load('file-page-signed-in.html');
+  w.fetch = () => new Promise(() => {});
+  w.NexusExt.Storage = {
+    getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: false }),
+    sendDownloadCommand: async () => ({ ok: true, value: {} })
+  };
+  const portalHost = w.document.createElement('div');
+  portalHost.id = 'next-shadow-root';
+  w.document.body.append(portalHost);
+  const portal = portalHost.attachShadow({ mode: 'open' });
+  portal.innerHTML = '<div id="floating-ui-root"></div>';
+  for (const name of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, name), 'utf8'));
+  await w.NexusExt.NNW.init();
+  // The window opens after the page has loaded, on the Manual button's click.
+  portal.getElementById('floating-ui-root').innerHTML = MODAL;
+  const banner = portal.querySelector('.banner');
+  await waitForState(() => banner.classList.contains('nxtk-upsell-hidden'), 'the Go premium banner is hidden');
+  assert.ok(!portal.querySelector('.requirement').classList.contains('nxtk-upsell-hidden'), 'the requirements stay');
+  assert.ok(!portal.querySelector('.requirement').closest('.nxtk-upsell-hidden'), 'and nothing around them is hidden');
+  assert.ok(!portal.querySelector('.note').closest('.nxtk-upsell-hidden'), 'nor the author\'s note');
+  assert.ok(portal.querySelector('style[data-nxtk-modal-style]'), 'the window gets the extension\'s look');
+  assert.ok(portal.querySelector('.nxm-modal-header h2 .nxtk-modal-brand'), 'and its name tag');
+  assert.equal(portal.querySelectorAll('.nxtk-modal-brand').length, 1, 'once');
+  assert.equal(portal.querySelector('.nxm-button').textContent, 'Download', 'Nexus\'s own button is left as it is');
+  console.log('download window look behavior OK');
+})();
+
 // --- The extension starts as soon as its scripts are in (performance review 2026-11-01) ------------------
 // It used to wait for the page's load event and then for the page to stop changing. Nexus's ads never let it
 // stop, so startup came 6-10 s after the scripts were in: a click on Manual download meanwhile went to Nexus,
