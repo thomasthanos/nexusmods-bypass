@@ -36,6 +36,8 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+- **Account-required download banner:** the native Nexus login/register panel now uses the extension's theme in the page and download-card shadow root. Original text, links and button handlers stay with Nexus; controls wrap on narrow screens and retain keyboard focus indicators.
+
 <a id="release-4-0-3"></a>
 
 ## 4.0.3 — 2026-11-08

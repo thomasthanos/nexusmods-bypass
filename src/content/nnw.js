@@ -2720,6 +2720,17 @@ window.NexusExt = window.NexusExt || {};
   // Inside the card's shadow root, where the page's extension stylesheet does not reach. The --nxtk-*
   // colours are set on the page's :root and carry into the shadow root.
   const RD_CARD_CSS = `
+
+/* Keep Nexus account-gate controls native; match their structure rather than mutable utility classes.
+   Also included in RD_CARD_CSS for the download component's shadow root. */
+div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/register"]){box-sizing:border-box;width:100%;display:flex;flex-direction:column;align-items:stretch;gap:18px;padding:20px 22px;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45));border-radius:var(--nxtk-radius-md,16px);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01)),var(--nxtk-glass-tint-deep,rgba(10,12,22,.92));box-shadow:0 18px 44px rgba(0,0,0,.35);color:var(--nxtk-text,#eceaf2);font:400 14px/1.45 "Inter",system-ui,sans-serif}
+div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/register"]) > div{display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap}
+div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/register"]) > div > svg{flex-shrink:0;color:var(--nxtk-accent-hover,#ecaa5a)}
+div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/register"]) p{flex:1;min-width:0;margin:0;color:var(--nxtk-text-bright,#f8f8fc);font:700 15px/1.5 "Inter",system-ui,sans-serif;overflow-wrap:anywhere}
+div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/register"]) :is(button,a){box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;flex:1 1 120px;min-height:42px;max-width:100%;padding:10px 18px;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45));border-radius:var(--nxtk-radius-sm,12px);background:var(--nxtk-glass-tint-soft,rgba(28,30,44,.7));color:var(--nxtk-text-bright,#f8f8fc);font:600 14px/1.4 "Inter",system-ui,sans-serif;text-decoration:none;white-space:normal;overflow-wrap:anywhere;cursor:pointer}
+div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/register"]) button{background:linear-gradient(135deg,var(--nxtk-accent,#d98f40),var(--nxtk-accent-dim,#b87a30));color:#fff}
+div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/register"]) :is(button,a):hover{border-color:var(--nxtk-accent-hover,#ecaa5a);box-shadow:var(--nxtk-accent-glow,0 0 20px rgba(217,143,64,.24))}
+div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/register"]) :is(button,a):focus-visible{outline:2px solid var(--nxtk-accent-hover,#ecaa5a);outline-offset:3px}
 .${RD_CARD_CLASS}{display:flex;flex-direction:column;gap:12px;padding:20px 22px;border:1px solid var(--nxtk-accent-border,rgba(217,143,64,.45));border-radius:var(--nxtk-radius-md,16px);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01)),var(--nxtk-glass-tint-deep,rgba(10,12,22,.92));box-shadow:0 18px 44px rgba(0,0,0,.35),var(--nxtk-accent-glow,0 0 24px rgba(217,143,64,.35));color:var(--nxtk-text,#eceaf2);font:400 14px/1.45 "Inter",system-ui,sans-serif;text-align:left}
 .nxtk-rd-head,.nxtk-rd-status{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .nxtk-rd-title{color:var(--nxtk-text-bright,#f8f8fc);font-size:15px;font-weight:700}
