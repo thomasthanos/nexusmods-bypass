@@ -1180,7 +1180,10 @@ async function requestClassifierForwardingTests() {
     'the real request path forwards Cf-Mitigated to the classifier');
 
   const unreadable = await requestWith({ failure: new TypeError('Failed to fetch') });
-  assert.equal(unreadable.error.code, 'network_error');
+  // Failing at once while online, it never left the browser (4.0.2 reports, "after 1ms"): an extension or
+  // a privacy setting stopped it, and the person is told so (request_blocked).
+  assert.equal(unreadable.error.code, 'request_blocked');
+  assert.match(unreadable.error.userMessage, /browser stopped the request/);
   assert.match(unreadable.error.technicalMessage, /fetch failed after \d+ms: GET Nexus API download endpoint; no readable HTTP response/,
     'a failed request says how long it took, which tells a refused request from a dropped connection');
   assert.doesNotMatch(unreadable.error.technicalMessage, /token=|private|api\/files\/200|cloudflare|CORS/i,
@@ -1214,6 +1217,10 @@ async function requestClassifierForwardingTests() {
   assert.equal(fromException(Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' })).code, 'aborted',
     'an abort outside a request is a cancel, not a timeout');
   assert.equal(fromException(new Error('Extension context invalidated.')).code, 'context_invalid');
+  // 4.0.2 reports, hourly from one install: the browser could not read one of the extension's own files.
+  const damaged = fromException(new Error("Could not load collection: Could not load file: 'content/ndc.js'."));
+  assert.equal(damaged.code, 'extension_damaged', 'an unreadable packaged file is an install problem');
+  assert.match(damaged.recovery, /Reinstall the extension/, 'and the person is told how to mend it');
   runtime.navigator.onLine = false;
   assert.equal(fromException(new TypeError('Failed to fetch')).code, 'offline', 'a failed fetch while offline says so');
   assert.equal(fromException(new RangeError('Invalid array length')).code, 'request_failed', 'being offline does not explain a bug');

@@ -123,8 +123,9 @@ function createHarness({
   const fetch = async (url, options = {}) => {
     calls.push({ url: String(url), options });
     if (!state.pages.length) throw new Error(`Unexpected request: ${url}`);
-    const { status = 200, body = '', failure, finalUrl, beforeReply } = state.pages.shift();
+    const { status = 200, body = '', failure, finalUrl, beforeReply, delay = 0 } = state.pages.shift();
     beforeReply?.();
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
     if (failure) throw failure;
     return {
       ok: status >= 200 && status < 300,
@@ -230,7 +231,13 @@ async function apiRouteRecoveryTests() {
     assert.equal(h.calls.length, 1, 'authentication, access and rate limits are not worked around');
     assert.equal(h.recorded.length, 1, `one final failure is recorded (HTTP ${status}: ${result.error.code})`);
   }
-  const offline = () => createHarness({ sectionGameId: '130', pages: Array.from({ length: 4 }, () => ({ failure: new TypeError('Failed to fetch') })) });
+  // 4.0.2 reports: "Failed to fetch after 1ms" while online. Nothing travels the network that fast: the
+  // browser stopped it (an ad or tracker blocker, a privacy setting), and the person is told so.
+  const blocked = createHarness({ sectionGameId: '130', pages: Array.from({ length: 4 }, () => ({ failure: new TypeError('Failed to fetch') })) });
+  const blockedResult = await blocked.api.getDownloadUrl({ fileId: '200', isNMM: false, href });
+  assert.equal(blockedResult.error.code, 'request_blocked', 'an instant failure never left the browser');
+  assert.equal(blocked.calls.length, 4, 'and the other ways to the link are still tried');
+  const offline = () => createHarness({ sectionGameId: '130', pages: Array.from({ length: 4 }, () => ({ failure: new TypeError('Failed to fetch'), delay: 30 })) });
   const failed = offline();
   const result = await failed.api.getDownloadUrl({ fileId: '200', isNMM: false, href });
   assert.equal(result.error.code, 'network_error');
@@ -528,9 +535,9 @@ async function missingLinkTrailTests() {
   const blocked = createHarness({
     sectionGameId: '130',
     pages: [
-      { failure: new TypeError('Failed to fetch') },
+      { failure: new TypeError('Failed to fetch'), delay: 30 },
       { body: '<!doctype html><html><body><h1>Example</h1></body></html>' },
-      { failure: new TypeError('Failed to fetch') }
+      { failure: new TypeError('Failed to fetch'), delay: 30 }
     ]
   });
   const network = await blocked.api.getDownloadUrl({ fileId: '200', isNMM: false });
@@ -725,7 +732,7 @@ async function unreadableRouteTests() {
   const UID = String(9719 * 2 ** 32 + 3357);
   const route = `https://www.nexusmods.com/api/files/${UID}/download?nmm=1`;
   const page = 'https://www.nexusmods.com/thebloodofdawnwalker/mods/224';
-  const unreadable = () => ({ failure: new TypeError('Failed to fetch') });
+  const unreadable = () => ({ failure: new TypeError('Failed to fetch'), delay: 30 });
   const webLink = () => ({ body: JSON.stringify({ url: 'https://cf-files.nexus-cdn.com/thebloodofdawnwalker/224/Mod.zip?md5=x&expires=2000000000' }) });
   const pageWithRoute = () => ({ body: `<!doctype html><html><body><mod-download-modal file='${JSON.stringify({ uid: Number(UID), vortexDownloadUrl: route })}'></mod-download-modal></body></html>` });
   const harness = (pages) => createHarness({ href: page, sectionGameId: '9719', pages });
@@ -760,7 +767,7 @@ async function unreadableRouteTests() {
   assert.equal(notOpened.viaRoute, undefined);
   assert.equal(notOpened.error.code, 'no_nmm_link');
   assert.equal(run.calls.length, 2, 'the route once and the page');
-  assert.match(notOpened.error.technicalMessage, /^the download route could not be fetched while another Nexus request succeeded; no Vortex link resolved \| steps: API route network_error \| page HTTP 200: HTML page; [^|]*download route/);
+  assert.match(notOpened.error.technicalMessage, /^the download route could not be fetched while another Nexus request succeeded; no Vortex link resolved \| steps: API route (?:network_error|request_blocked) \| page HTTP 200: HTML page; [^|]*download route/);
   assert.doesNotMatch(notOpened.error.technicalMessage, new RegExp(`${UID}|nexus-cdn|api/files`), 'with no link in it');
   assert.equal(run.recorded.length, 1, 'recorded at once, as it is not a connection failure');
 
@@ -792,7 +799,7 @@ async function unreadableRouteBoundaries() {
   const uid = String(9719 * 2 ** 32 + Number(fileId));
   const page = 'https://www.nexusmods.com/thebloodofdawnwalker/mods/224';
   const route = `https://www.nexusmods.com/api/files/${uid}/download?nmm=1`;
-  const unreadable = () => ({ failure: new TypeError('Failed to fetch') });
+  const unreadable = () => ({ failure: new TypeError('Failed to fetch'), delay: 30 });
   const pageWithRoute = { body: `<mod-download-modal file='${JSON.stringify({ uid: Number(uid), vortexDownloadUrl: route })}'></mod-download-modal>` };
   const harness = pages => createHarness({ href: page, sectionGameId: '9719', pages });
   const options = { fileId, isNMM: true, href: route, canOpenRoute: true, record: false };
@@ -1011,7 +1018,7 @@ async function leavingPageTests() {
   assert.equal(result.error.code, 'aborted', 'a request cut off by leaving the page is a cancel');
   assert.equal(h.recorded.length, 0, 'and is not logged as an error');
 
-  const back = createHarness({ pages: [{ failure: new TypeError('Failed to fetch') }] });
+  const back = createHarness({ pages: [{ failure: new TypeError('Failed to fetch'), delay: 30 }] });
   back.fire('pagehide');
   back.fire('pageshow');
   assert.equal((await back.api.getDownloadUrl({ fileId: '200', isNMM: true })).error.code, 'network_error',

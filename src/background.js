@@ -920,6 +920,11 @@ async function verifyTransferSize(downloadId, item, confirmedRecord = null) {
     && DOCUMENT_MIME_PATTERN.test(String(record.mime || ''))) {
     return { suspicious: true, code: 'not_a_file', actualBytes, expectedBytes, folder, detail };
   }
+  // A web page saved in place of a small file: a link the browser followed itself (the generator's,
+  // handed over in resolveNdcBrowserUrl) can end at one. Nexus lists no mod as a page twice its size.
+  if (expectedBytes > 0 && actualBytes > expectedBytes * 2 && /^text\/html|^application\/xhtml/i.test(String(record.mime || ''))) {
+    return { suspicious: true, code: 'not_a_file', actualBytes, expectedBytes, folder, detail };
+  }
   return { suspicious: false, actualBytes, expectedBytes, folder, detail };
 }
 
@@ -1323,7 +1328,14 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
         if (bare.fileUrl) return { ok: true, url: bare.fileUrl };
         routeDetails.push(bare.status === 0
           ? connectionFailureDetail('generator link without cookies', bare)
-          : `generator link without cookies HTTP ${bare.status}${sentOn(bare)}`);
+          : `generator link without cookies HTTP ${bare.status}${bare.text ? `: ${DOWNLOAD_PARSER.explainMissingLink(bare.text, options)}` : ''}${sentOn(bare)}`);
+        // 4.0.2 reports (Chrome, Opera, Edge): refused with cookies, while without them the same address
+        // answers with a page. So it is reachable, and it is the cookies' request that is sent on to the
+        // file server and refused. The browser's own download sends the cookies, follows the address and
+        // is not bound by that rule, as a single download does; verifyTransferSize then catches a page
+        // saved in place of the file.
+        const handed = bare.status > 0 ? ndcBrowserFileUrl(found.url, { served: true }) : '';
+        if (handed) return { ok: true, url: handed };
       }
     } else {
       const issue = classifyNexusResponse(response, response.text);
@@ -3524,8 +3536,21 @@ async function injectContentBundle(name, sender) {
   const target = sender.documentId
     ? { tabId: sender.tab.id, documentIds: [sender.documentId] }
     : { tabId: sender.tab.id, frameIds: [Number.isInteger(sender.frameId) ? sender.frameId : 0] };
-  await chrome.scripting.executeScript({ target, files });
+  // 4.0.2 reports: "Could not load file". Asked once more a moment later, for files being replaced by an
+  // update; files that stay unreadable are an install problem the page explains (extension_damaged).
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await chrome.scripting.executeScript({ target, files });
+      return;
+    } catch (cause) {
+      if (attempt >= 2 || !BUNDLE_FILE_UNREADABLE.test(String(cause?.message || cause))) throw cause;
+      await new Promise((resolve) => setTimeout(resolve, BUNDLE_RETRY_DELAY_MS));
+    }
+  }
 }
+
+const BUNDLE_FILE_UNREADABLE = /could not load file/i;
+const BUNDLE_RETRY_DELAY_MS = 1500;
 
 // The page that asked for the bundle was left or reloaded before it arrived. Nobody is waiting for
 // it, so this is not a fault worth a line in the bug report.
@@ -3540,7 +3565,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .then(() => sendResponse({ ok: true }))
       .catch((cause) => {
         const error = String(cause?.message || cause || 'bundle-load-failed');
-        if (!BUNDLE_TARGET_GONE.test(error)) recordBackgroundError('LOAD_BUNDLE', error);
+        // An unreadable packaged file is told to the person on the page that asked (extension_damaged);
+        // a background fault for it as well reported the same install problem twice an hour.
+        if (!BUNDLE_TARGET_GONE.test(error) && !BUNDLE_FILE_UNREADABLE.test(error)) recordBackgroundError('LOAD_BUNDLE', error);
         sendResponse({ ok: false, error });
       });
     return true;

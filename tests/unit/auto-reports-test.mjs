@@ -225,7 +225,7 @@ async function run() {
     assert.equal(await f.reporter.enqueue(f.entry()), false);
     f.enable();
     assert.equal(await f.reporter.enabled(), true, 'opt-in is enough: no permissions API is required');
-    for (const code of ['offline', 'aborted', 'requires_login', 'rate_limited', 'context_invalid']) {
+    for (const code of ['offline', 'aborted', 'requires_login', 'rate_limited', 'context_invalid', 'extension_damaged', 'request_blocked']) {
       assert.equal(await f.reporter.enqueue(f.entry({ code })), false, `${code} stays local`);
     }
     assert.equal(await f.reporter.enqueue(f.entry({ code: 'queue_item_failed', causeCode: 'USER_CANCELED' })), false);

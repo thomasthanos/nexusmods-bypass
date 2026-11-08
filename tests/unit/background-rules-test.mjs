@@ -239,6 +239,15 @@ async function transferSizeVerdicts() {
     assert.equal((await verifyTransferSize(1, { sizeKb: 32 })).suspicious, false,
       'a file below the ratio floor is left alone, as before');
 
+    // A link the browser followed itself (the generator's, 4.0.2 reports) can end at a web page. One more
+    // than twice the size Nexus lists for a small file is a page, not the file.
+    record({ bytesReceived: 48000, totalBytes: 48000, mime: 'text/html; charset=utf-8' });
+    assert.equal((await verifyTransferSize(1, { sizeKb: 0.8 })).code, 'not_a_file', 'a page saved in place of a small file is caught');
+    record({ bytesReceived: 900, totalBytes: 900, mime: 'text/html' });
+    assert.equal((await verifyTransferSize(1, { sizeKb: 0.8 })).suspicious, false, 'a small html file of about its listed size is left alone');
+    record({ bytesReceived: 48000, totalBytes: 48000, mime: 'text/plain' });
+    assert.equal((await verifyTransferSize(1, { sizeKb: 0.8 })).suspicious, false, 'a text file is not taken for a page');
+
     global.chrome.downloads = { search: (_query, cb) => cb([]), download: (_o, cb) => cb(1), cancel: finishCallback };
     assert.equal((await verifyTransferSize(1, tenMb)).suspicious, false,
       'a download that cannot be looked up is not condemned');
@@ -643,10 +652,15 @@ async function queuedGeneratorNexusLinkIsFollowed() {
       { name: 'one refused with cookies is asked again without, and its file is taken', calls: 4,
         answer: { refusedWithCookies: true, finalUrl: stored, contentType: 'application/x-7z-compressed', binary: true },
         cancel: 1, expected: { ok: true, url: stored } },
-      { name: 'without cookies a sign-in page says nothing about the visitor', calls: 4,
+      // 4.0.2 reports: refused with cookies, and without them the same address answers with a page. The
+      // address is reachable, so the browser's own download, which sends the cookies and is not refused,
+      // is given it, as a single download does.
+      { name: 'without cookies a sign-in page says nothing about the visitor: the browser gets the link', calls: 4,
         answer: { refusedWithCookies: true, finalUrl: 'https://users.nexusmods.com/auth/sign_in', contentType: 'text/html', body: '<html>Sign in</html>' },
-        expected: { ok: false, code: 'no_download_url' },
-        detail: /\| generator link: Failed to fetch after \d+ms \| generator link without cookies HTTP 200; sent on to Nexus sign-in page$/ },
+        expected: { ok: true, url: offered } },
+      { name: 'nor does a page at the same address: the browser gets the link', calls: 4,
+        answer: { refusedWithCookies: true, contentType: 'text/html', body: '<!doctype html><html><body>Nexus</body></html>' },
+        expected: { ok: true, url: offered } },
       { name: 'a file page from the generator is still never asked', generated: `${item.pageUrl}&nmm=1`, calls: 2,
         expected: { ok: false, code: 'no_download_url' } }
     ]) {
@@ -776,6 +790,29 @@ async function bundleLoadsAreTargetedAndQuiet() {
       assert.equal(reply.error, gone);
     }
     assert.deepEqual(recorded, [], 'a page that went away before its bundle arrived is not a fault');
+    // 4.0.2 reports: "Could not load file: 'content/ndc.js'.", hourly from one install. Asked once more for
+    // files an update is replacing; still unreadable, it is answered for the page to explain, and the worker
+    // does not report the same install problem as a fault of its own.
+    let refusals = 1;
+    global.chrome.scripting.executeScript = async (options) => {
+      injected.push(JSON.parse(JSON.stringify(options)));
+      if (refusals-- > 0) throw new Error("Could not load file: 'content/ndc.js'.");
+      return [];
+    };
+    const countBefore = injected.length;
+    assert.deepEqual(await ask('collection'), { ok: true }, 'a file being replaced is read on the second try');
+    assert.equal(injected.length - countBefore, 2);
+    refusals = 5;
+    const unreadable = await ask('collection');
+    assert.equal(unreadable.ok, false);
+    assert.match(unreadable.error, /Could not load file/);
+    assert.equal(injected.length - countBefore, 4, 'asked twice, no more');
+    assert.deepEqual(recorded, [], 'an unreadable packaged file is not a worker fault');
+    global.chrome.scripting.executeScript = async (options) => {
+      injected.push(JSON.parse(JSON.stringify(options)));
+      if (failure) throw new Error(failure);
+      return [];
+    };
     failure = 'Cannot access contents of the page. Extension manifest must request permission to access the respective host.';
     assert.equal((await ask('collection')).ok, false);
     assert.equal(recorded.length, 1, 'any other refusal is recorded');

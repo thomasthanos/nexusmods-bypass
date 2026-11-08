@@ -153,6 +153,18 @@
   "errCloudflareFix": {
     "message": "파일 페이지에서 확인을 완료한 뒤 다시 시도하세요. 계속 나타나면 VPN이나 프록시를 끄세요."
   },
+  "errRequestBlockedMsg": {
+    "message": "브라우저가 Nexus Mods로 보내는 요청을 전송 전에 막았습니다."
+  },
+  "errRequestBlockedFix": {
+    "message": "보통 다른 확장 프로그램(광고·추적기 차단기 등)이나 개인정보 설정 때문입니다. 그곳에서 nexusmods.com과 api.nexusmods.com을 허용한 뒤 다시 시도하세요."
+  },
+  "errExtensionDamagedMsg": {
+    "message": "확장 프로그램의 일부를 불러오지 못했습니다. 이 컴퓨터에 있는 파일이 없거나 손상되었습니다."
+  },
+  "errExtensionDamagedFix": {
+    "message": "스토어 페이지에서 확장 프로그램을 다시 설치하세요(폴더에서 설치했다면 브라우저의 확장 프로그램 페이지에서 그 폴더를 다시 불러오세요). 그런 다음 이 페이지를 새로 고치세요."
+  },
   "errPageNotice": {
     "message": "Nexus가 파일 페이지에 다음과 같이 표시합니다:"
   },

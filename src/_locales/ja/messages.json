@@ -153,6 +153,18 @@
   "errCloudflareFix": {
     "message": "ファイルページで認証を完了してから再試行してください。何度も表示される場合は、VPN またはプロキシをオフにしてください。"
   },
+  "errRequestBlockedMsg": {
+    "message": "ブラウザーが Nexus Mods へのリクエストを送信前に止めました。"
+  },
+  "errRequestBlockedFix": {
+    "message": "多くの場合、別の拡張機能（広告やトラッカーのブロッカーなど）かプライバシー設定が原因です。そこで nexusmods.com と api.nexusmods.com を許可してから、もう一度お試しください。"
+  },
+  "errExtensionDamagedMsg": {
+    "message": "拡張機能の一部を読み込めませんでした。このコンピューター上のファイルが見つからないか破損しています。"
+  },
+  "errExtensionDamagedFix": {
+    "message": "ストアのページから拡張機能を再インストールしてください（フォルダーからインストールした場合は、ブラウザーの拡張機能ページでそのフォルダーを読み込み直してください）。その後、このページを再読み込みしてください。"
+  },
   "errPageNotice": {
     "message": "Nexus はファイルのページにこう表示しています:"
   },

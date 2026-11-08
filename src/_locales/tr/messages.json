@@ -153,6 +153,18 @@
   "errCloudflareFix": {
     "message": "Doğrulamayı dosya sayfasında tamamlayıp tekrar deneyin. Tekrar tekrar çıkıyorsa VPN'inizi veya proxy'nizi kapatın."
   },
+  "errRequestBlockedMsg": {
+    "message": "Tarayıcı, Nexus Mods'a giden isteği gönderilmeden durdurdu."
+  },
+  "errRequestBlockedFix": {
+    "message": "Bunu genellikle başka bir eklenti (reklam ya da izleyici engelleyici gibi) veya bir gizlilik ayarı yapar. Orada nexusmods.com ve api.nexusmods.com adreslerine izin ver, sonra yeniden dene."
+  },
+  "errExtensionDamagedMsg": {
+    "message": "Eklentinin bir bölümü yüklenemedi: bu bilgisayardaki dosyaları eksik ya da bozuk."
+  },
+  "errExtensionDamagedFix": {
+    "message": "Eklentiyi mağaza sayfasından yeniden yükle (klasörden yüklediysen o klasörü tarayıcının uzantılar sayfasında yeniden yükle), sonra bu sayfayı yenile."
+  },
   "errPageNotice": {
     "message": "Nexus dosyanın sayfasında şunu gösteriyor:"
   },

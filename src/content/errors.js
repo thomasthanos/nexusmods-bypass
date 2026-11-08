@@ -150,6 +150,21 @@ window.NexusExt = window.NexusExt || {};
       recovery: 'Refresh this Nexus Mods page, then retry.',
       retryable: false
     },
+    // 4.0.2 reports: "Could not load file: 'content/ndc.js'". The browser could not read one of the
+    // extension's own files: an install from a folder that changed or went away, or damaged files.
+    // 4.0.2 reports: "Failed to fetch after 1ms/3ms" while online. Nothing travels the network that fast:
+    // the browser stopped the request itself, for another extension (an ad or tracker blocker) or a
+    // privacy setting. That is the person's to allow, not a fault to report (auto-reports LOCAL_ONLY).
+    request_blocked: {
+      userMessage: 'The browser stopped the request to Nexus Mods before it was sent.',
+      recovery: 'Another extension (such as an ad or tracker blocker) or a privacy setting usually does this. Allow nexusmods.com and api.nexusmods.com there, then retry.',
+      retryable: true
+    },
+    extension_damaged: {
+      userMessage: 'Part of the extension could not be loaded: its files on this computer are missing or damaged.',
+      recovery: "Reinstall the extension from its store page (or, if you installed it from a folder, load that folder again in your browser's extensions page), then reload this page.",
+      retryable: false
+    },
     request_failed: {
       userMessage: 'The download request failed.',
       recovery: 'Retry the download. If it keeps happening, report the issue.',
@@ -197,7 +212,9 @@ window.NexusExt = window.NexusExt || {};
   // A connection failure is recorded a moment later, and not at all once the page is being left.
   // Firefox cancels a page's requests as soon as a navigation starts, well before pagehide, so a request
   // that had only just begun failed "after 0ms" and was reported as a network fault.
-  const CONNECTION_CODES = new Set(['network_error', 'timeout', 'offline']);
+  const CONNECTION_CODES = new Set(['network_error', 'timeout', 'offline', 'request_blocked']);
+  // A failed fetch quicker than this never left the browser (request_blocked).
+  const BLOCKED_REQUEST_MS = 20;
   const CONNECTION_RECORD_DELAY_MS = 1500;
 
   function deliver(error) {
@@ -308,12 +325,19 @@ window.NexusExt = window.NexusExt || {};
     const details = { context, technicalMessage, stack, record, status };
     if (name === 'TimeoutError' || /timed?\s*out/i.test(technicalMessage)) return create('timeout', details);
     if (/extension context invalidated|message port closed/i.test(technicalMessage)) return create('context_invalid', details);
+    if (/could not load file: '[^']+\.(?:js|css)'/i.test(technicalMessage)) return create('extension_damaged', details);
     if (!network) {
       if (name === 'AbortError') return create('aborted', details);
       if (!FETCH_FAILURE.test(message)) return create('request_failed', details);
     }
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return create('offline', details);
     return create('network_error', details);
+  }
+
+  // A fetch that failed before the network could have answered, while the browser says it is online.
+  function blockedRequest(cause, elapsedMs) {
+    if (!FETCH_FAILURE.test(String(cause?.message || '')) || !(elapsedMs < BLOCKED_REQUEST_MS)) return false;
+    return !(typeof navigator !== 'undefined' && navigator.onLine === false);
   }
 
   function normalizeTimeout(value) {
@@ -461,7 +485,9 @@ window.NexusExt = window.NexusExt || {};
         finalUrl: String(url),
         error: timedOut
           ? create('timeout', { context, technicalMessage: [String(cause?.message || ''), requestDiagnostic(url, options, `request timed out after ${Date.now() - startedAt}ms`)].join(' | '), record })
-          : fromException(cause, { context, record, network: true, extra: requestDiagnostic(url, options, `fetch failed after ${Date.now() - startedAt}ms`) })
+          : blockedRequest(cause, Date.now() - startedAt)
+            ? create('request_blocked', { context, record, technicalMessage: [String(cause?.message || ''), requestDiagnostic(url, options, `fetch failed after ${Date.now() - startedAt}ms`)].join(' | ') })
+            : fromException(cause, { context, record, network: true, extra: requestDiagnostic(url, options, `fetch failed after ${Date.now() - startedAt}ms`) })
       };
     } finally {
       if (timer) clearTimeout(timer);

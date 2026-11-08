@@ -153,6 +153,18 @@
   "errCloudflareFix": {
     "message": "在文件页面完成验证后重试。如果验证反复出现，请关闭 VPN 或代理。"
   },
+  "errRequestBlockedMsg": {
+    "message": "浏览器在发送前就拦截了发往 Nexus Mods 的请求。"
+  },
+  "errRequestBlockedFix": {
+    "message": "通常是其他扩展（如广告或跟踪器拦截器）或隐私设置导致的。请在其中允许 nexusmods.com 和 api.nexusmods.com，然后重试。"
+  },
+  "errExtensionDamagedMsg": {
+    "message": "扩展的一部分无法加载：它在这台电脑上的文件缺失或已损坏。"
+  },
+  "errExtensionDamagedFix": {
+    "message": "请从商店页面重新安装扩展（如果是从文件夹安装的，请在浏览器的扩展页面重新加载该文件夹），然后刷新此页面。"
+  },
   "errPageNotice": {
     "message": "Nexus 在该文件的页面上显示："
   },

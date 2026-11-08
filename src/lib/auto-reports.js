@@ -9,7 +9,7 @@
   const DAY = 24 * 60 * 60 * 1000;
   const MAX_PENDING = 20;
   const DAILY_MAX = 10;
-  const LOCAL_ONLY = new Set(['offline', 'aborted', 'context_invalid', 'requires_login', 'cloudflare',
+  const LOCAL_ONLY = new Set(['offline', 'aborted', 'context_invalid', 'extension_damaged', 'request_blocked', 'requires_login', 'cloudflare',
     'rate_limited', 'account_suspended', 'access_denied', 'file_not_found', 'mod_unavailable',
     'collection_unavailable', 'moderation_hold', 'missing_file', 'save_failed', 'USER_CANCELED', 'USER_SHUTDOWN']);
 

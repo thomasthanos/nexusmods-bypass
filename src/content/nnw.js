@@ -874,7 +874,7 @@ window.NexusExt = window.NexusExt || {};
   // A download that ends with no link, or with a failure no fallback got around, carries what each step
   // was answered: its status and the shape of the answer, never a link, key or page text. Without it a
   // report said "no Vortex link" and nothing about which request gave what.
-  const TRAILED_CODES = new Set(['no_download_url', 'no_nmm_link', 'network_error', 'timeout', 'server_error', 'invalid_response']);
+  const TRAILED_CODES = new Set(['no_download_url', 'no_nmm_link', 'network_error', 'request_blocked', 'timeout', 'server_error', 'invalid_response']);
 
   function withTrail(error, trail, isNMM) {
     if (!error || !TRAILED_CODES.has(error.code) || !trail.length) return error;
@@ -1072,7 +1072,7 @@ window.NexusExt = window.NexusExt || {};
         // Issue #30: no answer at all, while Nexus answers the generator and the page. A click on the
         // route is sent on where a fetch cannot follow (to the nxm:// link itself, or through another
         // site), and a fetch that cannot follow a redirect fails the way a lost connection does.
-        if (isNMM && !response.status && response.error?.code === 'network_error') unreadableRoute ||= { url: apiUrl, error: response.error };
+        if (isNMM && !response.status && ['network_error', 'request_blocked'].includes(response.error?.code)) unreadableRoute ||= { url: apiUrl, error: response.error };
         return { url: null, error: response.error };
       }
 
@@ -1137,7 +1137,7 @@ window.NexusExt = window.NexusExt || {};
       if (result.url) return result;
       // A redirecting API route may be unreadable to fetch, even when the same-origin generator
       // works. Never fall back around authentication, verification, rate limits or cancellation.
-      const recoverable = ['network_error', 'timeout', 'server_error', 'invalid_response', 'no_download_url', 'no_nmm_link'];
+      const recoverable = ['network_error', 'request_blocked', 'timeout', 'server_error', 'invalid_response', 'no_download_url', 'no_nmm_link'];
       if (!fileId || signal?.aborted || !recoverable.includes(result.error?.code)) return result;
       NXTK.queueDebugEntry?.('debug', `Download API route failed (${result.error.code}); ${isNMM ? 'reading the file page' : 'trying the download generator'}.`);
       href = isNMM ? vortexFilePage : filePageUrl;

@@ -153,6 +153,18 @@
   "errCloudflareFix": {
     "message": "Conclua a verificação na página do arquivo e tente novamente. Se ela continuar aparecendo, desative sua VPN ou proxy."
   },
+  "errRequestBlockedMsg": {
+    "message": "O navegador bloqueou a solicitação ao Nexus Mods antes de ela ser enviada."
+  },
+  "errRequestBlockedFix": {
+    "message": "Geralmente é outra extensão (como um bloqueador de anúncios ou rastreadores) ou uma configuração de privacidade. Permita nexusmods.com e api.nexusmods.com nela e tente de novo."
+  },
+  "errExtensionDamagedMsg": {
+    "message": "Não foi possível carregar uma parte da extensão: os arquivos dela neste computador estão faltando ou danificados."
+  },
+  "errExtensionDamagedFix": {
+    "message": "Reinstale a extensão pela página dela na loja (ou, se você a instalou a partir de uma pasta, carregue essa pasta de novo na página de extensões do navegador) e depois recarregue esta página."
+  },
   "errPageNotice": {
     "message": "O Nexus mostra isto na página do arquivo:"
   },

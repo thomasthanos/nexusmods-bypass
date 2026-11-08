@@ -235,7 +235,7 @@ window.NexusExt = window.NexusExt || {};
 
     // A query the page works without (an optional enhancement) notes a connection failure in the debug
     // log instead: those came in as network faults from background tabs, with nothing the user saw fail.
-    const TRANSIENT_CODES = new Set(['network_error', 'timeout', 'offline', 'server_error']);
+    const TRANSIENT_CODES = new Set(['network_error', 'timeout', 'offline', 'server_error', 'request_blocked']);
     function recordFinal(result, optionalName = '') {
       const code = result?.error?.code;
       if (!result || result.ok || !code || code === 'aborted') return;

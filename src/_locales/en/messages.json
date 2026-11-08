@@ -172,6 +172,22 @@
     "message": "Complete the verification on the file page, then retry. If it keeps coming back, turn off your VPN or proxy.",
     "description": "Recovery advice for errCloudflareMsg."
   },
+  "errRequestBlockedMsg": {
+    "message": "The browser stopped the request to Nexus Mods before it was sent.",
+    "description": "Error dialog for request_blocked: a request to Nexus failed at once, stopped inside the browser (another extension or a privacy setting)."
+  },
+  "errRequestBlockedFix": {
+    "message": "Another extension (such as an ad or tracker blocker) or a privacy setting usually does this. Allow nexusmods.com and api.nexusmods.com there, then retry.",
+    "description": "Error dialog for request_blocked: a request to Nexus failed at once, stopped inside the browser (another extension or a privacy setting)."
+  },
+  "errExtensionDamagedMsg": {
+    "message": "Part of the extension could not be loaded: its files on this computer are missing or damaged.",
+    "description": "Error dialog for extension_damaged: one of the extension's own packaged files could not be read."
+  },
+  "errExtensionDamagedFix": {
+    "message": "Reinstall the extension from its store page (or, if you installed it from a folder, load that folder again in your browser's extensions page), then reload this page.",
+    "description": "Error dialog for extension_damaged: one of the extension's own packaged files could not be read."
+  },
   "errPageNotice": {
     "message": "Nexus shows this on the file’s page:",
     "description": "Error dialog: introduces the notice Nexus shows on the file's page in place of a download link, quoted below it in Nexus's own words."
