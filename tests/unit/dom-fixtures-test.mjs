@@ -354,12 +354,13 @@ const resumableDownloadsDone = (async () => {
     earlier: panel('<p>You have a download in progress from a previous session.</p>'
       + '<div class="flex flex-row items-center gap-x-3"><button type="button">Resume Download</button><button type="button">Cancel</button></div>'),
     preparing: panel('<p>Preparing...</p>'),
+    complete: panel('<p>Download complete</p>', false),
     failed: panel('<p class="font-semibold">Something went wrong.</p><p>Your file finished downloading but couldn\'t be saved to disk.</p>'
       + '<button type="button">Restart download</button>', false)
   };
 
   async function filePage(fileId, { settings = {}, picker = true, start = 'cards', fallback = false, choice = false, loaded = true,
-    stillLoading = false, portal = false, otherCard = '' } = {}) {
+    stillLoading = false, portal = false, otherCard = '', savePicker = null, answerFetch = null, cardAttributes = {} } = {}) {
     const modPage = 'https://www.nexusmods.com/skyrimspecialedition/mods/12604';
     const w = load('file-page-signed-in.html', `${modPage}?tab=files&file_id=${fileId}`);
     // A page still loading: Nexus's scripts have not drawn the card yet (it has no shadow root). Or, as
@@ -370,6 +371,11 @@ const resumableDownloadsDone = (async () => {
     w.document.querySelector('.download-card').remove();
     // Nexus asks only where the browser can write to a file it picks; Firefox cannot.
     if (picker) w.showSaveFilePicker = () => Promise.reject(new Error('not in tests'));
+    // The browser's picker as the page sees it, wrapped by the extension's script in the page's world.
+    if (savePicker) {
+      w.showSaveFilePicker = savePicker;
+      w.eval(fs.readFileSync(path.join(root, 'src/content/save-picker.js'), 'utf8'));
+    }
     if (fallback) {
       w.sessionStorage.setItem('nxtk_cloudflare_native_fallback', JSON.stringify({
         modPage, fileId, isNMM: false, autoStartPending: true, expiresAt: Date.now() + 60000
@@ -379,8 +385,9 @@ const resumableDownloadsDone = (async () => {
     if (choice) w.sessionStorage.setItem(LARGE_FILE_CHOICE_KEY, JSON.stringify({ modPage, fileId, expiresAt: Date.now() + 60000 }));
     const fetched = [];
     w.fetch = (url, init) => {
-      fetched.push(`${url} ${init?.body || ''}`);
-      return new Promise(() => {});
+      // Resumable download's look-up of the file's type (answerSaveName) starts nothing; it asks at low priority.
+      fetched.push(`${init?.priority === 'low' ? 'look-up ' : ''}${url} ${init?.body || ''}`);
+      return answerFetch?.(String(url), init) || new Promise(() => {});
     };
     w.NexusExt.Storage = {
       getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: false, ...settings }),
@@ -389,7 +396,7 @@ const resumableDownloadsDone = (async () => {
     const host = w.document.createElement('mod-file-download');
     const attributes = { 'file-id': fileId, 'filesize-bytes': String(2 * 1024 ** 3), 'is-managed-download-enabled': 'true',
       'is-nmm-download': 'false', 'user-is-logged-in': 'true', 'timeout-seconds': '5',
-      filename: 'HeavyRain Greek V1.0.1 - Epic Games', filesize: '1.5GB' };
+      filename: 'HeavyRain Greek V1.0.1 - Epic Games', filesize: '1.5GB', ...cardAttributes };
     for (const [name, value] of Object.entries(attributes)) host.setAttribute(name, value);
     let shadow = null;
     // As React does on a state change: Nexus's part goes, the new one is added at the end.
@@ -476,7 +483,8 @@ const resumableDownloadsDone = (async () => {
         .find((b) => b.textContent.trim().startsWith(label) || b.getAttribute('aria-label') === label), label),
       askText: (part) => ask()?.querySelector(`.nxtk-rd-${part}`)?.textContent || '',
       fileRow: () => shadow.querySelector('#download-section > .nxtk-rd-file'),
-      requested: () => fetched.filter((f) => f.includes(`fid=${fileId}`) || f.includes(`file_id=${fileId}`)).length,
+      requested: () => fetched.filter((f) => !f.startsWith('look-up ') && (f.includes(`fid=${fileId}`) || f.includes(`file_id=${fileId}`))).length,
+      lookedUp: () => fetched.filter((f) => f.startsWith('look-up ')).length,
       chooserOpen: () => !!chooserRoot().querySelector('[role="dialog"]'),
       // The extension's own Download button on its file line, where it hides Nexus's.
       fileDownload: () => shadow.querySelector('#download-section > .nxtk-rd-file .nxtk-rd-file-download')
@@ -675,6 +683,98 @@ const resumableDownloadsDone = (async () => {
     assert.equal(page.nexus.resumable, 1, 'Resumable download stays with Nexus');
     await new Promise((r) => setTimeout(r, 100));
     assert.equal(page.requested(), 1, 'and the extension starts nothing for it');
+  }
+
+  // Nexus's resumable download asks the browser's picker to save a newer file under the code in its
+  // address, which the browser offered as "<code>.txt". The picker is asked with the archive's name, as
+  // Nexus names its archives, and the extension its first bytes show (7z here).
+  {
+    const code = '6f96399b-8cd8-4a91-8fe4-3cdc58d90124';
+    const SEVEN_ZIP = [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c, 0, 4];
+    const asked = [];
+    const moved = [];
+    let fileBytes = SEVEN_ZIP;
+    const handle = {
+      name: '',
+      getFile: async () => ({ name: handle.name, slice: () => ({ arrayBuffer: async () => new Uint8Array(fileBytes).buffer }) }),
+      move: async (name) => { moved.push(name); handle.name = name; }
+    };
+    const savePicker = async (options) => {
+      asked.push(options);
+      handle.name = options.suggestedName;
+      return handle;
+    };
+    const cdnBody = (bytes) => ({ getReader: () => {
+      let sent = false;
+      return { read: async () => (sent ? { done: true } : (sent = true, { done: false, value: new Uint8Array(bytes) })) };
+    } });
+    const answerFetch = (url) => {
+      if (url.includes('GenerateDownloadUrl')) {
+        return Promise.resolve({ ok: true, status: 200, text: async () => JSON.stringify({ url: `https://files.nexus-cdn.com/d6/87/9c/${code}?md5=a&expires=1` }) });
+      }
+      if (url.startsWith('https://files.nexus-cdn.com/')) return Promise.resolve({ ok: true, status: 200, body: cdnBody(SEVEN_ZIP) });
+      return null;
+    };
+    const page = await filePage('900020', {
+      savePicker, answerFetch, cardAttributes: { 'file-uri': `d6/87/9c/${code}`, 'game-id': '1704' }
+    });
+    page.w.navigator.userActivation = { isActive: true };
+    assert.equal(page.w.showSaveFilePicker.name, 'showSaveFilePicker', 'the page still sees the browser\'s picker');
+    page.click('Slow download');
+    await waitForState(() => page.ask(), 'the extension draws the question');
+    assert.equal(page.lookedUp(), 0, 'nothing is looked up while the question is open');
+    page.askClick('Resumable download');
+    assert.equal(page.nexus.resumable, 1, 'Resumable download stays with Nexus');
+    await waitForState(() => page.lookedUp() === 2, 'the file\'s first bytes are looked up once Resumable download is chosen');
+    assert.equal(page.requested(), 0, 'and the extension starts nothing');
+    const picked = await page.w.showSaveFilePicker({ suggestedName: code, types: [{ accept: { 'text/plain': ['.txt'] } }] });
+    assert.equal(picked, handle, 'Nexus gets the handle the browser gave');
+    assert.equal(asked.length, 1, 'the picker is asked once');
+    assert.equal(asked[0].suggestedName, 'HeavyRain Greek V1.0.1 - Epic Games-12604-900020.7z',
+      'it offers the archive\'s name and extension, not the code with .txt');
+    assert.equal(JSON.stringify(asked[0].types), '[{"description":"7Z","accept":{"application/octet-stream":[".7z"]}}]',
+      'with the file type of that extension, in place of the one that added .txt');
+
+    // A name the person changed to have no extension is named after the file's contents once it is done.
+    handle.name = 'my big mod';
+    page.setPanel('complete');
+    await waitForState(() => moved.length === 1, 'the finished file is renamed');
+    assert.equal(moved[0], 'my big mod.7z');
+    await waitForState(() => /Saved as/.test(page.cardText('note')), 'the card says what the file is called');
+
+    // A browser that renames a picked file only after a click: the card offers the click.
+    const refusing = await filePage('900021', {
+      savePicker: async (options) => ({ ...handle, name: `${options.suggestedName}`, move: async (name) => {
+        if (!refusing.clicked) throw Object.assign(new Error('needs a click'), { name: 'NotAllowedError' });
+        moved.push(name);
+      } }),
+      answerFetch: () => null,
+      cardAttributes: { 'file-uri': `d6/87/9c/${code}`, 'game-id': '1704' }
+    });
+    refusing.w.navigator.userActivation = { isActive: true };
+    const started = Date.now();
+    await refusing.w.showSaveFilePicker({ suggestedName: code });
+    assert.ok(Date.now() - started < 3500, 'an unknown extension does not hold the picker past the click\'s time');
+    refusing.setPanel('complete');
+    await waitForState(() => /one click/.test(refusing.cardText('note')), 'the card asks for the click');
+    refusing.clicked = true;
+    refusing.cardClick('Fix the file name');
+    await waitForState(() => moved.length === 2, 'the click renames it');
+    assert.equal(moved[1], 'HeavyRain Greek V1.0.1 - Epic Games-12604-900021.7z');
+  }
+
+  // A file whose address has its own name keeps it, and nothing is asked for it.
+  {
+    const asked = [];
+    const page = await filePage('900022', {
+      savePicker: async (options) => { asked.push(options); return { name: options.suggestedName }; },
+      answerFetch: () => null,
+      cardAttributes: { 'file-uri': 'SkyUI_5_2_SE-12604-5-2SE.7z' }
+    });
+    page.w.navigator.userActivation = { isActive: true };
+    await page.w.showSaveFilePicker({ suggestedName: 'SkyUI_5_2_SE-12604-5-2SE.7z' });
+    assert.equal(asked[0].suggestedName, 'SkyUI_5_2_SE-12604-5-2SE.7z', 'Nexus\'s own name stays');
+    assert.equal(asked[0].types, undefined, 'and Nexus\'s options are not changed');
   }
 
   // The Cloudflare fallback clicks "Slow download" for the user, and answers the chooser with Standard.

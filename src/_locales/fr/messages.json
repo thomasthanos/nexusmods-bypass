@@ -2370,6 +2370,15 @@
   "rdBtnDirect": {
     "message": "Téléchargement direct à la place"
   },
+  "rdBtnRename": {
+    "message": "Corriger le nom du fichier"
+  },
+  "rdNoteRenamed": {
+    "message": "Enregistré sous « $1 »."
+  },
+  "rdNoteRename": {
+    "message": "Votre navigateur demande un clic pour nommer le fichier « $1 »."
+  },
   "rdBtnDownload": {
     "message": "Télécharger"
   },

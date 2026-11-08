@@ -2370,6 +2370,15 @@
   "rdBtnDirect": {
     "message": "Απευθείας λήψη αντί γι’ αυτό"
   },
+  "rdBtnRename": {
+    "message": "Διόρθωση ονόματος αρχείου"
+  },
+  "rdNoteRenamed": {
+    "message": "Αποθηκεύτηκε ως «$1»."
+  },
+  "rdNoteRename": {
+    "message": "Ο browser σου θέλει ένα κλικ για να ονομάσει το αρχείο «$1»."
+  },
   "rdBtnDownload": {
     "message": "Λήψη"
   },

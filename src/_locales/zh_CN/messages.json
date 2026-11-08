@@ -2286,6 +2286,15 @@
   "rdBtnDirect": {
     "message": "改为直接下载"
   },
+  "rdBtnRename": {
+    "message": "修正文件名"
+  },
+  "rdNoteRenamed": {
+    "message": "已保存为“$1”。"
+  },
+  "rdNoteRename": {
+    "message": "浏览器需要你点击一次，才能把文件命名为“$1”。"
+  },
   "rdBtnDownload": {
     "message": "下载"
   },

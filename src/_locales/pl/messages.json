@@ -2538,6 +2538,15 @@
   "rdBtnDirect": {
     "message": "Zamiast tego pobierz bezpośrednio"
   },
+  "rdBtnRename": {
+    "message": "Popraw nazwę pliku"
+  },
+  "rdNoteRenamed": {
+    "message": "Zapisano jako „$1”."
+  },
+  "rdNoteRename": {
+    "message": "Przeglądarka potrzebuje jednego kliknięcia, aby nazwać plik „$1”."
+  },
   "rdBtnDownload": {
     "message": "Pobierz"
   },

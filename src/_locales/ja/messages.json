@@ -2286,6 +2286,15 @@
   "rdBtnDirect": {
     "message": "代わりに直接ダウンロード"
   },
+  "rdBtnRename": {
+    "message": "ファイル名を修正"
+  },
+  "rdNoteRenamed": {
+    "message": "「$1」として保存しました。"
+  },
+  "rdNoteRename": {
+    "message": "ファイル名を「$1」にするには、ブラウザーで1回クリックが必要です。"
+  },
   "rdBtnDownload": {
     "message": "ダウンロード"
   },

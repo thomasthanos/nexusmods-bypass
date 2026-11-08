@@ -38,6 +38,16 @@
       "matches": [
         "https://www.nexusmods.com/*"
       ],
+      "js": [
+        "content/save-picker.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://www.nexusmods.com/*"
+      ],
       "css": [
         "content/content-styles.css"
       ],

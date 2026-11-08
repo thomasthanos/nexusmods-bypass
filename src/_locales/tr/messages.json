@@ -2370,6 +2370,15 @@
   "rdBtnDirect": {
     "message": "Bunun yerine doğrudan indir"
   },
+  "rdBtnRename": {
+    "message": "Dosya adını düzelt"
+  },
+  "rdNoteRenamed": {
+    "message": "\"$1\" olarak kaydedildi."
+  },
+  "rdNoteRename": {
+    "message": "Tarayıcınız dosyayı \"$1\" olarak adlandırmak için bir tıklama istiyor."
+  },
   "rdBtnDownload": {
     "message": "İndir"
   },

@@ -2748,6 +2748,18 @@
     "message": "Direct download instead",
     "description": "Resumable-download panel link: stop using the resumable download and download the file directly."
   },
+  "rdBtnRename": {
+    "message": "Fix the file name",
+    "description": "Resumable-download panel button: give the finished file its real name and extension (.zip, .7z, .rar) instead of the code Nexus offered."
+  },
+  "rdNoteRenamed": {
+    "message": "Saved as \"$1\".",
+    "description": "Resumable-download panel note: the finished file was renamed to its real name. $1 is the file name, which is not translated."
+  },
+  "rdNoteRename": {
+    "message": "Your browser needs one click to name the file \"$1\".",
+    "description": "Resumable-download panel note: the browser renames the finished file only after a click on the button. $1 is the new file name, which is not translated."
+  },
   "rdBtnDownload": {
     "message": "Download"
   },

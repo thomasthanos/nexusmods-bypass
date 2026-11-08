@@ -2538,6 +2538,15 @@
   "rdBtnDirect": {
     "message": "Скачать напрямую"
   },
+  "rdBtnRename": {
+    "message": "Исправить имя файла"
+  },
+  "rdNoteRenamed": {
+    "message": "Сохранено как «$1»."
+  },
+  "rdNoteRename": {
+    "message": "Браузеру нужен один щелчок, чтобы назвать файл «$1»."
+  },
   "rdBtnDownload": {
     "message": "Скачать"
   },

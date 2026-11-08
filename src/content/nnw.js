@@ -2572,7 +2572,11 @@ window.NexusExt = window.NexusExt || {};
       const name = rdEl('span', 'nxtk-rd-option-title', label);
       if (choice === 'resumable') name.append(rdEl('span', 'nxtk-rd-pill', NXTK.t('rdAskBeta', null, 'Beta')));
       button.append(name, rdEl('span', 'nxtk-rd-option-hint', hint));
-      button.addEventListener('click', () => answer(choice));
+      button.addEventListener('click', () => {
+        // Nexus asks where to save next: the file's extension is looked up meanwhile (answerSaveName).
+        if (choice === 'resumable') prefetchSaveExtension(host);
+        answer(choice);
+      });
       return button;
     };
     const resumable = option('resumable', NXTK.t('rdTitle', null, 'Resumable download'),
@@ -2618,6 +2622,7 @@ window.NexusExt = window.NexusExt || {};
     if (!entry.card) buildResumableCard(host, entry);
     if (entry.card.nextElementSibling !== panel) panel.before(entry.card);
     if (panel.style.display !== 'none') panel.style.display = 'none';
+    if (state === 'complete') notifySaveComplete(host, entry);
     updateResumableCard(host, entry, found);
   }
 
@@ -2644,6 +2649,7 @@ window.NexusExt = window.NexusExt || {};
     const fill = el('span');
     bar.append(fill);
     const hint = el('p', 'nxtk-rd-hint', NXTK.t('rdHintKeepOpen', null, 'Keep this tab open. Closing it pauses the download.'));
+    const note = el('p', 'nxtk-rd-hint nxtk-rd-note');
     const actions = el('div', 'nxtk-rd-actions');
     const button = (act, label, className) => {
       const node = el('button', className, label);
@@ -2655,12 +2661,13 @@ window.NexusExt = window.NexusExt || {};
       resume: button('resume', NXTK.t('rdBtnResume', null, 'Resume'), 'nxtk-rd-btn is-primary'),
       pause: button('pause', NXTK.t('rdBtnPause', null, 'Pause'), 'nxtk-rd-btn'),
       cancel: button('cancel', NXTK.t('btnCancel', null, 'Cancel'), 'nxtk-rd-btn'),
-      direct: button('direct', NXTK.t('rdBtnDirect', null, 'Direct download instead'), 'nxtk-rd-link')
+      direct: button('direct', NXTK.t('rdBtnDirect', null, 'Direct download instead'), 'nxtk-rd-link'),
+      rename: button('rename', NXTK.t('rdBtnRename', null, 'Fix the file name'), 'nxtk-rd-btn is-primary')
     };
-    actions.append(buttons.resume, buttons.pause, buttons.cancel, buttons.direct);
-    card.append(head, status, bar, hint, actions);
+    actions.append(buttons.rename, buttons.resume, buttons.pause, buttons.cancel, buttons.direct);
+    card.append(head, status, bar, hint, note, actions);
     entry.card = card;
-    entry.parts = { stateText, percentText, bar, fill, hint, actions, buttons };
+    entry.parts = { stateText, percentText, bar, fill, hint, note, actions, buttons };
   }
 
   function resumableStateLabel(state, entry) {
@@ -2688,10 +2695,16 @@ window.NexusExt = window.NexusExt || {};
       cancel: !!nexusCardButton(host, 'cancelDownload'),
       direct: RD_DIRECT_STATES.has(state)
     };
-    const key = [state, shown, entry.autoResumed, can.resume, can.pause, can.cancel].join('|');
+    const renamed = state === 'complete' ? saveRenames.get(fileIdFromNode(host)) : null;
+    can.rename = !!renamed && !renamed.done;
+    const key = [state, shown, entry.autoResumed, can.resume, can.pause, can.cancel, renamed?.name, renamed?.done].join('|');
     if (key === entry.key) return;
     entry.key = key;
-    const { stateText, percentText, bar, fill, hint, actions, buttons } = entry.parts;
+    const { stateText, percentText, bar, fill, hint, note, actions, buttons } = entry.parts;
+    note.textContent = !renamed ? ''
+      : renamed.done ? NXTK.t('rdNoteRenamed', [renamed.name], `Saved as "${renamed.name}".`)
+        : NXTK.t('rdNoteRename', [renamed.name], `Your browser needs one click to name the file "${renamed.name}".`);
+    note.hidden = !renamed;
     entry.card.dataset.state = state;
     stateText.textContent = resumableStateLabel(state, entry);
     percentText.textContent = shown ? `${shown}%` : '';
@@ -2711,10 +2724,205 @@ window.NexusExt = window.NexusExt || {};
       if (fileId) startDirectInstead(host, fileId);
       return;
     }
+    // Sent inside the click: the browser renames a picked file only then (see content/save-picker.js).
+    if (act === 'rename') {
+      if (fileId) sendSaveEvent(SAVE_RENAME_EVENT, { fileId });
+      return;
+    }
     const key = { resume: 'resumeDownload', pause: 'pauseDownload', cancel: 'cancelDownload' }[act];
     const target = key && nexusCardButton(host, key);
     if (target) target.click();
     else Logger.warn(`Resumable download: Nexus shows no ${act} button any more.`);
+  }
+
+  // Nexus's resumable download asks where to save with the browser's picker, which offered a newer file
+  // as "<code>.txt" (its address has only a code): saved as text, the file had to be renamed by hand. The
+  // picker is asked from the page's own world (content/save-picker.js), and this answers it with the name
+  // Nexus gives such an archive, "<file name>-<mod id>-<file id>", which Import recognizes, and the
+  // extension the file's first bytes show. Those are read once the person chooses Resumable download (a
+  // standard download needs none of it): a link for the file is asked as Slow download asks it, and only
+  // its first bytes are read, without cookies.
+  const SAVE_ASK_EVENT = 'nxtk-save-name';
+  const SAVE_ANSWER_EVENT = 'nxtk-save-name-answer';
+  const SAVE_DONE_EVENT = 'nxtk-save-complete';
+  const SAVE_RENAMED_EVENT = 'nxtk-save-renamed';
+  const SAVE_RENAME_EVENT = 'nxtk-save-rename';
+  const SAVE_SNIFF_TIMEOUT_MS = 8000;
+  // save-picker.js waits 3 seconds of the 5 the browser allows after a click.
+  const SAVE_ANSWER_BUDGET_MS = 2600;
+  const SAVE_SIGNATURES = [
+    ['zip', [0x50, 0x4b, 0x03, 0x04]],
+    ['7z', [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c]],
+    ['rar', [0x52, 0x61, 0x72, 0x21, 0x1a, 0x07]]
+  ];
+  // A name the picker can keep: an archive's own, or one with an extension that is not the ".txt" it added.
+  const KEEPS_ITS_NAME = /\.(?!txt$)[a-z0-9]{1,5}$/i;
+  const saveExtensions = new Map();
+  const saveRenames = new Map();
+
+  const saveEventData = (event) => {
+    try {
+      const value = JSON.parse(String(event?.detail || ''));
+      return value && typeof value === 'object' ? value : null;
+    } catch (_) {
+      return null;
+    }
+  };
+  const sendSaveEvent = (type, detail) => document.dispatchEvent(new CustomEvent(type, { detail: JSON.stringify(detail) }));
+
+  // A name Windows, macOS and Linux all accept, without the characters a file name cannot have.
+  function safeSaveName(value) {
+    return String(value || '').replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, ' ').replace(/\s+/g, ' ')
+      .trim().replace(/^[.\s]+|[.\s]+$/g, '').slice(0, 150).trim();
+  }
+
+  function saveCards() {
+    const cards = [];
+    for (const root of getSearchRoots(document)) cards.push(...root.querySelectorAll('mod-file-download'));
+    return cards;
+  }
+
+  // The card the picker is for: the one whose content address is the name Nexus asked with, else the only
+  // card that offers a resumable download.
+  function saveCardFor(suggestedName) {
+    const cards = saveCards();
+    const code = String(suggestedName || '').replace(/\.[a-z0-9]{1,5}$/i, '').trim().toLowerCase();
+    if (code.length >= 8) {
+      const byAddress = cards.find((host) => String(host.getAttribute('file-uri') || '').toLowerCase().includes(code));
+      if (byAddress) return byAddress;
+    }
+    const large = cards.filter(offersResumableChoice);
+    return large.length === 1 ? large[0] : null;
+  }
+
+  function saveBaseName(host, fileId) {
+    const fileName = safeSaveName(host.getAttribute('filename'));
+    const modId = currentModId();
+    if (fileName && modId) return `${fileName}-${modId}-${fileId}`;
+    const modName = safeSaveName(currentModName());
+    return modName ? `${modName}-${fileId}` : '';
+  }
+
+  function archiveExtensionOf(bytes) {
+    return SAVE_SIGNATURES.find(([, signature]) => signature.every((byte, index) => bytes[index] === byte))?.[0] || '';
+  }
+
+  // The extension of the file a card is for, '' when it cannot be told. Asked once per file and page.
+  function sniffSaveExtension(host) {
+    const fileId = fileIdFromNode(host);
+    if (!fileId) return Promise.resolve('');
+    if (!saveExtensions.has(fileId)) {
+      const found = (async () => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), SAVE_SNIFF_TIMEOUT_MS);
+        try {
+          const gameId = normalizeGameId(host.getAttribute('game-id')) || getGameId(location.href);
+          if (!gameId) return '';
+          const generated = await fetch(new URL('/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl', location.href).href, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' },
+            body: `fid=${encodeURIComponent(fileId)}&game_id=${encodeURIComponent(gameId)}`,
+            priority: 'low',
+            signal: controller.signal
+          });
+          if (!generated.ok) return '';
+          const link = DownloadParser.findDownloadLink(await generated.text(), { mode: 'browser', fileId, gameId, baseUrl: location.href })?.url;
+          const target = link ? new URL(link, location.href) : null;
+          if (!target || target.protocol !== 'https:' || !/(^|\.)nexus-cdn\.com\.?$/i.test(target.hostname)) return '';
+          const response = await fetch(target.href, { credentials: 'omit', cache: 'no-store', priority: 'low', signal: controller.signal });
+          if (!response.ok || !response.body?.getReader) return '';
+          const reader = response.body.getReader();
+          const head = [];
+          while (head.length < 8) {
+            const { value, done } = await reader.read();
+            if (done || !value?.length) break;
+            head.push(...value.subarray(0, 8 - head.length));
+          }
+          return archiveExtensionOf(head);
+        } catch (_) {
+          return '';
+        } finally {
+          clearTimeout(timer);
+          controller.abort();
+        }
+      })();
+      saveExtensions.set(fileId, found);
+      found.then((extension) => { if (!extension) saveExtensions.delete(fileId); });
+    }
+    return saveExtensions.get(fileId);
+  }
+
+  // Only for a file whose address has no name: an older file's has its own, which Nexus offers as it is.
+  function prefetchSaveExtension(host) {
+    const address = String(host?.getAttribute('file-uri') || '').split(/[?#]/)[0].split('/').pop();
+    if (KEEPS_ITS_NAME.test(address) || /\.(?:zip|7z|rar)$/i.test(String(host?.getAttribute('filename') || ''))) return;
+    sniffSaveExtension(host);
+  }
+
+  async function answerSaveName(request) {
+    const suggestedName = String(request?.suggestedName || '').slice(0, 300);
+    if (KEEPS_ITS_NAME.test(suggestedName)) return null;
+    const host = saveCardFor(suggestedName);
+    const fileId = host ? fileIdFromNode(host) : '';
+    if (!fileId) return null;
+    const ownName = safeSaveName(host.getAttribute('filename'));
+    if (/\.(?:zip|7z|rar)$/i.test(ownName)) return { name: ownName, base: '', fileId };
+    const base = saveBaseName(host, fileId);
+    if (!base) return null;
+    const extension = await Promise.race([
+      sniffSaveExtension(host),
+      new Promise((resolve) => setTimeout(() => resolve(''), SAVE_ANSWER_BUDGET_MS))
+    ]);
+    Logger.info(`Large file ${fileId}: saving it as "${base}${extension ? `.${extension}` : ''}" instead of Nexus's "${suggestedName || 'unnamed'}".`);
+    return { name: extension ? `${base}.${extension}` : base, base, fileId };
+  }
+
+  function onSaveNameAsked(event) {
+    const request = saveEventData(event);
+    const id = String(request?.id || '');
+    if (!id || id.length > 64) return;
+    answerSaveName(request)
+      .catch(() => null)
+      .then((answer) => sendSaveEvent(SAVE_ANSWER_EVENT, { id, ...(answer || {}) }));
+  }
+
+  // Once the download is complete, a file saved without its extension is named after its first bytes. The
+  // browser renames a picked file only right after a click, so when it refuses, the card offers the click.
+  function onSaveRenamed(event) {
+    const result = saveEventData(event);
+    const fileId = toFileId(result?.fileId);
+    const name = safeSaveName(result?.name);
+    if (!fileId || !name) return;
+    if (result.ok) {
+      saveRenames.set(fileId, { name, done: true });
+      Logger.info(`Large file ${fileId}: named "${name}" after its contents.`);
+    } else if (result.needsClick) {
+      saveRenames.set(fileId, { name, done: false });
+      Logger.info(`Large file ${fileId}: the browser renames the file only after a click; the card offers it.`);
+    } else {
+      saveRenames.delete(fileId);
+      Logger.warn(`Large file ${fileId}: this browser cannot rename the saved file (${String(result.reason || 'unknown').slice(0, 40)}).`);
+    }
+    for (const host of saveCards()) {
+      const entry = resumableCards.get(host);
+      if (entry && fileIdFromNode(host) === fileId) renderResumableCard(host, entry);
+    }
+  }
+
+  function notifySaveComplete(host, entry) {
+    const fileId = fileIdFromNode(host);
+    if (!fileId || entry.completeSent) return;
+    entry.completeSent = true;
+    sendSaveEvent(SAVE_DONE_EVENT, { fileId });
+  }
+
+  let saveEventsAttached = false;
+  function attachSaveNameEvents() {
+    if (saveEventsAttached) return;
+    saveEventsAttached = true;
+    document.addEventListener(SAVE_ASK_EVENT, onSaveNameAsked);
+    document.addEventListener(SAVE_RENAMED_EVENT, onSaveRenamed);
   }
 
   // Inside the card's shadow root, where the page's extension stylesheet does not reach. The --nxtk-*
@@ -3497,6 +3705,7 @@ div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/regist
       attachClickInterceptor();
       interceptRequirementsTab();
       watchStoredSettings();
+      attachSaveNameEvents();
       listenersAttached = true;
     }
     if (isCloudflareChallengeDocument()) {

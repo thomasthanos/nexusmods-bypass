@@ -2286,6 +2286,15 @@
   "rdBtnDirect": {
     "message": "대신 직접 다운로드"
   },
+  "rdBtnRename": {
+    "message": "파일 이름 고치기"
+  },
+  "rdNoteRenamed": {
+    "message": "\"$1\"(으)로 저장했습니다."
+  },
+  "rdNoteRename": {
+    "message": "파일 이름을 \"$1\"(으)로 바꾸려면 브라우저에서 한 번 클릭해야 합니다."
+  },
   "rdBtnDownload": {
     "message": "다운로드"
   },

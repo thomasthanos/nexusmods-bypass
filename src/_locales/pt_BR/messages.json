@@ -2370,6 +2370,15 @@
   "rdBtnDirect": {
     "message": "Baixar direto em vez disso"
   },
+  "rdBtnRename": {
+    "message": "Corrigir o nome do arquivo"
+  },
+  "rdNoteRenamed": {
+    "message": "Salvo como \"$1\"."
+  },
+  "rdNoteRename": {
+    "message": "Seu navegador precisa de um clique para nomear o arquivo \"$1\"."
+  },
   "rdBtnDownload": {
     "message": "Baixar"
   },
