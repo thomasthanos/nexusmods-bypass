@@ -1431,7 +1431,7 @@ for (const [width, height] of [[1280, 800], [1366, 768], [360, 800]]) {
           await page.screenshot({ path: path.join(shotDir, `settings-downloads-${width}x${height}-${zoom}.png`) });
         }
       }
-      expect(reached, 'all settings remain reachable').toBe(24);
+      expect(reached, 'all settings remain reachable').toBe(25);
       await assertFits(page, '#nxtk-settings-modal .nxtk-modal-footer', 'footer stays reachable');
       await page.close();
     });
