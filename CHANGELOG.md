@@ -17,6 +17,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-4-1-1"><kbd> 4.1.1 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-1-0"><kbd> 4.1.0 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-0-3"><kbd> 4.0.3 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-0-2"><kbd> 4.0.2 </kbd></a>&ensp;·&ensp;
@@ -36,6 +37,10 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 <a id="unreleased"></a>
 
 ## Unreleased
+
+<a id="release-4-1-1"></a>
+
+## 4.1.1 — 2026-11-10
 
 - **A folder for each collection revision (discussion #46):** the new *Use collection name and revision as folder name* option in Settings → Downloads → Browser downloads saves a Nexus collection in a folder such as `Collection Name (Rev 54)`. It is off by default. The name and revision come from the same response as the queued files, including on a URL showing the latest revision, and the folder stays fixed through retries, pause/resume and worker recovery. It replaces the manual folder for collections without changing that saved setting. Single mods, Vortex and Wabbajack keep their folders; MO2 `.meta` files stay beside the archives. Invalid filename characters are removed, long names keep the revision suffix, and an unknown revision is omitted. Opera uses the system Downloads folder for this option. Translated into all 13 languages.
 - **Settings that stop saving:** if one setting's save failed in an unexpected way, every later change in the same settings window was silently lost until it was opened again. The write queue now carries on after a failure.
