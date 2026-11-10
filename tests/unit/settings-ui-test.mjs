@@ -428,6 +428,22 @@ async function settingsNavigationTests() {
 async function settingsRegressionTests() {
   const failures = [];
   const cases = [
+    ['collection folder toggle preserves the manual folder', async (f) => {
+      assert.equal(f.w.NXTK.DEFAULTS.UseCollectionFolder, false, 'existing installs keep their folder behavior');
+      f.store.nxtk_settings = { ...f.w.NXTK.DEFAULTS, DownloadFolder: 'My mods' };
+      f.w.NexusExt.UIKit.closeModal('nxtk-settings-modal');
+      await f.w.NexusExt.UIKit.settings.open();
+      const toggle = f.modal().querySelector('[data-setting="UseCollectionFolder"]');
+      assert.ok(toggle.closest('[data-settings-details="browser"]'), 'the option belongs to Browser downloads');
+      assert.equal(toggle.checked, false);
+      for (const checked of [true, false]) {
+        toggle.checked = checked;
+        toggle.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+        await tick();
+        assert.equal(f.store.nxtk_settings.UseCollectionFolder, checked);
+        assert.equal(f.store.nxtk_settings.DownloadFolder, 'My mods');
+      }
+    }],
     ['latest manual choice wins during a delayed preset', async (f) => {
       const send = f.w.chrome.runtime.sendMessage;
       let release;
@@ -599,7 +615,7 @@ async function settingsRegressionTests() {
     await w.NexusExt.UIKit.settings.open();
     const groups = {
       basics: ['AutoStartDownload', 'SkipRequirements', 'ShowAlertsOnError'],
-      downloads: ['HandleArchivedFiles', 'DownloadFolder', 'WriteMo2Meta', 'AutoCloseTab', 'CheckVortexOpens', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'],
+      downloads: ['HandleArchivedFiles', 'DownloadFolder', 'UseCollectionFolder', 'WriteMo2Meta', 'AutoCloseTab', 'CheckVortexOpens', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'],
       collections: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'],
       appearance: ['HidePremiumUpsells', 'ExpandRequirements', 'ForceEnglish'],
       diagnostics: ['AutoErrorReports', 'PrivateDiagnostics'],
@@ -611,8 +627,8 @@ async function settingsRegressionTests() {
       assert.deepEqual([...section.querySelectorAll('[data-setting]')].map((el) => el.dataset.setting), keys);
     }
     assert.equal(find('[data-settings-group="advanced"]').hidden, true);
-    assert.equal(modal().querySelectorAll('[data-setting]').length, 24, 'all settings appear exactly once');
-    assert.equal(new Set([...modal().querySelectorAll('[data-setting]')].map((el) => el.dataset.setting)).size, 24);
+    assert.equal(modal().querySelectorAll('[data-setting]').length, 25, 'all settings appear exactly once');
+    assert.equal(new Set([...modal().querySelectorAll('[data-setting]')].map((el) => el.dataset.setting)).size, 25);
     for (const input of modal().querySelectorAll('[data-setting]')) {
       assert.ok(input.labels?.length || input.getAttribute('aria-labelledby'), `${input.dataset.setting} has an accessible label`);
     }

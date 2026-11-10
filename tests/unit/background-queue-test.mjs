@@ -1319,12 +1319,65 @@ async function queueIgnoresFullPathFolders() {
   }
 }
 
+async function collectionFoldersStayWithTheirJob() {
+  const folder = context.collectionDownloadFolder;
+  assert.equal(folder({ name: 'Collection Name', revision: 54 }, 'slug'), 'Collection Name (Rev 54)');
+  assert.equal(folder({ name: '  Ελληνικά / 日本語: Mods?  ', revision: 3 }, 'slug'), 'Ελληνικά 日本語 Mods (Rev 3)');
+  assert.equal(folder({ name: '../CON\u0000\u200b', revision: 2 }, 'slug'), '_CON (Rev 2)');
+  assert.equal(folder({ name: '.../*?', revision: 0 }, 'abc123'), 'abc123');
+  assert.equal(folder({ name: '', revision: null }, 'abc123'), 'abc123', 'an unknown revision is omitted');
+  for (const revision of [-1, 1.5, 'latest', Infinity]) {
+    assert.equal(folder({ name: 'Name', revision }, 'slug'), 'Name');
+  }
+  const long = folder({ name: 'a'.repeat(90) + '🎮'.repeat(30), revision: 54 }, 'slug');
+  assert.ok(long.length <= 100);
+  assert.ok(long.endsWith(' (Rev 54)'), 'truncation keeps the actual revision');
+  assert.doesNotMatch(long, /\p{Cs}/u, 'truncation cannot leave an unpaired surrogate');
+  const cjk = folder({ name: '日本語'.repeat(100), revision: 54 }, 'slug');
+  assert.ok(Buffer.byteLength(cjk) <= 240, 'multibyte names fit a filesystem component too');
+  assert.ok(cjk.endsWith(' (Rev 54)'));
+
+  const savedFetch = context.fetch;
+  // Hold the first file for a normal retry, without starting any external downloads.
+  context.fetch = async (url) => ({ ok: false, status: 429, url: String(url), text: async () => '',
+    headers: { get: (key) => key === 'Retry-After' ? '120' : '' } });
+  const item = { fileId: 4600, gameId: 1704, name: 'Archive.7z',
+    pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/46', sizeKb: 10 };
+  const payload = { gameId: 'g46', collectionId: 'c46', type: 'all', items: [item], folder: 'Manual folder',
+    collectionFolder: { name: 'Collection Name', revision: 54 } };
+  try {
+    await storageSetLocal('nxtk_ndc_rate_limit', { until: 0 });
+    const started = await NDC_QUEUE_HANDLERS.NDC_QUEUE_START(payload, { tab: { id: 46 } });
+    const job = await readNdcJob(started.jobId);
+    assert.equal(job.folder, 'Collection Name (Rev 54)', 'the collection folder replaces the manual one');
+    assert.ok(job.waitingUntil > Date.now(), 'a retry is pending');
+    await NDC_QUEUE_HANDLERS.NDC_QUEUE_PAUSE({ jobId: job.id });
+    await storageSetLocal(NXTK.SETTINGS_KEY, { ...NXTK.DEFAULTS, DownloadFolder: 'Changed', UseCollectionFolder: false });
+    const adopted = await NDC_QUEUE_HANDLERS.NDC_QUEUE_START({ ...payload,
+      collectionFolder: { name: 'Changed name', revision: 55 } }, { tab: { id: 47 } });
+    assert.equal(adopted.adopted, true);
+    await NDC_QUEUE_HANDLERS.NDC_QUEUE_RESUME({ jobId: job.id });
+    const persisted = (await storageGetLocal(NDC_JOBS_KEY, {}))[job.id];
+    assert.equal(persisted.folder, job.folder, 'retry, pause/resume and reattach preserve the saved folder');
+    const plan = await context.ndcDownloadPlan(JSON.parse(JSON.stringify(persisted)),
+      'https://cf-files.nexus-cdn.com/1704/46/Archive.7z');
+    assert.equal(plan.request.filename, 'Collection Name (Rev 54)/Archive.7z',
+      'a recovered job needs no page metadata or settings to place its next file');
+    await NDC_QUEUE_HANDLERS.NDC_QUEUE_STOP({ jobId: job.id });
+  } finally {
+    context.fetch = savedFetch;
+    await storageSetLocal('nxtk_ndc_rate_limit', { until: 0 });
+    await storageSetLocal(NXTK.SETTINGS_KEY, { ...NXTK.DEFAULTS });
+  }
+}
+
 Promise.resolve()
   .then(reconcileReadFailureKeepsRecovery)
   .then(firstCloudflareChallengeKeepsTheCurrentFile)
   .then(jobStateBehaviour)
   .then(writeQueueRelease)
   .then(queueIgnoresFullPathFolders)
+  .then(collectionFoldersStayWithTheirJob)
   .then(failedReadNeverOverwrites)
   .then(missingQueueItemsBehaviour)
   .then(reconnectScopeBehaviour)

@@ -62,6 +62,7 @@
         ? (value) => (value.trim() && !NXTK.isFullFolderPath(value) ? NXTK.t('setDownloadFolderOpera', null, 'Opera saves files in a folder set here inside your system Downloads folder, not in the download location chosen in Opera. Leave this field empty to save where Opera saves its own downloads.') : '')
         : null
     },
+    { key: 'UseCollectionFolder', label: () => NXTK.t('setUseCollectionFolderLabel', null, 'Use collection name and revision as folder name'), type: 'bool', desc: () => NXTK.t('setUseCollectionFolderDesc', null, 'Off by default. Save each Nexus collection in its own folder, for example Collection Name (Rev 54), inside your browser\'s download location. For collections this replaces Browser download folder without changing its saved value. Single mods, Vortex and Wabbajack keep their folders. Opera uses the system Downloads folder for this option.') },
     { key: 'RequestTimeout', label: () => NXTK.t('setRequestTimeoutLabel', null, 'Wait for a download link'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, desc: () => NXTK.t('setRequestTimeoutDesc', null, 'Time allowed to get a download link from Nexus, not the time needed to download the whole file. Increase only if slow replies keep timing out.') },
     { key: 'CheckVortexOpens', label: () => NXTK.t('setCheckVortexOpensLabel', null, 'Check that Vortex opens'), type: 'bool', desc: () => NXTK.t('setCheckVortexOpensDesc', null, 'After a link is sent to Vortex, watch whether Vortex opened, and say so if it did not. Turn this off if another mod manager opens nxm:// links for you: links are then taken as picked up, the extra tab closes as usual and nothing asks whether Vortex opened.') },
     { key: 'CloseTabDelay', label: () => NXTK.t('setCloseTabDelayLabel', null, 'Close-tab delay'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, desc: () => NXTK.t('setCloseTabDelayDesc', null, 'For automatically started Vortex downloads only. Seconds to wait before closing the temporary Nexus tab after Vortex opens. Try a longer delay if Vortex misses links.') },
@@ -86,7 +87,7 @@
   const SETTING_GROUPS = [
     { name: 'basics', titleKey: 'setSectionBasics', title: 'Basics', keys: ['AutoStartDownload', 'SkipRequirements', 'ShowAlertsOnError'] },
     { name: 'downloads', titleKey: 'setSectionFlow', title: 'Downloads', keys: ['HandleArchivedFiles'], sections: [
-      { name: 'browser', titleKey: 'presetBrowser', title: 'Browser downloads', keys: ['DownloadFolder', 'WriteMo2Meta'] },
+      { name: 'browser', titleKey: 'presetBrowser', title: 'Browser downloads', keys: ['DownloadFolder', 'UseCollectionFolder', 'WriteMo2Meta'] },
       { name: 'vortex', titleKey: 'setSectionVortex', title: 'Vortex', keys: ['AutoCloseTab', 'CheckVortexOpens', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'] }
     ] },
     { name: 'collections', titleKey: 'setSectionPacing', title: 'Collections & modlists', keys: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'] },
@@ -168,6 +169,10 @@
     "DownloadFolder": [
       "setShortDownloadFolder",
       "Browser only. Empty uses your browser's own download folder."
+    ],
+    "UseCollectionFolder": [
+      "setShortUseCollectionFolder",
+      "Give each collection revision its own browser download folder."
     ],
     "RequestTimeout": [
       "setShortRequestTimeout",

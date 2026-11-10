@@ -30,7 +30,7 @@ export function collectionAnswer() {
     updatePolicy: i % 3 === 0 ? 'latest' : 'exact',
     version: '1.0'
   }));
-  return { data: { collectionRevision: { revisionNumber: 3, revisionStatus: 'published', latest: false, externalResources: [], modFiles } } };
+  return { data: { collectionRevision: { revisionNumber: 3, collection: { name: 'Fixture collection' }, revisionStatus: 'published', latest: false, externalResources: [], modFiles } } };
 }
 
 // The official v2 API (src/content/nexus-api.js), answered per operation.

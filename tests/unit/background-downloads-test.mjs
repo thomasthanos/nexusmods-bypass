@@ -2022,10 +2022,14 @@ async function newerNexusFilesKeepTheirOwnName() {
     assert.deepEqual(metas().map((options) => options.filename), [`${named}.meta`], 'its .meta beside it, under its real name');
 
     const item = { fileId: '798212', name: 'Animation Queue Fix', modName: 'Animation Queue Fix' };
-    const fromCollection = await context.startNdcDownload({ id: 'job-uuid', folder: 'Collection' }, item, uuid);
+    const collectionFolder = context.collectionDownloadFolder({ name: 'Collection', revision: 54 }, 'slug');
+    const fromCollection = await context.startNdcDownload({ id: 'job-uuid', folder: collectionFolder }, item, uuid);
     assert.equal(started.at(-1).filename, undefined);
-    assert.equal(fromCollection.folder, 'Collection', 'the job knows where its .meta goes');
-    assert.deepEqual(determine({ id: fromCollection.downloadId, url: uuid, filename: named }).map((s) => s.filename), [`Collection/${named}`]);
+    assert.equal(fromCollection.folder, 'Collection (Rev 54)', 'the job knows where its .meta goes');
+    assert.deepEqual(determine({ id: fromCollection.downloadId, url: uuid, filename: named }).map((s) => s.filename), [`${collectionFolder}/${named}`]);
+    await context.writeMo2Meta({ ...item, modId: '82395', domain: 'skyrimspecialedition', version: '1.0.2' },
+      fromCollection.folder, `/Downloads/${collectionFolder}/${named}`);
+    assert.equal(metas().at(-1).filename, `${collectionFolder}/${named}.meta`, 'MO2 metadata stays beside the real archive name');
 
     // Checked live on 2026-11-01: while any onDeterminingFilename listener of the extension is attached,
     // Chrome drops the filename the extension gave downloads.download (a .meta was saved as "download" in
@@ -2076,9 +2080,9 @@ async function newerNexusFilesKeepTheirOwnName() {
     await context.writeSingleMo2Meta(withMetaInFirefox.downloadId);
     assert.equal(metas().at(-1).filename, 'Animation Queue Fix-798212.7z.meta', 'and it gets its .meta');
     firstBytes = [0x50, 0x4b, 0x03, 0x04];
-    const collectionInFirefox = await context.startNdcDownload({ id: 'job-uuid', folder: 'Collection' }, item, uuid);
-    assert.equal(started.at(-1).filename, 'Collection/Animation Queue Fix-798212.zip');
-    assert.equal(collectionInFirefox.folder, 'Collection', 'the job knows where its .meta goes');
+    const collectionInFirefox = await context.startNdcDownload({ id: 'job-uuid', folder: collectionFolder }, item, uuid);
+    assert.equal(started.at(-1).filename, 'Collection (Rev 54)/Animation Queue Fix-798212.zip');
+    assert.equal(collectionInFirefox.folder, 'Collection (Rev 54)', 'the job knows where its .meta goes');
     await context.startNdcDownload({ id: 'job-uuid', folder: '' }, { fileId: '798212', name: 'Wabbajack file' }, uuid);
     assert.equal(started.at(-1).filename, 'd6879c21-5ebd-4d6f-b8cc-7756784d7d65.zip', 'with no mod name, the uuid keeps its place');
 

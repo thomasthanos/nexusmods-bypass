@@ -650,6 +650,17 @@
   "setDownloadFolderLabel": {
     "message": "Dossier de téléchargement du navigateur"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "Utiliser le nom de la collection et sa révision comme dossier",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "Désactivé par défaut. Enregistre chaque collection Nexus dans son propre sous-dossier à l’emplacement de téléchargement du navigateur, par exemple Nom de la collection (Rev 54). Pour les collections, remplace le dossier de téléchargement du navigateur sans modifier sa valeur enregistrée. Les mods individuels, Vortex et Wabbajack conservent leurs dossiers. Opera utilise le dossier Téléchargements du système pour cette option.",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "Un dossier de téléchargement distinct pour chaque révision de collection."
+  },
   "setDownloadFolderDesc": {
     "message": "Un dossier dans l’emplacement de téléchargement du navigateur, par exemple NexusMods. Laisse vide pour enregistrer les fichiers là où le navigateur enregistre ses propres téléchargements. Un chemin complet comme D:\\mods n’est pas possible : une extension ne peut enregistrer que dans l’emplacement de téléchargement du navigateur, alors choisis D:\\mods comme emplacement dans les paramètres du navigateur. Le dossier de Vortex reste inchangé."
   },

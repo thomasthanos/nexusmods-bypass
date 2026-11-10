@@ -650,6 +650,17 @@
   "setDownloadFolderLabel": {
     "message": "Browser-Download-Ordner"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "Sammlungsname und Revision als Ordnername verwenden",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "Standardmäßig aus. Speichert jede Nexus-Sammlung in einem eigenen Unterordner am Downloadort des Browsers, z. B. Sammlungsname (Rev 54). Ersetzt für Sammlungen den Browser-Downloadordner, ohne dessen gespeicherten Wert zu ändern. Einzelne Mods, Vortex und Wabbajack behalten ihre Ordner. Opera verwendet dafür den Downloadordner des Systems.",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "Ein eigener Browser-Downloadordner für jede Sammlungsrevision."
+  },
   "setDownloadFolderDesc": {
     "message": "Ein Ordner im Download-Speicherort deines Browsers, zum Beispiel NexusMods. Leer lassen, um Dateien dort zu speichern, wo dein Browser seine eigenen Downloads speichert. Ein vollständiger Pfad wie D:\\mods geht nicht: Eine Erweiterung kann nur im Download-Speicherort des Browsers speichern, also lege D:\\mods in den Browser-Einstellungen als diesen Speicherort fest. Der Vortex-Speicherort bleibt unverändert."
   },

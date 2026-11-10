@@ -650,6 +650,17 @@
   "setDownloadFolderLabel": {
     "message": "Carpeta de descargas del navegador"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "Usar el nombre de la colección y su revisión como carpeta",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "Desactivado por defecto. Guarda cada colección de Nexus en su propia subcarpeta dentro de la ubicación de descargas del navegador, por ejemplo Nombre de colección (Rev 54). Para las colecciones sustituye la carpeta de descargas del navegador sin cambiar su valor guardado. Los mods individuales, Vortex y Wabbajack conservan sus carpetas. Opera utiliza la carpeta Descargas del sistema para esta opción.",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "Una carpeta de descargas propia para cada revisión de una colección."
+  },
   "setDownloadFolderDesc": {
     "message": "Una carpeta dentro de la ubicación de descargas del navegador, por ejemplo NexusMods. Déjalo vacío para guardar los archivos donde el navegador guarda sus propias descargas. No se puede usar una ruta completa como D:\\mods: una extensión solo puede guardar dentro de la ubicación de descargas del navegador, así que elige D:\\mods como esa ubicación en la configuración del navegador. No cambia dónde guarda los archivos Vortex."
   },

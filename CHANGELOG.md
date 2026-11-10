@@ -37,6 +37,8 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+- **A folder for each collection revision (discussion #46):** the new *Use collection name and revision as folder name* option in Settings → Downloads → Browser downloads saves a Nexus collection in a folder such as `Collection Name (Rev 54)`. It is off by default. The name and revision come from the same response as the queued files, including on a URL showing the latest revision, and the folder stays fixed through retries, pause/resume and worker recovery. It replaces the manual folder for collections without changing that saved setting. Single mods, Vortex and Wabbajack keep their folders; MO2 `.meta` files stay beside the archives. Invalid filename characters are removed, long names keep the revision suffix, and an unknown revision is omitted. Opera uses the system Downloads folder for this option. Translated into all 13 languages.
+
 <a id="release-4-1-0"></a>
 
 ## 4.1.0 — 2026-11-08

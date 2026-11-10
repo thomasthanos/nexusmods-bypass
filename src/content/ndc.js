@@ -136,6 +136,8 @@ window.NexusExt = window.NexusExt || {};
       // CloudflareFallback: a run Nexus stops for its browser check opens a page for it (openCheckPage).
       this.cloudflareFallback = true;
       this.downloadFolder = '';
+      this.useCollectionFolder = false;
+      this.collectionName = '';
       this.lastError = null;
       this.disposed = false;
       this.initialized = false;
@@ -292,6 +294,7 @@ window.NexusExt = window.NexusExt || {};
       this.checkVortexOpens = settings.CheckVortexOpens !== false;
       this.cloudflareFallback = settings.CloudflareFallback !== false;
       this.downloadFolder = settings.DownloadFolder ?? '';
+      this.useCollectionFolder = settings.UseCollectionFolder === true;
       this.wabbajackImport = settings.WabbajackImport === true;
       this.smallestFirst = settings.NDC_smallestFirst !== false;
       this.useOfficialApi = settings.UseOfficialApi !== false && !!NexusExt.NexusApi;
@@ -318,6 +321,7 @@ window.NexusExt = window.NexusExt || {};
         number: Number(response.revisionNumber) || Number(this.revision) || null,
         latest: response.latest ?? null
       };
+      this.collectionName = String(response.collection?.name || '').trim();
       const mods = response.modFiles.sort((a, b) => nameCollator.compare(a.file.mod.name, b.file.mod.name));
       this.mods = {
         all: mods,
@@ -384,7 +388,7 @@ window.NexusExt = window.NexusExt || {};
         referrer: document.location.href,
         referrerPolicy: 'strict-origin-when-cross-origin',
         body: JSON.stringify({
-          query: NexusExt.NexusApi?.QUERIES?.CollectionRevisionModsLegacy || 'query CollectionRevisionMods ($revision: Int, $slug: String!, $viewAdultContent: Boolean) { collectionRevision (revision: $revision, slug: $slug, viewAdultContent: $viewAdultContent) { externalResources { id, name, resourceType, resourceUrl }, modFiles { fileId, optional, file { fileId, name, uri, size, version, date, mod { adult, modId, name, version, game { domainName, id } } } } } }',
+          query: NexusExt.NexusApi?.QUERIES?.CollectionRevisionModsLegacy || 'query CollectionRevisionMods ($revision: Int, $slug: String!, $viewAdultContent: Boolean) { collectionRevision (revision: $revision, slug: $slug, viewAdultContent: $viewAdultContent) { revisionNumber, collection { name }, externalResources { id, name, resourceType, resourceUrl }, modFiles { fileId, optional, file { fileId, name, uri, size, version, date, mod { adult, modId, name, version, game { domainName, id } } } } } }',
           variables: { slug: collectionId, viewAdultContent: true, revision: revision },
           operationName: 'CollectionRevisionMods'
         }),
@@ -978,6 +982,12 @@ window.NexusExt = window.NexusExt || {};
       const visibleTotal = mods.length;
       const startId = makeBackgroundStartId();
       this.backgroundStartId = startId;
+      // Capture the loaded collection and this run's folder choice before handing it to the worker.
+      // An imported Wabbajack list keeps its own folder, even when collection folders are enabled.
+      const folder = this.downloadFolder;
+      const collectionFolder = this.useCollectionFolder && !this.external
+        ? { name: this.collectionName, revision: this.loadedRevision?.number }
+        : null;
 
       await this.watchBackgroundJob({
         queueProgressBase,
@@ -992,7 +1002,8 @@ window.NexusExt = window.NexusExt || {};
           label: this.displayName || this.collectionId,
           type,
           restart,
-          folder: this.downloadFolder,
+          folder,
+          collectionFolder,
           requestTimeout: this.requestTimeout,
           items: pending
         })

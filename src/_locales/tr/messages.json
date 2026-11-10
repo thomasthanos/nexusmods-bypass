@@ -580,6 +580,17 @@
   "setDownloadFolderLabel": {
     "message": "Tarayıcı indirme klasörü"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "Koleksiyon adını ve revizyonunu klasör adı olarak kullan",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "Varsayılan olarak kapalıdır. Her Nexus koleksiyonunu tarayıcının indirme konumunda kendi alt klasörüne kaydeder. Örnek: Koleksiyon Adı (Rev 54). Koleksiyonlarda tarayıcı indirme klasörünün yerine geçer, ancak kayıtlı değerini değiştirmez. Tek modlar, Vortex ve Wabbajack kendi klasörlerini kullanmaya devam eder. Opera bu seçenek için sistemin İndirilenler klasörünü kullanır.",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "Her koleksiyon revizyonu için ayrı bir tarayıcı indirme klasörü."
+  },
   "setDownloadFolderDesc": {
     "message": "Tarayıcının indirme konumundaki bir klasör, örneğin NexusMods. Dosyaları tarayıcının kendi indirmelerini kaydettiği yere kaydetmek için boş bırak. D:\\mods gibi tam bir yol kullanılamaz: bir uzantı yalnızca tarayıcının indirme konumuna kaydedebilir, bu yüzden D:\\mods'u tarayıcı ayarlarında bu konum olarak seç. Vortex'in dosyaları kaydettiği yeri değiştirmez."
   },
