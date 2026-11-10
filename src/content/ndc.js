@@ -897,7 +897,7 @@ window.NexusExt = window.NexusExt || {};
       if (typeof NexusExt.UI?.showRunSummary !== 'function') return;
       const retryable = summary.failed.map((entry) => entry.mod).filter(Boolean);
       NexusExt.UI.showRunSummary(summary, {
-        onRetryFailed: retryable.length ? () => this.downloadMods(retryable, type) : null
+        onRetryFailed: retryable.length ? () => this.downloadMods(retryable, type, { collection: runLog.collection }) : null
       });
     }
 
@@ -939,14 +939,15 @@ window.NexusExt = window.NexusExt || {};
       });
     }
 
-    async downloadBrowserQueue(mods, type, history, { restart = false } = {}) {
+    async downloadBrowserQueue(mods, type, history, { restart = false, collection = null } = {}) {
       this.ui.startDownload(mods.length);
+      const runCollection = collection || { name: this.collectionName, revision: this.loadedRevision?.number };
       const alreadyDownloaded = type === null
         ? new Set()
         : new Set(history?.[this.gameId]?.[this.collectionId]?.[type] || []);
       const pending = [];
       // For the end-of-run card, collected from the worker's per-file events.
-      const runLog = { sent: [], failed: [], alreadyHad: [], pending, mods, type };
+      const runLog = { sent: [], failed: [], alreadyHad: [], pending, mods, type, collection: runCollection };
 
       for (const mod of mods) {
         if (alreadyDownloaded.has(historyEntryId(mod))) {
@@ -986,7 +987,7 @@ window.NexusExt = window.NexusExt || {};
       // An imported Wabbajack list keeps its own folder, even when collection folders are enabled.
       const folder = this.downloadFolder;
       const collectionFolder = this.useCollectionFolder && !this.external
-        ? { name: this.collectionName, revision: this.loadedRevision?.number }
+        ? { name: runCollection.name, revision: runCollection.revision }
         : null;
 
       await this.watchBackgroundJob({
@@ -1374,7 +1375,7 @@ window.NexusExt = window.NexusExt || {};
       return true;
     }
 
-    async downloadMods(mods, type = null) {
+    async downloadMods(mods, type = null, options = {}) {
       if (!this.ui || this.disposed) return;
       if (!mods.length) {
         this.ui.logText(T('logNothingToDownload', 'There are no mods to download for this selection.'), 'info');
@@ -1407,7 +1408,7 @@ window.NexusExt = window.NexusExt || {};
           );
           return;
         }
-        await this.runCollection(mods, type);
+        await this.runCollection(mods, type, options);
       } finally {
         if (this.activeRun === run) {
           this.releaseRunClaim();
@@ -1417,7 +1418,7 @@ window.NexusExt = window.NexusExt || {};
       }
     }
 
-    async runCollection(mods, type) {
+    async runCollection(mods, type, { collection = null } = {}) {
       const run = this.activeRun;
       const stopped = () => this.isStopped() || (run && !this.isCurrentRun(run));
       if (this.disposed || this.downloadSignal?.aborted || (run && !this.isCurrentRun(run))) return;
@@ -1512,7 +1513,7 @@ window.NexusExt = window.NexusExt || {};
       }
 
       if (this.downloadMethod === DOWNLOAD_METHOD_BROWSER) {
-        await this.downloadBrowserQueue(mods, type, history, { restart });
+        await this.downloadBrowserQueue(mods, type, history, { restart, collection });
         return;
       }
 

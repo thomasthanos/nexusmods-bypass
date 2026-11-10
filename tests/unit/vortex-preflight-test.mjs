@@ -147,6 +147,11 @@ function createHarness(choice) {
     assert.equal(commands[0].payload.folder, 'Manual folder');
     assert.deepEqual(commands[0].payload.collectionFolder,
       useCollectionFolder ? { name: 'Actual collection', revision: 54 } : null);
+    ndc.loadRunSettings(settings);
+    commands.length = 0;
+    await ndc.downloadBrowserQueue(mods, null, {}, { collection: { name: 'Updated collection', revision: 55 } });
+    assert.deepEqual(commands[0].payload.collectionFolder,
+      useCollectionFolder ? { name: 'Updated collection', revision: 55 } : null, 'an update targets its own revision');
     // A Wabbajack list is also a browser queue, but must always keep its own destination.
     await ndc.initFromMods(mods);
     commands.length = 0;

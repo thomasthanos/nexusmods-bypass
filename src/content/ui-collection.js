@@ -2083,6 +2083,7 @@
 
     const $ = (sel) => modal.querySelector(sel);
     let modsToDownload = [];
+    let collectionToDownload = null;
     // Each change of either revision starts a comparison, and only the newest may render: a slow
     // earlier answer landing last would make "Download updates" fetch a diff no longer on screen.
     let compareRun = 0;
@@ -2148,6 +2149,7 @@
       const compareRevisions = async () => {
         const run = ++compareRun;
         modsToDownload = [];
+        collectionToDownload = null;
         if (!currentSel.value || !newSel.value) {
           $('#nxtk-do-update').classList.add('nxtk-hidden');
           $('#nxtk-update-list').classList.add('nxtk-hidden');
@@ -2174,6 +2176,12 @@
         const { added, updated, removed } = diffRevisions(curMods, newMods);
 
         modsToDownload = [...added, ...updated];
+        // Updates can target a different revision from the page's loaded collection. Keep that
+        // target with the comparison result, without changing the page or any active run's metadata.
+        collectionToDownload = {
+          name: newData.collection?.name || ndc.collectionName,
+          revision: Number(newData.revisionNumber) || Number(newSel.value) || null
+        };
 
         const renderCol = (title, colorClass, items) => `
           <div class="nxtk-update-col">
@@ -2204,9 +2212,10 @@
 
     $('#nxtk-do-update').addEventListener('click', () => {
       const mods = modsToDownload;
+      const collection = collectionToDownload;
       close();
       runUiTask(
-        () => ndc.downloadMods(mods),
+        () => ndc.downloadMods(mods, null, { collection }),
         { context: 'Downloading collection updates', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }
       );
     });
