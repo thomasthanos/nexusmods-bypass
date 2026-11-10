@@ -448,7 +448,45 @@
     const reply = await sendRuntimeMessage({ type: 'NDC_QUEUE_LIST', payload: {} });
     const jobs = reply.ok && Array.isArray(reply.value) ? reply.value : [];
     box.hidden = !jobs.length;
-    list.replaceChildren(...jobs.map(renderQueueRow));
+    // Rows are updated where they are, not drawn again: a Stop being pressed or focused when the list
+    // refreshed lost the click or the focus.
+    const kept = new Set();
+    jobs.forEach((job, index) => {
+      const id = String(job.jobId);
+      kept.add(id);
+      let row = queueRows.get(id);
+      if (!row) {
+        row = renderQueueRow(job);
+        queueRows.set(id, row);
+      } else {
+        fillQueueRow(row, job);
+      }
+      if (list.children[index] !== row) list.insertBefore(row, list.children[index] || null);
+    });
+    for (const [id, row] of queueRows) {
+      if (kept.has(id)) continue;
+      queueRows.delete(id);
+      row.remove();
+    }
+  }
+
+  const queueRows = new Map();
+
+  function fillQueueRow(row, job) {
+    row.nxtkJob = job;
+    const name = row.querySelector('.popup-queue-name');
+    const label = job.label || job.jobId;
+    if (name.textContent !== label) {
+      name.textContent = label;
+      name.dataset.tooltip = label;
+    }
+    const counted = NXTK.tPlural('progressOfTotal', job.total,
+      `${job.index} of ${job.total} mods`, [String(job.index), String(job.total)]);
+    const text = job.status === 'paused'
+      ? `${counted} · ${NXTK.t('statusPaused', null, 'Paused')}`
+      : counted;
+    const progress = row.querySelector('.popup-queue-progress');
+    if (progress.textContent !== text) progress.textContent = text;
   }
 
   function renderQueueRow(job) {
@@ -459,15 +497,8 @@
     copy.className = 'popup-queue-copy';
     const name = document.createElement('span');
     name.className = 'popup-queue-name';
-    name.textContent = job.label || job.jobId;
-    name.dataset.tooltip = name.textContent;
     const progress = document.createElement('span');
     progress.className = 'popup-queue-progress';
-    const counted = NXTK.tPlural('progressOfTotal', job.total,
-      `${job.index} of ${job.total} mods`, [String(job.index), String(job.total)]);
-    progress.textContent = job.status === 'paused'
-      ? `${counted} · ${NXTK.t('statusPaused', null, 'Paused')}`
-      : counted;
     copy.append(name, progress);
 
     const stop = document.createElement('button');
@@ -475,7 +506,7 @@
     stop.textContent = NXTK.t('tipStop', null, 'Stop');
     stop.addEventListener('click', async () => {
       stop.disabled = true;
-      const reply = await sendRuntimeMessage({ type: 'NDC_QUEUE_STOP', payload: { jobId: job.jobId } });
+      const reply = await sendRuntimeMessage({ type: 'NDC_QUEUE_STOP', payload: { jobId: row.nxtkJob?.jobId ?? job.jobId } });
       if (!reply.ok && reply.error !== 'job-not-found') {
         showStatus(String(reply.error || 'extension error'), 'error', { record: false });
       }
@@ -483,6 +514,7 @@
     });
 
     row.append(copy, stop);
+    fillQueueRow(row, job);
     return row;
   }
 

@@ -90,6 +90,47 @@ async function popupRegressionTests() {
   console.log('Popup settings regressions OK: ordered saves, rejected writes and language metadata');
 }
 
+// The popup's background-download list refreshes every 2 s. Its rows are updated where they are: a Stop
+// being pressed or focused when the list was drawn again lost the click or the focus.
+async function popupQueueRowTests() {
+  const html = fs.readFileSync(path.join(root, 'src/popup/popup.html'), 'utf8');
+  const f = fixture('en', { html });
+  try {
+    let jobs = [{ jobId: 'job-1', label: 'Big collection', index: 3, total: 40, status: 'running' }];
+    const stopped = [];
+    const send = f.w.chrome.runtime.sendMessage;
+    f.w.NXTK.prepareRatingPrompt = async () => null;
+    f.w.chrome.runtime.sendMessage = (message, callback) => {
+      if (message.type === 'NDC_QUEUE_LIST') return callback({ ok: true, value: jobs.map((job) => ({ ...job })) });
+      if (message.type === 'NDC_QUEUE_STOP') {
+        stopped.push(message.payload.jobId);
+        jobs = [];
+        return callback({ ok: true, value: true });
+      }
+      return send(message, callback);
+    };
+    f.w.eval(fs.readFileSync(path.join(root, 'src/popup/popup.js'), 'utf8'));
+    await tick();
+    const list = f.w.document.getElementById('popupQueueList');
+    const row = list.querySelector('.popup-queue-row');
+    assert.ok(row, 'a running collection is listed');
+    assert.equal(f.w.document.getElementById('popupQueues').hidden, false);
+    const stop = row.querySelector('button');
+    stop.focus();
+    jobs[0].index = 4;
+    await new Promise((resolve) => setTimeout(resolve, 2150));
+    assert.equal(list.querySelector('.popup-queue-row'), row, 'the same row is kept across refreshes');
+    assert.match(row.querySelector('.popup-queue-progress').textContent, /4/, 'with the new progress');
+    assert.equal(f.w.document.activeElement, stop, 'and Stop keeps the focus');
+    stop.click();
+    await tick();
+    assert.deepEqual(stopped, ['job-1'], 'Stop stops that collection');
+    assert.equal(list.children.length, 0, 'and the list empties once it has stopped');
+    assert.equal(f.w.document.getElementById('popupQueues').hidden, true);
+  } finally { f.close(); }
+  console.log('Popup queue rows OK: updated in place, focus and clicks kept');
+}
+
 async function onboardingRegressionTests() {
   const html = fs.readFileSync(path.join(root, 'src/onboarding/welcome.html'), 'utf8');
   const f = fixture('en', { html });
@@ -540,6 +581,28 @@ async function settingsRegressionTests() {
       assert.ok(alert, 'write failure is visible');
       assert.match(alert.textContent, /could not be saved/i);
     }],
+    ['a write that fails badly does not stop the writes after it', async (f) => {
+      const send = f.w.chrome.runtime.sendMessage;
+      let refuse = true;
+      f.w.chrome.runtime.sendMessage = (message, callback) => message.type === 'SETTINGS_PATCH' && refuse
+        ? callback({ ok: false, error: 'write-rejected' }) : send(message, callback);
+      // Something the rollback calls throws (here the page's own config update).
+      let throwOnRollback = false;
+      f.w.NexusExt.NNW = { updateConfig: () => { if (throwOnRollback) throw new Error('rollback failed'); } };
+      const input = f.modal().querySelector('[data-setting="AutoStartDownload"]');
+      input.checked = false;
+      input.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+      throwOnRollback = true;
+      await tick();
+      throwOnRollback = false;
+      refuse = false;
+      const other = f.modal().querySelector('[data-setting="AutoCloseTab"]');
+      other.checked = !other.checked;
+      other.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+      await tick();
+      assert.equal(f.store.nxtk_settings?.AutoCloseTab, other.checked, 'the next change is still saved');
+      delete f.w.NexusExt.NNW;
+    }],
     ['rejected reset leaves settings open and unchanged', async (f) => {
       const send = f.w.chrome.runtime.sendMessage;
       f.w.chrome.runtime.sendMessage = (message, callback) => message.type === 'SETTINGS_RESET'
@@ -632,6 +695,7 @@ async function settingsRegressionTests() {
   const failures = newRegressions.filter((result) => result.status === 'rejected').map((result) => result.reason);
   if (failures.length) throw new AggregateError(failures, 'Onboarding/collection selection regressions failed');
   await popupRegressionTests();
+  await popupQueueRowTests();
   await runSummaryTests();
   await importRecognizesSavedNamesTests();
   await importRecognizesFirefoxUuidNamesTests();

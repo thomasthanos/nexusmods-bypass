@@ -2623,6 +2623,7 @@ window.NexusExt = window.NexusExt || {};
     if (entry.card.nextElementSibling !== panel) panel.before(entry.card);
     if (panel.style.display !== 'none') panel.style.display = 'none';
     if (state === 'complete') notifySaveComplete(host, entry);
+    else entry.completeSent = false;
     updateResumableCard(host, entry, found);
   }
 
@@ -2748,6 +2749,7 @@ window.NexusExt = window.NexusExt || {};
   const SAVE_RENAMED_EVENT = 'nxtk-save-renamed';
   const SAVE_RENAME_EVENT = 'nxtk-save-rename';
   const SAVE_SNIFF_TIMEOUT_MS = 8000;
+  const SAVE_RETRY_AFTER_MS = 60 * 1000;
   // save-picker.js waits 3 seconds of the 5 the browser allows after a click.
   const SAVE_ANSWER_BUDGET_MS = 2600;
   const SAVE_SIGNATURES = [
@@ -2848,7 +2850,10 @@ window.NexusExt = window.NexusExt || {};
         }
       })();
       saveExtensions.set(fileId, found);
-      found.then((extension) => { if (!extension) saveExtensions.delete(fileId); });
+      // A look-up that told nothing is asked again only after a while, never once per ask.
+      found.then((extension) => {
+        if (!extension) setTimeout(() => { if (saveExtensions.get(fileId) === found) saveExtensions.delete(fileId); }, SAVE_RETRY_AFTER_MS);
+      });
     }
     return saveExtensions.get(fileId);
   }
@@ -2882,6 +2887,12 @@ window.NexusExt = window.NexusExt || {};
     const request = saveEventData(event);
     const id = String(request?.id || '');
     if (!id || id.length > 64) return;
+    // The browser opens its picker only right after a click, and save-picker.js asks only then. An ask
+    // at any other time is no picker's, so it gets no look-up (each is a request to Nexus).
+    if (navigator.userActivation && !navigator.userActivation.isActive) {
+      sendSaveEvent(SAVE_ANSWER_EVENT, { id });
+      return;
+    }
     answerSaveName(request)
       .catch(() => null)
       .then((answer) => sendSaveEvent(SAVE_ANSWER_EVENT, { id, ...(answer || {}) }));
@@ -3345,8 +3356,19 @@ div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/regist
     return roots;
   }
 
-  const isPremiumLink = (node) => /premium/i.test(node.getAttribute?.('href') || '')
-    || textIs(controlLabel(node), 'goPremium', ['go premium', 'get premium', 'upgrade to premium']);
+  // Nexus's own Premium page, or a control that says "Go premium". A requirement on another site whose
+  // address happens to say "premium" is a requirement, and stays.
+  function isPremiumLink(node) {
+    if (textIs(controlLabel(node), 'goPremium', ['go premium', 'get premium', 'upgrade to premium'])) return true;
+    const href = node.getAttribute?.('href');
+    if (!href) return false;
+    try {
+      const url = new URL(href, location.href);
+      return /(^|\.)nexusmods\.com$/i.test(url.hostname) && /premium/i.test(url.pathname);
+    } catch (_) {
+      return false;
+    }
+  }
 
   // The banner a "Go premium" link sits in: its ancestors that hold no other link or button, so the
   // requirements around it (their own links) stay.
@@ -3388,6 +3410,14 @@ div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/regist
     }
   }
 
+  function touchesAModal(mutation) {
+    if (mutation.target?.closest?.('.nxm-modal-content')) return true;
+    for (const node of mutation.addedNodes) {
+      if (node.nodeType === 1 && (node.matches('.nxm-modal, .nxm-modal-content') || node.querySelector('.nxm-modal-content'))) return true;
+    }
+    return false;
+  }
+
   function syncDownloadModals() {
     clearTimeout(modalSyncTimer);
     modalSyncTimer = null;
@@ -3395,8 +3425,10 @@ div:has(> div > svg + p):has(> div > a[href^="https://users.nexusmods.com/regist
       themeDownloadModal(root);
       if (modalRootsWatched.has(root) || typeof MutationObserver !== 'function') continue;
       modalRootsWatched.add(root);
-      new MutationObserver(() => {
-        if (!modalSyncTimer) modalSyncTimer = setTimeout(syncDownloadModals, 30);
+      // Only what a window brings: a download's progress changes the card many times a second.
+      new MutationObserver((mutations) => {
+        if (modalSyncTimer || !mutations.some(touchesAModal)) return;
+        modalSyncTimer = setTimeout(syncDownloadModals, 30);
       }).observe(root, { childList: true, subtree: true });
     }
   }

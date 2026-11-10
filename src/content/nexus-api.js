@@ -28,6 +28,11 @@ window.NexusExt = window.NexusExt || {};
   const PERSIST_GAMES_KEY = 'nxtk_api_games';
   const PERSIST_GAMES_MAX_ENTRIES = 200;
   const PERSIST_MAX_CHARS = 1500000;
+  // The answers kept in memory for the page's lifetime. Nexus's site navigates without reloading, so a
+  // session of mod pages and collections kept every answer it was given (a large collection's is megabytes)
+  // until the tab closed. The least recently used go first.
+  const MEMORY_MAX_ENTRIES = 150;
+  const MEMORY_MAX_CHARS = 6000000;
   const BATCH_SIZE = 50;
 
   const TTL = Object.freeze({
@@ -177,11 +182,35 @@ window.NexusExt = window.NexusExt || {};
       return persisted.get(storageKey);
     }
 
+    let memoryChars = 0;
+    function forget(key) {
+      const old = memory.get(key);
+      if (!old) return;
+      memoryChars -= old.text.length;
+      memory.delete(key);
+    }
+    function remember(key, text, expires) {
+      forget(key);
+      memory.set(key, { text, expires });
+      memoryChars += text.length;
+      if (memory.size <= MEMORY_MAX_ENTRIES && memoryChars <= MEMORY_MAX_CHARS) return;
+      const t = now();
+      for (const [old, entry] of memory) if (!(entry.expires > t)) forget(old);
+      // Oldest first: a Map keeps the order entries were set in, and a read sets its entry again.
+      for (const old of memory.keys()) {
+        if (memory.size <= MEMORY_MAX_ENTRIES && memoryChars <= MEMORY_MAX_CHARS) break;
+        if (old !== key) forget(old);
+      }
+    }
+
     async function readCache(key) {
       if (!key) return null;
       const hit = memory.get(key);
-      if (hit && hit.expires > now()) return hit.text;
-      if (hit) memory.delete(key);
+      if (hit && hit.expires > now()) {
+        remember(key, hit.text, hit.expires);
+        return hit.text;
+      }
+      if (hit) forget(key);
       const store = await loadPersisted(persistKeyFor(key));
       const entry = store[key];
       if (entry && typeof entry.text === 'string') {
@@ -189,7 +218,7 @@ window.NexusExt = window.NexusExt || {};
         // must not revive files/mods that have since been removed; stable game-id entries stay valid.
         const expires = typeof entry.expires === 'number' ? entry.expires : key.startsWith('rev:') ? 0 : Infinity;
         if (!(expires > now())) return null;
-        memory.set(key, { text: entry.text, expires });
+        remember(key, entry.text, expires);
         return entry.text;
       }
       return null;
@@ -198,12 +227,20 @@ window.NexusExt = window.NexusExt || {};
     async function writeCache(key, text, ttlMs, permanent, persist = false) {
       if (!key) return;
       const expires = permanent ? Infinity : now() + ttlMs;
-      memory.set(key, { text, expires });
+      remember(key, String(text ?? ''), expires);
       if ((!permanent && !persist) || !storage || text.length > PERSIST_MAX_CHARS) return;
       const storageKey = persistKeyFor(key);
       const maxEntries = storageKey === PERSIST_GAMES_KEY ? PERSIST_GAMES_MAX_ENTRIES : PERSIST_MAX_ENTRIES;
       const store = await loadPersisted(storageKey);
-      store[key] = { text, at: now(), ...(Number.isFinite(expires) ? { expires } : {}) };
+      // An answer past its time is never read again (readCache), so it is not written back either: a
+      // collection's stays in storage, megabytes of it, only for as long as it can still be used.
+      const t = now();
+      for (const old of Object.keys(store)) {
+        const entry = store[old];
+        const until = typeof entry?.expires === 'number' ? entry.expires : old.startsWith('rev:') ? 0 : Infinity;
+        if (!(until > t) || typeof entry?.text !== 'string') delete store[old];
+      }
+      store[key] = { text, at: t, ...(Number.isFinite(expires) ? { expires } : {}) };
       const keys = Object.keys(store).sort((a, b) => (store[a].at || 0) - (store[b].at || 0));
       let total = keys.reduce((sum, k) => sum + (store[k].text?.length || 0), 0);
       while (keys.length > maxEntries || total > PERSIST_MAX_CHARS * 2) {

@@ -1363,6 +1363,8 @@
   // A debug-level line: kept in the debug log while debug logs are on (queueDebugEntry drops it
   // otherwise), but never in the short trail a report carries.
   function noteDebug(args) {
+    // Kept only with Debug logs on; the line is not even put together otherwise.
+    if (!debugPersist) return;
     const text = sanitizeDiagnosticText(trailText(args), 400);
     if (text) queueDebugEntry('debug', text);
   }

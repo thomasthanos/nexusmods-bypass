@@ -787,7 +787,7 @@
           <button type="button" class="nxtk-btn nxtk-btn-primary" data-history-resend ${stats.missing.length ? '' : 'disabled'}>${escapeHtml(NXTK.t('historyViewResend', [String(stats.missing.length)], `Resend missing (${stats.missing.length})`))}</button>
         </div>`
       });
-      modal.querySelector('[data-history-clear]')?.addEventListener('click', async () => {
+      modal.querySelector('[data-history-clear]')?.addEventListener('click', () => runUiTask(async () => {
         const types = ['all', 'mandatory', 'optional'];
         for (const type of [...types, ...types.map((t) => NXTK.vortexSentType(t))]) {
           await NexusExt.Storage.clearHistoryType({ gameId: ndc.gameId, collectionId: ndc.collectionId, type });
@@ -799,7 +799,7 @@
         resend.disabled = !all.length;
         resend.textContent = NXTK.t('historyViewResend', [String(all.length)], `Resend missing (${all.length})`);
         stats.missing = all.map(idOf);
-      });
+      }, { context: 'Clearing the download history', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }));
       modal.querySelector('[data-history-resend]')?.addEventListener('click', () => {
         const missing = new Set(stats.missing);
         close('resend');
@@ -1271,17 +1271,15 @@
     };
     $('#nxtk-select-mods').addEventListener('click', fromMenu('Opening the mod picker', () => showSelectModsModal(ndc)));
     $('#nxtk-update-collection').addEventListener('click', fromMenu('Opening the update check', () => showUpdateModal(ndc)));
-    $('#nxtk-history-view').addEventListener('click', () => {
-      menuController?.close();
-      showHistoryView(ndc, {
-        onResend: (mods) => {
-          if (!mods.length) return;
-          // Only the missing files are queued, so the "downloaded mods found" question is not asked again.
-          ndc.skipHistoryPromptOnce = true;
-          startCollectionDownload(mods, 'all');
-        }
-      });
-    });
+    // Read from storage first: a read that fails (the extension updated meanwhile) is shown, not lost.
+    $('#nxtk-history-view').addEventListener('click', fromMenu('Opening the download history', () => showHistoryView(ndc, {
+      onResend: (mods) => {
+        if (!mods.length) return;
+        // Only the missing files are queued, so the "downloaded mods found" question is not asked again.
+        ndc.skipHistoryPromptOnce = true;
+        startCollectionDownload(mods, 'all');
+      }
+    })));
 
     $('#nxtk-play-pause').addEventListener('click', () => {
       if (ndc.runStatus === STATUS_STOPPED || ndc.runStatus === STATUS_FINISHED) return;
@@ -1593,8 +1591,15 @@
     const uid = button.dataset.modUid;
     if (!api || !action || !uid || button.disabled) return;
     button.disabled = true;
-    const result = await api.modAction(action, uid);
-    button.disabled = false;
+    let result;
+    try {
+      result = await api.modAction(action, uid);
+    } catch (cause) {
+      // A request that failed in an unexpected way is still an answer: the button comes back and says so.
+      result = { ok: false, message: String(cause?.message || cause || '') };
+    } finally {
+      button.disabled = false;
+    }
     const item = button.closest('.nxtk-mod-item');
     const mod = item && modsByEntryId.get(item.dataset.fileId);
     if (!result.ok) {

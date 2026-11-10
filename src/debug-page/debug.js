@@ -142,7 +142,10 @@
       const lineText = `${new Date(e.at).toISOString()} ${e.level.toUpperCase()} [${e.page || '-'}] ${e.text}`;
       copyBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        navigator.clipboard?.writeText(lineText).then(() => showToast('Log entry copied!'));
+        // A refused copy (no clipboard permission, page not focused) says so, as Copy all does.
+        Promise.resolve(navigator.clipboard?.writeText(lineText))
+          .then(() => showToast(navigator.clipboard ? 'Log entry copied!' : 'Could not copy to clipboard'))
+          .catch(() => showToast('Could not copy to clipboard'));
       });
 
       actions.appendChild(copyBtn);

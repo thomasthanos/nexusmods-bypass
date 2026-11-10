@@ -314,6 +314,14 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     assert.equal(await legacy.api.gameId('skyrim'), '110', 'stable game ids keep their separate permanent cache');
     assert.equal(legacy.calls.length, 1);
 
+    // An answer past its time is not written back with the next one: it would sit in storage for good.
+    const stale = harness({ storageData: { nxtk_api_cache: {
+      'rev:old:1': { text: 'x'.repeat(50000), at: 1, expires: 2 },
+      'rev:legacy:2': { text: 'y'.repeat(50000), at: 1 }
+    } }, responses: [published] });
+    await stale.api.collectionRevisionMods({ slug: 'abc123', revision: 4 });
+    assert.deepEqual(Object.keys(stale.store.nxtk_api_cache), ['rev:abc123:4'], 'expired and legacy entries are dropped on write');
+
     const latest = harness({ responses: [published, published] });
     await latest.api.collectionRevisionMods({ slug: 'abc123' });
     assert.equal(latest.store.nxtk_api_cache, undefined, '"latest" is not permanent');
@@ -407,6 +415,32 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
       assert.match(NexusApi.QUERIES[name], /revisionNumber, collection \{ name \}/,
         `${name}: folder metadata belongs to the same response as the files`);
     }
+  }
+
+  // ---- The answers kept in memory are bounded: Nexus's site navigates without reloading, and a long
+  // session kept every answer until the tab closed. The least recently used go first.
+  {
+    const h = harness();
+    await h.api.graphql({ query: 'keep', operationName: 'Q', cacheKey: 'kept', ttlMs: 60_000 });
+    for (let i = 0; i < 400; i++) {
+      await h.api.graphql({ query: `q${i}`, operationName: 'Q', cacheKey: `k${i}`, ttlMs: 60_000 });
+      // The one read again and again stays.
+      if (i % 50 === 0) await h.api.graphql({ query: 'keep', operationName: 'Q', cacheKey: 'kept', ttlMs: 60_000 });
+    }
+    const { memory } = h.api._state;
+    assert.ok(memory.size <= 150, `memory holds at most 150 answers (${memory.size})`);
+    assert.ok(memory.has('kept'), 'a recently read answer is kept');
+    assert.ok(!memory.has('k0'), 'the oldest are dropped');
+    const calls = h.calls.length;
+    await h.api.graphql({ query: 'q399', operationName: 'Q', cacheKey: 'k399', ttlMs: 60_000 });
+    assert.equal(h.calls.length, calls, 'a recent answer still comes from the cache');
+
+    const big = harness({ responses: [ok({ data: { blob: 'x'.repeat(4_000_000) } }), ok({ data: { blob: 'y'.repeat(4_000_000) } })] });
+    await big.api.graphql({ query: 'a', operationName: 'Q', cacheKey: 'big-a', ttlMs: 60_000 });
+    await big.api.graphql({ query: 'b', operationName: 'Q', cacheKey: 'big-b', ttlMs: 60_000 });
+    const sizes = [...big.api._state.memory.values()].reduce((sum, entry) => sum + entry.text.length, 0);
+    assert.ok(sizes <= 6_000_000 || big.api._state.memory.size === 1, 'and at most about 6 million characters of them');
+    assert.ok(big.api._state.memory.has('big-b'), 'the newest stays');
   }
 
   // ---- MD5 for archive lookup.

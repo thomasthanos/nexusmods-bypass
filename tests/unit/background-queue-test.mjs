@@ -14,6 +14,28 @@ import {
 const queueGaps = [];
 NXTK.queueItemGapMs = (code) => { queueGaps.push(String(code || '')); return 0; };
 
+// The Nexus API answers pages keep for their next visit (content/nexus-api.js) are swept on browser
+// startup and on install: an expired collection answer stayed in storage until another pushed it out.
+async function expiredApiAnswersAreSwept() {
+  const now = 5_000_000;
+  const stored = {
+    'rev:fresh:1': { text: 'a', at: 1, expires: now + 60_000 },
+    'rev:old:2': { text: 'b'.repeat(1000), at: 1, expires: now - 1 },
+    'rev:legacy:3': { text: 'c', at: 1 },
+    'mods:x': { text: 'd', at: 1 }
+  };
+  await storageSetLocal('nxtk_api_cache', stored);
+  context.pruneExpiredApiCache(stored, now);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const kept = await storageGetLocal('nxtk_api_cache', null);
+  assert.deepEqual(Object.keys(kept).sort(), ['mods:x', 'rev:fresh:1'], 'expired and legacy revision answers go, live ones stay');
+  context.pruneExpiredApiCache({ 'rev:old:2': stored['rev:old:2'] }, now);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(await storageGetLocal('nxtk_api_cache', null), null, 'a cache with nothing left is removed');
+  context.pruneExpiredApiCache(undefined, now);
+  context.pruneExpiredApiCache(['not', 'an', 'object'], now);
+}
+
 async function jobStateBehaviour() {
   const jobId = 'testjob-000001';
   await storageSetLocal(NDC_JOBS_KEY, {
@@ -1402,5 +1424,6 @@ Promise.resolve()
   .then(queueWaitsOutAServerOutage)
   .then(reconcileSurvivesAFailingJob)
   .then(historyLimitIsNotACrash)
+  .then(expiredApiAnswersAreSwept)
   .then(() => console.log('background.js queue behavior OK'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

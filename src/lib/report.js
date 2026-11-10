@@ -62,14 +62,6 @@
     });
   }
 
-  function shortHash(text) {
-    let hash = 5381;
-    for (let index = 0; index < text.length; index += 1) {
-      hash = (((hash << 5) + hash) ^ text.charCodeAt(index)) >>> 0;
-    }
-    return hash.toString(36).padStart(7, '0').slice(-7);
-  }
-
   // Only the file and position are kept, so the same fault gives the same ID everywhere.
   function errorFingerprint(error) {
     if (!error) return '';

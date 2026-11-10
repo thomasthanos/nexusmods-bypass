@@ -461,8 +461,10 @@
     let pollTimer = null;
     let pollInterval = 0;
 
+    // A hidden tab is checked at the idle rate: nothing there is waiting on the poll (a collection run and
+    // a download have timers of their own), and it is checked again the moment it is shown.
     function syncPollRate() {
-      const actionable = NNW.isActionablePage?.() || !!extractRouteDetails(location.pathname);
+      const actionable = !document.hidden && (NNW.isActionablePage?.() || !!extractRouteDetails(location.pathname));
       const next = actionable ? ACTIVE_POLL_MS : IDLE_POLL_MS;
       if (next === pollInterval) return;
       pollInterval = next;
@@ -483,11 +485,13 @@
 
     syncPollRate();
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) return;
+      if (document.hidden) {
+        syncPollRate();
+        return;
+      }
       UI.showAutoReportInvitation?.().catch(() => undefined);
-      syncObserverRoot();
-      syncNavigation();
-      syncPollRate();
+      // Shown again: everything the poll checks, at once, then the poll back at its rate for the page.
+      tick();
     });
   }
 

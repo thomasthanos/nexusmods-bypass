@@ -25,7 +25,9 @@ export default [
     },
     rules: {
       ...js.configs.recommended.rules,
-      'no-unused-vars': 'off',
+      // What ships has no dead code: there is no bundler to shake it out. Arguments and caught errors
+      // are kept for their names; a name meant to be unused starts with an underscore.
+      'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', varsIgnorePattern: '^_' }],
       'no-empty': ['error', { allowEmptyCatch: true }],
       'no-useless-escape': 'off',
       'no-control-regex': 'off',

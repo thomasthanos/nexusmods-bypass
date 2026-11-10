@@ -403,7 +403,7 @@
           };
           close();
           NexusExt.UI.showSettingsModal(nextView).catch(() => undefined);
-        });
+        }).catch(() => undefined);
       }
     }
 
@@ -464,7 +464,8 @@
         }
         return saved;
       });
-      settingWrites = save.then(() => undefined);
+      // The queue itself never fails: one write that threw must not drop every later one.
+      settingWrites = save.then(() => undefined, () => undefined);
       return save;
     }
 

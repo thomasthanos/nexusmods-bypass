@@ -763,6 +763,26 @@ const resumableDownloadsDone = (async () => {
     assert.equal(moved[1], 'HeavyRain Greek V1.0.1 - Epic Games-12604-900021.7z');
   }
 
+  // An ask from the page itself, with no click before it, is no picker's: it gets no look-up at Nexus.
+  {
+    const code = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    const page = await filePage('900023', {
+      savePicker: async (options) => ({ name: options.suggestedName }),
+      answerFetch: () => null,
+      cardAttributes: { 'file-uri': `d6/87/9c/${code}`, 'game-id': '1704' }
+    });
+    page.w.navigator.userActivation = { isActive: false };
+    const answers = [];
+    page.w.document.addEventListener('nxtk-save-name-answer', (event) => answers.push(JSON.parse(event.detail)));
+    for (let i = 0; i < 5; i++) {
+      page.w.document.dispatchEvent(new page.w.CustomEvent('nxtk-save-name', { detail: JSON.stringify({ id: `spam-${i}`, suggestedName: code }) }));
+    }
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(page.lookedUp(), 0, 'nothing is asked of Nexus');
+    assert.equal(answers.length, 5, 'each ask is still answered');
+    assert.ok(answers.every((answer) => !answer.name), 'with no name');
+  }
+
   // A file whose address has its own name keeps it, and nothing is asked for it.
   {
     const asked = [];
@@ -908,6 +928,8 @@ await (async () => {
     + '<div class="rounded border"><div class="banner rounded"><svg></svg><p>Go 10x faster. Play more. '
     + '<a href="https://users.nexusmods.com/account/billing/premium">Go premium</a></p></div>'
     + '<div class="requirement"><a href="https://reshade.me" class="icon"><svg></svg></a><div><span>External resource</span><span>ReShade</span></div></div>'
+    // A requirement on another site whose address says "premium" is a requirement, not an upsell.
+    + '<div class="external-premium"><a href="https://example.com/premium-textures"><svg></svg></a><div><span>External resource</span><span>Premium Textures</span></div></div>'
     + '<div class="note"><span>Author note</span><p>duh, obviously!</p></div></div></div></div></div>';
   const w = load('file-page-signed-in.html');
   w.fetch = () => new Promise(() => {});
@@ -929,6 +951,7 @@ await (async () => {
   assert.ok(!portal.querySelector('.requirement').classList.contains('nxtk-upsell-hidden'), 'the requirements stay');
   assert.ok(!portal.querySelector('.requirement').closest('.nxtk-upsell-hidden'), 'and nothing around them is hidden');
   assert.ok(!portal.querySelector('.note').closest('.nxtk-upsell-hidden'), 'nor the author\'s note');
+  assert.ok(!portal.querySelector('.external-premium').closest('.nxtk-upsell-hidden'), 'nor another site\'s requirement named "premium"');
   assert.ok(portal.querySelector('style[data-nxtk-modal-style]'), 'the window gets the extension\'s look');
   assert.ok(portal.querySelector('.nxm-modal-header h2 .nxtk-modal-brand'), 'and its name tag');
   assert.equal(portal.querySelectorAll('.nxtk-modal-brand').length, 1, 'once');

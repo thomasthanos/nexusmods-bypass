@@ -3477,6 +3477,27 @@ async function migrateNdcJobItems() {
   });
 }
 
+// The Nexus API answers a page kept for its next visit (content/nexus-api.js). A collection's lasts ten
+// minutes, but stayed in storage, up to a few megabytes of it, until a newer one pushed it out. Swept on
+// browser startup and on install or update, with the store this pass reads anyway.
+const API_CACHE_KEY = 'nxtk_api_cache';
+
+function pruneExpiredApiCache(stored, now = Date.now()) {
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return;
+  const kept = {};
+  let dropped = 0;
+  for (const [key, entry] of Object.entries(stored)) {
+    const until = typeof entry?.expires === 'number' ? entry.expires : key.startsWith('rev:') ? 0 : Infinity;
+    if (until > now && typeof entry?.text === 'string') kept[key] = entry;
+    else dropped += 1;
+  }
+  if (!dropped) return;
+  try {
+    if (Object.keys(kept).length) chrome.storage.local.set({ [API_CACHE_KEY]: kept }, () => void getRuntimeError());
+    else chrome.storage.local.remove(API_CACHE_KEY, () => void getRuntimeError());
+  } catch (_) { }
+}
+
 async function pruneOrphanedNdcItems() {
   const jobs = await readNdcJobs({ strict: true });
   const all = await new Promise((resolve) => {
@@ -3487,6 +3508,7 @@ async function pruneOrphanedNdcItems() {
     }
   });
   if (!all) return;
+  pruneExpiredApiCache(all[API_CACHE_KEY]);
   const stale = Object.keys(all).filter((key) => (
     key.startsWith(NDC_ITEMS_KEY_PREFIX) && !jobs[key.slice(NDC_ITEMS_KEY_PREFIX.length)]
   ));

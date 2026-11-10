@@ -498,6 +498,28 @@ window.NexusExt = window.NexusExt || {};
     return null;
   }
 
+  // A menu added or taken away, or an attribute that opens or closes one. Changes inside the extension's
+  // own surfaces never are.
+  function holdsAMenu(node) {
+    if (node?.nodeType !== 1) return false;
+    try {
+      return node.matches(NEXUS_MENU_SELECTOR) || !!node.querySelector(NEXUS_MENU_SELECTOR);
+    } catch (_) {
+      return false;
+    }
+  }
+  function mayMoveAMenu(mutation) {
+    if (mutation.target?.closest?.('#nxtk-extension-root, #nxtk-dropdown-portal, .nxtk-modal-backdrop')) return false;
+    if (mutation.type === 'attributes') return true;
+    for (const node of mutation.addedNodes) if (holdsAMenu(node)) return true;
+    for (const node of mutation.removedNodes) if (holdsAMenu(node)) return true;
+    return false;
+  }
+  function inAMenu(event) {
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
+    return path.some((node) => node?.nodeType === 1 && node.matches?.(NEXUS_MENU_SELECTOR));
+  }
+
   function syncFabWithMenus(fab) {
     if (getTopModalBackdrop()) return null;
     const menu = openMenuUnderFab(fab);
@@ -596,7 +618,11 @@ window.NexusExt = window.NexusExt || {};
       }), wait);
     };
     if (typeof MutationObserver === 'function') {
-      new MutationObserver(scheduleMenus).observe(document.body, {
+      // Nexus's ads change the page many times a second. Only a change that can open or close a menu is
+      // worth the scan, which walks the shadow roots and measures what it finds.
+      new MutationObserver((mutations) => {
+        if (mutations.some(mayMoveAMenu)) scheduleMenus();
+      }).observe(document.body, {
         subtree: true,
         childList: true,
         attributes: true,
@@ -606,6 +632,8 @@ window.NexusExt = window.NexusExt || {};
     for (const type of ['pointerdown', 'click', 'keydown', 'transitionend', 'animationend']) {
       document.addEventListener(type, (event) => {
         if (fab.contains(event.target)) return;
+        // A transition or animation counts only when a menu is moving, not the page's every effect.
+        if ((type === 'transitionend' || type === 'animationend') && !inAMenu(event)) return;
         scheduleMenus();
         if (type === 'pointerdown' || type === 'click' || type === 'keydown') {
           for (const delay of [150, 400, 900]) setTimeout(scheduleMenus, delay);
