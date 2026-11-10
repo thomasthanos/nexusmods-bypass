@@ -650,6 +650,17 @@
   "setDownloadFolderLabel": {
     "message": "Φάκελος λήψεων περιηγητή"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "Όνομα συλλογής και revision ως όνομα φακέλου",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "Αρχικά ανενεργό. Αποθηκεύει κάθε συλλογή Nexus σε δικό της υποφάκελο, π.χ. Όνομα συλλογής (Rev 54), μέσα στην τοποθεσία λήψεων του browser. Για τις συλλογές αντικαθιστά τον Φάκελο λήψεων browser χωρίς να αλλάζει την αποθηκευμένη τιμή του. Τα μεμονωμένα mods, το Vortex και το Wabbajack διατηρούν τους φακέλους τους. Στο Opera χρησιμοποιείται ο φάκελος Λήψεις του συστήματος.",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "Ξεχωριστός φάκελος λήψεων για κάθε revision μιας συλλογής."
+  },
   "setDownloadFolderDesc": {
     "message": "Φάκελος μέσα στη θέση λήψεων του browser, για παράδειγμα NexusMods. Άφησέ το κενό για να αποθηκεύονται τα αρχεία εκεί που ο browser αποθηκεύει τις δικές του λήψεις. Πλήρης διαδρομή όπως το D:\\mods δεν γίνεται: μια επέκταση αποθηκεύει μόνο μέσα στη θέση λήψεων του browser, οπότε όρισε το D:\\mods ως θέση λήψεων στις ρυθμίσεις του browser. Δεν αλλάζει πού αποθηκεύει αρχεία το Vortex."
   },

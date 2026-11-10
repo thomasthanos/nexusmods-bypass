@@ -119,6 +119,42 @@ async function onboardingRegressionTests() {
   } finally { f.close(); }
 }
 
+async function collectionUpdateFolderTests() {
+  const f = fixture();
+  try {
+    for (const file of ['src/content/errors.js', 'src/content/ndc.js', 'src/content/ui-collection.js']) {
+      f.w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+    }
+    const ndc = new f.w.NexusExt.NDC('skyrimspecialedition', 'collection', 3);
+    ndc.collectionName = 'Page collection';
+    ndc.loadedRevision = { number: 3 };
+    ndc.fetchRevisions = async () => [3, 54].map(revisionNumber => ({ revisionNumber, totalSize: 1024, createdAt: '2026-01-01' }));
+    ndc.fetchMods = async (_slug, revision) => ({ revisionNumber: revision, collection: { name: 'Updated collection' },
+      modFiles: revision === 3 ? [] : [{ fileId: 46, file: { fileId: 46, name: 'Archive.7z', mod: { modId: 46, name: 'Mod' } } }] });
+    let requested;
+    ndc.downloadMods = async (mods, type, options) => { requested = { mods, type, options }; };
+    const deck = f.w.NexusExt.UI.createControlDeck(ndc);
+    f.w.document.body.appendChild(deck);
+    deck.querySelector('#nxtk-update-collection').click();
+    await tick();
+    const select = (id, value) => {
+      const input = f.w.document.getElementById(id);
+      input.value = value;
+      input.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+    };
+    select('nxtk-rev-current', '3');
+    select('nxtk-rev-new', '54');
+    await tick();
+    f.w.document.getElementById('nxtk-do-update').click();
+    await tick();
+    assert.equal(requested.mods.length, 1);
+    assert.equal(requested.options.collection.name, 'Updated collection');
+    assert.equal(requested.options.collection.revision, 54, 'updates use their target revision, not the page revision');
+    assert.equal(ndc.loadedRevision.number, 3, 'the comparison cannot rename a subsequent page run');
+  } finally { f.close(); }
+  console.log('Collection update destination uses the compared target revision OK');
+}
+
 async function collectionSelectionRegressionTests() {
   const cases = [
     { label: 'ASCII', names: ['Alpha package', 'Beta package'], uris: ['alpha-package-1.7z', 'beta-package-2.7z'], imported: 'alpha-package-1.7z' },
@@ -428,6 +464,22 @@ async function settingsNavigationTests() {
 async function settingsRegressionTests() {
   const failures = [];
   const cases = [
+    ['collection folder toggle preserves the manual folder', async (f) => {
+      assert.equal(f.w.NXTK.DEFAULTS.UseCollectionFolder, false, 'existing installs keep their folder behavior');
+      f.store.nxtk_settings = { ...f.w.NXTK.DEFAULTS, DownloadFolder: 'My mods' };
+      f.w.NexusExt.UIKit.closeModal('nxtk-settings-modal');
+      await f.w.NexusExt.UIKit.settings.open();
+      const toggle = f.modal().querySelector('[data-setting="UseCollectionFolder"]');
+      assert.ok(toggle.closest('[data-settings-details="browser"]'), 'the option belongs to Browser downloads');
+      assert.equal(toggle.checked, false);
+      for (const checked of [true, false]) {
+        toggle.checked = checked;
+        toggle.dispatchEvent(new f.w.Event('change', { bubbles: true }));
+        await tick();
+        assert.equal(f.store.nxtk_settings.UseCollectionFolder, checked);
+        assert.equal(f.store.nxtk_settings.DownloadFolder, 'My mods');
+      }
+    }],
     ['latest manual choice wins during a delayed preset', async (f) => {
       const send = f.w.chrome.runtime.sendMessage;
       let release;
@@ -586,6 +638,7 @@ async function settingsRegressionTests() {
   await deckMenuAccessibilityTests();
   await settingsNavigationTests();
   await settingsRegressionTests();
+  await collectionUpdateFolderTests();
   const f = fixture();
   const { w, store, modal } = f;
   const find = (selector) => modal().querySelector(selector);
@@ -599,7 +652,7 @@ async function settingsRegressionTests() {
     await w.NexusExt.UIKit.settings.open();
     const groups = {
       basics: ['AutoStartDownload', 'SkipRequirements', 'ShowAlertsOnError'],
-      downloads: ['HandleArchivedFiles', 'DownloadFolder', 'WriteMo2Meta', 'AutoCloseTab', 'CheckVortexOpens', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'],
+      downloads: ['HandleArchivedFiles', 'DownloadFolder', 'UseCollectionFolder', 'WriteMo2Meta', 'AutoCloseTab', 'CheckVortexOpens', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'],
       collections: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'],
       appearance: ['HidePremiumUpsells', 'ExpandRequirements', 'ForceEnglish'],
       diagnostics: ['AutoErrorReports', 'PrivateDiagnostics'],
@@ -611,8 +664,8 @@ async function settingsRegressionTests() {
       assert.deepEqual([...section.querySelectorAll('[data-setting]')].map((el) => el.dataset.setting), keys);
     }
     assert.equal(find('[data-settings-group="advanced"]').hidden, true);
-    assert.equal(modal().querySelectorAll('[data-setting]').length, 24, 'all settings appear exactly once');
-    assert.equal(new Set([...modal().querySelectorAll('[data-setting]')].map((el) => el.dataset.setting)).size, 24);
+    assert.equal(modal().querySelectorAll('[data-setting]').length, 25, 'all settings appear exactly once');
+    assert.equal(new Set([...modal().querySelectorAll('[data-setting]')].map((el) => el.dataset.setting)).size, 25);
     for (const input of modal().querySelectorAll('[data-setting]')) {
       assert.ok(input.labels?.length || input.getAttribute('aria-labelledby'), `${input.dataset.setting} has an accessible label`);
     }

@@ -402,7 +402,11 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
     }
     const legacy = fs.readFileSync('src/content/ndc.js', 'utf8');
     assert.ok(legacy.includes(NexusApi.QUERIES.CollectionRevisionModsLegacy.slice(0, 60)) || legacy.includes('CollectionRevisionModsLegacy'),
-      'the legacy path still sends the pre-2.10 query');
+      'the legacy path uses its router query');
+    for (const name of ['CollectionRevisionMods', 'CollectionRevisionModsLegacy']) {
+      assert.match(NexusApi.QUERIES[name], /revisionNumber, collection \{ name \}/,
+        `${name}: folder metadata belongs to the same response as the files`);
+    }
   }
 
   // ---- MD5 for archive lookup.
@@ -469,7 +473,7 @@ const netFail = () => ({ ok: false, status: 0, text: '', error: { code: 'network
       ...extra
     });
 
-    // Flag off: the pre-2.10 query to the router, nothing else.
+    // Flag off: the legacy query to the router, nothing else.
     const off = new NDC('skyrimspecialedition', 'abc123', 3);
     off.loadRunSettings({ UseOfficialApi: false });
     assert.equal(off.api(), null);

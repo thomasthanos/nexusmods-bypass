@@ -456,6 +456,27 @@ function downloadSubfolder(folder) {
   return trimSegmentEnds(sanitizePathSegment(folder, { allowDots: false }).slice(0, MAX_DOWNLOAD_DIR_CHARS));
 }
 
+// Discussion #46: keep the revision suffix when shortening a collection's name. Metadata is a label,
+// never a path: slashes, drive punctuation and reserved names go through the same portable sanitizer.
+function collectionDownloadFolder(metadata, slug) {
+  const name = sanitizePathSegment(metadata?.name, { allowDots: false })
+    || sanitizePathSegment(slug, { allowDots: false }) || 'Nexus collection';
+  const revision = Number(metadata?.revision);
+  const suffix = Number.isSafeInteger(revision) && revision > 0 ? ` (Rev ${revision})` : '';
+  // Bound both UTF-16 length and UTF-8 bytes for portable filesystem components. Iterate code points
+  // so shortening an emoji name cannot leave an unpaired surrogate.
+  let base = '';
+  let bytes = suffix.length;
+  for (const character of name) {
+    const point = character.codePointAt(0);
+    const width = point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
+    if (base.length + character.length + suffix.length > MAX_DOWNLOAD_DIR_CHARS || bytes + width > 240) break;
+    base += character;
+    bytes += width;
+  }
+  return `${trimSegmentEnds(base)}${suffix}`;
+}
+
 // Sanitize both user-controlled path segments before downloading.
 function buildDownloadPath(folder, rawName) {
   // Capping can cut a name or folder just before a space or a tilde, so the ends are tidied again.
@@ -3092,8 +3113,10 @@ const NDC_QUEUE_HANDLERS = {
       scopeKey,
       startId: startToken.id || null,
       label: String(payload?.label || '').replace(/\s+/g, ' ').trim().slice(0, 120),
-      // The same folder rule as a single download: a full path is none (issue #34).
-      folder: downloadSubfolder(payload?.folder),
+      // Fixed for this job, including retry, pause/resume, reattach and worker recovery.
+      folder: payload?.collectionFolder
+        ? collectionDownloadFolder(payload.collectionFolder, collectionId)
+        : downloadSubfolder(payload?.folder),
       requestTimeout: NXTK.normalizeSetting('RequestTimeout', Number(payload?.requestTimeout) || NXTK.DEFAULTS.RequestTimeout),
       itemCount: items.length,
       index: 0,

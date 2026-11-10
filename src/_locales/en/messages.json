@@ -818,6 +818,17 @@
     "message": "Browser download folder",
     "description": "Setting label."
   },
+  "setUseCollectionFolderLabel": {
+    "message": "Use collection name and revision as folder name",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "Off by default. Save each Nexus collection in its own folder, for example Collection Name (Rev 54), inside your browser's download location. For collections this replaces Browser download folder without changing its saved value. Single mods, Vortex and Wabbajack keep their folders. Opera uses the system Downloads folder for this option.",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "Give each collection revision its own browser download folder."
+  },
   "setDownloadFolderDesc": {
     "message": "A folder inside your browser's download location, for example NexusMods. Leave it empty to save files where your browser saves its own downloads. A full path such as D:\\mods cannot be used: an extension can only save inside the browser's download location, so set D:\\mods as that location in your browser's settings. This does not change where Vortex stores files.",
     "description": "Setting description."

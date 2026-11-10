@@ -122,6 +122,30 @@ test('Wabbajack modlist on a mod page: the deck mounts in the content column and
   expect(await readStorage(ctx, 'nxtk_error_log') || [], 'an import and a close are not errors').toEqual([]);
 });
 
+test('collection folder setting survives a reload and uses the revision loaded for a browser queue', async () => {
+  await resetStorage(ctx, { nxtk_settings: { AutoErrorReports: false, DownloadFolder: 'Manual folder', NDC_downloadMethod: 1 } });
+  const tab = await nexusPage(COLLECTION_URL);
+  await expect(tab.locator('#nxtk-control-deck')).toBeVisible();
+  await tab.locator('#nxtk-settings-fab').click();
+  const modal = tab.locator('#nxtk-settings-modal');
+  await modal.locator('[data-settings-tab="downloads"]').click();
+  await modal.locator('[data-settings-details="browser"] > summary').click();
+  const toggle = modal.locator('[data-setting="UseCollectionFolder"]');
+  await expect(toggle).not.toBeChecked();
+  await toggle.check();
+  await expect.poll(async () => (await readStorage(ctx, 'nxtk_settings'))?.UseCollectionFolder).toBe(true);
+  expect((await readStorage(ctx, 'nxtk_settings')).DownloadFolder).toBe('Manual folder');
+  await tab.keyboard.press('Escape');
+  await tab.reload();
+  await expect(tab.locator('#nxtk-control-deck')).toBeVisible();
+  await tab.locator('#nxtk-dl-all').click();
+  await expect.poll(async () => Object.values(await readStorage(ctx, 'nxtk_background_ndc_jobs') || {}).map(job => job.folder))
+    .toEqual(['Fixture collection (Rev 3)']);
+  // The fixture reports a newer revision 4 separately; it must never name revision 3's files.
+  expect((await readStorage(ctx, 'nxtk_settings')).DownloadFolder).toBe('Manual folder');
+  await tab.locator('#nxtk-stop').click();
+});
+
 test('Wabbajack modlist on a collection page: it replaces the collection deck in place, and closing it brings that deck back', async () => {
   const tab = await nexusPage(COLLECTION_URL);
   const collectionDeck = tab.locator('#nxtk-control-deck');

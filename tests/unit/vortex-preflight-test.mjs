@@ -125,6 +125,41 @@ function createHarness(choice) {
 }
 
 (async () => {
+  // Discussion #46: only Nexus collection browser queues carry automatic folder metadata. Read it
+  // from the same loaded response as the files, including when a URL without a revision loaded 54.
+  for (const useCollectionFolder of [false, true]) {
+    const { ndc } = createHarness('browser');
+    delete ndc.downloadBrowserQueue;
+    const settings = { ...shared.NXTK.DEFAULTS, DownloadFolder: 'Manual folder', UseCollectionFolder: useCollectionFolder };
+    NexusExt.Storage.getSettings = async () => settings;
+    ndc.watchSettings = () => {};
+    ndc.fetchMods = async () => ({ revisionNumber: 54, collection: { name: 'Actual collection' }, modFiles: [] });
+    assert.equal(await ndc.init(), true);
+    const commands = [];
+    NexusExt.Storage.sendDownloadCommand = async (type, payload) => { commands.push({ type, payload }); return { ok: true }; };
+    ndc.watchBackgroundJob = async ({ start }) => {
+      // A settings edit before the asynchronous worker handshake cannot change this run's choice.
+      ndc.loadRunSettings({ ...settings, DownloadFolder: 'Changed', UseCollectionFolder: false });
+      await start();
+    };
+    const mods = [{ fileId: 46, file: { fileId: 46, name: 'Mod.7z', mod: { name: 'Mod', modId: 1, game: { id: 1704 } } } }];
+    await ndc.downloadBrowserQueue(mods, 'all', {});
+    assert.equal(commands[0].payload.folder, 'Manual folder');
+    assert.deepEqual(commands[0].payload.collectionFolder,
+      useCollectionFolder ? { name: 'Actual collection', revision: 54 } : null);
+    ndc.loadRunSettings(settings);
+    commands.length = 0;
+    await ndc.downloadBrowserQueue(mods, null, {}, { collection: { name: 'Updated collection', revision: 55 } });
+    assert.deepEqual(commands[0].payload.collectionFolder,
+      useCollectionFolder ? { name: 'Updated collection', revision: 55 } : null, 'an update targets its own revision');
+    // A Wabbajack list is also a browser queue, but must always keep its own destination.
+    await ndc.initFromMods(mods);
+    commands.length = 0;
+    await ndc.downloadBrowserQueue(mods, 'all', {});
+    assert.equal(commands[0].payload.collectionFolder, null);
+    assert.equal(commands[0].payload.folder, 'Manual folder');
+  }
+
   const canceled = createHarness('cancel');
   await canceled.ndc.runCollection([], 'all');
   assert.equal(canceled.calls.history, 0, 'cancel must not read or mutate history');

@@ -580,6 +580,17 @@
   "setDownloadFolderLabel": {
     "message": "브라우저 다운로드 폴더"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "컬렉션 이름과 리비전을 폴더 이름으로 사용",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "기본적으로 꺼져 있습니다. 브라우저 다운로드 위치에 각 Nexus 컬렉션 전용 하위 폴더를 만들어 저장합니다. 예: 컬렉션 이름 (Rev 54). 컬렉션에는 브라우저 다운로드 폴더 대신 이 폴더를 사용하며, 기존 설정값은 유지됩니다. 개별 모드, Vortex 및 Wabbajack의 폴더는 바뀌지 않습니다. Opera에서는 이 옵션을 사용하면 시스템 다운로드 폴더에 저장됩니다.",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "컬렉션 리비전마다 별도의 브라우저 다운로드 폴더를 사용합니다."
+  },
   "setDownloadFolderDesc": {
     "message": "브라우저 다운로드 위치 안의 폴더 이름입니다(예: NexusMods). 비워 두면 브라우저가 자체 다운로드를 저장하는 곳에 파일을 저장합니다. D:\\mods 같은 전체 경로는 쓸 수 없습니다. 확장 프로그램은 브라우저 다운로드 위치 안에만 저장할 수 있으므로 D:\\mods는 브라우저 설정에서 다운로드 위치로 지정하세요. Vortex 저장 위치는 바꾸지 않습니다."
   },

@@ -580,6 +580,17 @@
   "setDownloadFolderLabel": {
     "message": "ブラウザーのダウンロードフォルダー"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "コレクション名とリビジョンをフォルダー名にする",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "初期設定はオフです。ブラウザーのダウンロード先に、各 Nexus コレクション専用のサブフォルダー（例：コレクション名 (Rev 54)）を作って保存します。コレクションでは「ブラウザーのダウンロードフォルダー」より優先されますが、その保存済み設定は変わりません。単体の MOD、Vortex、Wabbajack の保存先は変わりません。Opera では、この設定を使うとシステムのダウンロードフォルダーに保存されます。",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "コレクションのリビジョンごとに専用のダウンロードフォルダーを使います。"
+  },
   "setDownloadFolderDesc": {
     "message": "ブラウザーのダウンロード保存先の中に作るフォルダー名です（例: NexusMods）。空欄なら、ブラウザーが自分のダウンロードを保存する場所に保存します。D:\\mods のようなフルパスは使えません。拡張機能はブラウザーのダウンロード保存先の中にしか保存できないため、D:\\mods はブラウザーの設定で保存先として指定してください。Vortex の保存先は変わりません。"
   },

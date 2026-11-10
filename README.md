@@ -77,7 +77,7 @@ On first install, the welcome page asks three setup questions and has a **Test V
 
 - **Quick setup:** presets *Vortex user*, *Browser downloads* and *Minimal* (a mix shows as *Custom*).
 - **Download flow:** auto-start, close the extra tab after sending to Vortex, check that Vortex opens (turn off for another mod manager that handles `nxm://` links), skip requirements, error popups, hide ads and Premium panels, archived file buttons, Wabbajack import, smallest files first.
-- **Files:** browser download folder. Optional `.meta` files for Mod Organizer 2 beside each file saved in the browser, from a mod page or a collection, so MO2 shows the mod's description and opens its Nexus page (off by default).
+- **Files:** browser download folder. **Use collection name and revision as folder name** (off by default) saves Nexus collections in a folder such as `Collection Name (Rev 54)`, using the revision loaded for that run. It replaces the manual folder for collections while keeping its saved value; single mods, Vortex and Wabbajack keep their folders. Optional `.meta` files for Mod Organizer 2 stay beside each archive, so MO2 shows the mod's description and opens its Nexus page (off by default).
 - **Official Nexus API:** use the documented API for collection, mod and file details (on), follow curator update policy (off), endorse and track buttons (on). See <a href="docs/nexus-site-map.md"><kbd>docs/nexus-site-map.md</kbd></a>.
 - **Advanced:** request timeout (at least 15 seconds), close-tab delay, Vortex download speed and pause between files, official API, open a page when Nexus asks for a browser check (on by default, also for collections; turning it off asks first).
 - **Language:** Always use English.
@@ -145,6 +145,8 @@ Choose **Skip Downloaded** when the history dialog appears. Cleared history cann
 **Browser download folder** in Page settings is a folder *inside* the browser's download location, such as `NexusMods`; a browser lets an extension save nowhere else, so a full path like `D:\mods` cannot go there. To save to `D:\mods`, choose it as the download location in the browser's own settings and leave **Browser download folder** empty (the default since 3.3.2). Vortex keeps its own download folder.
 
 **Opera:** a file in a folder set here goes inside the system `Downloads` folder, not the location chosen in Opera's settings. Leave **Browser download folder** empty and Opera saves each file where it saves its own downloads.
+
+**Collection folders:** in Settings → Downloads → Browser downloads, turn on **Use collection name and revision as folder name** to separate collection revisions automatically. These are subfolders of the browser's download location; Opera uses the system `Downloads` folder. To let Opera choose its own location, keep this option off and **Browser download folder** empty.
 </details>
 
 </blockquote>

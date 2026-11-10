@@ -720,6 +720,17 @@
   "setDownloadFolderLabel": {
     "message": "Папка загрузок браузера"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "Использовать название коллекции и ревизию как имя папки",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "По умолчанию выключено. Сохраняет каждую коллекцию Nexus в отдельную подпапку в папке загрузок браузера, например Название коллекции (Rev 54). Для коллекций заменяет папку загрузок браузера, не изменяя её сохранённое значение. Отдельные моды, Vortex и Wabbajack сохраняют свои папки. В Opera эта настройка использует системную папку «Загрузки».",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "Отдельная папка загрузок для каждой ревизии коллекции."
+  },
   "setDownloadFolderDesc": {
     "message": "Папка внутри места загрузок браузера, например NexusMods. Оставь пустым, чтобы сохранять файлы туда же, куда браузер сохраняет свои загрузки. Полный путь вроде D:\\mods указать нельзя: расширение может сохранять только внутри места загрузок браузера, поэтому выбери D:\\mods местом загрузок в настройках браузера. Не меняет папку файлов Vortex."
   },

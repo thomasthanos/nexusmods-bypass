@@ -650,6 +650,17 @@
   "setDownloadFolderLabel": {
     "message": "Pasta de downloads do navegador"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "Usar o nome da coleção e a revisão como nome da pasta",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "Desativado por padrão. Salva cada coleção do Nexus em sua própria subpasta no local de downloads do navegador, por exemplo Nome da coleção (Rev 54). Para coleções, substitui a pasta de downloads do navegador sem alterar o valor salvo. Mods individuais, Vortex e Wabbajack mantêm suas pastas. No Opera, esta opção usa a pasta Downloads do sistema.",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "Uma pasta de downloads separada para cada revisão de uma coleção."
+  },
   "setDownloadFolderDesc": {
     "message": "Uma pasta dentro do local de download do navegador, por exemplo NexusMods. Deixe vazio para salvar os arquivos onde o navegador salva os próprios downloads. Um caminho completo como D:\\mods não pode ser usado: uma extensão só salva dentro do local de download do navegador, então escolha D:\\mods como esse local nas configurações do navegador. Não muda onde o Vortex salva arquivos."
   },

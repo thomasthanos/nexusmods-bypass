@@ -580,6 +580,17 @@
   "setDownloadFolderLabel": {
     "message": "Folder pobierania przeglądarki"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "Użyj nazwy kolekcji i rewizji jako nazwy folderu",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "Domyślnie wyłączone. Zapisuje każdą kolekcję Nexus we własnym podfolderze w lokalizacji pobierania przeglądarki, np. Nazwa kolekcji (Rev 54). Dla kolekcji zastępuje folder pobierania przeglądarki bez zmiany jego zapisanej wartości. Pojedyncze mody, Vortex i Wabbajack zachowują swoje foldery. Opera używa w tym przypadku systemowego folderu Pobrane.",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "Osobny folder pobierania dla każdej rewizji kolekcji."
+  },
   "setDownloadFolderDesc": {
     "message": "Folder w lokalizacji pobierania przeglądarki, na przykład NexusMods. Pozostaw puste, aby zapisywać pliki tam, gdzie przeglądarka zapisuje własne pobrane pliki. Pełnej ścieżki, takiej jak D:\\mods, nie da się użyć: rozszerzenie może zapisywać tylko w lokalizacji pobierania przeglądarki, więc ustaw D:\\mods jako tę lokalizację w ustawieniach przeglądarki. Nie zmienia folderu plików Vortex."
   },

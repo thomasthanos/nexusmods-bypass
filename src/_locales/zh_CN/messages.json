@@ -615,6 +615,17 @@
   "setDownloadFolderLabel": {
     "message": "浏览器下载文件夹"
   },
+  "setUseCollectionFolderLabel": {
+    "message": "使用合集名称和修订号作为文件夹名称",
+    "description": "Setting label for automatic Nexus collection folders."
+  },
+  "setUseCollectionFolderDesc": {
+    "message": "默认关闭。将每个 Nexus 合集保存到浏览器下载位置下的独立子文件夹，例如：合集名称 (Rev 54)。下载合集时，此选项会替代“浏览器下载文件夹”，但不会更改其已保存的值。单个模组、Vortex 和 Wabbajack 的文件夹保持不变。在 Opera 中，此选项使用系统的“下载”文件夹。",
+    "description": "Help for automatic collection folders. Rev 54 is an example of the revision suffix used on disk."
+  },
+  "setShortUseCollectionFolder": {
+    "message": "为合集的每个修订版本使用独立的浏览器下载文件夹。"
+  },
   "setDownloadFolderDesc": {
     "message": "浏览器下载位置中的一个文件夹，例如 NexusMods。留空则保存到浏览器保存其自身下载的位置。不能使用 D:\\mods 这样的完整路径：扩展程序只能保存到浏览器的下载位置中，因此请在浏览器设置中将 D:\\mods 设为下载位置。不会更改 Vortex 的保存位置。"
   },

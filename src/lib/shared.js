@@ -257,6 +257,7 @@
     // Empty: the browser places each file as it places its own downloads. A named file always goes to
     // the browser's download location, which on Opera is not the folder its own downloads use (#34).
     DownloadFolder: '',
+    UseCollectionFolder: false,
     CloseTabDelay: 3000,
     RequestTimeout: 30000,
     NDC_pauseBetweenDownload: 5,
