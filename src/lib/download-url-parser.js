@@ -213,8 +213,16 @@
       fileId: toFileId(given.fileId),
       gameId: given.gameId ?? '',
       allowBareCdn: given.allowBareCdn !== false,
-      baseUrl
+      baseUrl,
+      contentType: mediaType(given.contentType)
     };
+  }
+
+  // An answer's media type alone ("text/plain", not its charset or anything after it), and only one shaped
+  // like a media type: a report may name it, as it names no part of the answer itself.
+  function mediaType(value) {
+    const type = String(value ?? '').split(';', 1)[0].trim().toLowerCase();
+    return /^[a-z0-9][a-z0-9.+-]{0,40}\/[a-z0-9][a-z0-9.+-]{0,60}$/.test(type) ? type : '';
   }
 
   function fileIdOf(value) {
@@ -601,7 +609,9 @@
       if (META_REFRESH.test(body)) parts.push('self-reloading page');
       return parts.join('; ');
     }
-    return 'plain text body';
+    // Diagnostics #4 (Firefox 160): a plain-text answer from a file page said nothing more, so its media
+    // type is named, which tells an error text from a page Nexus sent in another form.
+    return settings.contentType ? `plain text body (${settings.contentType})` : 'plain text body';
   }
 
   // Why a response gave no usable link: its shape (describeBody) and what became of each candidate.

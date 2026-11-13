@@ -392,7 +392,7 @@
   // Which action buttons an error dialog offers, from the error and what the caller can do.
   // Returns ids in display order: signIn, retryIn, retry, openFilePage, switchToBrowser.
   const FILE_PAGE_ERROR_CODES = new Set(['no_download_url', 'no_nmm_link', 'unsafe_download_url', 'file_not_found',
-    'access_denied', 'moderation_hold', 'cloudflare', 'mod_unavailable', 'short_file', 'empty_file', 'not_a_file']);
+    'access_denied', 'moderation_hold', 'file_flagged', 'cloudflare', 'mod_unavailable', 'short_file', 'empty_file', 'not_a_file']);
   function errorActionsFor(error, { canRetry = false, filePageUrl = '', method = '', canSwitchToBrowser = false } = {}) {
     const code = error?.code || '';
     const actions = [];
@@ -654,9 +654,15 @@
     user: ['USER_CANCELED', 'USER_SHUTDOWN']
   });
   const DOWNLOAD_RETRY_LIMITS = Object.freeze({ transient: 2, link: 1, unknown: 1, disk: 0, blocked: 0, user: 0, size: 1 });
+  const IS_FIREFOX = typeof navigator !== 'undefined' && /\bFirefox\//.test(String(navigator.userAgent || ''));
 
-  function classifyDownloadInterrupt(error) {
+  // Firefox names "CRASH" every failed download that is neither a network nor a file failure: its own
+  // download protection's blocks among them (ext-downloads.js DownloadItem.error, and it reports every
+  // download's danger as "safe", so the two cannot be told apart). Retrying one only repeated the block
+  // (diagnostics #20). In Chromium the same name means the browser went down mid-transfer.
+  function classifyDownloadInterrupt(error, { firefox = IS_FIREFOX } = {}) {
     const text = String(error || '').toUpperCase();
+    if (firefox && /\bCRASH\b/.test(text)) return { kind: 'blocked', retries: DOWNLOAD_RETRY_LIMITS.blocked };
     if (/\bEMPTY_FILE|SHORT_FILE|NOT_A_FILE|SIZE_MISMATCH/.test(text)) return { kind: 'size', retries: DOWNLOAD_RETRY_LIMITS.size };
     for (const [kind, reasons] of Object.entries(DOWNLOAD_INTERRUPTS)) {
       if (reasons.some((reason) => text.includes(reason))) return { kind, retries: DOWNLOAD_RETRY_LIMITS[kind] };
@@ -732,6 +738,12 @@
     return CONNECTION_FAILURE_CODES.has(String(code || '').split(/[\s(]/, 1)[0]);
   }
 
+  // Gateway answers and Cloudflare's origin errors: Nexus, or the way to it, is down, not the one file
+  // asked for. A plain 500 can be one page's own fault, so it is not one of them. The worker's queue and
+  // the page's Vortex run both read this list; 525 was missing from both copies of it, and on 2026-11-11
+  // Cloudflare answered 525 (its SSL handshake with Nexus failed) for hours (diagnostics #22, #23).
+  const NEXUS_OUTAGE_STATUSES = new Set([502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527, 530]);
+
   function networkWaitMs(strike, random = Math.random) {
     const step = Math.max(0, (Number(strike) || 1) - 1);
     return withJitter(Math.min(NETWORK_WAIT_BASE_SECONDS * Math.pow(2, step), NETWORK_WAIT_MAX_SECONDS) * 1000, random);
@@ -739,7 +751,7 @@
 
   // Only a definitive unavailable-file verdict permits advancing without a download. A Cloudflare
   // challenge says nothing about availability: keep the current file for a retry after verification.
-  const QUEUE_UNAVAILABLE_CODES = new Set(['mod_unavailable', 'file_not_found', 'moderation_hold']);
+  const QUEUE_UNAVAILABLE_CODES = new Set(['mod_unavailable', 'file_not_found', 'moderation_hold', 'file_flagged']);
   const MAX_TRACKED_SKIPS = 200;
 
   function queueSkipReason(code) {
@@ -1655,6 +1667,7 @@
     rateLimitBackoffSeconds,
     NETWORK_WAIT_MAX_STRIKES,
     isConnectionFailure,
+    NEXUS_OUTAGE_STATUSES,
     networkWaitMs,
     retryDelayMs,
     withJitter,

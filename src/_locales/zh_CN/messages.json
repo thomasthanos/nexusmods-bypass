@@ -198,6 +198,12 @@
   "errModerationHoldFix": {
     "message": "请等待 Nexus Mods 审核通过后再下载。"
   },
+  "errFileFlaggedMsg": {
+    "message": "Nexus Mods 未提供此文件：病毒扫描已将其标记，或尚未完成扫描。"
+  },
+  "errFileFlaggedFix": {
+    "message": "请阅读文件页面上的提示。稍后再试，或选择其他文件。"
+  },
   "errModUnavailableMsg": {
     "message": "此Mod已被隐藏或删除。"
   },

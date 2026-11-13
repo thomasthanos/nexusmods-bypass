@@ -324,6 +324,33 @@ const browserDownloadLabelsDone = (async () => {
   console.log('browser download labels OK');
 })();
 
+// --- A browser download the worker would not start says why (diagnostics #24) --------------------------
+// 4.1.1 reported only "chrome.downloads did not start the resolved file": the worker's own answer went to
+// the console and the report could not tell a refused filename from a worker that was not there.
+const refusedStartSaysWhyDone = (async () => {
+  const w = load('file-page-signed-in.html');
+  const recorded = [];
+  w.NXTK.recordError = (error) => { recorded.push(error); };
+  w.fetch = async (url) => {
+    const generator = String(url).includes('GenerateDownloadUrl');
+    const body = generator ? JSON.stringify({ url: 'https://cf-files.nexus-cdn.com/1704/12604/SkyUI_5_2_SE-12604-5-2SE.7z?md5=a&expires=1' }) : '';
+    return { ok: generator, status: generator ? 200 : 404, url: String(url), text: async () => body, headers: { get: () => '' } };
+  };
+  w.NexusExt.Storage = {
+    getSettings: async () => ({ ...w.NXTK.DEFAULTS, AutoStartDownload: false, UseOfficialApi: false, NDC_downloadMethod: 1 }),
+    sendDownloadCommand: async (type) => (type === 'DOWNLOAD_START' ? { ok: false, error: 'Invalid filename' } : { ok: true, value: {} })
+  };
+  for (const file of ['src/lib/download-url-parser.js', 'src/content/nnw.js']) w.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+  await w.NexusExt.NNW.init();
+  w.document.getElementById('slowDownloadButton').dispatchEvent(new w.MouseEvent('click', { bubbles: true, composed: true, cancelable: true, button: 0 }));
+  for (let i = 0; i < 100 && !recorded.some((e) => e.code === 'request_failed'); i += 1) await new Promise((r) => setTimeout(r, 20));
+  const failure = recorded.find((e) => e.code === 'request_failed');
+  assert.ok(failure, 'a refused start is still reported');
+  assert.match(failure.technicalMessage, /chrome\.downloads did not start the resolved file/);
+  assert.match(failure.technicalMessage, /worker: Invalid filename/, 'with what the worker answered');
+  console.log('refused browser start reason OK');
+})();
+
 // --- Nexus's resumable downloads (beta, files over 500 MB; seen live 2026-10-30) ---------------------------
 // "Slow download" on a large file opens a Standard-or-Resumable chooser, and a resumable download gets
 // its own panel (progress, Pause/Resume/Cancel, "direct download"), which the extension draws over in its
@@ -1207,6 +1234,7 @@ const fabScrollDone = (async () => {
   await archivedFilesDone;
   await bodylessStartupDone;
   await browserDownloadLabelsDone;
+  await refusedStartSaysWhyDone;
   await resumableDownloadsDone;
   await largeFileLinksDone;
   await adblockNoticeDone;

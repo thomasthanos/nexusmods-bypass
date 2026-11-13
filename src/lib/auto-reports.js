@@ -11,7 +11,7 @@
   const DAILY_MAX = 10;
   const LOCAL_ONLY = new Set(['offline', 'aborted', 'context_invalid', 'extension_damaged', 'request_blocked', 'requires_login', 'cloudflare',
     'rate_limited', 'account_suspended', 'access_denied', 'file_not_found', 'mod_unavailable',
-    'collection_unavailable', 'moderation_hold', 'missing_file', 'save_failed', 'USER_CANCELED', 'USER_SHUTDOWN']);
+    'collection_unavailable', 'moderation_hold', 'file_flagged', 'missing_file', 'save_failed', 'USER_CANCELED', 'USER_SHUTDOWN']);
 
   // A browser download the browser or security software blocked, or a full or locked disk stopped, is the
   // computer's answer, not a fault of the extension, and no retry changes it (E-1fjr9wd, E-1913fj0). The

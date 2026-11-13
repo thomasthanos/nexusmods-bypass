@@ -933,6 +933,40 @@ function downloadCardTests() {
   assert.equal(held?.code, 'moderation_hold', 'a file under moderation is held');
   assert.equal(classify({ text: page(notice('File under moderation', 'Checked.') + card(`user-is-logged-in="true" download-url="${nxm}"`)) }), null,
     'unless the card still offers it');
+
+  // Diagnostics #4, #5, #7 (4.0–4.1.1, Opera and Chrome): "HTML page; file-safety notice; no link in it" and
+  // "removed-or-hidden notice; metadata only for other files". Nexus put a notice where the file's card would
+  // be, the dialog showed it, and the run still ended as "no link" and was reported as a fault. The reports
+  // carry the kind only (download-url-parser.js noticeKinds), so these read the notice the same way.
+  const filePage = 'https://www.nexusmods.com/readyornot/mods/4212?tab=files&file_id=29928&nmm=1';
+  const onFilePage = (body) => classify({ text: page(body), finalUrl: filePage });
+  for (const [label, title, rest] of [
+    ['a notice titled for the virus scan', 'File quarantined', 'Our scan found a problem.'],
+    ['a warning whose sentence names malware', 'Warning', 'This file has been flagged as potentially harmful (malware).'],
+    ['an unsafe-file notice', 'Unsafe file', 'This file is not available.']
+  ]) {
+    const flagged = onFilePage(notice(title, rest));
+    assert.equal(flagged?.code, 'file_flagged', `${label}: Nexus is holding the file back`);
+    assert.match(flagged.reason, /virus-scan notice/);
+    assert.equal(onFilePage(notice(title, rest) + card(`user-is-logged-in="true" download-url="${nxm}"`)), null,
+      `${label}: not while the card still offers the file`);
+    assert.equal(classify({ text: page(notice(title, rest)), finalUrl: 'https://www.nexusmods.com/readyornot/mods/4212' }), null,
+      `${label}: not on a mod page, which has no card to miss`);
+  }
+  for (const [label, title, rest] of [
+    ['an error notice saying the file was removed', 'Error', 'This file has been removed by its author.'],
+    ['a notice titled for a hidden file', 'File hidden', 'The author has hidden this file.']
+  ]) {
+    assert.equal(onFilePage(notice(title, rest))?.code, 'file_not_found', `${label} is a file that is gone`);
+    assert.equal(onFilePage(notice(title, rest) + card(`user-is-logged-in="true" download-url="${nxm}"`)), null,
+      `${label}: not beside a card that offers it`);
+  }
+  // A site-wide notice before the file's own one is passed over; one that says nothing about the file is not a verdict.
+  const maintenance = notice('Scheduled maintenance', 'Some features may be slow tonight.');
+  assert.equal(onFilePage(maintenance + notice('Virus scan', 'Quarantined.'))?.code, 'file_flagged');
+  assert.equal(onFilePage(maintenance), null, 'a maintenance notice alone says nothing about the file');
+  assert.equal(onFilePage(notice('Adult content disabled', 'This page is hidden because adult content is turned off.')), null,
+    'hidden adult content is a preference here too, read before "hidden" as the report reads it');
 }
 
 // Bug report #7: a file page of a mod its author had removed started a download on its own, found no link,

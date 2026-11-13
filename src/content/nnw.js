@@ -871,6 +871,9 @@ window.NexusExt = window.NexusExt || {};
     return DownloadParser.findDownloadLink(text, { ...given, baseUrl: location.href });
   }
 
+  // The verdicts a file page gives by a notice of its own in place of the file's card (response-classifier.js).
+  const NOTICE_VERDICT_CODES = new Set(['file_not_found', 'moderation_hold', 'file_flagged', 'mod_unavailable']);
+
   // A download that ends with no link, or with a failure no fallback got around, carries what each step
   // was answered: its status and the shape of the answer, never a link, key or page text. Without it a
   // report said "no Vortex link" and nothing about which request gave what.
@@ -925,7 +928,8 @@ window.NexusExt = window.NexusExt || {};
       trail.push(`${step} ${response?.error?.code || 'failed'}${response?.status ? ` HTTP ${response.status}` : ''}`);
     };
     const noteAnswer = (step, response, nmm, askedUrl = '') => {
-      const shape = DownloadParser.explainMissingLink(response?.text, { mode: nmm ? 'vortex' : 'browser', fileId, baseUrl: location.href });
+      const shape = DownloadParser.explainMissingLink(response?.text, { mode: nmm ? 'vortex' : 'browser', fileId, baseUrl: location.href,
+        contentType: response?.contentType });
       // A download route that answers from another address was sent on: where to, by kind only.
       const sentOn = askedUrl && response?.finalUrl && response.finalUrl !== askedUrl
         ? `; sent on to ${DownloadParser.linkKind(response.finalUrl)}`
@@ -969,7 +973,14 @@ window.NexusExt = window.NexusExt || {};
     // A terminal answer is stronger evidence than another request succeeding. Do not navigate the
     // route or replace its denial/missing-file result with an apparent successful Vortex hand-off.
     const isTerminalVortexError = (error) => !!error && (Errors.isBlocking(error)
-      || ['access_denied', 'file_not_found', 'mod_unavailable', 'moderation_hold', 'missing_file', 'aborted'].includes(error.code));
+      || ['access_denied', 'file_not_found', 'mod_unavailable', 'moderation_hold', 'file_flagged', 'missing_file', 'aborted'].includes(error.code));
+    // A file page that answered with Nexus's own notice in place of the card ends with that notice, so the
+    // dialog shows the person what Nexus says; reports carry the notice's kind only.
+    const withPageNotices = (error, response) => {
+      if (!error || !response?.text || !NOTICE_VERDICT_CODES.has(error.code)) return error;
+      const notices = DownloadParser.noticeHeadlines?.(response.text) || [];
+      return notices.length ? { ...error, pageNotices: notices } : error;
+    };
 
     let pendingPrefetch = (prefetchedText === null && !prefetchedError) ? null : {
       ok: !prefetchedError && prefetchedStatus >= 200 && prefetchedStatus < 400,
@@ -1159,7 +1170,7 @@ window.NexusExt = window.NexusExt || {};
       let latestError = firstResponse.error;
       Logger.info('Fetching NMM download URL');
       if (!firstResponse.ok) noteFailure('page', firstResponse);
-      if (isTerminalVortexError(firstResponse.error)) return { url: null, error: firstResponse.error };
+      if (isTerminalVortexError(firstResponse.error)) return { url: null, error: withPageNotices(firstResponse.error, firstResponse) };
 
       if (firstResponse.ok) {
         const firstResponseGameId = extractGameIdFromText(firstResponse.text);
@@ -1223,7 +1234,7 @@ window.NexusExt = window.NexusExt || {};
       });
       if (!pageResponse.ok) {
         noteFailure('page', pageResponse);
-        return { url: null, error: pageResponse.error };
+        return { url: null, error: withPageNotices(pageResponse.error, pageResponse) };
       }
 
       const pageGameId = extractGameIdFromText(pageResponse.text);
@@ -1435,17 +1446,19 @@ window.NexusExt = window.NexusExt || {};
     return name.slice(0, 300);
   }
 
+  // { started } and, when it did not, the worker's answer: diagnostics #24 said only that the browser did
+  // not start the file, since that answer went to the console alone.
   async function startManagedFileDownload(url, fileId, isCurrentPage = () => true) {
     try {
       const settings = await NexusExt.Storage.getSettings();
-      if (!isCurrentPage()) return false;
+      if (!isCurrentPage()) return { started: false, reason: 'page changed' };
       // The .meta's version. The API's file list is asked for once the page has settled, and a file page's
       // start can come first: an archived file's page lists its version nowhere else (QA 2026-11-01, file
       // 826486's .meta had none; the API says "1.0").
       let version = fileVersionOf(fileId);
       if (!version && settings.WriteMo2Meta) {
         await loadApiFileList().catch((cause) => Logger.warn('Could not read the mod\'s file list:', cause));
-        if (!isCurrentPage()) return false;
+        if (!isCurrentPage()) return { started: false, reason: 'page changed' };
         version = fileVersionOf(fileId);
       }
       const reply = await NexusExt.Storage.sendDownloadCommand('DOWNLOAD_START', {
@@ -1460,12 +1473,12 @@ window.NexusExt = window.NexusExt || {};
         version
       });
       if (reply?.ok && reply.value?.duplicate) Logger.info(`File ${fileId} is already downloading; not starting a second copy.`);
-      if (reply?.ok) return true;
+      if (reply?.ok) return { started: true };
       if (reply?.error) Logger.warn('Managed download failed:', reply.error);
-      return false;
+      return { started: false, reason: String(reply?.error || 'no answer') };
     } catch (cause) {
       Logger.warn('Managed download failed:', cause);
-      return false;
+      return { started: false, reason: String(cause?.message || cause || 'failed') };
     }
   }
 
@@ -1500,7 +1513,8 @@ window.NexusExt = window.NexusExt || {};
     nativePassthroughFiles.clear();
   }
 
-  const NATIVE_HANDOFF_CODES = new Set(['no_download_url', 'no_nmm_link', 'unsafe_download_url', 'mod_unavailable']);
+  // file_flagged went this way while it ended as "no link": Nexus's own controls may still offer it.
+  const NATIVE_HANDOFF_CODES = new Set(['no_download_url', 'no_nmm_link', 'unsafe_download_url', 'mod_unavailable', 'file_flagged']);
 
   // Release unresolved files to Nexus instead of trapping the click.
   function releaseToNativeControl(button, fileId, error, isNMM) {
@@ -1931,13 +1945,16 @@ window.NexusExt = window.NexusExt || {};
           if (button._nxtkSentAttempt === attemptId && button.isConnected) restoreButtonState(button);
         }, SENT_STATE_MS);
       }
-    } else if (!await startManagedFileDownload(finalUrl, fileId, isCurrentPage)) {
-      if (!isCurrentPage()) return false;
-      handleError(button, Errors.create('request_failed', {
-        context: 'Starting browser download',
-        technicalMessage: 'chrome.downloads did not start the resolved file'
-      }), { onRetry: () => runDownload(options) });
-      return false;
+    } else {
+      const managed = await startManagedFileDownload(finalUrl, fileId, isCurrentPage);
+      if (!managed.started) {
+        if (!isCurrentPage()) return false;
+        handleError(button, Errors.create('request_failed', {
+          context: 'Starting browser download',
+          technicalMessage: `chrome.downloads did not start the resolved file | worker: ${managed.reason}`
+        }), { onRetry: () => runDownload(options) });
+        return false;
+      }
     }
     globalThis.NXTK?.bumpTotalDownloads?.();
     if (closeTabAfterStart && cfg.AutoCloseTab && isNMM && attemptId === downloadAttemptSequence

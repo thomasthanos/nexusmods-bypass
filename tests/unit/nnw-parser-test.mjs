@@ -123,7 +123,7 @@ function createHarness({
   const fetch = async (url, options = {}) => {
     calls.push({ url: String(url), options });
     if (!state.pages.length) throw new Error(`Unexpected request: ${url}`);
-    const { status = 200, body = '', failure, finalUrl, beforeReply, delay = 0 } = state.pages.shift();
+    const { status = 200, body = '', failure, finalUrl, beforeReply, delay = 0, headers = {} } = state.pages.shift();
     beforeReply?.();
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
     if (failure) throw failure;
@@ -132,7 +132,7 @@ function createHarness({
       status,
       url: finalUrl || String(url),
       text: async () => body,
-      headers: { get: () => '' }
+      headers: { get: (name) => Object.entries(headers).find(([key]) => key.toLowerCase() === String(name).toLowerCase())?.[1] || '' }
     };
   };
   const context = {
@@ -689,12 +689,27 @@ async function answeredFilePageTests() {
     'Vortex: a signed-out visitor is asked to sign in');
   assert.equal((await run(false, [{ body: '[]' }, { body: page(signedOutCard(false)) }])).error?.code, 'requires_login',
     'browser: a signed-out visitor is asked to sign in');
+  // Diagnostics #4 (Firefox 160): "page HTTP 200: plain text body; no link in it". The answer's media type
+  // reaches the trail a report carries.
+  const plain = await run(true, [{ body: '0:["$","div",null,{}]', headers: { 'Content-Type': 'text/x-component; charset=utf-8' } }]);
+  assert.equal(plain.error?.code, 'no_nmm_link');
+  assert.match(plain.error.technicalMessage, /page HTTP 200: plain text body \(text\/x-component\); no link in it/);
+
   for (const [label, body, code] of [
     ['a file the mod no longer has', notice('Error', 'Object not found.'), 'file_not_found'],
-    ['a file under moderation', notice('File under moderation', 'Being checked.'), 'moderation_hold']
+    ['a file under moderation', notice('File under moderation', 'Being checked.'), 'moderation_hold'],
+    // Diagnostics #4/#5: a virus-scan notice and a removed-file notice in place of the card.
+    ['a file its virus scan flagged', notice('File quarantined', 'This file was flagged by our virus scan.'), 'file_flagged'],
+    ['a file its author removed', notice('Error', 'This file has been removed by its author.'), 'file_not_found']
   ]) {
-    assert.equal((await run(true, [{ body: page(body) }])).error?.code, code, `Vortex: ${label}`);
-    assert.equal((await run(false, [{ body: '[]' }, { body: page(body) }, { body: '[]' }, { body: page(body) }])).error?.code, code, `browser: ${label}`);
+    const vortex = await run(true, [{ body: page(body) }]);
+    assert.equal(vortex.error?.code, code, `Vortex: ${label}`);
+    const browser = await run(false, [{ body: '[]' }, { body: page(body) }, { body: '[]' }, { body: page(body) }]);
+    assert.equal(browser.error?.code, code, `browser: ${label}`);
+    // The dialog shows the person what Nexus's notice says, as it did while these ended as "no link".
+    for (const [flow, result] of [['Vortex', vortex], ['browser', browser]]) {
+      assert.ok(Array.isArray(result.error?.pageNotices) && result.error.pageNotices.length === 1, `${flow}: ${label}: the notice is kept for the dialog`);
+    }
   }
 }
 

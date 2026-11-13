@@ -78,13 +78,58 @@
   const OBJECT_NOT_FOUND = /<h3\b[^>]*\bid=["']Notice\d+-title["'][^>]*>\s*Error\s*<\/h3>\s*(?:<[^>]+>\s*)*Object not found\b/i;
   // A file Nexus is holding for moderation, by the notice's title.
   const MODERATION_TITLE = /moderat|under review|pending review/i;
+  // A notice where the card would be, by its kind: the kinds and their order are download-url-parser.js's
+  // NOTICE_KINDS up to the last one acted on here, so a notice is read as the report named it. Diagnostics
+  // #4, #5 and #7 (4.0 to 4.1.1) reported a "file-safety notice" (the file's virus scan) and a
+  // "removed-or-hidden notice" as "no link". An adult-content notice ("This page is hidden because adult
+  // content is turned off") is a preference, and comes first, as it does there.
+  const NOTICE_KINDS = Object.freeze([
+    [/adult content/i, 'adult-content notice'],
+    [/removed|hidden|not published|not found/i, 'removed-or-hidden notice'],
+    [/log ?in|sign ?in|logged/i, 'sign-in notice'],
+    [/moderat|under review|pending/i, 'moderation notice'],
+    [/archiv/i, 'archived-file notice'],
+    [/premium|supporter|membership/i, 'premium notice'],
+    [/virus|malware|quarantin|suspicious|unsafe/i, 'file-safety notice']
+  ]);
+  const NOTICE_VERDICTS = Object.freeze({
+    'removed-or-hidden notice': 'file_not_found',
+    'file-safety notice': 'file_flagged'
+  });
+  // The title decides when it names a kind; otherwise the sentence does, as in download-url-parser.js.
+  const noticeKind = ({ title, sentence }) => NOTICE_KINDS.find(([pattern]) => pattern.test(title))?.[1]
+    || NOTICE_KINDS.find(([pattern]) => pattern.test(sentence))?.[1] || '';
 
-  function fileNotice(rawContent) {
+  // Each notice's title and the sentence under it (the text up to the end of its box), as
+  // download-url-parser.js reads them.
+  function noticesIn(content) {
+    const notices = [];
+    for (const match of content.matchAll(NOTICE_TITLE)) {
+      const after = content.slice(match.index + match[0].length, match.index + match[0].length + 400);
+      const end = after.search(/<\/div>/i);
+      notices.push({
+        title: match[1],
+        sentence: (end >= 0 ? after.slice(0, end) : after).replace(/<[^>]*>/g, ' ')
+      });
+    }
+    return notices;
+  }
+
+  // A notice's kind decides only for an answer that was asked for one file (file_id in its address): a mod
+  // page has no download card at all, and a site notice above a rendered mod stops nothing.
+  const ASKED_FOR_A_FILE = /[?&]file_id=\d/i;
+
+  function fileNotice(rawContent, finalUrl = '') {
     const content = rawContent.slice(0, MAX_NOTICE_SCAN_CHARS);
     if (DOWNLOAD_CARD.test(content)) return null;
     if (OBJECT_NOT_FOUND.test(content)) return { code: 'file_not_found', reason: '"Error: Object not found." notice where the download card would be' };
-    for (const match of content.matchAll(NOTICE_TITLE)) {
-      if (MODERATION_TITLE.test(match[1])) return { code: 'moderation_hold', reason: 'moderation notice where the download card would be' };
+    const askedForAFile = ASKED_FOR_A_FILE.test(String(finalUrl || ''));
+    for (const notice of noticesIn(content)) {
+      if (MODERATION_TITLE.test(notice.title)) return { code: 'moderation_hold', reason: 'moderation notice where the download card would be' };
+      if (!askedForAFile) continue;
+      const kind = noticeKind(notice);
+      if (NOTICE_VERDICTS[kind] === 'file_flagged') return { code: 'file_flagged', reason: 'virus-scan notice where the download card would be' };
+      if (NOTICE_VERDICTS[kind] === 'file_not_found') return { code: 'file_not_found', reason: 'removed-or-hidden notice where the download card would be' };
     }
     return null;
   }
@@ -198,7 +243,7 @@
     if (downloadCardSession(rawContent) === 'signed-out') {
       return { code: 'requires_login', reason: 'download card for a signed-out visitor (account gate, no user-is-logged-in)' };
     }
-    const missingFile = fileNotice(rawContent);
+    const missingFile = fileNotice(rawContent, finalUrl);
     if (missingFile) return missingFile;
 
     // A concrete download offer is stronger evidence than generic page chrome or prose. This also

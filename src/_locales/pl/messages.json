@@ -198,6 +198,12 @@
   "errModerationHoldFix": {
     "message": "Poczekaj, aż Nexus Mods zatwierdzi plik przed pobraniem."
   },
+  "errFileFlaggedMsg": {
+    "message": "Nexus Mods nie udostępnia tego pliku: skanowanie antywirusowe go oznaczyło lub jeszcze się nie zakończyło."
+  },
+  "errFileFlaggedFix": {
+    "message": "Przeczytaj komunikat na stronie pliku. Spróbuj ponownie później lub wybierz inny plik."
+  },
   "errModUnavailableMsg": {
     "message": "Ten mod został ukryty lub usunięty."
   },

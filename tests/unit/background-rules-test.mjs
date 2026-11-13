@@ -19,6 +19,15 @@ import {
   assert.equal(c('USER_CANCELED').retries, 0, 'a cancel by the user is respected');
   assert.equal(c('short_file (12 KB of 4 MB)').kind, 'size');
   assert.deepEqual({ ...c('') }, { kind: 'unknown', retries: 1 }, 'unknown keeps the old single retry');
+  // Diagnostics #20 (Firefox 159, 4.0.2–4.1.1, "CRASH [transient]"): Firefox names "CRASH" every failed
+  // download that is neither a source (network) nor a target (file) failure, its own blocks included
+  // (ext-downloads.js DownloadItem.error; DownloadError.becauseBlocked*). Chromium's CRASH is the browser
+  // going down mid-transfer, which a retry can mend.
+  assert.equal(c('CRASH', { firefox: false }).kind, 'transient', 'Chromium: a crashed browser is retried');
+  assert.equal(c('CRASH', { firefox: false }).retries, 2);
+  assert.deepEqual({ ...c('CRASH', { firefox: true }) }, { kind: 'blocked', retries: 0 },
+    'Firefox: the same name is a failure no retry mends, mostly its own download protection');
+  assert.equal(c('NETWORK_FAILED', { firefox: true }).kind, 'transient', 'Firefox\'s network failures are still retried');
 }
 {
   const trusted = context.isTrustedSender;
@@ -142,7 +151,7 @@ assert.deepEqual(bySize([500, 20, 0, 3, null, 20, -4, '7', NaN]), [3, 7, 1, 5, 0
   'smallest first, equal sizes keep their order, and every unknown size goes last in its original order');
 assert.equal(bySize([]).length, 0);
 assert.equal(NXTK.orderQueueBySize(null, () => 1).length, 0, 'a missing list is an empty queue');
-for (const code of ['mod_unavailable', 'file_not_found', 'moderation_hold', 'file_not_found (HTTP 404)']) {
+for (const code of ['mod_unavailable', 'file_not_found', 'moderation_hold', 'file_flagged', 'file_not_found (HTTP 404)']) {
   assert.notEqual(NXTK.queueSkipReason(code), '', `${code} is skipped`);
 }
 for (const code of ['request_failed', 'page_request_failed', 'requires_login', 'rate_limited', 'cloudflare', 'cloudflare (HTTP 403)', '']) {
@@ -441,7 +450,9 @@ async function nexusAnswersAreClassified() {
       // file under moderation, and the queue treats each as such.
       ['a download card for a signed-out visitor', { body: `${signedIn}<section id="section"><mod-file-download file-id="5" user-is-premium="false" dl-gate-variant="a" download-url="#ERROR-download-location-not-found"></mod-file-download></section>` }, null, { ok: false, code: 'requires_login' }],
       ['an "Object not found." notice', { body: `${signedIn}<section id="section"><div id="Notice9003"><h3 id="Notice9003-title">Error</h3> Object not found. </div></section>` }, null, { ok: false, code: 'file_not_found' }],
-      ['a moderation notice', { body: `${signedIn}<section id="section"><div id="Notice7"><h3 id="Notice7-title">File under moderation</h3> Being checked. </div></section>` }, null, { ok: false, code: 'moderation_hold' }]
+      ['a moderation notice', { body: `${signedIn}<section id="section"><div id="Notice7"><h3 id="Notice7-title">File under moderation</h3> Being checked. </div></section>` }, null, { ok: false, code: 'moderation_hold' }],
+      // Diagnostics #22/#23: 525 is Cloudflare failing to reach Nexus, an outage like 522.
+      ['a Cloudflare 525', { status: 525, body: '<html>SSL handshake failed</html>' }, null, { ok: false, code: 'server_error', status: 525 }]
     ]) {
       const asked = [];
       context.fetch = async (url) => {
@@ -452,6 +463,22 @@ async function nexusAnswersAreClassified() {
       const seen = Object.fromEntries(Object.keys(expected).map((key) => [key, result[key]]));
       assert.deepEqual(seen, expected, label);
       assert.equal(asked.length, generator ? 2 : 1, `${label}: ${generator ? 'the generator is asked once' : 'nothing more is asked'}`);
+    }
+
+    // Diagnostics #7 (queue): "file-safety notice; metadata only for other files" ended as no_download_url.
+    // A queue item is a file page (mod.file.url), and a notice in place of its card is Nexus's answer for it.
+    const fileItem = { ...item, pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/42?tab=files&file_id=42' };
+    for (const [label, body, code] of [
+      ['a virus-scan notice', `${signedIn}<section id="section"><div id="Notice8"><h3 id="Notice8-title">File quarantined</h3> Flagged by our virus scan. </div></section>`, 'file_flagged'],
+      ['a removed-file notice', `${signedIn}<section id="section"><div id="Notice9"><h3 id="Notice9-title">Error</h3> This file has been removed. </div></section>`, 'file_not_found']
+    ]) {
+      const asked = [];
+      context.fetch = async (url) => { asked.push(String(url)); return answer({ body }); };
+      assert.equal((await context.resolveNdcBrowserUrl(fileItem, 30000)).code, code, label);
+      assert.equal(asked.length, 1, `${label}: the generator is not asked`);
+      assert.equal(NXTK.queueSkipReason(code), code, `${label}: the run skips the file and carries on`);
+      context.fetch = async () => answer({ body });
+      assert.notEqual((await context.resolveNdcBrowserUrl(item, 30000)).code, code, `${label}: a mod page's notice is not the file's`);
     }
   } finally {
     context.fetch = previousFetch;
@@ -730,6 +757,18 @@ async function settingsPatchIsNormalized() {
   reply = await send('SETTINGS_PATCH', { patch: { RequestTimeout: 'soon' } });
   assert.equal(reply.ok, false, 'a value of the wrong type is still refused');
   assert.match(reply.error, /invalid-settings-value:RequestTimeout/);
+  // Diagnostics #13 (4.1.1): "unknown-settings-key:[redacted]". The "key: value" shape is the one the
+  // report sanitizer hides as a secret, so the report could never say which setting it was.
+  await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
+  reply = await send('SETTINGS_PATCH', { patch: { NotARealSetting: true } });
+  assert.equal(reply.ok, false, 'a setting this version does not have is still refused');
+  assert.match(reply.error, /^unknown-settings-name:NotARealSetting$/);
+  assert.equal(NXTK.sanitizeDiagnosticText(reply.error), 'unknown-settings-name:NotARealSetting',
+    'and a report of it still names the setting');
+  assert.equal(NXTK.sanitizeDiagnosticText('unknown-settings-key:NotARealSetting'), 'unknown-settings-key:[redacted]',
+    'which the old wording could not');
+  reply = await send('SETTINGS_PATCH', { patch: { 'odd name: <b>': true } });
+  assert.equal(reply.error, 'unknown-settings-name:(not a setting name)', 'a name that is not one is not echoed');
   await new Promise((resolve) => setTimeout(resolve, 10));
   await storageSetLocal(NXTK.ERROR_LOG_KEY, []);
 }

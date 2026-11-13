@@ -198,6 +198,12 @@
   "errModerationHoldFix": {
     "message": "다운로드하기 전에 Nexus Mods의 승인을 기다리세요."
   },
+  "errFileFlaggedMsg": {
+    "message": "Nexus Mods가 이 파일을 제공하지 않습니다: 바이러스 검사에서 문제가 발견되었거나 검사가 아직 끝나지 않았습니다."
+  },
+  "errFileFlaggedFix": {
+    "message": "파일 페이지의 안내를 읽어 보세요. 나중에 다시 시도하거나 다른 파일을 고르세요."
+  },
   "errModUnavailableMsg": {
     "message": "이 모드는 숨겨지거나 삭제되었습니다."
   },

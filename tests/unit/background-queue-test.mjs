@@ -979,7 +979,13 @@ async function queueWaitsOutLostConnection() {
 
 // A Nexus outage (502/503/504) failed each queued file after three quick tries, so a few minutes of
 // downtime marched the run through the whole collection. It is now waited out like a lost connection.
+// Diagnostics #22/#23 (2026-11-11): Cloudflare answered 525 (its SSL handshake with Nexus failed), which
+// was missing from the list, so each file failed as page_request_failed throughout the outage.
 async function queueWaitsOutAServerOutage() {
+  for (const status of [503, 525, 526, 530]) await queueWaitsOutAServerOutageWith(status);
+}
+
+async function queueWaitsOutAServerOutageWith(status) {
   const previousFetch = context.fetch;
   const previousDelay = NXTK.retryDelayMs;
   const savedAlarms = global.chrome.alarms;
@@ -992,7 +998,7 @@ async function queueWaitsOutAServerOutage() {
     NXTK.retryDelayMs = () => 0;
     global.chrome.alarms = { create: noop, clear: noop };
     global.chrome.tabs.sendMessage = (_tabId, message, callback) => { events.push(JSON.parse(JSON.stringify(message))); if (callback) callback(); };
-    context.fetch = async (url) => ({ ok: false, status: 503, url: String(url), text: async () => 'Service Unavailable', headers: { get: () => '' } });
+    context.fetch = async (url) => ({ ok: false, status, url: String(url), text: async () => 'Service Unavailable', headers: { get: () => '' } });
     await Promise.all([
       storageSetLocal(`nxtk_ndc_items:${jobId}`, items),
       storageSetLocal(NDC_JOBS_KEY, { [jobId]: {
@@ -1002,8 +1008,8 @@ async function queueWaitsOutAServerOutage() {
     ]);
     await advanceNdcJob(jobId);
     const job = await readNdcJob(jobId);
-    assert.equal(job.status, 'running', 'an outage does not end the run');
-    assert.equal(job.index, 0, 'nor move it past the file');
+    assert.equal(job.status, 'running', `an outage (HTTP ${status}) does not end the run`);
+    assert.equal(job.index, 0, `nor move it past the file (HTTP ${status})`);
     assert.deepEqual([...job.failed], [], 'and the file is not counted as failed');
     assert.equal(job.networkStrikes, 1);
     assert.ok(job.waitingUntil > Date.now(), 'the run waits on an alarm');

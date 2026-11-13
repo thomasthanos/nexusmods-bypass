@@ -198,6 +198,12 @@
   "errModerationHoldFix": {
     "message": "İndirmeden önce Nexus Mods'un dosyayı onaylamasını bekleyin."
   },
+  "errFileFlaggedMsg": {
+    "message": "Nexus Mods bu dosyayı sunmuyor: virüs taraması dosyayı işaretledi ya da henüz bitmedi."
+  },
+  "errFileFlaggedFix": {
+    "message": "Dosya sayfasındaki bildirimi okuyun. Daha sonra yeniden deneyin ya da başka bir dosya seçin."
+  },
   "errModUnavailableMsg": {
     "message": "Bu mod gizlenmiş veya kaldırılmış."
   },

@@ -170,7 +170,13 @@ function workerEdgeCases(Parser) {
     ['<!doctype html><html><body><h3 id="Notice1-title">Adult content disabled</h3></body></html>', browser, 'HTML page; adult-content notice; no link in it'],
     ['', browser, 'empty body; no link in it'],
     ['[]', browser, 'empty JSON list; no link in it'],
-    ['Service Unavailable', browser, 'plain text body; no link in it']
+    ['Service Unavailable', browser, 'plain text body; no link in it'],
+    // Diagnostics #4 (Firefox 160, 4.1.0): "page HTTP 200: plain text body; no link in it", five times, with
+    // nothing to tell what the answer was. Its media type is not page content, so a report names it.
+    ['Service Unavailable', { ...browser, contentType: 'text/plain; charset=utf-8' }, 'plain text body (text/plain); no link in it'],
+    ['0:["$","div",null,{}]', { ...vortex, contentType: 'text/x-component' }, 'plain text body (text/x-component); no link in it'],
+    ['Service Unavailable', { ...browser, contentType: 'text/<b>; jane@example.com' }, 'plain text body; no link in it'],
+    ['<!doctype html><html><body></body></html>', { ...browser, contentType: 'text/html' }, 'HTML page; no link in it']
   ]) {
     assert.equal(Parser.explainMissingLink(text, options), expected, `explained: ${text.slice(0, 60) || '(empty)'}`);
   }

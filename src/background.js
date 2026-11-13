@@ -257,7 +257,11 @@ const STORAGE_HANDLERS = {
     if (!keys.length) throw new Error('empty-settings-patch');
     const normalized = {};
     for (const key of keys) {
-      if (!Object.prototype.hasOwnProperty.call(NXTK.DEFAULTS, key)) throw new Error(`unknown-settings-key:${key}`);
+      // Named the way a report keeps it: the sanitizer hides a "key: value" pair as a secret, which
+      // left diagnostics #13 at "unknown-settings-key:[redacted]". Only a setting-shaped name is echoed.
+      if (!Object.prototype.hasOwnProperty.call(NXTK.DEFAULTS, key)) {
+        throw new Error(`unknown-settings-name:${/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(key) ? key : '(not a setting name)'}`);
+      }
       const value = NXTK.normalizeSetting(key, patch[key]);
       if (value === undefined) throw new Error(`invalid-settings-value:${key}`);
       normalized[key] = value;
@@ -1188,8 +1192,8 @@ function connectionFailureCode(response) {
   return response?.error === 'timed out' ? 'timeout' : 'network_error';
 }
 
-// Gateway and Cloudflare origin errors: Nexus (or the way to it) is down, not this one file.
-const NEXUS_OUTAGE_STATUSES = new Set([502, 503, 504, 520, 521, 522, 523, 524]);
+// Gateway and Cloudflare origin errors: Nexus (or the way to it) is down, not this one file (shared.js).
+const NEXUS_OUTAGE_STATUSES = NXTK.NEXUS_OUTAGE_STATUSES;
 // Failures a run waits out on the same file (waitForNdcConnection) instead of moving on.
 const NDC_CONNECTION_WAIT_CODES = new Set(['network_error', 'timeout', 'server_error']);
 
@@ -1349,7 +1353,7 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
         if (bare.fileUrl) return { ok: true, url: bare.fileUrl };
         routeDetails.push(bare.status === 0
           ? connectionFailureDetail('generator link without cookies', bare)
-          : `generator link without cookies HTTP ${bare.status}${bare.text ? `: ${DOWNLOAD_PARSER.explainMissingLink(bare.text, options)}` : ''}${sentOn(bare)}`);
+          : `generator link without cookies HTTP ${bare.status}${bare.text ? `: ${DOWNLOAD_PARSER.explainMissingLink(bare.text, { ...options, contentType: bare.contentType })}` : ''}${sentOn(bare)}`);
         // 4.0.2 reports (Chrome, Opera, Edge): refused with cookies, while without them the same address
         // answers with a page. So it is reachable, and it is the cookies' request that is sent on to the
         // file server and refused. The browser's own download sends the cookies, follows the address and
@@ -1366,7 +1370,7 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
       if (response.fileUrl) return { ok: true, url: response.fileUrl };
       const fileUrl = response.ok ? ndcBrowserFileUrl(DOWNLOAD_PARSER.findDownloadLink(response.text, options)?.url) : '';
       if (fileUrl) return { ok: true, url: fileUrl };
-      routeDetails.push(`generator link HTTP ${response.status}: ${response.text ? DOWNLOAD_PARSER.explainMissingLink(response.text, options) : 'no page'}${sentOn(response)}`);
+      routeDetails.push(`generator link HTTP ${response.status}: ${response.text ? DOWNLOAD_PARSER.explainMissingLink(response.text, { ...options, contentType: response.contentType }) : 'no page'}${sentOn(response)}`);
     }
   }
 
@@ -1379,7 +1383,7 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   for (let step = 0; step < 2 && route && !visited.has(route.url); step += 1) {
     visited.add(route.url);
     const response = await fetchNdcResponse(route.url, { method: 'GET', credentials: 'include' }, timeoutMs, { probeDownload: true });
-    routeDetails.push(`route HTTP ${response.status}: ${DOWNLOAD_PARSER.explainMissingLink(response.text, options)}`);
+    routeDetails.push(`route HTTP ${response.status}: ${DOWNLOAD_PARSER.explainMissingLink(response.text, { ...options, contentType: response.contentType })}`);
     if (response.status === 0) {
       routeDetails.push(connectionFailureDetail('route', response));
       break;
@@ -1395,7 +1399,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   }
 
   // What both answers looked like, never their content, so a report says why there was no link.
-  const shape = (response) => DOWNLOAD_PARSER.explainMissingLink(response.text, { mode: 'browser', fileId: item.fileId });
+  const shape = (response) => DOWNLOAD_PARSER.explainMissingLink(response.text, { mode: 'browser', fileId: item.fileId,
+    contentType: response.contentType });
   // The deck tab writes the ad-timer cookie for the queue only while "Hide ads and Premium panels" is
   // on; without it Nexus can hold the link back, which looks the same as no link (see nnw.js).
   const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);

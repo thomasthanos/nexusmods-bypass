@@ -25,6 +25,7 @@ global.NXTK = {
   isNxmLinkExpired: shared.NXTK.isNxmLinkExpired,
   isNexusUserMismatch: shared.NXTK.isNexusUserMismatch,
   isConnectionFailure: shared.NXTK.isConnectionFailure,
+  NEXUS_OUTAGE_STATUSES: shared.NXTK.NEXUS_OUTAGE_STATUSES,
   RATE_LIMIT_MAX_STRIKES: shared.NXTK.RATE_LIMIT_MAX_STRIKES,
   RATE_LIMIT_MAX_SECONDS: shared.NXTK.RATE_LIMIT_MAX_SECONDS,
   rateLimitBackoffSeconds: shared.NXTK.rateLimitBackoffSeconds,
@@ -613,9 +614,10 @@ function createHarness(choice) {
   assert.deepEqual(recordedErrors, ['offline'], 'a run that stopped on the connection records it once');
 
   // A gateway outage is site-wide just like a lost connection. Moving on after one such answer
-  // would ask every remaining file during the outage and mark them all failed.
+  // would ask every remaining file during the outage and mark them all failed. 525 is what Cloudflare
+  // answered through the 2026-11-11 outage (diagnostics #22).
   recordedErrors.length = 0;
-  for (const status of [502, 503, 504, 520, 521, 522, 523, 524]) {
+  for (const status of [502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 530]) {
     let unavailable = true;
     const gateway = await runVortexQueue(threeMods(), (mod) => {
       if (mod.fileId !== 2 || !unavailable) return '';

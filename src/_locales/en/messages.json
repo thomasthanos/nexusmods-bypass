@@ -232,6 +232,14 @@
     "message": "Wait for Nexus Mods to approve the file before downloading.",
     "description": "Recovery advice for errModerationHoldMsg."
   },
+  "errFileFlaggedMsg": {
+    "message": "Nexus Mods is not offering this file: its virus scan flagged it or has not finished.",
+    "description": "Error message: Nexus shows a virus-scan notice where the file's download would be."
+  },
+  "errFileFlaggedFix": {
+    "message": "Read the notice on the file page. Try again later, or pick another file.",
+    "description": "Recovery advice for errFileFlaggedMsg."
+  },
   "errModUnavailableMsg": {
     "message": "This mod has been hidden or removed.",
     "description": "Error message: Nexus Mods shows the mod as hidden, removed or missing."

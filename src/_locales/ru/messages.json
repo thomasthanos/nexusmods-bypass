@@ -198,6 +198,12 @@
   "errModerationHoldFix": {
     "message": "Дождитесь одобрения файла со стороны Nexus Mods."
   },
+  "errFileFlaggedMsg": {
+    "message": "Nexus Mods не предлагает этот файл: антивирусная проверка отметила его или ещё не завершилась."
+  },
+  "errFileFlaggedFix": {
+    "message": "Прочитайте уведомление на странице файла. Попробуйте позже или выберите другой файл."
+  },
   "errModUnavailableMsg": {
     "message": "Этот мод был скрыт или удалён."
   },

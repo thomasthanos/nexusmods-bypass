@@ -198,6 +198,12 @@
   "errModerationHoldFix": {
     "message": "Warten Sie, bis Nexus Mods die Datei freigibt."
   },
+  "errFileFlaggedMsg": {
+    "message": "Nexus Mods bietet diese Datei nicht an: Die Virenprüfung hat sie markiert oder ist noch nicht abgeschlossen."
+  },
+  "errFileFlaggedFix": {
+    "message": "Lesen Sie den Hinweis auf der Dateiseite. Versuchen Sie es später erneut oder wählen Sie eine andere Datei."
+  },
   "errModUnavailableMsg": {
     "message": "Diese Mod wurde versteckt oder entfernt."
   },

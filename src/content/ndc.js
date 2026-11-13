@@ -72,9 +72,9 @@ window.NexusExt = window.NexusExt || {};
 
   // A gateway failure is a Nexus outage, not proof that this one file failed. Keep it on the
   // same bounded connection-wait path as the browser queue; a generic HTTP 500 stays per-file.
-  const NEXUS_OUTAGE_STATUSES = new Set([502, 503, 504, 520, 521, 522, 523, 524]);
+  // The list is the worker's own (shared.js), so the two runs cannot disagree again.
   const isQueueConnectionFailure = (error) => NXTK.isConnectionFailure(error?.code)
-    || (error?.code === 'server_error' && NEXUS_OUTAGE_STATUSES.has(Number(error.status)));
+    || (error?.code === 'server_error' && NXTK.NEXUS_OUTAGE_STATUSES.has(Number(error.status)));
 
   // The worker reports a failure as a code with its measurements attached. A code that has a
   // sentence of its own is shown as that sentence; anything else is left as it came, so nothing

@@ -75,6 +75,12 @@ window.NexusExt = window.NexusExt || {};
       recovery: 'Wait for Nexus Mods to approve the file before downloading.',
       retryable: false
     },
+    // A virus-scan notice where the file's download card would be (diagnostics #4, #5, #7).
+    file_flagged: {
+      userMessage: 'Nexus Mods is not offering this file: its virus scan flagged it or has not finished.',
+      recovery: 'Read the notice on the file page. Try again later, or pick another file.',
+      retryable: false
+    },
     mod_unavailable: {
       userMessage: 'This mod has been hidden or removed.',
       recovery: 'The mod is no longer available on Nexus Mods. Check for an alternative or contact the mod author.',
@@ -444,6 +450,7 @@ window.NexusExt = window.NexusExt || {};
           status: response.status || 0,
           text,
           finalUrl,
+          contentType,
           rateLimit,
           error: semanticError
         };
@@ -455,6 +462,7 @@ window.NexusExt = window.NexusExt || {};
           status: response.status || 0,
           text,
           finalUrl,
+          contentType,
           rateLimit,
           error: withRetryAfter(fromResponse({ status: response.status, text, context, extra: respInfo, classified: true, record }))
         };
@@ -465,6 +473,7 @@ window.NexusExt = window.NexusExt || {};
         status: response.status || 200,
         text,
         finalUrl,
+        contentType,
         rateLimit,
         error: null
       };
