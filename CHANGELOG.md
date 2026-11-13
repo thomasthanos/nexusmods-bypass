@@ -17,6 +17,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-4-1-2"><kbd> 4.1.2 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-1-1"><kbd> 4.1.1 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-1-0"><kbd> 4.1.0 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-0-3"><kbd> 4.0.3 </kbd></a>&ensp;·&ensp;
@@ -37,6 +38,10 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 <a id="unreleased"></a>
 
 ## Unreleased
+
+<a id="release-4-1-2"></a>
+
+## 4.1.2 — 2026-11-13
 
 - **Collections wait out a Nexus outage that answers 525 (diagnostics issues #22, #23):** on 11 November Nexus Mods was unreachable for hours, and Cloudflare answered HTTP 525 (its secure connection to Nexus failed). A collection run waits out a Nexus outage on the same file, but 525, and 526, 527 and 530, Cloudflare's other answers for a Nexus it cannot reach, were missing from the list. Every file was asked for once, failed, and the run moved through the whole collection. They are now waited out like 502 to 524, in browser and Vortex runs alike, which now read one shared list.
 - **A file Nexus holds back after its virus scan is named (diagnostics issues #4, #5, #7):** the most reported failure of 4.1.x, on Opera and Chrome, was a file page where Nexus showed a virus-scan notice in place of the file's download. The dialog already showed Nexus's notice, but the download ended as "no Vortex link" or "no download link" and was sent as an error report. It now says that Nexus Mods is not offering the file, keeps Nexus's notice in the dialog, and is not reported; a collection skips the file and carries on. A notice saying the file itself was removed or hidden now counts as a file that no longer exists, as "Object not found" already did, and the dialog for either keeps Nexus's own words. Only an answer for one particular file is read this way: a notice above a mod's page still stops nothing. Translated into all 13 languages.
