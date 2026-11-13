@@ -29,6 +29,9 @@
     "jsdom": "^30.1.3"
   },
   "overrides": {
-    "minimatch": "11.0.3"
+    "minimatch": "11.0.3",
+    "addons-linter": {
+      "deepmerge": "npm:@shivammathur/deepmerge@4.3.2"
+    }
   }
 }
