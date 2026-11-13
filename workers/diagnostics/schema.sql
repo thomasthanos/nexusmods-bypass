@@ -431,7 +431,7 @@ WHERE category = 'UNKNOWN_ERROR' AND (
 );
 
 -- No release fixes these categories (ENVIRONMENT_CATEGORIES), so the Worker no longer marks them fixed by
--- itself (src/services/auto-fix.ts). One it did mark fixed went regressed at the next outage; it is open
+-- itself (src/services/auto-fix.ts). One it did mark fixed went regressed at the next outage, and is open
 -- again as it was before.
 UPDATE issues SET status = 'new', fixed_in_version = NULL,
   updated_at = max(updated_at, CAST(strftime('%s', 'now') AS INTEGER) * 1000)
