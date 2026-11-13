@@ -403,6 +403,38 @@ assert.equal(PageCheck.detectBuild(fakeDoc({ scripts: ['https://ads.example/x.js
   assert.equal(recorded.length, beforeNotFound, 'and is not logged as one');
   assert.equal(PageCheck.pageShape(null), '');
 
+  // Diagnostics #10: during the Nexus outage of 2026-11-11 (Cloudflare answering 525) a collection page was
+  // Nexus's error page, "next app; main none; h1 one; components none; title none", reported as a changed
+  // site. The browser's record of the page load says what Nexus answered.
+  const collectionAt = at('/games/cyberpunk2077/collections/abcd12');
+  const loaded = (status, name = collectionAt.href) => ({ getEntriesByType: (type) => (type === 'navigation' ? [{ name, responseStatus: status }] : []) });
+  assert.equal(PageCheck.answeredStatus(collectionAt, loaded(525)), 525);
+  assert.equal(PageCheck.answeredStatus(collectionAt, loaded(525, 'https://www.nexusmods.com/games/cyberpunk2077/collections/other')), 0,
+    'a page navigated in place since it loaded is not what that load answered');
+  assert.equal(PageCheck.answeredStatus(collectionAt, loaded(undefined)), 0, 'a browser that does not record it says nothing');
+  assert.equal(PageCheck.answeredStatus(collectionAt, { getEntriesByType: () => [] }), 0);
+  assert.equal(PageCheck.answeredStatus(collectionAt, undefined), 0);
+  const deckMissing = { doc: fakeDoc(), loc: collectionAt, auth: signedIn, nnw: nnwWith('3333'), isCollectionRoute,
+    findCollectionHost: () => null, collectionMountPending: () => false };
+  const outagePage = nextPage({ title: '', nodes: [] });
+  const outage = PageCheck.runChecks({ ...deckMissing, status: 525 });
+  assert.equal(outage.skipped, 'Nexus answered HTTP 525', 'checked on Nexus\'s error page, nothing is missing');
+  assert.deepEqual([...outage.checks], []);
+  for (const key of Object.keys(session)) delete session[key];
+  const beforeOutage = recorded.length;
+  const outageNotices = [];
+  const uiBeforeOutage = context.NexusExt.UI;
+  context.NexusExt.UI = { ...(uiBeforeOutage || {}), showNotice: (n) => outageNotices.push(n) };
+  const deckFailing = PageCheck.runChecks({ ...deckMissing, status: 0 });
+  assert.deepEqual([...deckFailing.checks.filter((entry) => !entry.ok).map((entry) => entry.id)], ['deck-spot']);
+  for (const status of [525, 503, 429, 403]) PageCheck.reportFailures(deckFailing, record, outagePage, { status });
+  assert.equal(recorded.length, beforeOutage, 'an error answer is not reported as a changed site');
+  assert.equal(outageNotices.length, 0, 'nor does it tell the person Nexus changed the page');
+  PageCheck.reportFailures(deckFailing, record, outagePage, { status: 200 });
+  context.NexusExt.UI = uiBeforeOutage;
+  assert.equal(recorded.length, beforeOutage + 1, 'the same page answered with 200 is still reported');
+  assert.equal(outageNotices.length, 1);
+
   // The report section.
   const lines = PageCheck.describe({ ...failing, at: 10000 }, record, 15000).join('\n');
   assert.match(lines, /Nexus page check/);

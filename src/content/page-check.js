@@ -57,6 +57,22 @@ window.NexusExt = window.NexusExt || {};
     }
   }
 
+  // The HTTP status Nexus answered this page's address with, from the browser's record of the page load
+  // (Chromium 109, Firefox 129); 0 when it does not say, or the page has been navigated in place since.
+  // While Nexus is down it serves an error page of its own at the address asked: diagnostics #10 (Firefox,
+  // 4.1.1, 2026-11-11 22:44, while Cloudflare answered 525) was a collection page "next app; main none;
+  // h1 one; components none; title none", reported as a changed site, with a notice saying so.
+  function answeredStatus(loc = (typeof location !== 'undefined' ? location : null), perf = globalThis.performance) {
+    try {
+      const entry = perf?.getEntriesByType?.('navigation')?.[0];
+      const status = Number(entry?.responseStatus);
+      if (!entry || !loc || !Number.isInteger(status) || status < 100 || status > 599) return 0;
+      return navKey(new URL(String(entry.name || ''))) === navKey(loc) ? status : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   function check(id, label, ok, detail = '') {
     return { id, label, ok: !!ok, detail: String(detail || '') };
   }
@@ -109,12 +125,15 @@ window.NexusExt = window.NexusExt || {};
     nnw = window.NexusExt.NNW,
     findCollectionHost = deps.findCollectionHost,
     collectionMountPending = deps.collectionMountPending,
-    isCollectionRoute = deps.isCollectionRoute
+    isCollectionRoute = deps.isCollectionRoute,
+    status = answeredStatus(loc)
   } = {}) {
     const page = pageTypeOf(doc, loc, isCollectionRoute);
     if (!page) return null;
     const base = { page, label: PAGE_LABELS[page] || page, url: navKey(loc) };
     if (isChallengeDocument(doc)) return { ...base, skipped: 'Cloudflare check on screen', checks: [] };
+    // Nexus is down: what is on screen is its error page, which has none of the page's parts.
+    if (status >= 500) return { ...base, skipped: `Nexus answered HTTP ${status}`, checks: [] };
     if (doc.readyState === 'loading' || doc.querySelector?.('main[aria-busy="true"], #mainContent[aria-busy="true"]')) {
       return { ...base, skipped: 'Nexus page still loading', checks: [] };
     }
@@ -343,7 +362,7 @@ window.NexusExt = window.NexusExt || {};
     });
   }
 
-  function reportFailures(result, build, doc = (typeof document !== 'undefined' ? document : null)) {
+  function reportFailures(result, build, doc = (typeof document !== 'undefined' ? document : null), { status = answeredStatus() } = {}) {
     const failed = failuresOf(result);
     if (!failed.length) return;
     let variant = pageVariant(doc);
@@ -356,6 +375,8 @@ window.NexusExt = window.NexusExt || {};
       notifyFileMissing(doc);
       return;
     }
+    // An error answer (a rate limit, a refusal, an outage) is not the page, so its parts are not missing.
+    if (!variant && status >= 400) variant = `Nexus answered HTTP ${status}`;
     if (variant) {
       globalThis.NXTK?.queueDebugEntry?.('debug', `Nexus page check skipped on the ${result.label} (${variant}): ${failed.map((entry) => entry.id).join(', ')}`);
       return;
@@ -445,6 +466,7 @@ window.NexusExt = window.NexusExt || {};
     reportFailures,
     pageVariant,
     pageShape,
+    answeredStatus,
     lastResult: () => lastResult
   };
 })();

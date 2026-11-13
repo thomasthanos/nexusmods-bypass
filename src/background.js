@@ -1643,7 +1643,7 @@ async function waitForNdcConnection(job, item, startIndex, resolved) {
       skipped: jobSkippedList(job)
     });
     dropNdcJobItems(job.id);
-    await recordQueueItemFailure(job, item, resolved.code, resolved.detail);
+    await recordQueueItemFailure(job, item, resolved.code, resolved.detail, resolved.status);
     return null;
   }
   scheduleNdcJobAlarm(job.id, waitingUntil);
@@ -1802,7 +1802,7 @@ async function advanceNdcJob(jobId) {
           skipped: jobSkippedList(job)
         });
         dropNdcJobItems(job.id);
-        await recordQueueItemFailure(job, item, resolved.code);
+        await recordQueueItemFailure(job, item, resolved.code, '', resolved.status);
         return null;
       }
       const attempts = Number(job.resolveAttempts || 0) + 1;
@@ -1836,7 +1836,7 @@ async function advanceNdcJob(jobId) {
         error: failureCode
       });
       await recordQueueItemFailure(job, item, failureCode,
-        resolved.detail || (resolved.status ? `HTTP ${resolved.status}` : ''));
+        resolved.detail || (resolved.status ? `HTTP ${resolved.status}` : ''), resolved.status);
       await waitMs(NXTK.queueItemGapMs(failureCode));
       continue;
     }
@@ -2520,7 +2520,9 @@ async function collectionRetirementBlocker(gameId, collectionId) {
   return '';
 }
 
-function recordQueueItemFailure(job, item, code, detail = '') {
+// status: the HTTP status Nexus answered, when it did. A report took it only from the message text, so the
+// diagnostics Worker could not tell a Nexus 500 (diagnostics #23) from a failure of the extension.
+function recordQueueItemFailure(job, item, code, detail = '', status = 0) {
   const rawCode = String(code || 'request_failed');
   const rootCode = rawCode.split(/[\s(]/, 1)[0] || 'request_failed';
   const fileId = String(item?.fileId ?? '?');
@@ -2529,6 +2531,7 @@ function recordQueueItemFailure(job, item, code, detail = '') {
   return appendErrorLogEntry(NXTK.buildErrorEntry({
     code: 'queue_item_failed',
     causeCode: rootCode,
+    status: Number.isInteger(status) && status >= 100 && status <= 599 ? status : null,
     context: `Downloading queued file ${fileId} for game ${gameId} (${rootCode}, ${runType})`,
     userMessage: 'A file in the collection queue could not be downloaded.',
     technicalMessage: [rawCode, detail, `file ${fileId}`, `game ${gameId}`, runType]

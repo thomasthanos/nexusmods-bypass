@@ -1022,6 +1022,10 @@ async function queueWaitsOutAServerOutageWith(status) {
     assert.equal(stopped.status, 'error');
     assert.equal(stopped.lastError, 'server_error');
     assert.equal(events.filter((event) => event.type === 'NXT_NDC_DONE').at(-1)?.error, 'server_error');
+    // The report says what Nexus answered as a status of its own, not only in its message.
+    const failure = (await storageGetLocal(NXTK.ERROR_LOG_KEY, [])).filter((line) => line.code === 'queue_item_failed').at(-1);
+    assert.equal(failure?.status, status, `the failure keeps HTTP ${status}`);
+    assert.match(failure.technicalMessage, new RegExp(`^server_error \\| page HTTP ${status} \\| file 88`));
   } finally {
     context.fetch = previousFetch;
     NXTK.retryDelayMs = previousDelay;
