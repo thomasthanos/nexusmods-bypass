@@ -332,3 +332,53 @@ test('rejects invalid query bounds and thresholds rather than producing misleadi
     { issueId: 1, now: NOW, distinctInstallThreshold: 0 }, { issueId: 1, now: NOW, distinctInstallThreshold: 2.5 },
   ]) await assert.rejects(evaluateRules(db, input, options), RangeError);
 });
+
+test('a 5xx answer is Nexus Mods failing, before anything a page then lacked', async () => {
+  const { SERVER_ERROR_ACTION } = await import('../src/services/ruleEngine.ts');
+  const upstream = { category: 'UPSTREAM_SERVER_ERROR', fault_origin: 'upstream_site', suggested_action: SERVER_ERROR_ACTION, upstream_breaking_change: false, structural_category: null };
+  for (const input of [
+    // What 4.1.1 sent during the outage of 11 November 2026 (issues #22, #25 and #23).
+    { error_category: 'server_error', error_code: 'server_error', failure_stage: 'server_error', http_status: 525, error_message: 'HTTP 525 | resp HTTP 525, 363877B, no nxm-link, final=[link] | steps: page server_error HTTP 525' },
+    { error_category: 'page_request_failed', error_code: 'page_request_failed', failure_stage: 'queue_item_failed', error_message: 'page_request_failed | HTTP 500 | file [id] | game [id] | all' },
+    { error_code: 'server_error' },
+    { http_status: 503 },
+    { http_status: 530, error_message: 'Failed to fetch' },
+    { error_message: 'HTTP status: 502 Bad Gateway' },
+    { breadcrumbs: [{ timestamp_offset_ms: 0, stage: 'PRIMARY_API_REQUEST', action: 'REQUEST', status: 'error', http_status: 504 }] },
+    // An outage page lacks what the page check looks for; it is not a changed site.
+    { error_code: 'nexus_page_changed', http_status: 503 },
+  ]) assert.deepEqual(classifyReport(report(input)), upstream, JSON.stringify(input));
+
+  for (const input of [
+    { http_status: 404 },
+    { error_message: 'steps: page HTTP 200 | earlier HTTP 503' },
+    { error_message: 'retried after | HTTP 503 | it worked | HTTP 404' },
+    { error_message: 'HTTP 5000 bytes read' },
+    { breadcrumbs: [{ timestamp_offset_ms: 0, stage: 'FALLBACK_API_REQUEST', action: 'REQUEST', status: 'error', http_status: 503 }] },
+    { breadcrumbs: [{ timestamp_offset_ms: 0, stage: 'PRIMARY_API_REQUEST', action: 'REQUEST', status: 'ok', http_status: 503 }] },
+  ]) assert.equal(classifyReport(report(input)).category, 'UNKNOWN_ERROR', JSON.stringify(input));
+  assert.equal(classifyReport(report({ http_status: 429, error_message: 'HTTP 503' })).category, 'API_RATE_LIMIT', 'a 429 says more');
+});
+
+test('a timeout and a download the network dropped have their own categories', async () => {
+  const { TIMEOUT_ACTION } = await import('../src/services/ruleEngine.ts');
+  for (const input of [
+    // Issues #2 and #15.
+    { error_category: 'timeout', error_code: 'timeout', failure_stage: 'timeout', error_message: 'signal is aborted without reason | request timed out after 30995ms: POST Nexus request; no answer' },
+    { error_code: 'ERR_TIMED_OUT' },
+    { error_message: 'DOMException: The operation timed out.' },
+    { error_code: 'NETWORK_TIMEOUT', failure_stage: 'queue_item_failed', error_message: 'NETWORK_TIMEOUT [transient] | file [id] | game [id] | all' },
+  ]) assert.deepEqual(classifyReport(report(input)), {
+    category: 'NETWORK_TIMEOUT', fault_origin: 'unknown', suggested_action: TIMEOUT_ACTION, upstream_breaking_change: false, structural_category: null,
+  }, JSON.stringify(input));
+  assert.equal(classifyReport(report({ error_code: 'timeout', http_status: 504 })).category, 'UPSTREAM_SERVER_ERROR', 'the gateway answered');
+  assert.equal(classifyReport(report({ destination: 'mo2', error_code: 'NXM_TIMEOUT' })).category, 'HANDOFF_FAILURE');
+  assert.equal(classifyReport(report({ error_message: 'retrying because the request timed out earlier' })).category, 'UNKNOWN_ERROR');
+
+  // Issue #21: chrome.downloads' and Firefox's word for a dropped download.
+  for (const error_code of ['NETWORK_FAILED', 'NETWORK_DISCONNECTED']) {
+    assert.deepEqual(classifyReport(report({ error_code, failure_stage: 'queue_item_failed', error_message: `${error_code} [transient] | file [id] | game [id] | all` })), {
+      category: 'NETWORK_UNREACHABLE', fault_origin: 'client_env', suggested_action: actions.network, upstream_breaking_change: false, structural_category: null,
+    }, error_code);
+  }
+});

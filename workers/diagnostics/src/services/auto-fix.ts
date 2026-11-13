@@ -1,5 +1,6 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { compare, validate } from 'compare-versions';
+import { ENVIRONMENT_CATEGORIES } from './ruleEngine.ts';
 
 // Marks an issue fixed once it has stopped happening, so nobody has to. Copies that have not updated keep
 // sending what they always sent (a Firefox add-on can take days to update), and an issue fixed in a
@@ -8,6 +9,9 @@ import { compare, validate } from 'compare-versions';
 // in heartbeats, and none of those newer copies reported it. "Fixed in" is the first newer version seen.
 // A report from that version or a newer one undoes it: a newer one regresses it at ingestion as for any
 // fixed issue, and this pass puts back an issue that the version it named still reports.
+// An issue in an environment category (ruleEngine.ts) is left alone: it stops when the network or Nexus
+// recovers, not with a release, so marking it fixed only made the next outage regress it and send a
+// regression alert for nothing.
 export const AUTO_FIX_SETTLE_MS = 2 * 24 * 60 * 60 * 1000;
 export const AUTO_FIX_MIN_EVIDENCE = 3;
 
@@ -19,6 +23,10 @@ type AutoFix = { issue_id: number; fixed_in_version: string; previous_status: st
   status: string; current_version: string | null; updated_at: number };
 
 export type AutoFixResult = { fixed: { id: number; fixed_in_version: string }[]; reopened: number[] };
+
+// Open issues a release can fix.
+const FIXABLE = `status IN ('new', 'investigating', 'regressed')
+  AND category NOT IN (${ENVIRONMENT_CATEGORIES.map(() => '?').join(', ')})`;
 
 const newest = (versions: string[]) => versions.reduce((best, version) => compare(version, best, '>') ? version : best);
 const oldest = (versions: string[]) => versions.reduce((best, version) => compare(version, best, '<') ? version : best);
@@ -67,7 +75,7 @@ export async function autoFixIssues(db: D1Database, now = Date.now()): Promise<A
   }
 
   const open = (await db.prepare(`SELECT id, status, fixed_in_version, first_seen_version, last_seen_version, updated_at
-    FROM issues WHERE status IN ('new', 'investigating', 'regressed')`).all<OpenIssue>()).results ?? [];
+    FROM issues WHERE ${FIXABLE}`).bind(...ENVIRONMENT_CATEGORIES).all<OpenIssue>()).results ?? [];
   if (!open.length) return result;
   // Every version each browser has been seen running: any issue's reports (relayed copies included) and
   // the heartbeats of private diagnostics.
@@ -77,8 +85,8 @@ export async function autoFixIssues(db: D1Database, now = Date.now()): Promise<A
       SELECT browser, version, COUNT(*) AS n, MIN(created_at) AS first_at FROM heartbeat_receipts GROUP BY browser, version
     ) GROUP BY browser, version`).all<Seen>()).results ?? [];
   const reported = (await db.prepare(`SELECT issue_id, browser, version FROM reports
-    WHERE issue_id IN (SELECT id FROM issues WHERE status IN ('new', 'investigating', 'regressed'))
-    GROUP BY issue_id, browser, version`).all<Reported>()).results ?? [];
+    WHERE issue_id IN (SELECT id FROM issues WHERE ${FIXABLE})
+    GROUP BY issue_id, browser, version`).bind(...ENVIRONMENT_CATEGORIES).all<Reported>()).results ?? [];
 
   for (const issue of open) {
     const fix = autoFixVersion(reported.filter((row) => row.issue_id === issue.id), seen, issue, now);

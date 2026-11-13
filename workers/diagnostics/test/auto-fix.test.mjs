@@ -180,3 +180,27 @@ test('the cron runs it at the first quarter of each hour', async (t) => {
   await run(0);
   assert.deepEqual(state(db, crash), { status: 'fixed', fixed_in_version: '3.3.6' });
 });
+
+test('an issue no release can fix is never marked fixed, so the next outage cannot regress it', async (t) => {
+  const db = testDatabase(t);
+  // Issues #12, #14 and #16 went fixed -> regressed this way: quiet after the network recovered, then the
+  // next Nexus outage came from a newer version.
+  const categories = ['NETWORK_UNREACHABLE', 'NETWORK_TIMEOUT', 'UPSTREAM_SERVER_ERROR', 'API_RATE_LIMIT', 'SECURITY_BLOCK', 'EXTENSION_CONFLICT', 'HANDOFF_FAILURE'];
+  const environment = categories.map((category) => {
+    const id = issue(db, `environment-${category}`, { category, fault_origin: 'client_env' });
+    report(db, id, '3.3.2', 'chrome', NOW - 9 * DAY);
+    return id;
+  });
+  const bug = issue(db, 'no_download_url');
+  report(db, bug, '3.3.2', 'chrome', NOW - 9 * DAY);
+  const regressedOutage = issue(db, 'server_error', { category: 'UPSTREAM_SERVER_ERROR', fault_origin: 'upstream_site', status: 'regressed', fixed_in_version: '3.3.1' });
+  report(db, regressedOutage, '3.3.2', 'chrome', NOW - 9 * DAY);
+  const other = issue(db, 'timeout');
+  report(db, other, '3.3.6', 'chrome', NOW - 3 * DAY, AUTO_FIX_MIN_EVIDENCE);
+
+  const result = await autoFixIssues(db, NOW);
+  assert.deepEqual(result, { fixed: [{ id: bug, fixed_in_version: '3.3.6' }], reopened: [] }, 'the bug alone');
+  for (const id of environment) assert.deepEqual(state(db, id), { status: 'new', fixed_in_version: null });
+  assert.deepEqual(state(db, regressedOutage), { status: 'regressed', fixed_in_version: '3.3.1' }, 'a person decides');
+  for (const id of [...environment, regressedOutage]) assert.equal(record(db, id), null);
+});

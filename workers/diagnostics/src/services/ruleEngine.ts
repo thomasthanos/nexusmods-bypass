@@ -12,6 +12,16 @@ export interface RuleEvaluation {
   structural_category: 'DOM_SELECTOR_MISSING' | 'API_SCHEMA_MISMATCH' | null;
 }
 
+export const SERVER_ERROR_ACTION = 'Έλεγχος αν συμπίπτει με διακοπή του Nexus (5xx από τον server του ή 52x από το Cloudflare που δεν τον φτάνει) πριν χαρακτηριστεί σφάλμα της επέκτασης.';
+export const TIMEOUT_ACTION = 'Έλεγχος αν συμπίπτει με αργή απόκριση ή διακοπή του Nexus· χωρίς απάντηση μέσα στο όριο, η καθυστέρηση μπορεί να είναι στο δίκτυο του χρήστη ή στο Nexus.';
+
+// What a release cannot fix: the network, Nexus Mods' servers and request limit, a browser's or
+// antivirus's verdict, another extension, the mod manager. Such an issue stops when they recover.
+export const ENVIRONMENT_CATEGORIES: readonly string[] = [
+  'NETWORK_UNREACHABLE', 'NETWORK_TIMEOUT', 'UPSTREAM_SERVER_ERROR', 'API_RATE_LIMIT',
+  'SECURITY_BLOCK', 'EXTENSION_CONFLICT', 'HANDOFF_FAILURE',
+];
+
 export const UPSTREAM_BREAKING_CHANGE_ACTION = 'Έλεγχος της δομής HTML/API του Nexus και άμεση προετοιμασία hotfix· το ίδιο δομικό σφάλμα επηρεάζει πολλαπλές εγκαταστάσεις.';
 
 function evaluation(
@@ -71,6 +81,22 @@ export function classifyReport(report: ErrorReport): RuleEvaluation {
     return evaluation('API_RATE_LIMIT', 'rate_limit', 'Αναμονή σύμφωνα με το Retry-After header (καταγραφή τιμής Retry-After και endpoint).');
   }
 
+  // A 5xx answer is the server's own failure: Nexus Mods, or Cloudflare in front of it saying it cannot
+  // reach Nexus (520-527, 530). Like a 429 it explains whatever the page then lacked, so it comes before
+  // the structural rules: an outage page must not look like a changed site. Only the current failure
+  // counts: its status, its failed step, its code, or the status that opens its message
+  // ("HTTP 525 | …", "page_request_failed | HTTP 500 | …").
+  const isServerError = (status: number | undefined): boolean => status !== undefined && status >= 500 && status <= 599;
+  const currentBreadcrumb5xx = lastStep?.status === 'error'
+    && lastStep.stage === report.failure_stage && isServerError(lastStep.http_status);
+  if (
+    isServerError(report.http_status) || currentBreadcrumb5xx
+    || known('SERVER_ERROR', 'UPSTREAM_SERVER_ERROR')
+    || /^(?:[a-z][a-z0-9_]{0,63}\s*\|\s*)?HTTP(?:\s+status)?\s*[:=]?\s*5\d\d\b/i.test(message)
+  ) {
+    return evaluation('UPSTREAM_SERVER_ERROR', 'upstream_site', SERVER_ERROR_ACTION);
+  }
+
   if (
     known('API_SCHEMA_MISMATCH', 'API_RESPONSE_SCHEMA_MISMATCH', 'API_SCHEMA_VALIDATION_FAILED', 'NEXUS_API_CHANGED')
     || /^API (?:response )?schema (?:mismatch|validation failed)\b/i.test(message)
@@ -92,10 +118,20 @@ export function classifyReport(report: ErrorReport): RuleEvaluation {
   }
 
   if (
-    known('NETWORK', 'NETWORK_UNREACHABLE', 'NETWORK_ERROR', 'ERR_NETWORK', 'FETCH_FAILED', 'FAILED_TO_FETCH', 'NETWORK_REQUEST_FAILED', 'OFFLINE')
+    known('NETWORK', 'NETWORK_UNREACHABLE', 'NETWORK_ERROR', 'ERR_NETWORK', 'FETCH_FAILED', 'FAILED_TO_FETCH', 'NETWORK_REQUEST_FAILED', 'OFFLINE',
+      // How chrome.downloads (and Firefox, for any source failure) ends a download the network dropped.
+      'NETWORK_FAILED', 'NETWORK_DISCONNECTED')
     || /^(?:failed to fetch\b|fetch failed\b|network request failed\b|NetworkError when attempting to fetch resource\b)/i.test(message)
   ) {
     return evaluation('NETWORK_UNREACHABLE', 'client_env', 'Έλεγχος διαδρομής/σύνδεσης ή DNS/Firewall χρήστη· η αιτία παραμένει άγνωστη χωρίς επιπλέον στοιχεία δικτύου.');
+  }
+
+  // No answer within the time allowed. The user's connection and a slow Nexus look the same from here.
+  if (
+    known('TIMEOUT', 'TIMED_OUT', 'REQUEST_TIMEOUT', 'NETWORK_TIMEOUT', 'ETIMEDOUT', 'ERR_TIMED_OUT', 'ERR_CONNECTION_TIMED_OUT')
+    || /^(?:the )?(?:request|operation|connection) timed out\b/i.test(message)
+  ) {
+    return evaluation('NETWORK_TIMEOUT', 'unknown', TIMEOUT_ACTION);
   }
 
   // API snapshots can describe an earlier primary response before a fallback

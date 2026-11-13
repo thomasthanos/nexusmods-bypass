@@ -117,9 +117,9 @@ test('D1 creates strict tables and enables relational integrity', (t) => {
 test('the migrations upgrade an existing D1 schema without changing old records and are repeatable', (t) => {
   const canonical = readFileSync(schemaUrl, 'utf8');
   // Applied in name order by `wrangler d1 migrations apply`; schema.sql ends with all of them, in that order.
-  const migrations = ['0001_store_analytics.sql', '0002_issue_auto_fixes.sql']
-    .map((name) => readFileSync(new URL(`../migrations/${name}`, import.meta.url), 'utf8'));
-  assert.deepEqual(readdirSync(new URL('../migrations/', import.meta.url)).sort(), ['0001_store_analytics.sql', '0002_issue_auto_fixes.sql'],
+  const names = ['0001_store_analytics.sql', '0002_issue_auto_fixes.sql', '0003_environment_issues.sql'];
+  const migrations = names.map((name) => readFileSync(new URL(`../migrations/${name}`, import.meta.url), 'utf8'));
+  assert.deepEqual(readdirSync(new URL('../migrations/', import.meta.url)).sort(), names,
     'every migration is checked here');
   const boundary = canonical.indexOf('-- Additive: safe to apply');
   const normalizedSql = (sql) => sql.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();

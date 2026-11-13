@@ -12,7 +12,7 @@ const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:
 const issueIdentifier = (value) => /^[1-9][0-9]{0,15}$/.test(String(value)) && Number.isSafeInteger(Number(value)) ? Number(value) : null;
 const humanize = (value) => String(value ?? 'unknown').replaceAll('_', ' ');
 const capitalized = (value) => humanize(value).replace(/^./, (letter) => letter.toUpperCase());
-const categoryLabel = (value) => ({ SECURITY_BLOCK: 'Security block', EXTENSION_CONFLICT: 'Extension conflict', HANDOFF_FAILURE: 'Download handoff', API_RATE_LIMIT: 'Request limit', API_SCHEMA_MISMATCH: 'Unexpected API response', DOM_SELECTOR_MISSING: 'Page element missing', NETWORK_UNREACHABLE: 'Connection issue', UPSTREAM_BREAKING_CHANGE: 'Website changed', UNKNOWN_ERROR: 'Unclassified error' }[value] ?? humanize(value).toLowerCase().replace(/^./, (letter) => letter.toUpperCase()));
+const categoryLabel = (value) => ({ SECURITY_BLOCK: 'Security block', EXTENSION_CONFLICT: 'Extension conflict', HANDOFF_FAILURE: 'Download handoff', API_RATE_LIMIT: 'Request limit', API_SCHEMA_MISMATCH: 'Unexpected API response', DOM_SELECTOR_MISSING: 'Page element missing', NETWORK_UNREACHABLE: 'Connection issue', NETWORK_TIMEOUT: 'Request timed out', UPSTREAM_SERVER_ERROR: 'Nexus server error', UPSTREAM_BREAKING_CHANGE: 'Website changed', UNKNOWN_ERROR: 'Unclassified error' }[value] ?? humanize(value).toLowerCase().replace(/^./, (letter) => letter.toUpperCase()));
 // The extension's own error codes in plain words: a short title for lists and the sheet, and what it means.
 // Anything else keeps its category's name.
 const PLAIN_ISSUES = {
@@ -22,6 +22,10 @@ const PLAIN_ISSUES = {
   network_error: ['Could not reach Nexus', 'A request to Nexus got no answer: the connection dropped, or something on the computer blocked it.'],
   request_failed: ['Extension error on a page', 'The extension ran into an error while it was working on a Nexus page.'],
   background_error: ['Error in the download queue', 'Something failed in the background part of the extension, which runs the download queue.'],
+  server_error: ['Nexus server error', 'Nexus answered with a server error (HTTP 5xx), or Cloudflare could not reach Nexus (HTTP 52x). This happens while Nexus is down, not because of the extension.'],
+  page_request_failed: ['Nexus file page did not load', 'The download queue could not load the file page from Nexus. The message says what Nexus answered.'],
+  NETWORK_FAILED: ['Download dropped by the network', 'The browser stopped the download because the connection failed. It gives no more detail.'],
+  CRASH: ['Download stopped by the browser', 'The browser stopped the download with its catch-all reason. Firefox uses it for its own blocks (a flagged file, parental controls, a policy).'],
   nexus_page_changed: ['Nexus page looks different', 'A Nexus page did not look the way the extension expects. Nexus may have changed it.'],
   FILE_VIRUS_INFECTED: ['Blocked by antivirus', 'The antivirus or the browser flagged the downloaded file and removed it. This is not an extension bug.'],
   FILE_SECURITY_CHECK_FAILED: ['Blocked by a security check', 'The browser could not finish its security check of the downloaded file and blocked it. This is not an extension bug.'],
