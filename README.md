@@ -21,7 +21,17 @@
   <img src="docs/assets/features.svg" alt="Fewer clicks, collection queue, resume, official Nexus API, Wabbajack (beta), safer Vortex handoff, reports and debug log, 13 languages" width="100%" />
 </p>
 
+<h3 align="center">NexusMods Bypass · Video Showcase</h3>
+
+<p align="center">
+  <sub>See how NexusMods Bypass simplifies downloads and collection queues.</sub>
+</p>
+
 https://github.com/user-attachments/assets/c6279958-c2e6-4cba-9920-4b076670da93
+
+<p align="center">
+  <sub>Play the showcase directly in GitHub. If playback is unavailable in the mobile app, open this README in your browser.</sub>
+</p>
 
 <p align="center">
   <img src="docs/assets/install-steps.svg" alt="Download the ZIP, load it, sign in to Nexus Mods" width="100%" />
