@@ -27,7 +27,7 @@
   <sub>See how NexusMods Bypass simplifies downloads and collection queues.</sub>
 </p>
 
-https://github.com/user-attachments/assets/c6279958-c2e6-4cba-9920-4b076670da93
+https://github.com/user-attachments/assets/6803d806-376c-4f35-87ad-aab8d87935e2
 
 <p align="center">
   <sub>Play the showcase directly in GitHub. If playback is unavailable in the mobile app, open this README in your browser.</sub>
