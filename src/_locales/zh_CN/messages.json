@@ -2350,5 +2350,29 @@
   },
   "rdAskLearnMore": {
     "message": "了解可续传下载"
+  },
+  "setJDownloaderEnabledLabel": {
+    "message": "Send browser downloads to JDownloader"
+  },
+  "setJDownloaderEnabledDesc": {
+    "message": "For Browser Download (single mods and collections): instead of saving each file in the browser, which can ask where to save every time, send its link to JDownloader. JDownloader must be running with its External Interface on (Settings > Advanced Settings > RemoteAPI > Extern Interface, port 9666); the first time, JDownloader asks whether to allow this extension. Files are saved where JDownloader saves them, so the browser download folder and .meta files do not apply. Collection files count as downloaded once JDownloader has taken them."
+  },
+  "setJDownloaderAutostartLabel": {
+    "message": "Start JDownloader downloads at once"
+  },
+  "setJDownloaderAutostartDesc": {
+    "message": "On: links go straight into JDownloader's download list and start. Off: they wait in its LinkGrabber until you confirm them. Only used with Send browser downloads to JDownloader."
+  },
+  "setShortJDownloaderEnabled": {
+    "message": "Send links to JDownloader instead of the browser's save prompt."
+  },
+  "setShortJDownloaderAutostart": {
+    "message": "Start sent files at once instead of waiting in the LinkGrabber."
+  },
+  "errJdownloaderUnreachableMsg": {
+    "message": "JDownloader did not accept the link: it is not running, or it refused this extension."
+  },
+  "errJdownloaderUnreachableFix": {
+    "message": "Start JDownloader, turn on Settings > Advanced Settings > RemoteAPI \"Extern Interface\", allow this extension when JDownloader asks, then start the download again. Files already sent are kept."
   }
 }

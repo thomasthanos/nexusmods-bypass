@@ -232,6 +232,77 @@ async function downloadPopupRespectsOtherExtensions() {
   }
 }
 
+// JDownloader mode: a collection file goes to JDownloader's FlashGot endpoint, never to the browser's
+// download list; it counts as done once JDownloader answers, and an unreachable JDownloader stops the run.
+async function jdownloaderModeHandsLinksOver() {
+  const run = async (jobId, fetchFor) => {
+    const items = [1, 2].map((index) => ({
+      fileId: index, historyId: String(index), gameId: '1704', name: `Mod ${index}.7z`,
+      pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/1', sizeKb: 10
+    }));
+    await storageSetLocal(`nxtk_ndc_items:${jobId}`, items);
+    await storageSetLocal(NDC_JOBS_KEY, {
+      [jobId]: {
+        id: jobId, tabId: 7, gameId: '1704', collectionId: 'c', type: null, jd: true, jdAutostart: false,
+        itemCount: items.length, index: 0, completed: 0, failed: [], status: 'running',
+        activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now()
+      }
+    });
+    const previousFetch = context.fetch;
+    const previousDownloads = global.chrome.downloads;
+    const previousSendMessage = global.chrome.tabs.sendMessage;
+    const posts = [];
+    const browserStarts = [];
+    context.fetch = async (url, options) => {
+      if (String(url).startsWith('http://127.0.0.1:9666/')) {
+        posts.push({ url: String(url), body: new URLSearchParams(String(options.body)) });
+        return fetchFor(posts.length);
+      }
+      return {
+        ok: true, status: 200, url: String(url),
+        text: async () => '{"url":"https://premium-files.nexus-cdn.com/1/2/f.zip?key=k&expires=1&user_id=2"}',
+        headers: { get: () => '' }
+      };
+    };
+    global.chrome.downloads = {
+      download: (options, cb) => { browserStarts.push(options); cb(1); },
+      search: (_query, cb) => cb([]),
+      cancel: finishCallback
+    };
+    global.chrome.tabs.sendMessage = (_tabId, _message, callback) => { if (callback) callback(); };
+    try {
+      await advanceNdcJob(jobId);
+      return { job: await readNdcJob(jobId), posts, browserStarts };
+    } finally {
+      context.fetch = previousFetch;
+      global.chrome.downloads = previousDownloads;
+      global.chrome.tabs.sendMessage = previousSendMessage;
+    }
+  };
+
+  const ok = await run('testjob-jd-ok', () => ({ ok: true, status: 200 }));
+  assert.equal(ok.browserStarts.length, 0, 'nothing is handed to the browser');
+  assert.equal(ok.posts.length, 2, 'each file is sent to JDownloader');
+  assert.equal(ok.posts[0].url, 'http://127.0.0.1:9666/flashgot');
+  assert.match(ok.posts[0].body.get('urls'), /^https:\/\/premium-files\.nexus-cdn\.com\//);
+  assert.equal(ok.posts[0].body.get('autostart'), '0', 'the autostart choice is passed on');
+  assert.equal(ok.job.completed, 2);
+  assert.equal(ok.job.index, 2);
+  assert.notEqual(ok.job.status, 'error');
+
+  const pkg = context.jdownloaderPackageName;
+  assert.equal(pkg({ name: 'Tasteful Tease', revision: 3, game: 'Stellar Blade' }, '', '3qi7yo'), 'StellarBlade-Collection-TastefulTease');
+  assert.equal(pkg({ name: 'A/B: C?', game: 'Skyrim: SE' }, '', 'x'), 'SkyrimSE-Collection-ABC', 'symbols never reach a folder name');
+  assert.equal(pkg({ name: 'Tease', revision: 3 }, '', 'slug'), 'Tease (Rev 3)', 'no game name falls back to the collection folder name');
+
+  const down = await run('testjob-jd-down', () => { throw new TypeError('Failed to fetch'); });
+  assert.equal(down.browserStarts.length, 0, 'an unreachable JDownloader does not fall back to the browser');
+  assert.equal(down.posts.length, 1, 'the run stops at the first file instead of failing all of them');
+  assert.equal(down.job.status, 'error');
+  assert.equal(down.job.lastError, 'jdownloader_unreachable');
+  assert.equal(down.job.completed, 0);
+}
+
 // A file the browser refuses to start is one failed item, not a dead queue.
 async function refusedDownloadBehaviour() {
   const jobId = 'testjob-refused1';
@@ -2302,6 +2373,7 @@ Promise.resolve()
   .then(terminalSideEffectsFinishBeforeTheNextDownload)
   .then(abandonedFilesAreRemoved)
   .then(downloadStartsAreDeduplicated)
+  .then(jdownloaderModeHandsLinksOver)
   .then(downloadPopupFollowsBrowserRuns)
   .then(downloadPopupRespectsOtherExtensions)
   .then(terminalEventsSurviveAWorkerRestart)

@@ -271,7 +271,10 @@
     UseOfficialApi: true,
     FollowUpdatePolicy: false,
     WriteMo2Meta: false,
-    ShowModActions: true
+    ShowModActions: true,
+    // Browser downloads go to JDownloader (its local External Interface) instead of the browser's save prompt.
+    JDownloaderEnabled: false,
+    JDownloaderAutostart: true
   };
 
   // Bounds every writer applies, so a value typed into a field never reaches storage out of range.

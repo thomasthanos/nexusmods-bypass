@@ -462,6 +462,16 @@ function downloadSubfolder(folder) {
 
 // Discussion #46: keep the revision suffix when shortening a collection's name. Metadata is a label,
 // never a path: slashes, drive punctuation and reserved names go through the same portable sanitizer.
+// JDownloader package (and so folder) name: Game-Collection-CollectionName, spaces and symbols dropped,
+// for example StellarBlade-Collection-TastefulTease. Falls back to the collection folder naming.
+function jdownloaderPackageName(meta, label, slug) {
+  const squash = (text) => String(text || '').normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, '');
+  const game = squash(meta?.game);
+  const name = squash(meta?.name || label);
+  if (game && name) return `${game}-Collection-${name}`.slice(0, 120);
+  return collectionDownloadFolder(meta || { name: label }, slug);
+}
+
 function collectionDownloadFolder(metadata, slug) {
   const name = sanitizePathSegment(metadata?.name, { allowDots: false })
     || sanitizePathSegment(slug, { allowDots: false }) || 'Nexus collection';
@@ -621,6 +631,40 @@ function forgetDownloadName(url) {
   syncDownloadNameListener();
 }
 
+// Hands a resolved file link to JDownloader through its local FlashGot interface (127.0.0.1:9666, the
+// "External Interface" every JDownloader 2 ships with) instead of the browser, so no save prompt appears.
+// The Nexus CDN link is signed, so JDownloader needs no cookies. The first call from this extension makes
+// JDownloader ask once whether to allow it, and holds the request until the person answers.
+const JDOWNLOADER_ENDPOINT = 'http://127.0.0.1:9666/flashgot';
+const JDOWNLOADER_TIMEOUT_MS = 60 * 1000;
+
+async function sendToJDownloader({ url, name = '', packageName = '', autostart = true }) {
+  const fields = {
+    urls: String(url),
+    description: String(name || 'NexusMods Bypass').slice(0, 300),
+    package: String(packageName || '').slice(0, 150),
+    autostart: autostart ? '1' : '0'
+  };
+  const body = Object.entries(fields).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), JDOWNLOADER_TIMEOUT_MS);
+  try {
+    const response = await fetch(JDOWNLOADER_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+      credentials: 'omit',
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  } catch (cause) {
+    throw new Error(`jdownloader_unreachable: ${String(cause?.message || cause)}`, { cause });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Starts a planned download: resolves with its id, or rejects with what the browser said.
 function startPlannedDownload(plan, onStarted = () => {}) {
   const { url, filename } = plan.request;
@@ -755,8 +799,13 @@ const DOWNLOAD_HANDLERS = {
     // Chain and register before awaiting either the old start or its browser record. Concurrent
     // retries then share one replacement when the old transfer was canceled or its file deleted.
     const result = (async () => {
+      let earlierJd = null;
       if (previous) {
         const earlier = await previous.result.catch(() => null);
+        if (earlier?.jdownloader) {
+          entry.at = previous.at;
+          earlierJd = { ...earlier, duplicate: true };
+        }
         if (earlier && Number.isInteger(earlier.downloadId)) {
           let reusable = true;
           try {
@@ -770,9 +819,19 @@ const DOWNLOAD_HANDLERS = {
           }
         }
       }
+      if (earlierJd) return earlierJd;
       const existing = findDuplicateDownload(await searchRecentDownloads(now), { url: verdict.url, filename: urlName, now });
       if (existing) return { downloadId: existing.id, filename: existing.filename || urlName, duplicate: true };
       const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+      if (settings?.JDownloaderEnabled === true) {
+        await sendToJDownloader({
+          url: verdict.url,
+          name: payload?.modName || urlName,
+          packageName: payload?.modName,
+          autostart: settings.JDownloaderAutostart !== false
+        });
+        return { downloadId: null, jdownloader: true, filename: urlName };
+      }
       const plan = await namedDownloadPlan(verdict.url, payload?.folder, {
         writeMo2Meta: settings?.WriteMo2Meta === true, modName: payload?.modName, fileId: payload?.fileId
       });
@@ -1838,6 +1897,75 @@ async function advanceNdcJob(jobId) {
       await recordQueueItemFailure(job, item, failureCode,
         resolved.detail || (resolved.status ? `HTTP ${resolved.status}` : ''), resolved.status);
       await waitMs(NXTK.queueItemGapMs(failureCode));
+      continue;
+    }
+
+    // JDownloader mode: the link goes to JDownloader, which downloads it. Nothing is left running in
+    // the browser, so the file counts as done once JDownloader has taken it. A JDownloader that cannot
+    // be reached stops the run on this file (every later file would fail the same way); starting the
+    // run again picks up here.
+    if (job.jd === true) {
+      try {
+        await sendToJDownloader({
+          url: resolved.url,
+          name: item.name,
+          packageName: job.jdPackage || job.label || item.modName,
+          autostart: job.jdAutostart !== false
+        });
+      } catch (cause) {
+        const failed = await mutateNdcJobIf(
+          job.id,
+          idleOnItem(startIndex),
+          (current) => {
+            recordJobFailure(current, { fileId: item.fileId, code: 'jdownloader_unreachable' });
+            current.status = 'error';
+            current.lastError = 'jdownloader_unreachable';
+            bumpNdcControl(current);
+          }
+        );
+        if (!failed.applied) return null;
+        job = failed.job;
+        clearNdcJobAlarm(job.id);
+        notifyNdcJob(job, 'NXT_NDC_DONE', {
+          outcome: 'error',
+          error: 'jdownloader_unreachable',
+          itemName: item.name,
+          skipped: jobSkippedList(job)
+        });
+        dropNdcJobItems(job.id);
+        await recordQueueItemFailure(job, item, 'jdownloader_unreachable', cause?.message || cause);
+        return null;
+      }
+      const handed = await mutateNdcJobIf(
+        job.id,
+        idleOnItem(startIndex),
+        (current) => {
+          current.completed = Number(current.completed || 0) + 1;
+          current.index = Number(current.index || 0) + 1;
+          current.rateLimitStrikes = 0;
+          current.cloudflareStrikes = 0;
+          current.waitingUntil = 0;
+          current.resolveAttempts = 0;
+          current.transferAttempts = 0;
+        }
+      );
+      if (!handed.applied) return null;
+      job = handed.job;
+      for (const historyType of historyTypesFor(job, item)) {
+        await STORAGE_HANDLERS.NDC_HISTORY_ADD({
+          gameId: job.gameId,
+          collectionId: job.collectionId,
+          type: historyType,
+          fileId: item.historyId ?? item.fileId
+        });
+      }
+      await STORAGE_HANDLERS.TOTAL_DOWNLOADS_INCREMENT();
+      notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
+        itemName: item.name,
+        itemState: 'complete',
+        itemSizeKb: item.sizeKb || 0
+      });
+      await waitMs(NXTK.queueItemGapMs('jdownloader'));
       continue;
     }
 
@@ -3106,6 +3234,7 @@ const NDC_QUEUE_HANDLERS = {
       throw new Error(`previous_download_not_retired (${retirementBlocker})`);
     }
 
+    const jobSettings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
     const jobId = makeNdcJobId();
     await writeNdcJobItems(jobId, items);
     if (startToken?.canceled) {
@@ -3126,6 +3255,11 @@ const NDC_QUEUE_HANDLERS = {
         ? collectionDownloadFolder(payload.collectionFolder, collectionId)
         : downloadSubfolder(payload?.folder),
       requestTimeout: NXTK.normalizeSetting('RequestTimeout', Number(payload?.requestTimeout) || NXTK.DEFAULTS.RequestTimeout),
+      // Fixed for this job like the folder: links go to JDownloader instead of the browser.
+      jd: jobSettings?.JDownloaderEnabled === true,
+      // JDownloader package name: the collection's name and revision, as the collection folder is named.
+      jdPackage: jdownloaderPackageName(payload?.collectionName, payload?.label, collectionId),
+      jdAutostart: jobSettings?.JDownloaderAutostart !== false,
       itemCount: items.length,
       index: 0,
       completed: 0,

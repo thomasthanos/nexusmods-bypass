@@ -181,6 +181,11 @@ window.NexusExt = window.NexusExt || {};
       recovery: "Check your browser's Downloads list, stop any previous transfer, then retry this collection.",
       retryable: true
     },
+    jdownloader_unreachable: {
+      userMessage: 'JDownloader did not accept the link: it is not running, or it refused this extension.',
+      recovery: 'Start JDownloader, turn on Settings > Advanced Settings > RemoteAPI "Extern Interface", allow this extension when JDownloader asks, then start the download again. Files already sent are kept.',
+      retryable: false
+    },
     save_failed: {
       userMessage: 'The browser could not save the file: the disk may be full, or the download folder cannot be written to.',
       recovery: 'Free up disk space or pick another download folder in settings, then start the download again. Files already downloaded are kept.',

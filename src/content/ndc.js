@@ -388,7 +388,7 @@ window.NexusExt = window.NexusExt || {};
         referrer: document.location.href,
         referrerPolicy: 'strict-origin-when-cross-origin',
         body: JSON.stringify({
-          query: NexusExt.NexusApi?.QUERIES?.CollectionRevisionModsLegacy || 'query CollectionRevisionMods ($revision: Int, $slug: String!, $viewAdultContent: Boolean) { collectionRevision (revision: $revision, slug: $slug, viewAdultContent: $viewAdultContent) { revisionNumber, collection { name }, externalResources { id, name, resourceType, resourceUrl }, modFiles { fileId, optional, file { fileId, name, uri, size, version, date, mod { adult, modId, name, version, game { domainName, id } } } } } }',
+          query: NexusExt.NexusApi?.QUERIES?.CollectionRevisionModsLegacy || 'query CollectionRevisionMods ($revision: Int, $slug: String!, $viewAdultContent: Boolean) { collectionRevision (revision: $revision, slug: $slug, viewAdultContent: $viewAdultContent) { revisionNumber, collection { name }, externalResources { id, name, resourceType, resourceUrl }, modFiles { fileId, optional, file { fileId, name, uri, size, version, date, mod { adult, modId, name, version, game { domainName, id, name } } } } } }',
           variables: { slug: collectionId, viewAdultContent: true, revision: revision },
           operationName: 'CollectionRevisionMods'
         }),
@@ -1005,6 +1005,7 @@ window.NexusExt = window.NexusExt || {};
           restart,
           folder,
           collectionFolder,
+          collectionName: { name: runCollection.name, revision: runCollection.revision, game: mods[0]?.file?.mod?.game?.name || '' },
           requestTimeout: this.requestTimeout,
           items: pending
         })
