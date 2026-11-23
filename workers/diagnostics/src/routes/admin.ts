@@ -32,6 +32,8 @@ type DateWindow = { from: string; to: string; start: number; end: number };
 
 const DAY = 86_400_000;
 const MAX_TIME = 253_402_300_799_999;
+// Match ingestion's receipt order when reports share a timestamp.
+const newestReportsFirst = 'created_at DESC,rowid DESC';
 const statusSchema = z.enum(['new', 'investigating', 'fixed', 'regressed', 'ignored']);
 const faultSchema = z.enum(['client_env', 'upstream_site', 'rate_limit', 'extension_bug', 'unknown']);
 const categorySchema = z.string().min(1).max(80).regex(/^[A-Za-z][A-Za-z0-9_.:-]*$/);
@@ -182,10 +184,11 @@ adminRoutes.get('/overview', async (c) => {
     if (input[name]) { reportConditions.push(`${name}=?`); reportValues.push(input[name]); }
   }
   const reportFilter = reportConditions.join(' AND ');
-  const issueFilter = input.browser || input.destination
-    ? `EXISTS (SELECT 1 FROM reports WHERE issue_id=issues.id AND ${reportFilter})`
-    : 'last_seen_at>=? AND last_seen_at<=?';
-  const issueValues = input.browser || input.destination ? reportValues : [window.start, window.end];
+  const reportMatch = `EXISTS (SELECT 1 FROM reports WHERE issue_id=issues.id AND ${reportFilter})`;
+  const hasReportDimension = Boolean(input.browser || input.destination);
+  // Last-seen metadata remains available after report bodies expire.
+  const issueFilter = hasReportDimension ? reportMatch : `(last_seen_at BETWEEN ? AND ? OR ${reportMatch})`;
+  const issueValues = hasReportDimension ? reportValues : [window.start, window.end, ...reportValues];
   const detection = ingestionOptions(c.env);
   const spikeThreshold = integerSetting(c.env.SPIKE_REPORT_THRESHOLD, 1, 1_000_000);
   const liveConditions = ['r.created_at>=?', 'r.created_at<=?', "i.status<>'ignored'", 'i.muted=0'];
@@ -246,12 +249,10 @@ adminRoutes.get('/issues', async (c) => {
       values.push(search, search, search, search, window.start, window.end, search);
     }
   }
-  if (hasReportDimension) {
-    conditions.push(`EXISTS (SELECT 1 FROM reports r WHERE ${reportConditions.join(' AND ')})`);
-    values.push(...reportValues);
-  } else {
-    conditions.push('i.last_seen_at>=? AND i.last_seen_at<=?'); values.push(window.start, window.end);
-  }
+  const reportMatch = `EXISTS (SELECT 1 FROM reports r WHERE ${reportConditions.join(' AND ')})`;
+  conditions.push(hasReportDimension ? reportMatch : `(i.last_seen_at BETWEEN ? AND ? OR ${reportMatch})`);
+  if (!hasReportDimension) values.push(window.start, window.end);
+  values.push(...reportValues);
   const where = conditions.join(' AND ');
   const [total, items] = await c.env.DB.batch([
     c.env.DB.prepare(`SELECT COUNT(*) AS total FROM issues i WHERE ${where}`).bind(...values),
@@ -270,7 +271,7 @@ adminRoutes.get('/issues/:id/reports', async (c) => {
   if (!exists) return notFound(c);
   const [count, rows] = await c.env.DB.batch([
     c.env.DB.prepare('SELECT COUNT(*) AS total FROM reports WHERE issue_id=?').bind(id),
-    c.env.DB.prepare('SELECT * FROM reports WHERE issue_id=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?').bind(id, input.limit, (input.page - 1) * input.limit)
+    c.env.DB.prepare(`SELECT * FROM reports WHERE issue_id=? ORDER BY ${newestReportsFirst} LIMIT ? OFFSET ?`).bind(id, input.limit, (input.page - 1) * input.limit)
   ]);
   return c.json({ items: (rows?.results as ReportRow[] ?? []).map(reportValue), total: (count?.results[0] as { total: number } | undefined)?.total ?? 0, page: input.page, limit: input.limit });
 });
@@ -284,7 +285,7 @@ adminRoutes.get('/issues/:id', async (c) => {
       json_group_array(DISTINCT browser) AS browsers_json,
       (SELECT json_group_array(version) FROM (SELECT DISTINCT version FROM reports WHERE issue_id=? ORDER BY version LIMIT 101)) AS versions_json,
       json_group_array(DISTINCT os) FILTER (WHERE install_id<>'${RELAYED_INSTALL_ID}') AS operating_systems_json FROM reports WHERE issue_id=?`).bind(id, id),
-    c.env.DB.prepare('SELECT * FROM reports WHERE issue_id=? ORDER BY created_at DESC,id DESC LIMIT 1').bind(id)
+    c.env.DB.prepare(`SELECT * FROM reports WHERE issue_id=? ORDER BY ${newestReportsFirst} LIMIT 1`).bind(id)
   ]);
   const issue = issueResult?.results[0] as IssueRow | undefined;
   if (!issue) return notFound(c);

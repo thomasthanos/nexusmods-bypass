@@ -39,6 +39,9 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 ## Unreleased
 
+- **Collection downloads wait if Nexus cannot return a link:** gateway and origin failures during browser download link resolution keep the queue on the current file, just as an outage on the file page does. If the retry window runs out, the report includes the failed step and its HTTP status.
+- **Diagnostics includes recurring issues in past date ranges:** an issue still appears if it had a report in the selected period and recurred after it. Reports with the same receipt time appear in the order they were received, so the latest report agrees with the issue summary.
+
 <a id="release-4-1-2"></a>
 
 ## 4.1.2 — 2026-11-13

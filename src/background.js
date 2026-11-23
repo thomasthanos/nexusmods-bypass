@@ -1275,6 +1275,11 @@ function ndcResolveFailure(code, response) {
   };
 }
 
+function ndcOutageFailure(response, step) {
+  if (!NEXUS_OUTAGE_STATUSES.has(response.status)) return null;
+  return { ...ndcResolveFailure('server_error', response), detail: `${step} HTTP ${response.status}` };
+}
+
 // Browser downloads need a file, rather than an otherwise trusted Nexus page or resolver route. A link
 // the queue has asked and seen answer with a file (served) needs no name: newer files have none in
 // their address. A download route or a file page is never taken for the file itself.
@@ -1300,7 +1305,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   if (page.status === 404 || page.status === 410) return ndcResolveFailure('mod_unavailable', page);
   // The mod page itself failing with a gateway error is Nexus being down, which is waited out like a
   // lost connection rather than failing every file in turn.
-  if (NEXUS_OUTAGE_STATUSES.has(page.status)) return { ...ndcResolveFailure('server_error', page), detail: `page HTTP ${page.status}` };
+  const pageOutage = ndcOutageFailure(page, 'page');
+  if (pageOutage) return pageOutage;
   if (!page.ok) return ndcResolveFailure(page.status === 429 ? 'rate_limited' : 'page_request_failed', page);
 
   const generated = await fetchNdcResponse(
@@ -1318,6 +1324,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   );
   const generatedIssue = classifyNexusResponse(generated, generated.text);
   if (generatedIssue) return ndcResolveFailure(generatedIssue.code, generated);
+  const generatorOutage = ndcOutageFailure(generated, 'generator');
+  if (generatorOutage) return generatorOutage;
   if (generated.status === 404 || generated.status === 410) return ndcResolveFailure('file_not_found', generated);
   if (!generated.ok) {
     const failure = ndcResolveFailure(generated.status === 429 ? 'rate_limited' : 'generate_failed', generated);
@@ -1350,6 +1358,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
       // sign-in page says nothing about a visitor who sent no cookies. A timeout is not asked again.
       if (response.error !== 'timed out') {
         const bare = await fetchNdcResponse(found.url, { method: 'GET', credentials: 'omit' }, timeoutMs, { probeDownload: true });
+        const bareOutage = ndcOutageFailure(bare, 'generator link without cookies');
+        if (bareOutage) return bareOutage;
         if (bare.fileUrl) return { ok: true, url: bare.fileUrl };
         routeDetails.push(bare.status === 0
           ? connectionFailureDetail('generator link without cookies', bare)
@@ -1365,6 +1375,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     } else {
       const issue = classifyNexusResponse(response, response.text);
       if (issue) return ndcResolveFailure(issue.code, response);
+      const linkOutage = ndcOutageFailure(response, 'generator link');
+      if (linkOutage) return linkOutage;
       // Throttled here is throttled for the route too: the run waits, as it does for the route's 429.
       if (response.status === 429) return ndcResolveFailure('rate_limited', response);
       if (response.fileUrl) return { ok: true, url: response.fileUrl };
@@ -1390,6 +1402,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     }
     const issue = classifyNexusResponse(response, response.text);
     if (issue) return ndcResolveFailure(issue.code, response);
+    const routeOutage = ndcOutageFailure(response, 'route');
+    if (routeOutage) return routeOutage;
     if (response.status === 404 || response.status === 410) return ndcResolveFailure('file_not_found', response);
     if (!response.ok) return ndcResolveFailure(response.status === 429 ? 'rate_limited' : 'generate_failed', response);
     if (response.fileUrl) return { ok: true, url: response.fileUrl };
