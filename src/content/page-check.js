@@ -22,6 +22,7 @@ window.NexusExt = window.NexusExt || {};
 
   const DOWNLOAD_CONTROL_SELECTORS = (globalThis.NexusSelectors?.SELECTORS?.downloadControl
     || ['#slowDownloadButton', '[data-download-url]']).filter((selector) => selector !== 'mod-file-download');
+  const DOWNLOAD_COMPONENTS = 'mod-file-download, mod-download-buttons, mod-download-modal';
 
   let deps = {};
   let runToken = 0;
@@ -106,7 +107,7 @@ window.NexusExt = window.NexusExt || {};
         } catch (_) { }
       }
       // Current Nexus components carry the file as JSON rather than a file-id attribute.
-      for (const host of root.querySelectorAll?.('mod-file-download, mod-download-buttons, mod-download-modal') || []) {
+      for (const host of root.querySelectorAll?.(DOWNLOAD_COMPONENTS) || []) {
         if (nnw?.fileIdFromNode?.(host) === fileId) {
           return check('download-control', 'download control for this file', true, `${host.tagName.toLowerCase()} (file data)`);
         }
@@ -181,6 +182,17 @@ window.NexusExt = window.NexusExt || {};
       && /nexus/i.test(String(doc.title || ''))
       && !doc.querySelector?.('main, h1')
       && !!doc.querySelector?.('quick-search, create-draft-mod-modal, upload-modal-button');
+  }
+
+  // A file's heading and legacy section can arrive before its download card. Give an otherwise
+  // complete file page one more render check. Report a persistent absence after that wait.
+  function hasPendingFileCard(result, doc = document, nnw = window.NexusExt.NNW) {
+    const failed = failuresOf(result);
+    if (result?.page !== 'mod-file' || failed.length !== 1 || failed[0].id !== 'download-control'
+      || answeredStatus() >= 400 || !/nexus/i.test(String(doc.title || '')) || pageVariant(doc)
+      || doc.querySelector?.('[id^="Notice"][id$="-title"]')) return false;
+    const roots = typeof nnw?.getSearchRoots === 'function' ? nnw.getSearchRoots(doc) : [doc];
+    return !roots.some((root) => root.querySelector?.(DOWNLOAD_COMPONENTS));
   }
 
   // The Nexus deploy the page came from, when the page says. Next.js pages name their build; failing
@@ -412,7 +424,7 @@ window.NexusExt = window.NexusExt || {};
         if (stale()) return;
         result = runChecks();
       }
-      if (hasOnlyModShell(result)) {
+      if (hasOnlyModShell(result) || hasPendingFileCard(result)) {
         await wait(RECHECK_MS);
         if (stale()) return;
         await window.NexusExt.NNW?.waitForDomSettled?.().catch?.(() => undefined);

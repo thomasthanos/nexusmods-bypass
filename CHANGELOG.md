@@ -42,6 +42,8 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 - **Collection downloads wait if Nexus cannot return a link:** gateway and origin failures during browser download link resolution keep the queue on the current file, just as an outage on the file page does. If the retry window runs out, the report includes the failed step and its HTTP status.
 - **Diagnostics includes recurring issues in past date ranges:** an issue still appears if it had a report in the selected period and recurred after it. Reports with the same receipt time appear in the order they were received, so the latest report agrees with the issue summary.
 - **Diagnostics restores stale automatic fixes for environment issues:** the hourly check returns older automatically closed issues to their previous status. Scheduled failures show which task failed and share a run ID without exposing provider error details.
+- **File page checks give late download controls time to render:** otherwise complete file pages get one more check for the download control. A control that stays missing is still reported.
+- **Vortex keeps the original route timeout:** if the fallback page provides no link, the error keeps the timeout and any HTTP status received before it.
 
 <a id="release-4-1-2"></a>
 

@@ -1143,6 +1143,7 @@ window.NexusExt = window.NexusExt || {};
       };
     };
 
+    let apiTimeout = null;
     if (isApiFileHref) {
       const result = await resolveApiFileUrl(href);
       if (result.url) return result;
@@ -1150,6 +1151,7 @@ window.NexusExt = window.NexusExt || {};
       // works. Never fall back around authentication, verification, rate limits or cancellation.
       const recoverable = ['network_error', 'request_blocked', 'timeout', 'server_error', 'invalid_response', 'no_download_url', 'no_nmm_link'];
       if (!fileId || signal?.aborted || !recoverable.includes(result.error?.code)) return result;
+      if (isNMM && result.error.code === 'timeout') apiTimeout = result.error;
       NXTK.queueDebugEntry?.('debug', `Download API route failed (${result.error.code}); ${isNMM ? 'reading the file page' : 'trying the download generator'}.`);
       href = isNMM ? vortexFilePage : filePageUrl;
     }
@@ -1220,7 +1222,8 @@ window.NexusExt = window.NexusExt || {};
       }
 
       if (isTerminalVortexError(latestError)) return { url: null, error: latestError };
-      const outcome = routeOutcome() || { url: null, error: latestError || Errors.create('no_nmm_link', { record: false }) };
+      // A fallback page without a download link leaves the route's timeout unresolved.
+      const outcome = routeOutcome() || { url: null, error: latestError || apiTimeout || Errors.create('no_nmm_link', { record: false }) };
       // Diagnostics issue #4: a file page with a notice of its own in place of the file's card, on Opera
       // above all. The dialog shows the person what the notice says; reports keep only its kind.
       const notices = !outcome.url && outcome.error && firstResponse.ok ? DownloadParser.noticeHeadlines?.(firstResponse.text) || [] : [];
