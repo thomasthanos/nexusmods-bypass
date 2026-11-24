@@ -3662,10 +3662,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const error = msg.error && typeof msg.error === 'object'
       ? NXTK.buildErrorEntry({ ...msg.error, url: sender.tab ? sender.url : msg.error.url }) : null;
     const hash = error ? `#${encodeURIComponent(JSON.stringify(error))}` : '';
-    chrome.tabs.create({ url: chrome.runtime.getURL('report-page/report.html') + hash }, () => {
-      const error = getRuntimeError();
-      sendResponse(error ? { ok: false, error } : { ok: true });
-    });
+    openTabBeside(chrome.runtime.getURL('report-page/report.html') + hash, sender)
+      .then((tab) => sendResponse({ ok: !!tab }))
+      .catch(() => sendResponse({ ok: false }));
     return true;
   }
 

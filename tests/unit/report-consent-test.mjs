@@ -108,6 +108,51 @@ async function run() {
     assert.match(f.w.document.querySelector('.nxtk-error-code').textContent, /E-[a-z0-9]{7}/);
     f.close();
   }
+  for (const failure of ['rejected', 'missing', 'runtime-error', 'throws']) {
+    const f = fixture(); script(f.w, 'src/content/errors.js'); script(f.w, 'src/content/ui.js');
+    const error = f.w.NexusExt.Errors.create('request_failed', { context: 'The selected incident', record: false });
+    f.w.NexusExt.UI.showError(error);
+    const button = f.w.document.querySelector('[data-send-report]');
+    const send = f.w.chrome.runtime.sendMessage;
+    let opening;
+    f.w.chrome.runtime.sendMessage = (message, callback) => {
+      if (message.type !== 'OPEN_REPORT_PAGE') return send(message, callback);
+      f.sent.push(message);
+      if (failure === 'throws') throw new Error('private diagnostic detail');
+      opening = () => {
+        f.w.chrome.runtime.lastError = failure === 'runtime-error' ? { message: 'private diagnostic detail' } : null;
+        callback(failure === 'missing' ? undefined : { ok: failure === 'runtime-error', error: 'private diagnostic detail' });
+        f.w.chrome.runtime.lastError = null;
+      };
+    };
+    button.click();
+    if (opening) {
+      assert.equal(button.disabled, true, 'the same report cannot open twice while its first request is pending');
+      assert.equal(button.getAttribute('aria-busy'), 'true');
+      button.click();
+      assert.equal(f.sent.filter((message) => message.type === 'OPEN_REPORT_PAGE').length, 1);
+      opening();
+    }
+    const feedback = f.w.document.querySelector('[data-report-feedback]');
+    assert.ok(feedback && !feedback.hidden, `${failure}: Add details must explain that the report page did not open`);
+    assert.equal(feedback.getAttribute('role'), 'alert');
+    assert.match(feedback.textContent, /Could not open the report page/);
+    assert.doesNotMatch(feedback.textContent, /private diagnostic detail/);
+    assert.equal(button.disabled, false, 'a failed open remains retryable');
+    assert.equal(button.hasAttribute('aria-busy'), false);
+    assert.ok(f.w.document.querySelector('[data-report]'), 'the GitHub report action remains available');
+    const selected = f.sent.find((message) => message.type === 'OPEN_REPORT_PAGE').error;
+    // A newer log entry must not change which incident this dialog opens on Retry.
+    f.w.NXTK.recordError({ code: 'network_error', context: 'A later incident' });
+    f.w.chrome.runtime.sendMessage = send;
+    button.click();
+    assert.equal(f.sent.at(-1).type, 'OPEN_REPORT_PAGE');
+    assert.deepEqual(f.sent.at(-1).error, selected, 'retry opens the same incident snapshot');
+    assert.equal(feedback.hidden, true, 'success clears the previous failure');
+    assert.equal(button.disabled, false);
+    assert.equal(f.store.nxtk_settings?.AutoErrorReports, undefined, 'opening details never changes reporting consent');
+    f.close();
+  }
   // Diagnostics issue #4: what Nexus shows in place of the file's link is quoted in the person's own dialog,
   // and never reaches the report page, the error log or a report.
   {

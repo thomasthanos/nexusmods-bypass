@@ -2330,6 +2330,9 @@
   "rpAutoDetailsDesc": {
     "message": "Choix distinct, désactivé par défaut. Envoie aussi les identifiants publics des fichiers et jusqu’à 20 lignes de débogage expurgées, du même type de page durant les deux minutes précédant l’erreur, si elles ont été enregistrées. Aucun contenu de page, renseignement de compte ou lien signé. Envoi au même canal Discord privé. La désactivation efface les rapports en attente."
   },
+  "errorReportOpenFailed": {
+    "message": "Impossible d’ouvrir la page du rapport. Réessayez."
+  },
   "errorAddDetails": {
     "message": "Add details"
   },

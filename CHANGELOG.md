@@ -44,6 +44,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 - **Diagnostics restores stale automatic fixes for environment issues:** the hourly check returns older automatically closed issues to their previous status. Scheduled failures show which task failed and share a run ID without exposing provider error details.
 - **File page checks give late download controls time to render:** otherwise complete file pages get one more check for the download control. A control that stays missing is still reported.
 - **Vortex keeps the original route timeout:** if the fallback page provides no link, the error keeps the timeout and any HTTP status received before it.
+- **Add details opens beside the original tab:** the error dialog keeps the selected incident and shows a retry message if the report page cannot open.
 
 <a id="release-4-1-2"></a>
 

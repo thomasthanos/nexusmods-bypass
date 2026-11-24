@@ -2330,6 +2330,9 @@
   "rpAutoDetailsDesc": {
     "message": "Opción independiente, desactivada por defecto. Envía también ID públicos de archivos y hasta 20 líneas de depuración con datos sensibles ocultos, del mismo tipo de página durante los dos minutos anteriores al error, si se registraron. No envía contenido de páginas, datos de cuentas ni enlaces firmados. Se envían al mismo canal privado de Discord. Al desactivarla se eliminan los informes pendientes."
   },
+  "errorReportOpenFailed": {
+    "message": "No se pudo abrir la página del informe. Inténtalo de nuevo."
+  },
   "errorAddDetails": {
     "message": "Add details"
   },

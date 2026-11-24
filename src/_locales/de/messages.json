@@ -2330,6 +2330,9 @@
   "rpAutoDetailsDesc": {
     "message": "Separate Auswahl, standardmäßig aus. Sendet zusätzlich öffentliche Datei-IDs und bis zu 20 bereinigte Debug-Zeilen desselben Seitentyps aus den zwei Minuten vor einem Fehler, sofern Protokolle aufgezeichnet wurden. Keine Seiteninhalte, Kontodaten oder signierten Links. Ziel ist derselbe private Discord-Kanal. Ausschalten löscht ausstehende Berichte."
   },
+  "errorReportOpenFailed": {
+    "message": "Die Berichtsseite konnte nicht geöffnet werden. Versuche es erneut."
+  },
   "errorAddDetails": {
     "message": "Add details"
   },

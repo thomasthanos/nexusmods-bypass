@@ -2330,6 +2330,9 @@
   "rpAutoDetailsDesc": {
     "message": "Scelta separata, disattivata per impostazione predefinita. Invia anche gli ID pubblici dei file e fino a 20 righe di debug con i dati sensibili rimossi, dello stesso tipo di pagina nei due minuti prima dell’errore, se registrate. Nessun contenuto della pagina, dato dell’account o link firmato. Destinazione: lo stesso canale Discord privato. Disattivando l’opzione si eliminano i report in attesa."
   },
+  "errorReportOpenFailed": {
+    "message": "Impossibile aprire la pagina della segnalazione. Riprova."
+  },
   "errorAddDetails": {
     "message": "Add details"
   },

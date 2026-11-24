@@ -723,6 +723,7 @@ window.NexusExt = window.NexusExt || {};
           <div class="nxtk-error-recovery">${escapeHtml(shown.recovery)}</div>
           ${pageNotices}
           <div class="nxtk-error-code">${escapeHtml(NXTK.t('dlgErrorId', null, 'Error ID'))}: ${escapeHtml(NXTK.errorReference(normalized))} · ${escapeHtml(normalized.code)}</div>
+          <div class="nxtk-error-recovery" data-report-feedback role="alert" hidden></div>
         </div>
         <div class="nxtk-modal-footer nxtk-alert-footer nxtk-error-footer">
           ${normalized.blocking
@@ -739,10 +740,26 @@ window.NexusExt = window.NexusExt || {};
       reportButton?.addEventListener('click', () => copyReportAndOpenIssue(reportButton, normalized));
       // Capture this incident, rather than whichever error is newest when the report page opens.
       const reportError = NXTK.buildErrorEntry({ ...normalized, action: NXTK.describeActivity(), url: location.href });
-      modal.querySelector('[data-send-report]')?.addEventListener('click', () => {
+      modal.querySelector('[data-send-report]')?.addEventListener('click', (event) => {
+        const button = event.currentTarget;
+        const feedback = modal.querySelector('[data-report-feedback]');
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        feedback.hidden = true;
+        feedback.textContent = '';
+        const finish = (opened) => {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+          if (!opened) {
+            feedback.hidden = false;
+            feedback.textContent = NXTK.t('errorReportOpenFailed', null, 'Could not open the report page. Try again.');
+          }
+        };
         try {
-          chrome.runtime.sendMessage({ type: 'OPEN_REPORT_PAGE', error: reportError }, () => void chrome.runtime.lastError);
-        } catch (_) { }
+          chrome.runtime.sendMessage({ type: 'OPEN_REPORT_PAGE', error: reportError }, (reply) => {
+            finish(!chrome.runtime.lastError && reply?.ok === true);
+          });
+        } catch (_) { finish(false); }
       });
       modal.querySelector('[data-login]')?.addEventListener('click', () => {
         close();
