@@ -19,9 +19,23 @@ import type { AppEnv } from './http/types.ts';
 const app = new Hono<AppEnv>();
 const publicPaths = new Set(['/api/ingest', '/api/ingest/automatic', '/api/heartbeat']);
 
+type ScheduledStage = 'store_sync' | 'review_dispatch' | 'auto_fix';
+
+function scheduledErrorKind(error: unknown) {
+  if (!(error instanceof Error)) return 'unknown';
+  if (/^D1_[A-Z_]+:/.test(error.message)) return 'd1';
+  if (/^too many subrequests\b/i.test(error.message)) return 'subrequest_limit';
+  if (error.name === 'AbortError' || error.name === 'TimeoutError') return 'timeout';
+  return 'unknown';
+}
+
 // No untrusted payload, JWT, provider body, SQL error or request URL enters logs.
-function logFailure(event: string, requestId: string): void {
-  console.error(JSON.stringify({ event, request_id: requestId }));
+function logFailure(event: string, requestId: string, scheduled?: {
+  stage: ScheduledStage;
+  scheduled_at: number;
+  error_kind: ReturnType<typeof scheduledErrorKind>;
+}): void {
+  console.error(JSON.stringify({ event, request_id: requestId, ...scheduled }));
 }
 
 app.use('*', async (c, next) => {
@@ -120,14 +134,24 @@ export { app };
 export default {
   fetch: app.fetch,
   async scheduled(event: ScheduledController, env: AppEnv['Bindings'], context: ExecutionContext) {
+    const requestId = crypto.randomUUID();
+    const logScheduledFailure = (name: string, stage: ScheduledStage, error: unknown) => logFailure(name, requestId, {
+      stage, scheduled_at: event.scheduledTime, error_kind: scheduledErrorKind(error)
+    });
     context.waitUntil((async () => {
-      await syncStore(env.DB);
-      await dispatchReviewPush(env.DB, env, 'https://diagnostics.thomast.uk');
-    })().catch(() => logFailure('diagnostics_store_monitor_failed', crypto.randomUUID())));
+      let stage: ScheduledStage = 'store_sync';
+      try {
+        await syncStore(env.DB);
+        stage = 'review_dispatch';
+        await dispatchReviewPush(env.DB, env, 'https://diagnostics.thomast.uk');
+      } catch (error) {
+        logScheduledFailure('diagnostics_store_monitor_failed', stage, error);
+      }
+    })());
     // Issues that stopped happening are marked fixed (services/auto-fix.ts). Its decision takes days of
     // evidence, so the first run of each hour is enough.
     if (new Date(event.scheduledTime).getUTCMinutes() < 15) {
-      context.waitUntil(autoFixIssues(env.DB).catch(() => logFailure('diagnostics_auto_fix_failed', crypto.randomUUID())));
+      context.waitUntil(autoFixIssues(env.DB).catch((error) => logScheduledFailure('diagnostics_auto_fix_failed', 'auto_fix', error)));
     }
   }
 };

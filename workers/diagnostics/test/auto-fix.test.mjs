@@ -204,3 +204,47 @@ test('an issue no release can fix is never marked fixed, so the next outage cann
   assert.deepEqual(state(db, regressedOutage), { status: 'regressed', fixed_in_version: '3.3.1' }, 'a person decides');
   for (const id of [...environment, regressedOutage]) assert.equal(record(db, id), null);
 });
+
+test('legacy automatic fixes are restored for environment issues while manual fixes stay fixed', async (t) => {
+  const db = testDatabase(t);
+  const legacy = issue(db, 'security_blocked_earlier', { status: 'investigating' });
+  const normal = issue(db, 'request_failed');
+  for (const id of [legacy, normal]) report(db, id, '3.3.2', 'chrome', NOW - 9 * DAY);
+  report(db, issue(db, 'timeout'), '3.3.6', 'chrome', NOW - 3 * DAY, AUTO_FIX_MIN_EVIDENCE);
+  assert.deepEqual((await autoFixIssues(db, NOW)).fixed.map(({ id }) => id).sort(), [legacy, normal].sort());
+  db.sqlite.prepare("UPDATE issues SET category='SECURITY_BLOCK', fault_origin='client_env' WHERE id=?").run(legacy);
+  const manual = issue(db, 'security_blocked_manual', { category: 'SECURITY_BLOCK', fault_origin: 'client_env',
+    status: 'fixed', fixed_in_version: '3.3.6' });
+
+  assert.deepEqual(await autoFixIssues(db, NOW + 1), { fixed: [], reopened: [legacy] });
+  assert.deepEqual(state(db, legacy), { status: 'investigating', fixed_in_version: null });
+  assert.equal(record(db, legacy), null);
+  assert.deepEqual(state(db, normal), { status: 'fixed', fixed_in_version: '3.3.6' });
+  assert.equal(record(db, normal).fixed_in_version, '3.3.6');
+  assert.deepEqual(state(db, manual), { status: 'fixed', fixed_in_version: '3.3.6' });
+  assert.deepEqual(await autoFixIssues(db, NOW + 2), { fixed: [], reopened: [] });
+});
+
+test('a concurrent report preserves the legacy automatic fix marker until restoration succeeds', async (t) => {
+  const db = testDatabase(t);
+  const legacy = issue(db, 'timeout', { category: 'NETWORK_TIMEOUT', status: 'fixed', fixed_in_version: '3.3.6' });
+  insert(db, 'issue_auto_fixes', { issue_id: legacy, fixed_in_version: '3.3.6', previous_status: 'new',
+    previous_fixed_in_version: null, browsers_json: '["chrome"]', fixed_at: NOW });
+  const batch = db.batch;
+  let reported = false;
+  t.mock.method(db, 'batch', async (statements) => {
+    if (!reported) {
+      reported = true;
+      report(db, legacy, '3.3.2', 'chrome', NOW + 1);
+    }
+    return batch(statements);
+  });
+
+  assert.deepEqual(await autoFixIssues(db, NOW), { fixed: [], reopened: [] });
+  assert.equal(reported, true);
+  assert.deepEqual(state(db, legacy), { status: 'fixed', fixed_in_version: '3.3.6' });
+  assert.equal(record(db, legacy).fixed_in_version, '3.3.6');
+  assert.deepEqual(await autoFixIssues(db, NOW + 2), { fixed: [], reopened: [legacy] });
+  assert.deepEqual(state(db, legacy), { status: 'new', fixed_in_version: null });
+  assert.equal(record(db, legacy), null);
+});

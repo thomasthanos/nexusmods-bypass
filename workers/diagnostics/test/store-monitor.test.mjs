@@ -33,6 +33,29 @@ test('exports isolated store persistence and delivery operations', async () => {
   for (const name of ['syncStore', 'getStoreDashboard', 'acknowledgeReviews', 'dispatchReviewPush']) assert.equal(typeof source[name], 'function');
 });
 
+test('scheduled task failures share a run ID and log the failed step without provider details', async (t) => {
+  const { default: worker } = await import('../src/index.ts');
+  const pending = [];
+  const logs = [];
+  t.mock.method(console, 'error', (message) => logs.push(JSON.parse(message)));
+  const db = { prepare() { throw new Error('D1_ERROR: private database details'); } };
+
+  await worker.scheduled({ cron: '*/15 * * * *', scheduledTime: NOW }, { DB: db }, {
+    waitUntil(promise) { pending.push(promise); }
+  });
+  await Promise.all(pending);
+
+  assert.equal(logs.length, 2);
+  assert.match(logs[0].request_id, /^[a-f0-9-]{36}$/i);
+  assert.equal(logs[1].request_id, logs[0].request_id);
+  assert.deepEqual(logs.map(({ event, stage, scheduled_at, error_kind }) => ({ event, stage, scheduled_at, error_kind }))
+    .sort((a, b) => a.stage.localeCompare(b.stage)), [
+    { event: 'diagnostics_auto_fix_failed', stage: 'auto_fix', scheduled_at: NOW, error_kind: 'd1' },
+    { event: 'diagnostics_store_monitor_failed', stage: 'store_sync', scheduled_at: NOW, error_kind: 'd1' }
+  ]);
+  assert.doesNotMatch(JSON.stringify(logs), /private database details/);
+});
+
 test('complete first sync establishes an acknowledged baseline without historical targets or diagnostics rows', async (t) => {
   const db = testDatabase(t); subscription(db);
   const { getStoreDashboard } = await service();

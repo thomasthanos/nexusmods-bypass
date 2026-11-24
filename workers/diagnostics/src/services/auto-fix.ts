@@ -9,9 +9,8 @@ import { ENVIRONMENT_CATEGORIES } from './ruleEngine.ts';
 // in heartbeats, and none of those newer copies reported it. "Fixed in" is the first newer version seen.
 // A report from that version or a newer one undoes it: a newer one regresses it at ingestion as for any
 // fixed issue, and this pass puts back an issue that the version it named still reports.
-// An issue in an environment category (ruleEngine.ts) is left alone: it stops when the network or Nexus
-// recovers, not with a release, so marking it fixed only made the next outage regress it and send a
-// regression alert for nothing.
+// Environment issues stop when the network or Nexus recovers, independently of releases. Restore
+// older automatic fixes for those issues before another outage triggers a regression alert.
 export const AUTO_FIX_SETTLE_MS = 2 * 24 * 60 * 60 * 1000;
 export const AUTO_FIX_MIN_EVIDENCE = 3;
 
@@ -20,7 +19,7 @@ type OpenIssue = { id: number; status: 'new' | 'investigating' | 'regressed'; fi
 type Seen = { browser: string; version: string; n: number; first_at: number };
 type Reported = { issue_id: number; browser: string; version: string };
 type AutoFix = { issue_id: number; fixed_in_version: string; previous_status: string; previous_fixed_in_version: string | null;
-  status: string; current_version: string | null; updated_at: number };
+  fixed_at: number; category: string; status: string; current_version: string | null; updated_at: number };
 
 export type AutoFixResult = { fixed: { id: number; fixed_in_version: string }[]; reopened: number[] };
 
@@ -52,24 +51,30 @@ export function autoFixVersion(reported: Reported[], seen: Seen[], issue: OpenIs
 export async function autoFixIssues(db: D1Database, now = Date.now()): Promise<AutoFixResult> {
   const result: AutoFixResult = { fixed: [], reopened: [] };
 
-  // An issue this pass fixed and the version it named still reports goes back as it was; one that has
-  // been changed since (by hand, or regressed by a newer version) is no longer this pass's to undo.
+  // Restore active automatic fixes for environment issues and when the fixed version still reports.
   const autoFixed = (await db.prepare(`SELECT a.issue_id, a.fixed_in_version, a.previous_status, a.previous_fixed_in_version,
-      i.status, i.fixed_in_version AS current_version, i.updated_at
+      a.fixed_at, i.category, i.status, i.fixed_in_version AS current_version, i.updated_at
     FROM issue_auto_fixes a JOIN issues i ON i.id = a.issue_id`).all<AutoFix>()).results ?? [];
   for (const row of autoFixed) {
-    const forget = db.prepare('DELETE FROM issue_auto_fixes WHERE issue_id=? AND fixed_in_version=?').bind(row.issue_id, row.fixed_in_version);
+    const marker = [row.issue_id, row.fixed_in_version, row.fixed_at] as const;
+    const forget = 'DELETE FROM issue_auto_fixes WHERE issue_id=? AND fixed_in_version=? AND fixed_at=?';
     if (row.status !== 'fixed' || row.current_version !== row.fixed_in_version) {
-      await forget.run();
+      await db.prepare(`${forget} AND NOT EXISTS (SELECT 1 FROM issues WHERE id=issue_auto_fixes.issue_id
+        AND status='fixed' AND fixed_in_version=issue_auto_fixes.fixed_in_version)`).bind(...marker).run();
       continue;
     }
-    const versions = (await db.prepare('SELECT DISTINCT version FROM reports WHERE issue_id=?').bind(row.issue_id).all<{ version: string }>()).results ?? [];
-    if (!versions.some(({ version }) => validate(version) && compare(version, row.fixed_in_version, '>='))) continue;
+    if (!ENVIRONMENT_CATEGORIES.includes(row.category)) {
+      const versions = (await db.prepare('SELECT DISTINCT version FROM reports WHERE issue_id=?').bind(row.issue_id).all<{ version: string }>()).results ?? [];
+      if (!versions.some(({ version }) => validate(version) && compare(version, row.fixed_in_version, '>='))) continue;
+    }
+    // Keep the marker for retry if a concurrent report or lifecycle change wins.
     const [restored] = await db.batch([
       db.prepare(`UPDATE issues SET status=?, fixed_in_version=?, updated_at=max(updated_at, ?)
-        WHERE id=? AND status='fixed' AND fixed_in_version=? AND updated_at=? RETURNING id`)
-        .bind(row.previous_status, row.previous_fixed_in_version, now, row.issue_id, row.fixed_in_version, row.updated_at),
-      forget
+        WHERE id=? AND status='fixed' AND fixed_in_version=? AND updated_at=? AND category=?
+          AND EXISTS (SELECT 1 FROM issue_auto_fixes WHERE issue_id=issues.id
+            AND fixed_in_version=issues.fixed_in_version AND fixed_at=?) RETURNING id`)
+        .bind(row.previous_status, row.previous_fixed_in_version, now, row.issue_id, row.fixed_in_version, row.updated_at, row.category, row.fixed_at),
+      db.prepare(`${forget} AND changes()=1`).bind(...marker)
     ]);
     if (restored?.results?.length) result.reopened.push(row.issue_id);
   }
