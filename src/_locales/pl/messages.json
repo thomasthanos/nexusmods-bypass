@@ -2324,6 +2324,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "Pomiń wysłane, wyślij resztę ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "Pomija pliki już wysłane do Vortex. Użyj, jeśli Vortex je otrzymał."
+  },
   "deckHistoryView": {
     "message": "Historia pobierania"
   },

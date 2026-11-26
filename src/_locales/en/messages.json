@@ -2522,6 +2522,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "Skip sent, send rest ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "Leaves out files already sent to Vortex. Use it when Vortex received them."
+  },
   "deckHistoryView": {
     "message": "Download history"
   },

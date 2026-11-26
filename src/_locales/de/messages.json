@@ -2156,6 +2156,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "Gesendete überspringen, Rest senden ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "Lässt bereits an Vortex gesendete Dateien aus. Nutze das, wenn Vortex sie erhalten hat."
+  },
   "deckHistoryView": {
     "message": "Download-Verlauf"
   },

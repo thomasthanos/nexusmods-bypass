@@ -2156,6 +2156,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "Gönderilenleri atla, kalanları gönder ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "Vortex'e zaten gönderilmiş dosyaları dışarıda bırakır. Vortex bunları aldıysa kullan."
+  },
   "deckHistoryView": {
     "message": "İndirme geçmişi"
   },

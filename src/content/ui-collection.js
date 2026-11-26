@@ -784,6 +784,7 @@
         <div class="nxtk-history-text nxtk-history-view-help">${L('historyViewHelp', '"Sent to Vortex" files are not skipped: the browser cannot see whether Vortex got them. Resending is safe, Vortex skips files it already has.')}</div>
         <div class="nxtk-modal-footer">
           <button type="button" class="nxtk-btn nxtk-btn-secondary" data-history-clear>${L('historyViewClear', 'Clear history')}</button>
+          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-history-resend-unsent ${stats.sent ? '' : 'hidden'} ${stats.unsent.length ? '' : 'disabled'} title="${L('historyViewResendUnsentHint', 'Skips files already sent to Vortex. Use it when Vortex got them.')}">${escapeHtml(NXTK.t('historyViewResendUnsent', [String(stats.unsent.length)], `Skip sent, send rest (${stats.unsent.length})`))}</button>
           <button type="button" class="nxtk-btn nxtk-btn-primary" data-history-resend ${stats.missing.length ? '' : 'disabled'}>${escapeHtml(NXTK.t('historyViewResend', [String(stats.missing.length)], `Resend missing (${stats.missing.length})`))}</button>
         </div>`
       });
@@ -799,11 +800,18 @@
         resend.disabled = !all.length;
         resend.textContent = NXTK.t('historyViewResend', [String(all.length)], `Resend missing (${all.length})`);
         stats.missing = all.map(idOf);
+        stats.unsent = stats.missing;
+        modal.querySelector('[data-history-resend-unsent]').hidden = true;
       }, { context: 'Clearing the download history', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }));
       modal.querySelector('[data-history-resend]')?.addEventListener('click', () => {
         const missing = new Set(stats.missing);
         close('resend');
         onResend?.(all.filter((mod) => missing.has(idOf(mod))));
+      });
+      modal.querySelector('[data-history-resend-unsent]')?.addEventListener('click', () => {
+        const unsent = new Set(stats.unsent);
+        close('resend');
+        onResend?.(all.filter((mod) => unsent.has(idOf(mod))));
       });
     });
   }

@@ -2072,6 +2072,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "보낸 파일 건너뛰고 나머지 보내기 ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "이미 Vortex로 보낸 파일을 제외합니다. Vortex가 받았을 때 사용하세요."
+  },
   "deckHistoryView": {
     "message": "다운로드 기록"
   },

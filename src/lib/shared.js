@@ -515,7 +515,9 @@
     const sent = new Set((Array.isArray(collection?.[vortexSentType(type)]) ? collection[vortexSentType(type)] : []).filter((id) => current.has(id)));
     for (const id of downloaded) sent.delete(id);
     const missing = allIds.filter((id) => !downloaded.has(id));
-    return { downloaded: downloaded.size, sent: sent.size, missing, total: allIds.length };
+    // Missing files that were never handed to Vortex either: the opt-in "skip sent" resend.
+    const unsent = missing.filter((id) => !sent.has(id));
+    return { downloaded: downloaded.size, sent: sent.size, missing, unsent, total: allIds.length };
   }
 
   // Vortex hand-offs are recorded apart from real downloads: the browser cannot see whether Vortex

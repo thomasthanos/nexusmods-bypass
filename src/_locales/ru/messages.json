@@ -2324,6 +2324,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "Пропустить отправленные, отправить остальные ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "Пропускает файлы, уже отправленные в Vortex. Используйте, если Vortex их получил."
+  },
   "deckHistoryView": {
     "message": "История загрузок"
   },

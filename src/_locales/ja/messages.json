@@ -2072,6 +2072,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "送信済みをスキップして残りを送信 ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "Vortex に送信済みのファイルを除外します。Vortex が受け取っている場合に使用してください。"
+  },
   "deckHistoryView": {
     "message": "ダウンロード履歴"
   },

@@ -2156,6 +2156,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "Ignorer les envoyés, envoyer le reste ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "Ignore les fichiers déjà envoyés à Vortex. À utiliser si Vortex les a bien reçus."
+  },
   "deckHistoryView": {
     "message": "Historique de téléchargement"
   },

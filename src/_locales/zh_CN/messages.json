@@ -2072,6 +2072,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "跳过已发送，发送其余 ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "排除已发送到 Vortex 的文件。Vortex 已收到时使用。"
+  },
   "deckHistoryView": {
     "message": "下载历史"
   },

@@ -2156,6 +2156,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "Παράλειψη απεσταλμένων, αποστολή υπολοίπων ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "Παραλείπει αρχεία που έχουν ήδη σταλεί στο Vortex. Χρησιμοποίησέ το όταν το Vortex τα έχει λάβει."
+  },
   "deckHistoryView": {
     "message": "Ιστορικό λήψεων"
   },
