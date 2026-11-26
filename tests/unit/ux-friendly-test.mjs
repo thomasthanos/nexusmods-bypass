@@ -137,6 +137,25 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
     { downloaded: 1, sent: 1, missing: ['1'], unsent: [], total: 2 },
     'matching uses the same exact ID values as the download queue');
   }
+  {
+    const history = {
+      all: [1, 1, 'old-downloaded'], mandatory: [1, 2], optional: ['1704:42', 8],
+      vortexSent_all: [2, 3, 'old-sent'], vortexSent_mandatory: [3, 4], vortexSent_optional: ['1704:42', '1151:42', '7']
+    };
+    const saved = plain(history);
+    const current = [1, 2, 3, 4, 5, '1704:42', '1151:42', 7];
+    const includeSubsets = { includeSubsets: true };
+    assert.deepEqual(plain(S.summarizeCollectionHistory(history, 'all', current, includeSubsets)), {
+      downloaded: 3, sent: 3, missing: [3, 4, 5, '1151:42', 7], unsent: [5, 7], total: 8
+    }, 'whole-collection history merges subset records and gives downloaded records precedence');
+    assert.deepEqual(plain(S.summarizeCollectionHistory(history, 'all', current)), {
+      downloaded: 1, sent: 2, missing: [2, 3, 4, 5, '1704:42', '1151:42', 7],
+      unsent: [4, 5, '1704:42', '1151:42', 7], total: 8
+    }, 'the existing all run still reads only its own history');
+    assert.deepEqual(plain(S.summarizeCollectionHistory(history, 'mandatory', current, includeSubsets)),
+      plain(S.summarizeCollectionHistory(history, 'mandatory', current)), 'subset runs keep their own history');
+    assert.deepEqual(history, saved, 'whole-collection history leaves stored records intact');
+  }
 
   // Item 8: no jargon left in English user-facing strings.
   const en = JSON.parse(fs.readFileSync('src/_locales/en/messages.json', 'utf8'));

@@ -2426,6 +2426,8 @@ a.nxtk-settings-report { text-decoration: none; }
 .nxtk-history-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0 10px; }
 .nxtk-history-stat { padding: 10px; border-radius: 10px; background: rgba(255,255,255,0.05); text-align: center; font-size: 12px; }
 .nxtk-history-stat-num { display: block; font-size: 22px; font-weight: 700; color: var(--nxtk-accent); }
+.nxtk-history-view-modal [data-history-resend-unsent][hidden] { display: none; }
+.nxtk-history-view-modal [data-history-resend-unsent] { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
 @media (max-width: 520px) { .nxtk-history-stats { grid-template-columns: 1fr; } }
 
 /* Persistent update invitation: readable copy and controls on narrow Nexus pages. */

@@ -1876,6 +1876,54 @@ test('collection: Download history view shows sent / downloaded / missing and cl
   await page.close();
 });
 
+test('collection: skip-sent history action hides when redundant and fits localized labels', async () => {
+  const worker = await serviceWorker(context);
+  const previous = await worker.evaluate(async () => (await globalThis.chrome.storage.local.get('nxtk_ndc_history')).nxtk_ndc_history);
+  let page;
+  try {
+    await worker.evaluate(() => globalThis.chrome.storage.local.set({ nxtk_ndc_history: {} }));
+    page = await openPage('https://www.nexusmods.com/games/skyrimspecialedition/collections/historyskip', 380, 900, 1);
+    const deck = page.locator('#nxtk-control-deck');
+    await expect(deck).toBeVisible({ timeout: 30000 });
+    const openHistory = async () => {
+      await deck.locator('#nxtk-menu-toggle').click();
+      await page.locator('#nxtk-history-view').click();
+      await expect(page.locator('#nxtk-history-view-modal')).toBeVisible();
+    };
+    await openHistory();
+    const modal = page.locator('#nxtk-history-view-modal');
+    const skipSent = modal.locator('[data-history-resend-unsent]');
+    await expect(skipSent, 'no sent files means the secondary action is redundant').toBeHidden();
+    await modal.locator('[data-close]').click();
+
+    await worker.evaluate(() => globalThis.chrome.storage.local.set({ nxtk_ndc_history: {
+      skyrimspecialedition: { historyskip: { vortexSent_mandatory: [1001], vortexSent_optional: [1000] } }
+    } }));
+    await openHistory();
+    await expect(skipSent).toBeVisible();
+    await expect(skipSent).toBeEnabled();
+    await expect(skipSent).toContainText('(38)');
+    for (const lang of ['de', 'ru', 'el']) {
+      const messages = JSON.parse(fs.readFileSync(path.join(extensionDir, `_locales/${lang}/messages.json`), 'utf8'));
+      await skipSent.evaluate((button, text) => { button.textContent = text; }, messages.historyViewResendUnsent.message.replace('$1', '38'));
+      await page.setViewportSize({ width: 320, height: 900 });
+      await assertFits(page, '#nxtk-history-view-modal [data-history-resend-unsent]', `skip-sent action in ${lang}`);
+      expect(await skipSent.evaluate(button => button.scrollWidth - button.clientWidth), `the ${lang} label is not clipped inside the button`).toBeLessThanOrEqual(1);
+    }
+    await modal.locator('[data-history-clear]').click();
+    await expect(modal.locator('#nxtk-hv-sent')).toHaveText('0');
+    await expect(skipSent, 'clearing history hides the secondary action again').toBeHidden();
+    await expect(skipSent).toBeDisabled();
+    await expect(skipSent).toContainText('(40)');
+    await expect(modal.locator('[data-history-resend]')).toBeEnabled();
+  } finally {
+    await page?.close();
+    await worker.evaluate(previous => previous === undefined
+      ? globalThis.chrome.storage.local.remove('nxtk_ndc_history')
+      : globalThis.chrome.storage.local.set({ nxtk_ndc_history: previous }), previous);
+  }
+});
+
 // ---- stress and edge cases ----
 
 for (const lang of ['de', 'ru', 'el']) {
