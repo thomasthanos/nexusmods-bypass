@@ -462,6 +462,16 @@ function downloadSubfolder(folder) {
 
 // Discussion #46: keep the revision suffix when shortening a collection's name. Metadata is a label,
 // never a path: slashes, drive punctuation and reserved names go through the same portable sanitizer.
+// JDownloader package (and so folder) name: Game-Collection-CollectionName, spaces and symbols dropped,
+// for example StellarBlade-Collection-TastefulTease. Falls back to the collection folder naming.
+function jdownloaderPackageName(meta, label, slug) {
+  const squash = (text) => String(text || '').normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, '');
+  const game = squash(meta?.game);
+  const name = squash(meta?.name || label);
+  if (game && name) return `${game}-Collection-${name}`.slice(0, 120);
+  return collectionDownloadFolder(meta || { name: label }, slug);
+}
+
 function collectionDownloadFolder(metadata, slug) {
   const name = sanitizePathSegment(metadata?.name, { allowDots: false })
     || sanitizePathSegment(slug, { allowDots: false }) || 'Nexus collection';
@@ -621,6 +631,44 @@ function forgetDownloadName(url) {
   syncDownloadNameListener();
 }
 
+// Hands a resolved file link to JDownloader through its local FlashGot interface (127.0.0.1:9666, the
+// "External Interface" every JDownloader 2 ships with) instead of the browser, so no save prompt appears.
+// The Nexus CDN link is signed, so JDownloader needs no cookies. The first call from this extension makes
+// JDownloader ask once whether to allow it, and holds the request until the person answers.
+const JDOWNLOADER_ENDPOINT = 'http://127.0.0.1:9666/flashgot';
+// FlashGot identifies approved senders by source host. This app identifier is never fetched.
+const JDOWNLOADER_SOURCE = 'https://nexusmods-bypass.invalid/';
+const JDOWNLOADER_TIMEOUT_MS = 60 * 1000;
+
+async function sendToJDownloader({ url, name = '', packageName = '', autostart = true }) {
+  const fields = {
+    urls: String(url),
+    descriptions: String(name || 'NexusMods Bypass').replace(/[\r\n]+/g, ' ').slice(0, 300),
+    package: String(packageName || '').slice(0, 150),
+    source: JDOWNLOADER_SOURCE,
+    autostart: autostart ? '1' : '0'
+  };
+  const body = Object.entries(fields).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), JDOWNLOADER_TIMEOUT_MS);
+  try {
+    const response = await fetch(JDOWNLOADER_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+      credentials: 'omit',
+      cache: 'no-store',
+      redirect: 'error',
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  } catch (cause) {
+    throw new Error('jdownloader_unreachable', { cause });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Starts a planned download: resolves with its id, or rejects with what the browser said.
 function startPlannedDownload(plan, onStarted = () => {}) {
   const { url, filename } = plan.request;
@@ -755,8 +803,13 @@ const DOWNLOAD_HANDLERS = {
     // Chain and register before awaiting either the old start or its browser record. Concurrent
     // retries then share one replacement when the old transfer was canceled or its file deleted.
     const result = (async () => {
+      const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
       if (previous) {
         const earlier = await previous.result.catch(() => null);
+        if (earlier?.jdownloader && settings?.JDownloaderEnabled === true) {
+          entry.at = previous.at;
+          return { ...earlier, duplicate: true };
+        }
         if (earlier && Number.isInteger(earlier.downloadId)) {
           let reusable = true;
           try {
@@ -772,7 +825,15 @@ const DOWNLOAD_HANDLERS = {
       }
       const existing = findDuplicateDownload(await searchRecentDownloads(now), { url: verdict.url, filename: urlName, now });
       if (existing) return { downloadId: existing.id, filename: existing.filename || urlName, duplicate: true };
-      const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
+      if (settings?.JDownloaderEnabled === true) {
+        await sendToJDownloader({
+          url: verdict.url,
+          name: payload?.modName || urlName,
+          packageName: payload?.modName,
+          autostart: settings.JDownloaderAutostart !== false
+        });
+        return { downloadId: null, jdownloader: true, filename: urlName };
+      }
       const plan = await namedDownloadPlan(verdict.url, payload?.folder, {
         writeMo2Meta: settings?.WriteMo2Meta === true, modName: payload?.modName, fileId: payload?.fileId
       });
@@ -1125,6 +1186,7 @@ function notifyNdcJob(job, type, extra = {}, alsoTabIds = []) {
     index: job.index,
     total: ndcJobItemCount(job),
     completed: job.completed,
+    ...(job.jd === true ? { jdownloader: true } : {}),
     failedCount: jobFailureCount(job),
     skippedCount: jobSkipCount(job),
     ...extra
@@ -1275,6 +1337,11 @@ function ndcResolveFailure(code, response) {
   };
 }
 
+function ndcOutageFailure(response, step) {
+  if (!NEXUS_OUTAGE_STATUSES.has(response.status)) return null;
+  return { ...ndcResolveFailure('server_error', response), detail: `${step} HTTP ${response.status}` };
+}
+
 // Browser downloads need a file, rather than an otherwise trusted Nexus page or resolver route. A link
 // the queue has asked and seen answer with a file (served) needs no name: newer files have none in
 // their address. A download route or a file page is never taken for the file itself.
@@ -1300,7 +1367,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   if (page.status === 404 || page.status === 410) return ndcResolveFailure('mod_unavailable', page);
   // The mod page itself failing with a gateway error is Nexus being down, which is waited out like a
   // lost connection rather than failing every file in turn.
-  if (NEXUS_OUTAGE_STATUSES.has(page.status)) return { ...ndcResolveFailure('server_error', page), detail: `page HTTP ${page.status}` };
+  const pageOutage = ndcOutageFailure(page, 'page');
+  if (pageOutage) return pageOutage;
   if (!page.ok) return ndcResolveFailure(page.status === 429 ? 'rate_limited' : 'page_request_failed', page);
 
   const generated = await fetchNdcResponse(
@@ -1318,6 +1386,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
   );
   const generatedIssue = classifyNexusResponse(generated, generated.text);
   if (generatedIssue) return ndcResolveFailure(generatedIssue.code, generated);
+  const generatorOutage = ndcOutageFailure(generated, 'generator');
+  if (generatorOutage) return generatorOutage;
   if (generated.status === 404 || generated.status === 410) return ndcResolveFailure('file_not_found', generated);
   if (!generated.ok) {
     const failure = ndcResolveFailure(generated.status === 429 ? 'rate_limited' : 'generate_failed', generated);
@@ -1350,6 +1420,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
       // sign-in page says nothing about a visitor who sent no cookies. A timeout is not asked again.
       if (response.error !== 'timed out') {
         const bare = await fetchNdcResponse(found.url, { method: 'GET', credentials: 'omit' }, timeoutMs, { probeDownload: true });
+        const bareOutage = ndcOutageFailure(bare, 'generator link without cookies');
+        if (bareOutage) return bareOutage;
         if (bare.fileUrl) return { ok: true, url: bare.fileUrl };
         routeDetails.push(bare.status === 0
           ? connectionFailureDetail('generator link without cookies', bare)
@@ -1365,6 +1437,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     } else {
       const issue = classifyNexusResponse(response, response.text);
       if (issue) return ndcResolveFailure(issue.code, response);
+      const linkOutage = ndcOutageFailure(response, 'generator link');
+      if (linkOutage) return linkOutage;
       // Throttled here is throttled for the route too: the run waits, as it does for the route's 429.
       if (response.status === 429) return ndcResolveFailure('rate_limited', response);
       if (response.fileUrl) return { ok: true, url: response.fileUrl };
@@ -1390,6 +1464,8 @@ async function resolveNdcBrowserUrl(item, timeoutMs) {
     }
     const issue = classifyNexusResponse(response, response.text);
     if (issue) return ndcResolveFailure(issue.code, response);
+    const routeOutage = ndcOutageFailure(response, 'route');
+    if (routeOutage) return routeOutage;
     if (response.status === 404 || response.status === 410) return ndcResolveFailure('file_not_found', response);
     if (!response.ok) return ndcResolveFailure(response.status === 429 ? 'rate_limited' : 'generate_failed', response);
     if (response.fileUrl) return { ok: true, url: response.fileUrl };
@@ -1531,7 +1607,7 @@ async function finishNdcJob(job) {
   // Keep the job discoverable as running until its successful-run history cleanup is complete.
   // A concurrent Restart then stops this job and waits for its processing promise before the new
   // run can add history, instead of letting this late clear erase the new run's entries.
-  if (job.type && !jobFailureCount(job) && !jobSkipCount(job)) {
+  if (job.jd !== true && job.type && !jobFailureCount(job) && !jobSkipCount(job)) {
     await STORAGE_HANDLERS.NDC_HISTORY_CLEAR_TYPE({
       gameId: job.gameId,
       collectionId: job.collectionId,
@@ -1606,6 +1682,27 @@ function idleOnItem(index) {
     && Number(current.index || 0) === index;
 }
 
+function hasJDownloaderHandoff(index) {
+  return (current) => ndcJobIsActive(current) && current.jd === true
+    && current.index === index && current.jdHandoffIndex === index;
+}
+
+async function stopUnconfirmedJDownloaderHandoff(job, item, detail) {
+  const code = 'jdownloader_unreachable';
+  const failed = await mutateNdcJobIf(job.id, hasJDownloaderHandoff(job.index), (current) => {
+    delete current.jdHandoffIndex;
+    recordJobFailure(current, { fileId: item.fileId, code });
+    current.status = 'error';
+    current.lastError = code;
+    bumpNdcControl(current);
+  });
+  if (!failed.applied) return;
+  clearNdcJobAlarm(job.id);
+  notifyNdcJob(failed.job, 'NXT_NDC_DONE', { outcome: 'error', error: code, itemName: item.name, skipped: jobSkippedList(failed.job) });
+  dropNdcJobItems(job.id);
+  await recordQueueItemFailure(job, item, code, detail);
+}
+
 // Nexus could not be reached for this file even after the quick retries. Failing it and moving on
 // failed every file after it as well, within seconds, so the run waits on this same file instead, with
 // growing alarms (NXTK.networkWaitMs). When the waits run out it stops with one error, and starting it
@@ -1672,6 +1769,10 @@ async function advanceNdcJob(jobId) {
     if (ndcJobItemsAreMissing(job, items)) return abandonNdcJobWithoutItems(job);
     if (job.index >= items.length) {
       await finishNdcJob(job);
+      return null;
+    }
+    if (job.jd === true && job.jdHandoffIndex === job.index) {
+      await stopUnconfirmedJDownloaderHandoff(job, items[job.index], 'The worker restarted before JDownloader answered');
       return null;
     }
 
@@ -1838,6 +1939,49 @@ async function advanceNdcJob(jobId) {
       await recordQueueItemFailure(job, item, failureCode,
         resolved.detail || (resolved.status ? `HTTP ${resolved.status}` : ''), resolved.status);
       await waitMs(NXTK.queueItemGapMs(failureCode));
+      continue;
+    }
+
+    // Save the pending handoff before sending. A restarted worker cannot tell whether JDownloader
+    // accepted the POST and stops for the user to check its list. A successful handoff advances this
+    // job even during Pause, while the downloaded-file history is reserved for verified transfers.
+    if (job.jd === true) {
+      const pending = await mutateNdcJobIf(job.id, idleOnItem(startIndex), (current) => {
+        current.jdHandoffIndex = startIndex;
+      });
+      if (!pending.applied) return null;
+      job = pending.job;
+      try {
+        await sendToJDownloader({
+          url: resolved.url,
+          name: item.name,
+          packageName: job.jdPackage || job.label || item.modName,
+          autostart: job.jdAutostart !== false
+        });
+      } catch (cause) {
+        await stopUnconfirmedJDownloaderHandoff(job, item, cause?.cause?.message || cause?.message);
+        return null;
+      }
+      const handed = await mutateNdcJobIf(
+        job.id,
+        hasJDownloaderHandoff(startIndex),
+        (current) => {
+          delete current.jdHandoffIndex;
+          current.index = Number(current.index || 0) + 1;
+          current.rateLimitStrikes = 0;
+          current.cloudflareStrikes = 0;
+          current.waitingUntil = 0;
+          current.resolveAttempts = 0;
+          current.transferAttempts = 0;
+        }
+      );
+      if (!handed.applied) return null;
+      job = handed.job;
+      notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
+        itemName: item.name,
+        itemState: 'sent'
+      });
+      await waitMs(NXTK.queueItemGapMs('jdownloader'));
       continue;
     }
 
@@ -3085,6 +3229,7 @@ const NDC_QUEUE_HANDLERS = {
         index: existing.index,
         completed: existing.completed,
         status: existing.status,
+        ...(existing.jd === true ? { jdownloader: true } : {}),
         adopted: true
       };
     }
@@ -3106,6 +3251,7 @@ const NDC_QUEUE_HANDLERS = {
       throw new Error(`previous_download_not_retired (${retirementBlocker})`);
     }
 
+    const jobSettings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
     const jobId = makeNdcJobId();
     await writeNdcJobItems(jobId, items);
     if (startToken?.canceled) {
@@ -3126,6 +3272,11 @@ const NDC_QUEUE_HANDLERS = {
         ? collectionDownloadFolder(payload.collectionFolder, collectionId)
         : downloadSubfolder(payload?.folder),
       requestTimeout: NXTK.normalizeSetting('RequestTimeout', Number(payload?.requestTimeout) || NXTK.DEFAULTS.RequestTimeout),
+      // Fixed for this job like the folder: links go to JDownloader instead of the browser.
+      jd: jobSettings?.JDownloaderEnabled === true,
+      // JDownloader package name: the collection's name and revision, as the collection folder is named.
+      jdPackage: jdownloaderPackageName(payload?.collectionName, payload?.label, collectionId),
+      jdAutostart: jobSettings?.JDownloaderAutostart !== false,
       itemCount: items.length,
       index: 0,
       completed: 0,
@@ -3142,7 +3293,7 @@ const NDC_QUEUE_HANDLERS = {
       return { jobId: job.id, total: items.length, stopped: true };
     }
     await processNdcJob(job.id);
-    return { jobId: job.id, total: items.length };
+    return { jobId: job.id, total: items.length, ...(job.jd === true ? { jdownloader: true } : {}) };
     } finally {
       releaseStartLock();
       releaseNdcStart(startToken);
@@ -3162,6 +3313,7 @@ const NDC_QUEUE_HANDLERS = {
       index: job.index,
       total: ndcJobItemCount(job),
       completed: job.completed,
+      ...(job.jd === true ? { jdownloader: true } : {}),
       failedCount: jobFailureCount(job),
       skippedCount: jobSkipCount(job),
       skipped: jobSkippedList(job),
@@ -3193,6 +3345,7 @@ const NDC_QUEUE_HANDLERS = {
       index: job.index,
       total: ndcJobItemCount(job),
       completed: job.completed,
+      ...(job.jd === true ? { jdownloader: true } : {}),
       failedCount: jobFailureCount(job),
       type: job.type,
       ...await ndcJobOutcomesSoFar(job)
@@ -3557,7 +3710,7 @@ const TRUSTED_SENDER_URL = /^https:\/\/(?:[\w-]+\.)*nexusmods\.com\//i;
 // Answers, not faults: pausing or stopping when no queue is running is a normal
 // thing for a reader to do and must not fill the error log.
 // Answers the caller handles itself, not faults: nothing to act on, or a limit the user has reached.
-const EXPECTED_HANDLER_OUTCOMES = new Set(['job-not-found', 'history-too-large', 'previous_download_not_retired']);
+const EXPECTED_HANDLER_OUTCOMES = new Set(['job-not-found', 'history-too-large', 'previous_download_not_retired', 'jdownloader_unreachable']);
 
 function isTrustedSender(sender) {
   if (!sender || sender.id !== chrome.runtime.id) return false;
@@ -3648,10 +3801,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const error = msg.error && typeof msg.error === 'object'
       ? NXTK.buildErrorEntry({ ...msg.error, url: sender.tab ? sender.url : msg.error.url }) : null;
     const hash = error ? `#${encodeURIComponent(JSON.stringify(error))}` : '';
-    chrome.tabs.create({ url: chrome.runtime.getURL('report-page/report.html') + hash }, () => {
-      const error = getRuntimeError();
-      sendResponse(error ? { ok: false, error } : { ok: true });
-    });
+    openTabBeside(chrome.runtime.getURL('report-page/report.html') + hash, sender)
+      .then((tab) => sendResponse({ ok: !!tab }))
+      .catch(() => sendResponse({ ok: false }));
     return true;
   }
 

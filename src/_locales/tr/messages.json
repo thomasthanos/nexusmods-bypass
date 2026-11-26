@@ -2156,6 +2156,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "Gönderilenleri atla, kalanları gönder ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "Vortex'e zaten gönderilmiş dosyaları dışarıda bırakır. Vortex bunları aldıysa kullan."
+  },
   "deckHistoryView": {
     "message": "İndirme geçmişi"
   },
@@ -2330,6 +2341,9 @@
   "rpAutoDetailsDesc": {
     "message": "Ayrı bir seçimdir, varsayılan olarak kapalıdır. Ayrıca herkese açık dosya kimliklerini ve hatadan önceki iki dakikada aynı sayfa türünde kaydedilmiş en fazla 20 hata ayıklama satırını, hassas bilgiler gizlenerek gönderir. Kayıt yoksa günlük gönderilmez. Sayfa içeriği, hesap bilgileri veya imzalı bağlantılar gönderilmez. Hedef aynı özel Discord kanalıdır. Kapatmak bekleyen raporları siler."
   },
+  "errorReportOpenFailed": {
+    "message": "Rapor sayfası açılamadı. Tekrar deneyin."
+  },
   "errorAddDetails": {
     "message": "Add details"
   },
@@ -2434,5 +2448,32 @@
   },
   "rdAskLearnMore": {
     "message": "Devam ettirilebilir indirmeler hakkında"
+  },
+  "setJDownloaderEnabledLabel": {
+    "message": "Send browser downloads to JDownloader"
+  },
+  "setJDownloaderEnabledDesc": {
+    "message": "For Browser Download (single mods and collections): instead of saving each file in the browser, which can ask where to save every time, send its link to JDownloader. JDownloader must be running with its External Interface on (Settings > Advanced Settings > RemoteAPI > Extern Interface, port 9666); the first time, JDownloader asks whether to allow this extension. Files are saved where JDownloader saves them, so the browser download folder and .meta files do not apply. The collection summary shows the links sent to JDownloader. Check its list for completed downloads."
+  },
+  "setJDownloaderAutostartLabel": {
+    "message": "Start JDownloader downloads at once"
+  },
+  "setJDownloaderAutostartDesc": {
+    "message": "On: links go straight into JDownloader's download list and start. Off: they wait in its LinkGrabber until you confirm them. Only used with Send browser downloads to JDownloader."
+  },
+  "setShortJDownloaderEnabled": {
+    "message": "Send links to JDownloader instead of the browser's save prompt."
+  },
+  "setShortJDownloaderAutostart": {
+    "message": "Start sent files at once instead of waiting in the LinkGrabber."
+  },
+  "toastSentToJDownloader": {
+    "message": "JDownloader'a gönderildi"
+  },
+  "errJdownloaderUnreachableMsg": {
+    "message": "The extension could not confirm that JDownloader accepted the link."
+  },
+  "errJdownloaderUnreachableFix": {
+    "message": "Check the LinkGrabber and Downloads lists in JDownloader before retrying. Start JDownloader, enable its External Interface, and approve NexusMods Bypass when prompted."
   }
 }

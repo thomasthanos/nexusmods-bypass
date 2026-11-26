@@ -983,9 +983,13 @@ async function queueWaitsOutLostConnection() {
 // was missing from the list, so each file failed as page_request_failed throughout the outage.
 async function queueWaitsOutAServerOutage() {
   for (const status of [503, 525, 526, 530]) await queueWaitsOutAServerOutageWith(status);
+  await queueWaitsOutAServerOutageWith(503, 'generator');
+  await queueWaitsOutAServerOutageWith(525, 'generator link');
+  await queueWaitsOutAServerOutageWith(530, 'generator link without cookies');
+  await queueWaitsOutAServerOutageWith(526, 'route');
 }
 
-async function queueWaitsOutAServerOutageWith(status) {
+async function queueWaitsOutAServerOutageWith(status, failedStep = 'page') {
   const previousFetch = context.fetch;
   const previousDelay = NXTK.retryDelayMs;
   const savedAlarms = global.chrome.alarms;
@@ -994,12 +998,28 @@ async function queueWaitsOutAServerOutageWith(status) {
   const items = [88, 89].map((fileId) => ({ fileId, historyId: String(fileId), gameId: '1704', name: `File ${fileId}.7z`,
     pageUrl: `https://www.nexusmods.com/skyrimspecialedition/mods/${fileId}`, sizeKb: 10 }));
   const events = [];
+  const generatedLink = 'https://www.nexusmods.com/downloads/collection-file';
+  const route = `https://www.nexusmods.com/api/files/${1704 * 2 ** 32 + 88}/download`;
+  const asked = [];
   try {
     NXTK.retryDelayMs = () => 0;
     global.chrome.alarms = { create: noop, clear: noop };
     global.chrome.tabs.sendMessage = (_tabId, message, callback) => { events.push(JSON.parse(JSON.stringify(message))); if (callback) callback(); };
-    context.fetch = async (url) => ({ ok: false, status, url: String(url), text: async () => 'Service Unavailable', headers: { get: () => '' } });
+    context.fetch = async (url, options) => {
+      const target = String(url);
+      const step = target.endsWith('?GenerateDownloadUrl') ? 'generator'
+        : target === generatedLink ? (options.credentials === 'omit' ? 'generator link without cookies' : 'generator link')
+          : target === route ? 'route' : 'page';
+      asked.push(target);
+      if (failedStep === 'generator link without cookies' && step === 'generator link') throw new TypeError('Failed to fetch');
+      const body = step === 'generator'
+        ? JSON.stringify({ url: failedStep === 'route' ? route : generatedLink })
+        : '<a href="/auth/sign_out">Log out</a>';
+      return { ok: step !== failedStep, status: step === failedStep ? status : 200, url: target,
+        text: async () => step === failedStep ? 'Service Unavailable' : body, headers: { get: () => '' } };
+    };
     await Promise.all([
+      storageSetLocal(NXTK.ERROR_LOG_KEY, []),
       storageSetLocal(`nxtk_ndc_items:${jobId}`, items),
       storageSetLocal(NDC_JOBS_KEY, { [jobId]: {
         id: jobId, tabId: 7, gameId: '1704', collectionId: 'outage', type: 'all', itemCount: 2, index: 0, completed: 0,
@@ -1008,7 +1028,7 @@ async function queueWaitsOutAServerOutageWith(status) {
     ]);
     await advanceNdcJob(jobId);
     const job = await readNdcJob(jobId);
-    assert.equal(job.status, 'running', `an outage (HTTP ${status}) does not end the run`);
+    assert.equal(job.status, 'running', `an outage at ${failedStep} (HTTP ${status}) does not end the run`);
     assert.equal(job.index, 0, `nor move it past the file (HTTP ${status})`);
     assert.deepEqual([...job.failed], [], 'and the file is not counted as failed');
     assert.equal(job.networkStrikes, 1);
@@ -1025,7 +1045,8 @@ async function queueWaitsOutAServerOutageWith(status) {
     // The report says what Nexus answered as a status of its own, not only in its message.
     const failure = (await storageGetLocal(NXTK.ERROR_LOG_KEY, [])).filter((line) => line.code === 'queue_item_failed').at(-1);
     assert.equal(failure?.status, status, `the failure keeps HTTP ${status}`);
-    assert.match(failure.technicalMessage, new RegExp(`^server_error \\| page HTTP ${status} \\| file 88`));
+    assert.match(failure.technicalMessage, new RegExp(`^server_error \\| ${failedStep} HTTP ${status} \\| file 88`));
+    assert.ok(!asked.includes(items[1].pageUrl), 'the next file is never requested during the outage');
   } finally {
     context.fetch = previousFetch;
     NXTK.retryDelayMs = previousDelay;

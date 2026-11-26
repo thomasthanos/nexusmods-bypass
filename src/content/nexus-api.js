@@ -43,7 +43,7 @@ window.NexusExt = window.NexusExt || {};
     game: Infinity
   });
 
-  const MOD_FILE_FIELDS = 'fileId, name, uri, size, version, date, mod { adult, modId, name, version, game { domainName, id } }';
+  const MOD_FILE_FIELDS = 'fileId, name, uri, size, version, date, mod { adult, modId, name, version, game { domainName, id, name } }';
 
   // Every query the extension sends. tools/schema-watch.mjs validates these against the live schema.
   const QUERIES = Object.freeze({
@@ -54,8 +54,8 @@ window.NexusExt = window.NexusExt || {};
     CollectionRevisions: 'query CollectionRevisions ($domainName: String, $slug: String!) { collection (domainName: $domainName, slug: $slug) { revisions {adultContent, createdAt, discardedAt, id, latest, revisionNumber, revisionStatus, totalSize, modCount, collectionChangelog { description, id}, gameVersions { reference } } } }',
     GameId: 'query GameId ($domainName: String) { game (domainName: $domainName) { id, domainName } }',
     ModFiles: 'query ModFiles ($modId: ID!, $gameId: ID!) { modFiles (modId: $modId, gameId: $gameId) { fileId, name, version, category, groupId, date, size, uri } }',
-    ModsByDomain: 'query ModsByDomain ($ids: [CompositeDomainWithIdInput!]!, $count: Int) { legacyModsByDomain (ids: $ids, count: $count) { nodes { uid, modId, name, version, updatedAt, viewerEndorsed, viewerTracked, viewerUpdateAvailable, game { domainName, id } } } }',
-    FileHash: 'query FileHash ($md5: String!) { fileHash (md5: $md5) { md5, fileName, fileSize, gameId, modFileId, modFile { fileId, name, version, mod { modId, name, game { domainName, id } } } } }',
+    ModsByDomain: 'query ModsByDomain ($ids: [CompositeDomainWithIdInput!]!, $count: Int) { legacyModsByDomain (ids: $ids, count: $count) { nodes { uid, modId, name, version, updatedAt, viewerEndorsed, viewerTracked, viewerUpdateAvailable, game { domainName, id, name } } } }',
+    FileHash: 'query FileHash ($md5: String!) { fileHash (md5: $md5) { md5, fileName, fileSize, gameId, modFileId, modFile { fileId, name, version, mod { modId, name, game { domainName, id, name } } } } }',
     EndorseMod: 'mutation EndorseMod ($modUid: String!) { createModEndorsement (modUid: $modUid) { success } }',
     AbstainMod: 'mutation AbstainMod ($modUid: String!) { abstainFromModEndorsement (modUid: $modUid) { success } }',
     TrackMod: 'mutation TrackMod ($modUid: ID!) { trackMod (modUid: $modUid) { success } }',

@@ -444,7 +444,8 @@ async function nexusAnswersAreClassified() {
       ['a generator sign-in error', { body: signedIn }, { status: 403, body: '{"code":"unauthenticated"}' }, { ok: false, code: 'requires_login' }],
       ['a 404 page', { status: 404 }, null, { ok: false, code: 'mod_unavailable' }],
       ['a generator 410', { body: signedIn }, { status: 410 }, { ok: false, code: 'file_not_found' }],
-      ['a generator 503', { body: signedIn }, { status: 503 }, { ok: false, code: 'generate_failed', status: 503 }],
+      ['a generator 503', { body: signedIn }, { status: 503 }, { ok: false, code: 'server_error', status: 503 }],
+      ['a generator 500', { body: signedIn }, { status: 500 }, { ok: false, code: 'generate_failed', status: 500 }],
       // E-1hmdsrg (3.3.3–3.3.6): Nexus's answer on the file page, as served on 2026-11-01. A run ended these
       // as "no download link" and reported them; they are a sign-in, a file the mod no longer has, and a
       // file under moderation, and the queue treats each as such.

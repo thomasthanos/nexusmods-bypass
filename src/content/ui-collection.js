@@ -761,11 +761,15 @@
   // Per-collection history: how many files were downloaded, how many only sent to Vortex, with
   // "Resend missing" and "Clear".
   async function showHistoryView(ndc, { onResend = null } = {}) {
-    const history = await NexusExt.Storage.getHistory();
-    const collection = history?.[ndc.gameId]?.[ndc.collectionId] || {};
     const idOf = (mod) => mod.historyId || mod.fileId || mod.file?.fileId;
     const all = ndc.mods?.all || [];
-    const stats = NXTK.summarizeCollectionHistory(collection, 'all', all.map(idOf));
+    const fileIds = all.map(idOf);
+    const summarize = (history) => NXTK.summarizeCollectionHistory(
+      history?.[ndc.gameId]?.[ndc.collectionId], 'all', fileIds, { includeSubsets: true }
+    );
+    const resendLabel = (count) => NXTK.t('historyViewResend', [String(count)], `Resend missing (${count})`);
+    const unsentLabel = (count) => NXTK.t('historyViewResendUnsent', [String(count)], `Skip sent, send rest (${count})`);
+    let stats = summarize(await NexusExt.Storage.getHistory());
     return new Promise((resolve) => {
       const { modal, close } = openModal({
         id: 'nxtk-history-view-modal',
@@ -784,26 +788,43 @@
         <div class="nxtk-history-text nxtk-history-view-help">${L('historyViewHelp', '"Sent to Vortex" files are not skipped: the browser cannot see whether Vortex got them. Resending is safe, Vortex skips files it already has.')}</div>
         <div class="nxtk-modal-footer">
           <button type="button" class="nxtk-btn nxtk-btn-secondary" data-history-clear>${L('historyViewClear', 'Clear history')}</button>
-          <button type="button" class="nxtk-btn nxtk-btn-primary" data-history-resend ${stats.missing.length ? '' : 'disabled'}>${escapeHtml(NXTK.t('historyViewResend', [String(stats.missing.length)], `Resend missing (${stats.missing.length})`))}</button>
+          <button type="button" class="nxtk-btn nxtk-btn-secondary" data-history-resend-unsent ${stats.sent ? '' : 'hidden'} ${stats.sent && stats.unsent.length ? '' : 'disabled'} title="${L('historyViewResendUnsentHint', 'Skips files already sent to Vortex. Use it when Vortex got them.')}">${escapeHtml(unsentLabel(stats.unsent.length))}</button>
+          <button type="button" class="nxtk-btn nxtk-btn-primary" data-history-resend ${stats.missing.length ? '' : 'disabled'}>${escapeHtml(resendLabel(stats.missing.length))}</button>
         </div>`
       });
-      modal.querySelector('[data-history-clear]')?.addEventListener('click', () => runUiTask(async () => {
-        const types = ['all', 'mandatory', 'optional'];
-        for (const type of [...types, ...types.map((t) => NXTK.vortexSentType(t))]) {
-          await NexusExt.Storage.clearHistoryType({ gameId: ndc.gameId, collectionId: ndc.collectionId, type });
+      const clear = modal.querySelector('[data-history-clear]');
+      const resend = modal.querySelector('[data-history-resend]');
+      const resendUnsent = modal.querySelector('[data-history-resend-unsent]');
+      clear.addEventListener('click', () => runUiTask(async () => {
+        clear.disabled = resend.disabled = resendUnsent.disabled = true;
+        try {
+          const types = ['all', 'mandatory', 'optional'];
+          let history;
+          for (const type of [...types, ...types.map((t) => NXTK.vortexSentType(t))]) {
+            history = await NexusExt.Storage.clearHistoryType({ gameId: ndc.gameId, collectionId: ndc.collectionId, type });
+          }
+          stats = summarize(history);
+          modal.querySelector('#nxtk-hv-sent').textContent = String(stats.sent);
+          modal.querySelector('#nxtk-hv-downloaded').textContent = String(stats.downloaded);
+          modal.querySelector('#nxtk-hv-missing').textContent = String(stats.missing.length);
+          resend.textContent = resendLabel(stats.missing.length);
+          resendUnsent.textContent = unsentLabel(stats.unsent.length);
+          resendUnsent.hidden = !stats.sent;
+        } finally {
+          clear.disabled = false;
+          resend.disabled = !stats.missing.length;
+          resendUnsent.disabled = !stats.sent || !stats.unsent.length;
         }
-        modal.querySelector('#nxtk-hv-sent').textContent = '0';
-        modal.querySelector('#nxtk-hv-downloaded').textContent = '0';
-        modal.querySelector('#nxtk-hv-missing').textContent = String(all.length);
-        const resend = modal.querySelector('[data-history-resend]');
-        resend.disabled = !all.length;
-        resend.textContent = NXTK.t('historyViewResend', [String(all.length)], `Resend missing (${all.length})`);
-        stats.missing = all.map(idOf);
       }, { context: 'Clearing the download history', title: NXTK.t('dlgCollectionIssue', null, 'Collection download issue') }));
-      modal.querySelector('[data-history-resend]')?.addEventListener('click', () => {
+      resend.addEventListener('click', () => {
         const missing = new Set(stats.missing);
         close('resend');
         onResend?.(all.filter((mod) => missing.has(idOf(mod))));
+      });
+      resendUnsent.addEventListener('click', () => {
+        const unsent = new Set(stats.unsent);
+        close('resend');
+        onResend?.(all.filter((mod) => unsent.has(idOf(mod))));
       });
     });
   }

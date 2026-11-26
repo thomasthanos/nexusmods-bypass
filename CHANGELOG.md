@@ -17,6 +17,7 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 
 <p align="center">
   <a href="https://github.com/thomasthanos/nexusmods-bypass/releases/latest"><kbd> Latest release ↗ </kbd></a>&ensp;·&ensp;
+  <a href="#release-4-1-3"><kbd> 4.1.3 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-1-2"><kbd> 4.1.2 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-1-1"><kbd> 4.1.1 </kbd></a>&ensp;·&ensp;
   <a href="#release-4-1-0"><kbd> 4.1.0 </kbd></a>&ensp;·&ensp;
@@ -38,6 +39,19 @@ commits remain grouped by date with links to the corresponding changes. Pre-spli
 <a id="unreleased"></a>
 
 ## Unreleased
+
+<a id="release-4-1-3"></a>
+
+## 4.1.3 — 2026-11-26
+
+- **Optional JDownloader support:** Browser Download can send single mods or collections to the local JDownloader External Interface. A handoff appears as sent in the run summary. Pause and Resume preserve an accepted handoff. After an interrupted handoff, check the LinkGrabber and Downloads lists before retrying.
+- **Skip files already sent to Vortex:** Collection history offers **Skip sent, send rest** alongside **Resend missing**. The collection-wide view includes Mandatory and Optional runs and counts each current file once.
+- **Collection downloads wait if Nexus cannot return a link:** gateway and origin failures during browser download link resolution keep the queue on the current file, just as an outage on the file page does. If the retry window runs out, the report includes the failed step and its HTTP status.
+- **Diagnostics includes recurring issues in past date ranges:** an issue still appears if it had a report in the selected period and recurred after it. Reports with the same receipt time appear in the order they were received, so the latest report agrees with the issue summary.
+- **Diagnostics restores stale automatic fixes for environment issues:** the hourly check returns older automatically closed issues to their previous status. Scheduled failures show which task failed and share a run ID without exposing provider error details.
+- **File page checks give late download controls time to render:** otherwise complete file pages get one more check for the download control. A control that stays missing is still reported.
+- **Vortex keeps the original route timeout:** if the fallback page provides no link, the error keeps the timeout and any HTTP status received before it.
+- **Add details opens beside the original tab:** the error dialog keeps the selected incident and shows a retry message if the report page cannot open.
 
 <a id="release-4-1-2"></a>
 

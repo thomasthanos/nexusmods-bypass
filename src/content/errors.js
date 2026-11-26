@@ -181,6 +181,11 @@ window.NexusExt = window.NexusExt || {};
       recovery: "Check your browser's Downloads list, stop any previous transfer, then retry this collection.",
       retryable: true
     },
+    jdownloader_unreachable: {
+      userMessage: 'The extension could not confirm that JDownloader accepted the link.',
+      recovery: 'Check the LinkGrabber and Downloads lists in JDownloader before retrying. Start JDownloader, enable its External Interface, and approve NexusMods Bypass when prompted.',
+      retryable: true
+    },
     save_failed: {
       userMessage: 'The browser could not save the file: the disk may be full, or the download folder cannot be written to.',
       recovery: 'Free up disk space or pick another download folder in settings, then start the download again. Files already downloaded are kept.',

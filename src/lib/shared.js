@@ -271,7 +271,10 @@
     UseOfficialApi: true,
     FollowUpdatePolicy: false,
     WriteMo2Meta: false,
-    ShowModActions: true
+    ShowModActions: true,
+    // Browser downloads go to JDownloader (its local External Interface) instead of the browser's save prompt.
+    JDownloaderEnabled: false,
+    JDownloaderAutostart: true
   };
 
   // Bounds every writer applies, so a value typed into a field never reaches storage out of range.
@@ -506,16 +509,23 @@
     return lines.join('\n').trim();
   }
 
-  // Sent/downloaded counts for one collection's history, for the history view.
-  function summarizeCollectionHistory(collection, type, allIds = []) {
+  // Runs read their own history type. A whole-collection view can include its subset runs.
+  function summarizeCollectionHistory(collection, type, allIds = [], { includeSubsets = false } = {}) {
     // History can outlive a revision. Count only files on this screen, while retaining the older
     // entries in storage so returning to that revision still has its progress.
     const current = new Set(allIds);
-    const downloaded = new Set((Array.isArray(collection?.[type]) ? collection[type] : []).filter((id) => current.has(id)));
-    const sent = new Set((Array.isArray(collection?.[vortexSentType(type)]) ? collection[vortexSentType(type)] : []).filter((id) => current.has(id)));
+    const types = includeSubsets && type === 'all' ? ['all', 'mandatory', 'optional'] : [type];
+    const collect = (keys) => new Set(keys.flatMap((key) => {
+      const ids = collection?.[key];
+      return Array.isArray(ids) ? ids.filter((id) => current.has(id)) : [];
+    }));
+    const downloaded = collect(types);
+    const sent = collect(types.map(vortexSentType));
     for (const id of downloaded) sent.delete(id);
     const missing = allIds.filter((id) => !downloaded.has(id));
-    return { downloaded: downloaded.size, sent: sent.size, missing, total: allIds.length };
+    // Missing files that were never handed to Vortex either: the opt-in "skip sent" resend.
+    const unsent = missing.filter((id) => !sent.has(id));
+    return { downloaded: downloaded.size, sent: sent.size, missing, unsent, total: allIds.length };
   }
 
   // Vortex hand-offs are recorded apart from real downloads: the browser cannot see whether Vortex

@@ -6,6 +6,50 @@ import {
   recordQueueItemFailure
 } from './helpers/background-harness.mjs';
 
+async function reportDetailsOpenInSourceWindow() {
+  const { chrome } = global;
+  const originalCreate = chrome.tabs.create;
+  const sourceUrl = 'https://www.nexusmods.com/skyrimspecialedition/mods/1';
+  const sender = { id: chrome.runtime.id, url: sourceUrl, tab: { id: 7, index: 3, windowId: 2 } };
+  const incident = { code: 'request_failed', context: 'Starting browser download', url: 'https://www.nexusmods.com/skyrimspecialedition/mods/2' };
+  const send = () => new Promise((resolve) => {
+    const handled = messageListeners[0]({ type: 'OPEN_REPORT_PAGE', error: incident }, sender, resolve);
+    assert.equal(handled, true);
+  });
+  const attempts = [];
+  try {
+    chrome.tabs.create = (options, callback) => { attempts.push(options); callback({ id: 8 }); };
+    assert.equal((await send()).ok, true);
+    const [{ url, ...options }] = attempts;
+    assert.deepEqual(options, { active: true, windowId: 2, index: 4, openerTabId: 7 });
+    const reportUrl = new URL(url);
+    assert.equal(reportUrl.pathname, '/report-page/report.html');
+    const report = JSON.parse(decodeURIComponent(reportUrl.hash.slice(1)));
+    assert.equal(report.url, sourceUrl);
+    assert.equal(NXTK.errorReference(report), 'E-10pmb8w');
+
+    attempts.length = 0;
+    chrome.tabs.create = (properties, callback) => {
+      attempts.push(properties);
+      if (properties.windowId === undefined) return callback({ id: 9 });
+      chrome.runtime.lastError = { message: 'No window with id: 2.' };
+      callback();
+      chrome.runtime.lastError = null;
+    };
+    assert.equal((await send()).ok, true, 'the report still opens if the source window went away');
+    assert.equal(attempts.length, 2);
+    assert.equal(attempts[1].active, true);
+    assert.equal(attempts[1].url, attempts[0].url);
+    assert.equal(attempts[1].windowId, undefined);
+
+    chrome.tabs.create = (_properties, callback) => callback();
+    assert.equal((await send()).ok, false, 'a callback without a tab cannot report success');
+  } finally {
+    chrome.tabs.create = originalCreate;
+    chrome.runtime.lastError = null;
+  }
+}
+
 async function debugLogAndAutoReports() {
   const N = context.NXTK;
   await context.__STORAGE_HANDLERS.DEBUG_LOG_APPEND({ entries: [
@@ -242,6 +286,7 @@ async function queueFailureLogKeepsDistinctFaults() {
 }
 
 Promise.resolve()
+  .then(reportDetailsOpenInSourceWindow)
   .then(errorLogCollapsing)
   .then(expectedOutcomesStayOutOfTheLog)
   .then(debugLogAndAutoReports)

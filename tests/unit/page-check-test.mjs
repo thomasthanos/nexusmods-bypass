@@ -51,20 +51,21 @@ const isCollectionRoute = (path) => /\/collections\/[^/]+/.test(path);
 const ids = (result) => Object.fromEntries(result.checks.map((entry) => [entry.id, entry.ok]));
 
 async function scheduledShellTests() {
-  function harness() {
+  function harness({ filePage = false, present = [] } = {}) {
     let now = 0;
     let timerId = 0;
     const timers = new Map();
     const errors = [];
     const shell = () => ({
-      ...fakeDoc({ title: 'Nexus Mods', present: ['quick-search', 'create-draft-mod-modal', 'upload-modal-button'] }),
+      ...fakeDoc({ title: 'Nexus Mods', ids: filePage ? { section: {} } : {},
+        present: ['quick-search', 'create-draft-mod-modal', 'upload-modal-button', ...(filePage ? ['h1'] : []), ...present] }),
       readyState: 'complete',
       body: { textContent: 'Nexus navigation and account controls. '.repeat(10),
         getElementsByTagName: () => ['QUICK-SEARCH', 'CREATE-DRAFT-MOD-MODAL', 'UPLOAD-MODAL-BUTTON'].map((tagName) => ({ tagName })) }
     });
     const isolated = vm.createContext({
       console, URL, URLSearchParams, Date, Math, Promise,
-      location: at('/skyrimspecialedition/mods/987'),
+      location: at('/skyrimspecialedition/mods/987', filePage ? '?tab=files&file_id=99' : ''),
       document: shell(),
       setTimeout: (callback, delay) => { const id = ++timerId; timers.set(id, { callback, at: now + delay }); return id; },
       clearTimeout: (id) => timers.delete(id),
@@ -122,6 +123,64 @@ async function scheduledShellTests() {
   changed.checker.schedule();
   await changed.advance(9000);
   assert.equal(changed.errors.length, 1, 'a page missing other required structure keeps the normal reporting deadline');
+
+  // Diagnostics #8: a legacy file page had its section and heading, but only the navigation's
+  // custom elements, with no download card yet. A late card must not become a site-change report.
+  const lateCard = harness({ filePage: true });
+  lateCard.checker.schedule();
+  await lateCard.advance(9000);
+  assert.equal(lateCard.errors.length, 0, 'an otherwise valid file page waits once for its download card');
+  lateCard.isolated.document = fakeDoc({ ids: { section: {} }, title: 'A mod at Nexus Mods',
+    present: ['mod-file-download[file-id="99"]'] });
+  await lateCard.advance(15000);
+  assert.equal(lateCard.errors.length, 0, 'a card rendered during the extra wait prevents a false site-change report');
+  assert.ok(lateCard.checker.lastResult().checks.every((entry) => entry.ok));
+
+  const absentCard = harness({ filePage: true });
+  absentCard.checker.schedule();
+  await absentCard.advance(15000);
+  assert.equal(absentCard.errors.length, 1, 'a persistently missing file card still reports after one extra wait');
+  assert.match(absentCard.errors[0].technicalMessage, /missing: download control for this file/);
+  await absentCard.advance(21000);
+  assert.equal(absentCard.errors.length, 1, 'the file-card recovery does not keep scheduling itself');
+
+  const wrongCard = harness({ filePage: true, present: ['mod-file-download'] });
+  wrongCard.checker.schedule();
+  await wrongCard.advance(9000);
+  assert.equal(wrongCard.errors.length, 1, 'a rendered card without the requested file keeps the normal deadline');
+
+  const shadowCard = harness({ filePage: true });
+  shadowCard.isolated.NexusExt.NNW = nnwWith('1704', [shadowCard.isolated.document,
+    fakeDoc({ present: ['mod-file-download'] })]);
+  shadowCard.checker.schedule();
+  await shadowCard.advance(9000);
+  assert.equal(shadowCard.errors.length, 1, 'a rendered card in a shadow root is not an unrendered card');
+
+  const incompleteFile = harness({ filePage: true });
+  incompleteFile.isolated.NexusExt.NNW = nnwWith('');
+  incompleteFile.checker.schedule();
+  await incompleteFile.advance(9000);
+  assert.equal(incompleteFile.errors.length, 1, 'a file page missing other required structure gets no extra card wait');
+
+  const modalFile = harness({ filePage: true, present: ['dialog[open]'] });
+  modalFile.checker.schedule();
+  await modalFile.advance(9000);
+  assert.equal(modalFile.errors.length, 0, 'an existing modal variant still does not report a site change');
+  assert.ok(modalFile.checker.lastResult(), 'a known variant is resolved at the normal deadline');
+
+  const forbiddenFile = harness({ filePage: true });
+  forbiddenFile.isolated.performance = { getEntriesByType: () => [{ name: forbiddenFile.isolated.location.href, responseStatus: 403 }] };
+  forbiddenFile.checker.schedule();
+  await forbiddenFile.advance(9000);
+  assert.equal(forbiddenFile.errors.length, 0, 'a known failed response does not report a site change');
+  assert.ok(forbiddenFile.checker.lastResult(), 'a failed response skips the extra wait');
+
+  const navigatedFile = harness({ filePage: true });
+  navigatedFile.checker.schedule();
+  await navigatedFile.advance(9000);
+  navigatedFile.isolated.location = at('/users/123');
+  await navigatedFile.advance(15000);
+  assert.equal(navigatedFile.errors.length, 0, 'navigation during the extra card wait cannot report the old page');
 }
 
 // Pages the extension does not act on are not checked at all.

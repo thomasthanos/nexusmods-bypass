@@ -62,6 +62,8 @@
         ? (value) => (value.trim() && !NXTK.isFullFolderPath(value) ? NXTK.t('setDownloadFolderOpera', null, 'Opera saves files in a folder set here inside your system Downloads folder, not in the download location chosen in Opera. Leave this field empty to save where Opera saves its own downloads.') : '')
         : null
     },
+    { key: 'JDownloaderEnabled', label: () => NXTK.t('setJDownloaderEnabledLabel', null, 'Send browser downloads to JDownloader'), type: 'bool', desc: () => NXTK.t('setJDownloaderEnabledDesc', null, 'For Browser Download (single mods and collections): instead of saving each file in the browser, which can ask where to save every time, send its link to JDownloader. JDownloader must be running with its External Interface on (Settings > Advanced Settings > RemoteAPI > Extern Interface, port 9666); the first time, JDownloader asks whether to allow this extension. Files are saved where JDownloader saves them, so the browser download folder and .meta files do not apply. The collection summary shows the links sent to JDownloader. Check its list for completed downloads.') },
+    { key: 'JDownloaderAutostart', label: () => NXTK.t('setJDownloaderAutostartLabel', null, 'Start JDownloader downloads at once'), type: 'bool', desc: () => NXTK.t('setJDownloaderAutostartDesc', null, 'On: links go straight into JDownloader\'s download list and start. Off: they wait in its LinkGrabber until you confirm them. Only used with Send browser downloads to JDownloader.') },
     { key: 'UseCollectionFolder', label: () => NXTK.t('setUseCollectionFolderLabel', null, 'Use collection name and revision as folder name'), type: 'bool', desc: () => NXTK.t('setUseCollectionFolderDesc', null, 'Off by default. Save each Nexus collection in its own folder, for example Collection Name (Rev 54), inside your browser\'s download location. For collections this replaces Browser download folder without changing its saved value. Single mods, Vortex and Wabbajack keep their folders. Opera uses the system Downloads folder for this option.') },
     { key: 'RequestTimeout', label: () => NXTK.t('setRequestTimeoutLabel', null, 'Wait for a download link'), type: 'number', unit: () => NXTK.t('unitSeconds', null, 'Seconds'), scale: 1000, desc: () => NXTK.t('setRequestTimeoutDesc', null, 'Time allowed to get a download link from Nexus, not the time needed to download the whole file. Increase only if slow replies keep timing out.') },
     { key: 'CheckVortexOpens', label: () => NXTK.t('setCheckVortexOpensLabel', null, 'Check that Vortex opens'), type: 'bool', desc: () => NXTK.t('setCheckVortexOpensDesc', null, 'After a link is sent to Vortex, watch whether Vortex opened, and say so if it did not. Turn this off if another mod manager opens nxm:// links for you: links are then taken as picked up, the extra tab closes as usual and nothing asks whether Vortex opened.') },
@@ -87,7 +89,7 @@
   const SETTING_GROUPS = [
     { name: 'basics', titleKey: 'setSectionBasics', title: 'Basics', keys: ['AutoStartDownload', 'SkipRequirements', 'ShowAlertsOnError'] },
     { name: 'downloads', titleKey: 'setSectionFlow', title: 'Downloads', keys: ['HandleArchivedFiles'], sections: [
-      { name: 'browser', titleKey: 'presetBrowser', title: 'Browser downloads', keys: ['DownloadFolder', 'UseCollectionFolder', 'WriteMo2Meta'] },
+      { name: 'browser', titleKey: 'presetBrowser', title: 'Browser downloads', keys: ['JDownloaderEnabled', 'JDownloaderAutostart', 'DownloadFolder', 'UseCollectionFolder', 'WriteMo2Meta'] },
       { name: 'vortex', titleKey: 'setSectionVortex', title: 'Vortex', keys: ['AutoCloseTab', 'CheckVortexOpens', 'CloseTabDelay', 'NDC_downloadSpeed', 'NDC_pauseBetweenDownload'] }
     ] },
     { name: 'collections', titleKey: 'setSectionPacing', title: 'Collections & modlists', keys: ['WabbajackImport', 'HideDownloadPopup', 'NDC_smallestFirst', 'FollowUpdatePolicy', 'ShowModActions'] },
@@ -149,6 +151,14 @@
     "FollowUpdatePolicy": [
       "setShortFollowUpdatePolicy",
       "Follow the collection creator's version choices."
+    ],
+    "JDownloaderEnabled": [
+      "setShortJDownloaderEnabled",
+      "Send links to JDownloader instead of the browser's save prompt."
+    ],
+    "JDownloaderAutostart": [
+      "setShortJDownloaderAutostart",
+      "Start sent files at once instead of waiting in the LinkGrabber."
     ],
     "WriteMo2Meta": [
       "setShortWriteMo2Meta",

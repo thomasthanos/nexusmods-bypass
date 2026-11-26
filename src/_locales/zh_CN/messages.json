@@ -2072,6 +2072,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "跳过已发送，发送其余 ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "排除已发送到 Vortex 的文件。Vortex 已收到时使用。"
+  },
   "deckHistoryView": {
     "message": "下载历史"
   },
@@ -2246,6 +2257,9 @@
   "rpAutoDetailsDesc": {
     "message": "此选项需单独开启，默认关闭。还会发送公开的文件 ID，以及错误发生前两分钟内同类页面记录的最多 20 行已隐去敏感信息的调试日志；未记录日志时不会发送日志。不包含页面内容、账号信息或带签名的链接。发送到同一个私密 Discord 频道。关闭后会清除待发送的报告。"
   },
+  "errorReportOpenFailed": {
+    "message": "无法打开报告页面。请重试。"
+  },
   "errorAddDetails": {
     "message": "Add details"
   },
@@ -2350,5 +2364,32 @@
   },
   "rdAskLearnMore": {
     "message": "了解可续传下载"
+  },
+  "setJDownloaderEnabledLabel": {
+    "message": "Send browser downloads to JDownloader"
+  },
+  "setJDownloaderEnabledDesc": {
+    "message": "For Browser Download (single mods and collections): instead of saving each file in the browser, which can ask where to save every time, send its link to JDownloader. JDownloader must be running with its External Interface on (Settings > Advanced Settings > RemoteAPI > Extern Interface, port 9666); the first time, JDownloader asks whether to allow this extension. Files are saved where JDownloader saves them, so the browser download folder and .meta files do not apply. The collection summary shows the links sent to JDownloader. Check its list for completed downloads."
+  },
+  "setJDownloaderAutostartLabel": {
+    "message": "Start JDownloader downloads at once"
+  },
+  "setJDownloaderAutostartDesc": {
+    "message": "On: links go straight into JDownloader's download list and start. Off: they wait in its LinkGrabber until you confirm them. Only used with Send browser downloads to JDownloader."
+  },
+  "setShortJDownloaderEnabled": {
+    "message": "Send links to JDownloader instead of the browser's save prompt."
+  },
+  "setShortJDownloaderAutostart": {
+    "message": "Start sent files at once instead of waiting in the LinkGrabber."
+  },
+  "toastSentToJDownloader": {
+    "message": "已发送到 JDownloader"
+  },
+  "errJdownloaderUnreachableMsg": {
+    "message": "The extension could not confirm that JDownloader accepted the link."
+  },
+  "errJdownloaderUnreachableFix": {
+    "message": "Check the LinkGrabber and Downloads lists in JDownloader before retrying. Start JDownloader, enable its External Interface, and approve NexusMods Bypass when prompted."
   }
 }

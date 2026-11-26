@@ -2072,6 +2072,17 @@
       }
     }
   },
+  "historyViewResendUnsent": {
+    "message": "送信済みをスキップして残りを送信 ($1)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "historyViewResendUnsentHint": {
+    "message": "Vortex に送信済みのファイルを除外します。Vortex が受け取っている場合に使用してください。"
+  },
   "deckHistoryView": {
     "message": "ダウンロード履歴"
   },
@@ -2246,6 +2257,9 @@
   "rpAutoDetailsDesc": {
     "message": "別途選択する設定で、初期状態ではオフです。公開ファイルIDと、エラー発生前の2分間に同じ種類のページで記録された最大20行のデバッグログも、機密情報を除去して送信します。記録されていないログは送信されません。ページ本文、アカウント情報、署名付きリンクは含みません。送信先は同じ非公開Discordチャンネルです。オフにすると未送信のレポートが削除されます。"
   },
+  "errorReportOpenFailed": {
+    "message": "レポートページを開けませんでした。もう一度お試しください。"
+  },
   "errorAddDetails": {
     "message": "Add details"
   },
@@ -2350,5 +2364,32 @@
   },
   "rdAskLearnMore": {
     "message": "再開可能なダウンロードについて"
+  },
+  "setJDownloaderEnabledLabel": {
+    "message": "Send browser downloads to JDownloader"
+  },
+  "setJDownloaderEnabledDesc": {
+    "message": "For Browser Download (single mods and collections): instead of saving each file in the browser, which can ask where to save every time, send its link to JDownloader. JDownloader must be running with its External Interface on (Settings > Advanced Settings > RemoteAPI > Extern Interface, port 9666); the first time, JDownloader asks whether to allow this extension. Files are saved where JDownloader saves them, so the browser download folder and .meta files do not apply. The collection summary shows the links sent to JDownloader. Check its list for completed downloads."
+  },
+  "setJDownloaderAutostartLabel": {
+    "message": "Start JDownloader downloads at once"
+  },
+  "setJDownloaderAutostartDesc": {
+    "message": "On: links go straight into JDownloader's download list and start. Off: they wait in its LinkGrabber until you confirm them. Only used with Send browser downloads to JDownloader."
+  },
+  "setShortJDownloaderEnabled": {
+    "message": "Send links to JDownloader instead of the browser's save prompt."
+  },
+  "setShortJDownloaderAutostart": {
+    "message": "Start sent files at once instead of waiting in the LinkGrabber."
+  },
+  "toastSentToJDownloader": {
+    "message": "JDownloader に送信しました"
+  },
+  "errJdownloaderUnreachableMsg": {
+    "message": "The extension could not confirm that JDownloader accepted the link."
+  },
+  "errJdownloaderUnreachableFix": {
+    "message": "Check the LinkGrabber and Downloads lists in JDownloader before retrying. Start JDownloader, enable its External Interface, and approve NexusMods Bypass when prompted."
   }
 }

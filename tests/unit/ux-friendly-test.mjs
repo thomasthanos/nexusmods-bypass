@@ -115,6 +115,7 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
   assert.equal(stats.downloaded, 2);
   assert.equal(stats.sent, 2, 'a downloaded file is not also counted as sent');
   assert.deepEqual([...stats.missing], [3, 4, 5]);
+  assert.deepEqual([...stats.unsent], [5], 'sent files are left out of the skip-sent resend');
   assert.equal(S.summarizeCollectionHistory(null, 'all', [7]).missing.length, 1);
   {
     // A newer revision no longer contains every file from its previous download history. The
@@ -122,19 +123,38 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
     const history = { all: ['old-A', 'old-C'], vortexSent_all: ['old-B'] };
     const saved = plain(history);
     assert.deepEqual(plain(S.summarizeCollectionHistory(history, 'all', ['current-D'])),
-      { downloaded: 0, sent: 0, missing: ['current-D'], total: 1 },
+      { downloaded: 0, sent: 0, missing: ['current-D'], unsent: ['current-D'], total: 1 },
       'files from an older revision do not inflate current downloaded/sent counts');
     assert.deepEqual(history, saved, 'summarizing a revision preserves all stored history');
     assert.deepEqual(plain(S.summarizeCollectionHistory({
       all: ['1704:42', 'old-A'], vortexSent_all: ['1704:42', '1151:42', 'old-B']
     }, 'all', ['1151:42', '1704:43'])),
-    { downloaded: 0, sent: 1, missing: ['1151:42', '1704:43'], total: 2 },
+    { downloaded: 0, sent: 1, missing: ['1151:42', '1704:43'], unsent: ['1704:43'], total: 2 },
     'the same file number in another game is a different history identity');
     assert.deepEqual(plain(S.summarizeCollectionHistory({
       all: [1, '1704:42'], vortexSent_all: ['1']
     }, 'all', ['1', '1704:42'])),
-    { downloaded: 1, sent: 1, missing: ['1'], total: 2 },
+    { downloaded: 1, sent: 1, missing: ['1'], unsent: [], total: 2 },
     'matching uses the same exact ID values as the download queue');
+  }
+  {
+    const history = {
+      all: [1, 1, 'old-downloaded'], mandatory: [1, 2], optional: ['1704:42', 8],
+      vortexSent_all: [2, 3, 'old-sent'], vortexSent_mandatory: [3, 4], vortexSent_optional: ['1704:42', '1151:42', '7']
+    };
+    const saved = plain(history);
+    const current = [1, 2, 3, 4, 5, '1704:42', '1151:42', 7];
+    const includeSubsets = { includeSubsets: true };
+    assert.deepEqual(plain(S.summarizeCollectionHistory(history, 'all', current, includeSubsets)), {
+      downloaded: 3, sent: 3, missing: [3, 4, 5, '1151:42', 7], unsent: [5, 7], total: 8
+    }, 'whole-collection history merges subset records and gives downloaded records precedence');
+    assert.deepEqual(plain(S.summarizeCollectionHistory(history, 'all', current)), {
+      downloaded: 1, sent: 2, missing: [2, 3, 4, 5, '1704:42', '1151:42', 7],
+      unsent: [4, 5, '1704:42', '1151:42', 7], total: 8
+    }, 'the existing all run still reads only its own history');
+    assert.deepEqual(plain(S.summarizeCollectionHistory(history, 'mandatory', current, includeSubsets)),
+      plain(S.summarizeCollectionHistory(history, 'mandatory', current)), 'subset runs keep their own history');
+    assert.deepEqual(history, saved, 'whole-collection history leaves stored records intact');
   }
 
   // Item 8: no jargon left in English user-facing strings.

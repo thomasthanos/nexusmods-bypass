@@ -88,6 +88,27 @@ test('overview applies report dimensions consistently to issues, reports and rel
   assert.equal(overview.reports.total, 1);
 });
 
+test('historical date filters include issues reported in range even if they recur later', async (t) => {
+  const { db, request } = fixture(t);
+  const recurring = issue(db);
+  const yesterday = NOW - 86_400_000;
+  report(db, recurring, 1, { created_at: yesterday, error_message: 'Yesterday’s failure' });
+  report(db, recurring, 2);
+  const later = issue(db, { fingerprint: 'b'.repeat(64) });
+  report(db, later, 3);
+  const expired = issue(db, { fingerprint: 'c'.repeat(64), first_seen_at: yesterday,
+    last_seen_at: yesterday, created_at: yesterday, updated_at: yesterday });
+
+  const dates = 'from=2026-10-20&to=2026-10-20';
+  const issues = await (await request(`/issues?${dates}`)).json();
+  assert.deepEqual(issues.items.map(({ id }) => id).sort(), [recurring, expired].sort());
+  const matching = await (await request(`/issues?${dates}&q=Yesterday`)).json();
+  assert.deepEqual(matching.items.map(({ id }) => id), [recurring]);
+  const overview = await (await request(`/overview?${dates}`)).json();
+  assert.equal(overview.issues.total, 2);
+  assert.equal(overview.reports.total, 1);
+});
+
 test('overview live spike banners require actual recent report and distinct-install thresholds', async (t) => {
   const { db, request } = fixture(t);
   const id = issue(db);
@@ -129,6 +150,22 @@ test('detail and report pagination expose parsed diagnostic JSON and handle miss
   assert.deepEqual(reports, { items: [], total: 1, page: 2, limit: 1 });
   assert.equal((await request('/issues/9999')).status, 404);
   assert.equal((await request('/issues/abc')).status, 400);
+});
+
+test('reports received in the same millisecond appear in receipt order', async (t) => {
+  const { db, request } = fixture(t);
+  const id = issue(db);
+  report(db, id, 3, { created_at: NOW - 1 });
+  report(db, id, 2);
+  report(db, id, 1, { version: '3.3.0' });
+
+  const detail = await (await request(`/issues/${id}`)).json();
+  assert.equal(detail.latest_report.id, uuid(1));
+  assert.equal(detail.latest_report.version, detail.issue.last_seen_version);
+  for (const [index, receipt] of [1, 2, 3].entries()) {
+    const page = await (await request(`/issues/${id}/reports?page=${index + 1}&limit=1`)).json();
+    assert.deepEqual(page.items.map(({ id }) => id), [uuid(receipt)]);
+  }
 });
 
 test('issue lifecycle enforces fixed versions and actual GitHub issue URLs', async (t) => {

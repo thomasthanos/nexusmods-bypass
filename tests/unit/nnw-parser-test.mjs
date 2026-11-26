@@ -866,6 +866,34 @@ async function unreadableRouteBoundaries() {
   assert.equal(browser.viaRoute, undefined, 'browser downloads keep using the validated file URL');
 }
 
+async function timedOutVortexRouteTests() {
+  const fileId = '3357';
+  const gameId = '9719';
+  const uid = String(Number(gameId) * 2 ** 32 + Number(fileId));
+  const page = 'https://www.nexusmods.com/thebloodofdawnwalker/mods/224';
+  const route = `https://www.nexusmods.com/api/files/${uid}/download?nmm=1`;
+  const options = { fileId, isNMM: true, href: route, record: false };
+  const timeout = response('', { ok: false, status: 200, finalUrl: route, error: {
+    code: 'timeout', status: 200, retryable: true, context: 'Resolving Nexus API download link',
+    technicalMessage: 'reading response timed out after 30000ms'
+  } });
+  const harness = (body) => createHarness({ href: page, sectionGameId: gameId,
+    responses: [timeout, response(body, { finalUrl: page })] });
+
+  const withoutLink = harness('<html><body><h1>Download</h1></body></html>');
+  const result = await withoutLink.api.getDownloadUrl(options);
+  assert.equal(result.url, null);
+  assert.equal(result.error.code, 'timeout', 'the route timeout remains the reported cause');
+  assert.equal(result.error.retryable, true);
+  assert.equal(result.error.status, 200, 'the headers arrived before the body timed out');
+  assert.match(result.error.technicalMessage, /reading response timed out .* \| steps: API route timeout HTTP 200 \| page HTTP 200/);
+  assert.equal(withoutLink.calls.length, 2, 'only the route and the fallback page are checked');
+
+  const signed = 'nxm://thebloodofdawnwalker/mods/224/files/3357?key=signed&expires=2000000000&user_id=7';
+  const withLink = harness(`<mod-file-download file-id="3357" download-url="${signed.replace(/&/g, '&amp;')}"></mod-file-download>`);
+  assert.equal((await withLink.api.getDownloadUrl(options)).url, signed, 'a usable fallback link resolves the attempt');
+}
+
 // Firefox reports E-0jjutro: fetch reads the route as HTML, but the returned page still names only
 // that route. A manual click may let the browser handle it; repeated automatic navigation must not.
 async function readableVortexRouteTests() {
@@ -1125,6 +1153,7 @@ Promise.resolve()
   .then(answeredFilePageTests)
   .then(vortexReadsThePageTests)
   .then(unreadableRouteBoundaries)
+  .then(timedOutVortexRouteTests)
   .then(readableVortexRouteTests)
   .then(oneShotNativeVortexTests)
   .then(staleSignedDownloadTests)
