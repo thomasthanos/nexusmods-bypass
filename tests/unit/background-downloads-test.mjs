@@ -233,9 +233,9 @@ async function downloadPopupRespectsOtherExtensions() {
 }
 
 // JDownloader mode: a collection file goes to JDownloader's FlashGot endpoint, never to the browser's
-// download list; it counts as done once JDownloader answers, and an unreachable JDownloader stops the run.
+// download list. Sent links advance the queue and stay out of the downloaded history.
 async function jdownloaderModeHandsLinksOver() {
-  const run = async (jobId, fetchFor) => {
+  const run = async (jobId, fetchFor, { pause = false, pending = false } = {}) => {
     const items = [1, 2].map((index) => ({
       fileId: index, historyId: String(index), gameId: '1704', name: `Mod ${index}.7z`,
       pageUrl: 'https://www.nexusmods.com/skyrimspecialedition/mods/1', sizeKb: 10
@@ -243,7 +243,8 @@ async function jdownloaderModeHandsLinksOver() {
     await storageSetLocal(`nxtk_ndc_items:${jobId}`, items);
     await storageSetLocal(NDC_JOBS_KEY, {
       [jobId]: {
-        id: jobId, tabId: 7, gameId: '1704', collectionId: 'c', type: null, jd: true, jdAutostart: false,
+        id: jobId, tabId: 7, gameId: '1704', collectionId: 'jd-test', type: 'all', jd: true, jdAutostart: false,
+        ...(pending ? { jdHandoffIndex: 0 } : {}),
         itemCount: items.length, index: 0, completed: 0, failed: [], status: 'running',
         activeDownloadId: null, createdAt: Date.now(), updatedAt: Date.now()
       }
@@ -253,9 +254,11 @@ async function jdownloaderModeHandsLinksOver() {
     const previousSendMessage = global.chrome.tabs.sendMessage;
     const posts = [];
     const browserStarts = [];
+    const events = [];
     context.fetch = async (url, options) => {
       if (String(url).startsWith('http://127.0.0.1:9666/')) {
-        posts.push({ url: String(url), body: new URLSearchParams(String(options.body)) });
+        posts.push({ url: String(url), body: new URLSearchParams(String(options.body)), redirect: options.redirect });
+        if (pause && posts.length === 1) await NDC_QUEUE_HANDLERS.NDC_QUEUE_PAUSE({ jobId });
         return fetchFor(posts.length);
       }
       return {
@@ -269,10 +272,18 @@ async function jdownloaderModeHandsLinksOver() {
       search: (_query, cb) => cb([]),
       cancel: finishCallback
     };
-    global.chrome.tabs.sendMessage = (_tabId, _message, callback) => { if (callback) callback(); };
+    global.chrome.tabs.sendMessage = (_tabId, message, callback) => { events.push(message); callback?.(); };
     try {
       await advanceNdcJob(jobId);
-      return { job: await readNdcJob(jobId), posts, browserStarts };
+      if (pause) {
+        const paused = await readNdcJob(jobId);
+        assert.equal(paused.status, 'paused');
+        assert.equal(paused.index, 1, 'retain the accepted handoff during Pause');
+        assert.equal(posts.length, 1);
+        await NDC_QUEUE_HANDLERS.NDC_QUEUE_RESUME({ jobId });
+        await processNdcJob(jobId);
+      }
+      return { job: await readNdcJob(jobId), posts, browserStarts, events };
     } finally {
       context.fetch = previousFetch;
       global.chrome.downloads = previousDownloads;
@@ -280,15 +291,36 @@ async function jdownloaderModeHandsLinksOver() {
     }
   };
 
-  const ok = await run('testjob-jd-ok', () => ({ ok: true, status: 200 }));
+  const historyBefore = await storageGetLocal(STORAGE_HISTORY_KEY, {});
+  const downloadsBefore = await storageGetLocal(NXTK.TOTAL_DOWNLOADS_KEY, 0);
+  const history = structuredClone(historyBefore);
+  history['1704'] ||= {};
+  history['1704']['jd-test'] = { all: ['previous-browser-file'] };
+  await storageSetLocal(STORAGE_HISTORY_KEY, history);
+  let ok;
+  try {
+    ok = await run('testjob-jd-ok', () => ({ ok: true, status: 200 }), { pause: true });
+    assert.deepEqual(await storageGetLocal(STORAGE_HISTORY_KEY, {}), history, 'JDownloader preserves downloaded history');
+    assert.equal(await storageGetLocal(NXTK.TOTAL_DOWNLOADS_KEY, 0), downloadsBefore, 'link handoffs do not increment downloads');
+  } finally {
+    await storageSetLocal(STORAGE_HISTORY_KEY, historyBefore);
+  }
   assert.equal(ok.browserStarts.length, 0, 'nothing is handed to the browser');
-  assert.equal(ok.posts.length, 2, 'each file is sent to JDownloader');
+  assert.equal(ok.posts.length, 2, 'Resume sends only the second file');
   assert.equal(ok.posts[0].url, 'http://127.0.0.1:9666/flashgot');
   assert.match(ok.posts[0].body.get('urls'), /^https:\/\/premium-files\.nexus-cdn\.com\//);
   assert.equal(ok.posts[0].body.get('autostart'), '0', 'the autostart choice is passed on');
-  assert.equal(ok.job.completed, 2);
+  assert.equal(ok.posts[0].body.get('source'), 'https://nexusmods-bypass.invalid/');
+  assert.equal(ok.posts[0].redirect, 'error');
+  assert.deepEqual(ok.posts.map(({ body }) => body.get('descriptions')), ['Mod 1.7z', 'Mod 2.7z']);
+  assert.equal(ok.job.completed, 0);
   assert.equal(ok.job.index, 2);
-  assert.notEqual(ok.job.status, 'error');
+  assert.equal(ok.job.status, 'finished');
+  assert.deepEqual(ok.events.filter((event) => event.type === 'NXT_NDC_PROGRESS').map((event) => event.itemState), ['sent', 'sent']);
+
+  const uncertain = await run('testjob-jd-uncertain', () => ({ ok: true, status: 200 }), { pending: true });
+  assert.equal(uncertain.posts.length, 0, 'a restarted worker cannot replay an unconfirmed handoff');
+  assert.equal(uncertain.job.lastError, 'jdownloader_unreachable');
 
   const pkg = context.jdownloaderPackageName;
   assert.equal(pkg({ name: 'Tasteful Tease', revision: 3, game: 'Stellar Blade' }, '', '3qi7yo'), 'StellarBlade-Collection-TastefulTease');

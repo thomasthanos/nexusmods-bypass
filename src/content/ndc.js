@@ -882,7 +882,7 @@ window.NexusExt = window.NexusExt || {};
     // The same card for a browser-download run, from what the background queue reported.
     showBrowserRunSummary(runLog, skipped = [], type = null) {
       const summary = {
-        method: 'browser',
+        method: runLog.jdownloader ? 'jdownloader' : 'browser',
         sent: runLog.sent,
         skipped: [
           ...runLog.alreadyHad,
@@ -1113,7 +1113,7 @@ window.NexusExt = window.NexusExt || {};
           }
           // A browser check stopped the run: the dialog links the page for it, which also opens by itself.
           const checkPage = code === 'cloudflare' ? NXTK.checkPageUrl?.(checkPageUrl) || '' : '';
-          if (blocking && this.showAlertsOnError) {
+          if ((blocking || code === 'jdownloader_unreachable') && this.showAlertsOnError) {
             NexusExt.UI?.showError?.(Errors.normalize({ code }), checkPage
               ? { title: T('dlgDownloadPaused', 'Download paused'), filePageUrl: checkPage, method: 'browser' }
               : {});
@@ -1151,6 +1151,7 @@ window.NexusExt = window.NexusExt || {};
             finish('error', 'the background download job is no longer available');
             return;
           }
+          if (snapshot.jdownloader === true) runLog.jdownloader = true;
 
           const queueIndex = Math.max(0, Number(snapshot.index) || 0);
           this.ui.setProgress?.(queueProgressBase + queueIndex, visibleTotal);
@@ -1180,6 +1181,7 @@ window.NexusExt = window.NexusExt || {};
         document.addEventListener('visibilitychange', onVisibilityChange);
 
         const applyEvent = (message) => {
+          if (message.jdownloader === true) runLog.jdownloader = true;
           const queueIndex = Math.max(0, Number(message.index) || 0);
           this.ui.setProgress?.(queueProgressBase + queueIndex, visibleTotal);
           if (message.status === 'paused' || message.status === 'running') {
@@ -1197,6 +1199,12 @@ window.NexusExt = window.NexusExt || {};
             if (message.itemState === 'started') {
               eta?.itemStarted();
               this.ui.logText(TS('logDownloading', [name], `Downloading: ${name}`));
+            } else if (message.itemState === 'sent') {
+              eta = null;
+              this.ui.setTimeLeft?.(0);
+              runLog.jdownloader = true;
+              runLog.sent.push({ name, pageUrl: item?.pageUrl || '' });
+              this.ui.logText(`${T('toastSentToJDownloader', 'Sent to JDownloader')} · ${name}`, 'info');
             } else if (message.itemState === 'complete') {
               eta?.itemCompleted(queueIndex - 1);
               this.ui.setTimeLeft?.(eta ? eta.remainingSeconds(queueIndex, queueTotal) : 0);
@@ -1287,6 +1295,7 @@ window.NexusExt = window.NexusExt || {};
             return;
           }
           this.backgroundJobId = reply.value.jobId;
+          if (reply.value.jdownloader === true) runLog.jdownloader = true;
           if (!reply.value.adopted) return;
           // An adopted job numbers its own item list, so this tab's sizes no longer line up: no estimate
           // is better than a wrong one.
@@ -1362,6 +1371,7 @@ window.NexusExt = window.NexusExt || {};
           visibleTotal: total,
           fallbackQueueTotal: total,
           runLog: {
+            jdownloader: snapshot.jdownloader === true,
             sent: (Array.isArray(snapshot.sent) ? snapshot.sent : []).map(label),
             failed: (Array.isArray(snapshot.failed) ? snapshot.failed : []).map((entry) => ({ ...label(entry), code: String(entry?.code || 'unknown'), mod: null })),
             alreadyHad: [],

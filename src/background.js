@@ -636,13 +636,16 @@ function forgetDownloadName(url) {
 // The Nexus CDN link is signed, so JDownloader needs no cookies. The first call from this extension makes
 // JDownloader ask once whether to allow it, and holds the request until the person answers.
 const JDOWNLOADER_ENDPOINT = 'http://127.0.0.1:9666/flashgot';
+// FlashGot identifies approved senders by source host. This app identifier is never fetched.
+const JDOWNLOADER_SOURCE = 'https://nexusmods-bypass.invalid/';
 const JDOWNLOADER_TIMEOUT_MS = 60 * 1000;
 
 async function sendToJDownloader({ url, name = '', packageName = '', autostart = true }) {
   const fields = {
     urls: String(url),
-    description: String(name || 'NexusMods Bypass').slice(0, 300),
+    descriptions: String(name || 'NexusMods Bypass').replace(/[\r\n]+/g, ' ').slice(0, 300),
     package: String(packageName || '').slice(0, 150),
+    source: JDOWNLOADER_SOURCE,
     autostart: autostart ? '1' : '0'
   };
   const body = Object.entries(fields).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
@@ -655,11 +658,12 @@ async function sendToJDownloader({ url, name = '', packageName = '', autostart =
       body,
       credentials: 'omit',
       cache: 'no-store',
+      redirect: 'error',
       signal: controller.signal
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
   } catch (cause) {
-    throw new Error(`jdownloader_unreachable: ${String(cause?.message || cause)}`, { cause });
+    throw new Error('jdownloader_unreachable', { cause });
   } finally {
     clearTimeout(timer);
   }
@@ -799,12 +803,12 @@ const DOWNLOAD_HANDLERS = {
     // Chain and register before awaiting either the old start or its browser record. Concurrent
     // retries then share one replacement when the old transfer was canceled or its file deleted.
     const result = (async () => {
-      let earlierJd = null;
+      const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
       if (previous) {
         const earlier = await previous.result.catch(() => null);
-        if (earlier?.jdownloader) {
+        if (earlier?.jdownloader && settings?.JDownloaderEnabled === true) {
           entry.at = previous.at;
-          earlierJd = { ...earlier, duplicate: true };
+          return { ...earlier, duplicate: true };
         }
         if (earlier && Number.isInteger(earlier.downloadId)) {
           let reusable = true;
@@ -819,10 +823,8 @@ const DOWNLOAD_HANDLERS = {
           }
         }
       }
-      if (earlierJd) return earlierJd;
       const existing = findDuplicateDownload(await searchRecentDownloads(now), { url: verdict.url, filename: urlName, now });
       if (existing) return { downloadId: existing.id, filename: existing.filename || urlName, duplicate: true };
-      const settings = await storageGetLocal(NXTK.SETTINGS_KEY, null);
       if (settings?.JDownloaderEnabled === true) {
         await sendToJDownloader({
           url: verdict.url,
@@ -1184,6 +1186,7 @@ function notifyNdcJob(job, type, extra = {}, alsoTabIds = []) {
     index: job.index,
     total: ndcJobItemCount(job),
     completed: job.completed,
+    ...(job.jd === true ? { jdownloader: true } : {}),
     failedCount: jobFailureCount(job),
     skippedCount: jobSkipCount(job),
     ...extra
@@ -1590,7 +1593,7 @@ async function finishNdcJob(job) {
   // Keep the job discoverable as running until its successful-run history cleanup is complete.
   // A concurrent Restart then stops this job and waits for its processing promise before the new
   // run can add history, instead of letting this late clear erase the new run's entries.
-  if (job.type && !jobFailureCount(job) && !jobSkipCount(job)) {
+  if (job.jd !== true && job.type && !jobFailureCount(job) && !jobSkipCount(job)) {
     await STORAGE_HANDLERS.NDC_HISTORY_CLEAR_TYPE({
       gameId: job.gameId,
       collectionId: job.collectionId,
@@ -1665,6 +1668,27 @@ function idleOnItem(index) {
     && Number(current.index || 0) === index;
 }
 
+function hasJDownloaderHandoff(index) {
+  return (current) => ndcJobIsActive(current) && current.jd === true
+    && current.index === index && current.jdHandoffIndex === index;
+}
+
+async function stopUnconfirmedJDownloaderHandoff(job, item, detail) {
+  const code = 'jdownloader_unreachable';
+  const failed = await mutateNdcJobIf(job.id, hasJDownloaderHandoff(job.index), (current) => {
+    delete current.jdHandoffIndex;
+    recordJobFailure(current, { fileId: item.fileId, code });
+    current.status = 'error';
+    current.lastError = code;
+    bumpNdcControl(current);
+  });
+  if (!failed.applied) return;
+  clearNdcJobAlarm(job.id);
+  notifyNdcJob(failed.job, 'NXT_NDC_DONE', { outcome: 'error', error: code, itemName: item.name, skipped: jobSkippedList(failed.job) });
+  dropNdcJobItems(job.id);
+  await recordQueueItemFailure(job, item, code, detail);
+}
+
 // Nexus could not be reached for this file even after the quick retries. Failing it and moving on
 // failed every file after it as well, within seconds, so the run waits on this same file instead, with
 // growing alarms (NXTK.networkWaitMs). When the waits run out it stops with one error, and starting it
@@ -1731,6 +1755,10 @@ async function advanceNdcJob(jobId) {
     if (ndcJobItemsAreMissing(job, items)) return abandonNdcJobWithoutItems(job);
     if (job.index >= items.length) {
       await finishNdcJob(job);
+      return null;
+    }
+    if (job.jd === true && job.jdHandoffIndex === job.index) {
+      await stopUnconfirmedJDownloaderHandoff(job, items[job.index], 'The worker restarted before JDownloader answered');
       return null;
     }
 
@@ -1900,11 +1928,15 @@ async function advanceNdcJob(jobId) {
       continue;
     }
 
-    // JDownloader mode: the link goes to JDownloader, which downloads it. Nothing is left running in
-    // the browser, so the file counts as done once JDownloader has taken it. A JDownloader that cannot
-    // be reached stops the run on this file (every later file would fail the same way); starting the
-    // run again picks up here.
+    // Save the pending handoff before sending. A restarted worker cannot tell whether JDownloader
+    // accepted the POST and stops for the user to check its list. A successful handoff advances this
+    // job even during Pause, while the downloaded-file history is reserved for verified transfers.
     if (job.jd === true) {
+      const pending = await mutateNdcJobIf(job.id, idleOnItem(startIndex), (current) => {
+        current.jdHandoffIndex = startIndex;
+      });
+      if (!pending.applied) return null;
+      job = pending.job;
       try {
         await sendToJDownloader({
           url: resolved.url,
@@ -1913,34 +1945,14 @@ async function advanceNdcJob(jobId) {
           autostart: job.jdAutostart !== false
         });
       } catch (cause) {
-        const failed = await mutateNdcJobIf(
-          job.id,
-          idleOnItem(startIndex),
-          (current) => {
-            recordJobFailure(current, { fileId: item.fileId, code: 'jdownloader_unreachable' });
-            current.status = 'error';
-            current.lastError = 'jdownloader_unreachable';
-            bumpNdcControl(current);
-          }
-        );
-        if (!failed.applied) return null;
-        job = failed.job;
-        clearNdcJobAlarm(job.id);
-        notifyNdcJob(job, 'NXT_NDC_DONE', {
-          outcome: 'error',
-          error: 'jdownloader_unreachable',
-          itemName: item.name,
-          skipped: jobSkippedList(job)
-        });
-        dropNdcJobItems(job.id);
-        await recordQueueItemFailure(job, item, 'jdownloader_unreachable', cause?.message || cause);
+        await stopUnconfirmedJDownloaderHandoff(job, item, cause?.cause?.message || cause?.message);
         return null;
       }
       const handed = await mutateNdcJobIf(
         job.id,
-        idleOnItem(startIndex),
+        hasJDownloaderHandoff(startIndex),
         (current) => {
-          current.completed = Number(current.completed || 0) + 1;
+          delete current.jdHandoffIndex;
           current.index = Number(current.index || 0) + 1;
           current.rateLimitStrikes = 0;
           current.cloudflareStrikes = 0;
@@ -1951,19 +1963,9 @@ async function advanceNdcJob(jobId) {
       );
       if (!handed.applied) return null;
       job = handed.job;
-      for (const historyType of historyTypesFor(job, item)) {
-        await STORAGE_HANDLERS.NDC_HISTORY_ADD({
-          gameId: job.gameId,
-          collectionId: job.collectionId,
-          type: historyType,
-          fileId: item.historyId ?? item.fileId
-        });
-      }
-      await STORAGE_HANDLERS.TOTAL_DOWNLOADS_INCREMENT();
       notifyNdcJob(job, 'NXT_NDC_PROGRESS', {
         itemName: item.name,
-        itemState: 'complete',
-        itemSizeKb: item.sizeKb || 0
+        itemState: 'sent'
       });
       await waitMs(NXTK.queueItemGapMs('jdownloader'));
       continue;
@@ -3213,6 +3215,7 @@ const NDC_QUEUE_HANDLERS = {
         index: existing.index,
         completed: existing.completed,
         status: existing.status,
+        ...(existing.jd === true ? { jdownloader: true } : {}),
         adopted: true
       };
     }
@@ -3276,7 +3279,7 @@ const NDC_QUEUE_HANDLERS = {
       return { jobId: job.id, total: items.length, stopped: true };
     }
     await processNdcJob(job.id);
-    return { jobId: job.id, total: items.length };
+    return { jobId: job.id, total: items.length, ...(job.jd === true ? { jdownloader: true } : {}) };
     } finally {
       releaseStartLock();
       releaseNdcStart(startToken);
@@ -3296,6 +3299,7 @@ const NDC_QUEUE_HANDLERS = {
       index: job.index,
       total: ndcJobItemCount(job),
       completed: job.completed,
+      ...(job.jd === true ? { jdownloader: true } : {}),
       failedCount: jobFailureCount(job),
       skippedCount: jobSkipCount(job),
       skipped: jobSkippedList(job),
@@ -3327,6 +3331,7 @@ const NDC_QUEUE_HANDLERS = {
       index: job.index,
       total: ndcJobItemCount(job),
       completed: job.completed,
+      ...(job.jd === true ? { jdownloader: true } : {}),
       failedCount: jobFailureCount(job),
       type: job.type,
       ...await ndcJobOutcomesSoFar(job)
@@ -3691,7 +3696,7 @@ const TRUSTED_SENDER_URL = /^https:\/\/(?:[\w-]+\.)*nexusmods\.com\//i;
 // Answers, not faults: pausing or stopping when no queue is running is a normal
 // thing for a reader to do and must not fill the error log.
 // Answers the caller handles itself, not faults: nothing to act on, or a limit the user has reached.
-const EXPECTED_HANDLER_OUTCOMES = new Set(['job-not-found', 'history-too-large', 'previous_download_not_retired']);
+const EXPECTED_HANDLER_OUTCOMES = new Set(['job-not-found', 'history-too-large', 'previous_download_not_retired', 'jdownloader_unreachable']);
 
 function isTrustedSender(sender) {
   if (!sender || sender.id !== chrome.runtime.id) return false;

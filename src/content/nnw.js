@@ -1456,7 +1456,7 @@ window.NexusExt = window.NexusExt || {};
       // start can come first: an archived file's page lists its version nowhere else (QA 2026-11-01, file
       // 826486's .meta had none; the API says "1.0").
       let version = fileVersionOf(fileId);
-      if (!version && settings.WriteMo2Meta) {
+      if (!version && settings.WriteMo2Meta && !settings.JDownloaderEnabled) {
         await loadApiFileList().catch((cause) => Logger.warn('Could not read the mod\'s file list:', cause));
         if (!isCurrentPage()) return { started: false, reason: 'page changed' };
         version = fileVersionOf(fileId);
@@ -1473,7 +1473,7 @@ window.NexusExt = window.NexusExt || {};
         version
       });
       if (reply?.ok && reply.value?.duplicate) Logger.info(`File ${fileId} is already downloading; not starting a second copy.`);
-      if (reply?.ok) return { started: true };
+      if (reply?.ok) return { started: true, jdownloader: reply.value?.jdownloader === true };
       if (reply?.error) Logger.warn('Managed download failed:', reply.error);
       return { started: false, reason: String(reply?.error || 'no answer') };
     } catch (cause) {
@@ -1949,11 +1949,17 @@ window.NexusExt = window.NexusExt || {};
       const managed = await startManagedFileDownload(finalUrl, fileId, isCurrentPage);
       if (!managed.started) {
         if (!isCurrentPage()) return false;
-        handleError(button, Errors.create('request_failed', {
-          context: 'Starting browser download',
-          technicalMessage: `chrome.downloads did not start the resolved file | worker: ${managed.reason}`
+        const jdFailure = managed.reason === 'jdownloader_unreachable';
+        handleError(button, Errors.create(jdFailure ? 'jdownloader_unreachable' : 'request_failed', {
+          context: jdFailure ? 'Sending link to JDownloader' : 'Starting browser download',
+          technicalMessage: jdFailure ? '' : `chrome.downloads did not start the resolved file | worker: ${managed.reason}`
         }), { onRetry: () => runDownload(options) });
         return false;
+      }
+      if (managed.jdownloader) {
+        restoreButtonState(button);
+        if (isCurrentPage()) NexusExt.UI?.showStatusToast?.(NXTK.t('toastSentToJDownloader', null, 'Sent to JDownloader'));
+        return true;
       }
     }
     globalThis.NXTK?.bumpTotalDownloads?.();

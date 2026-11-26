@@ -182,9 +182,9 @@ window.NexusExt = window.NexusExt || {};
       retryable: true
     },
     jdownloader_unreachable: {
-      userMessage: 'JDownloader did not accept the link: it is not running, or it refused this extension.',
-      recovery: 'Start JDownloader, turn on Settings > Advanced Settings > RemoteAPI "Extern Interface", allow this extension when JDownloader asks, then start the download again. Files already sent are kept.',
-      retryable: false
+      userMessage: 'The extension could not confirm that JDownloader accepted the link.',
+      recovery: 'Check the LinkGrabber and Downloads lists in JDownloader before retrying. Start JDownloader, enable its External Interface, and approve NexusMods Bypass when prompted.',
+      retryable: true
     },
     save_failed: {
       userMessage: 'The browser could not save the file: the disk may be full, or the download folder cannot be written to.',
